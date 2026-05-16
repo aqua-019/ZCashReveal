@@ -1,0 +1,140 @@
+@import "tailwindcss";
+
+/* ZCashReveal design tokens
+   Aesthetic: editorial-forensic. Glassmorphism dark canvas with sharp
+   ZEC gold accents. Oversized Instrument Serif for editorial gravitas,
+   JetBrains Mono for forensic data, Manrope for everything in between. */
+
+@theme {
+  --color-canvas: #0A0A0B;
+  --color-surface-0: #0F0F12;
+  --color-surface-1: #14141A;
+  --color-surface-2: #1A1A22;
+  --color-edge: rgba(255, 255, 255, 0.06);
+  --color-edge-strong: rgba(255, 255, 255, 0.12);
+
+  --color-ink: #F2F2F0;
+  --color-ink-muted: #9A9A95;
+  --color-ink-dim: #5E5E5A;
+
+  --color-zec-gold: #F4B728;
+  --color-zec-gold-bright: #FFCB48;
+  --color-zec-gold-dim: #8A6815;
+
+  --color-info: #4A5568;
+  --color-low: #C8A85B;
+  --color-medium: #F4B728;
+  --color-high: #E47F2F;
+  --color-critical: #D14545;
+
+  --color-pure: #5BA88A;
+  --color-deposit: #4F8FC4;
+  --color-withdrawal: #E47F2F;
+  --color-migration: #B062D9;
+  --color-transparent: #D14545;
+
+  --font-display: "Instrument Serif", serif;
+  --font-sans: "Manrope", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --shadow-glass: 0 1px 0 0 rgba(255,255,255,0.04) inset, 0 24px 48px -24px rgba(0,0,0,0.8);
+}
+
+html, body, #root { height: 100%; min-height: 100%; }
+
+body {
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv01", "cv11";
+  background:
+    radial-gradient(ellipse at 0% 0%, rgba(244, 183, 40, 0.04), transparent 50%),
+    radial-gradient(ellipse at 100% 100%, rgba(176, 98, 217, 0.03), transparent 50%),
+    var(--color-canvas);
+  background-attachment: fixed;
+}
+
+::selection { background: rgba(244, 183, 40, 0.35); color: var(--color-ink); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
+
+.glass {
+  background: linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.005));
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid var(--color-edge);
+  box-shadow: var(--shadow-glass);
+}
+
+.glass-strong {
+  background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.01));
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid var(--color-edge-strong);
+  box-shadow: var(--shadow-glass);
+}
+
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+}
+
+.display-italic {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 0.95;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "ss02", "ss03", "calt", "zero";
+}
+
+.hairline {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-edge-strong) 20%, var(--color-edge-strong) 80%, transparent);
+}
+
+@keyframes pulse-gold {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(244, 183, 40, 0.5); }
+  50%      { box-shadow: 0 0 0 8px rgba(244, 183, 40, 0); }
+}
+.pulse-gold { animation: pulse-gold 2s ease-in-out infinite; }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+}
+
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.marquee {
+  animation: marquee 60s linear infinite;
+  will-change: transform;
+}
