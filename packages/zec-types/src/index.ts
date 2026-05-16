@@ -1,6 +1,7 @@
 export * from "./transactions.js";
 export * from "./shielded.js";
 export * from "./leaks.js";
+export * from "./realtime.js";
 
 export type WsServerMessage =
   | { type: "hello"; version: string; tipHeight: number }
