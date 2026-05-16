@@ -1,0 +1,42 @@
+services:
+  zebrad:
+    image: zfnd/zebra:1.9.0
+    container_name: zcashreveal-zebrad
+    restart: unless-stopped
+    ports:
+      - "8232:8232"
+      - "28332:28332"
+      - "8233:8233"
+    volumes:
+      - ./zebrad-data:/home/zebra/.cache/zebra
+      - ./infra/zebrad/zebrad.toml:/etc/zebrad/zebrad.toml:ro
+    command: ["--config", "/etc/zebrad/zebrad.toml", "start"]
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: zcashreveal-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: zcashreveal
+      POSTGRES_PASSWORD: zcashreveal
+      POSTGRES_DB: zcashreveal
+    ports: ["5432:5432"]
+    volumes: ["./postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zcashreveal"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: zcashreveal-redis
+    restart: unless-stopped
+    ports: ["6379:6379"]
+    volumes: ["./redis-data:/data"]
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
