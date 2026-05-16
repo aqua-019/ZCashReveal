@@ -1,0 +1,6 @@
+apps/indexer
+apps/gateway
+infra
+zebrad-data
+postgres-data
+redis-data
