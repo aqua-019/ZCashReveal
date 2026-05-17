@@ -16,6 +16,7 @@ import { ZebradZmqSubscriber } from "./zmq-subscriber.js";
 import { MempoolState, type MempoolDiff } from "./mempool-state.js";
 import { createDb, persistLeakReport } from "./persistence.js";
 import { AnchorRegistry, analyze, LinkEngine } from "./decoder/index.js";
+import { asHex, type Hex } from "@zcashreveal/types";
 
 const cfg = loadConfig();
 const log = pino(
@@ -45,7 +46,7 @@ async function main() {
   const zmq = new ZebradZmqSubscriber(cfg.ZEBRAD_ZMQ_URL, log);
   zmq.on("event", async (e) => {
     if (e.topic === "hashtx") {
-      await fetchAndAnalyze(e.txid);
+      await fetchAndAnalyze(asHex(e.txid));
     } else if (e.topic === "hashblock") {
       try {
         const newInfo = await rpc.getBlockchainInfo();
@@ -95,7 +96,7 @@ async function main() {
   process.on("SIGINT", () => void shutdown());
   process.on("SIGTERM", () => void shutdown());
 
-  async function fetchAndAnalyze(txid: string): Promise<void> {
+  async function fetchAndAnalyze(txid: Hex): Promise<void> {
     try {
       const tx = await rpc.getRawTransaction(txid);
       const report = await analyze(tx, {

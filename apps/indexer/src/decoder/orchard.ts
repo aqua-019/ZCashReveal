@@ -5,13 +5,14 @@
  */
 
 import type {
+  Hex,
   RpcOrchardBundle,
   DecodedOrchardAction,
 } from "@zcashreveal/types";
 
 export interface DecodedOrchard {
   actions: DecodedOrchardAction[];
-  anchor: string | null;
+  anchor: Hex | null;
   valueBalanceZat: bigint;
   flags: { enableSpends: boolean; enableOutputs: boolean } | null;
 }

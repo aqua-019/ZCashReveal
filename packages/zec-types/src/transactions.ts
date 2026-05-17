@@ -1,4 +1,30 @@
-export type Hex = string;
+/**
+ * Branded hex string. Construct only via `asHex()` at RPC deserialization
+ * boundaries — never with a bare type assertion. Lowercase or uppercase
+ * digits are accepted; no `0x` prefix; non-empty.
+ */
+export type Hex = string & { readonly __brand: "Hex" };
+
+const HEX_PATTERN = /^[0-9a-fA-F]+$/;
+
+/**
+ * Validate and brand a raw string as Hex. Throws TypeError if `s` is empty
+ * or contains non-hex characters. This is the only sanctioned way to enter
+ * the Hex type from untrusted input.
+ */
+export function asHex(s: string): Hex {
+  if (!HEX_PATTERN.test(s)) {
+    const preview = s.length > 32 ? `${s.slice(0, 32)}...(${s.length} chars)` : s;
+    throw new TypeError(`asHex: not a hex string: "${preview}"`);
+  }
+  return s as Hex;
+}
+
+/** Type guard for Hex without throwing. */
+export function isHex(s: string): s is Hex {
+  return HEX_PATTERN.test(s);
+}
+
 export type Zatoshi = bigint;
 
 export interface RpcVin {
