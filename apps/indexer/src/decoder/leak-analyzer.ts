@@ -152,8 +152,8 @@ export async function analyze(
     vin: tx.vin.map((v, i) => ({
       index: i,
       coinbase: !!v.coinbase,
-      prevTxid: v.txid,
-      prevVout: v.vout,
+      ...(v.txid !== undefined ? { prevTxid: v.txid } : {}),
+      ...(v.vout !== undefined ? { prevVout: v.vout } : {}),
       address: null as string | null,
       sequence: v.sequence,
     })),

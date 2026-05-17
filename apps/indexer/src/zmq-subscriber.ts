@@ -39,6 +39,7 @@ export class ZebradZmqSubscriber extends EventEmitter {
     try {
       for await (const [topicBuf, bodyBuf] of this.sock) {
         if (!this.running) break;
+        if (!topicBuf || !bodyBuf) continue;
         const topic = topicBuf.toString("ascii");
         const hex = bodyBuf.toString("hex");
         if (topic === "hashtx") {

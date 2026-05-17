@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm *)",
+      "Bash(VITE_MOCK_MODE=true pnpm *)",
+      "Bash(git add *)"
+    ]
+  }
+}
