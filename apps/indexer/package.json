@@ -11,21 +11,25 @@
     "migrate": "node --import tsx ./src/migrate.ts",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@zcashreveal/types": "workspace:*",
+    "ioredis": "^5.4.1",
     "pino": "^9.5.0",
     "pino-pretty": "^11.3.0",
     "postgres": "^3.4.5",
-    "ioredis": "^5.4.1",
     "undici": "^6.21.0",
     "zeromq": "^6.1.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
+    "fast-check": "^4.8.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.6"
   }
 }

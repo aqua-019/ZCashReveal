@@ -7,6 +7,7 @@
  */
 
 import type {
+  Hex,
   RpcTransaction,
   LeakReport,
   LeakClass,
@@ -201,9 +202,9 @@ export async function analyze(
 
 function buildIdentityProfile(input: {
   transparent: { vin: Array<{ address: string | null }>; vout: Array<{ addresses: string[] }> };
-  saplingSpends: Array<{ pool: "sapling"; nullifier: string }>;
-  saplingOutputs: Array<{ pool: "sapling"; cmu: string }>;
-  orchardActions: Array<{ pool: "orchard"; nullifier: string; cmx: string }>;
+  saplingSpends: Array<{ pool: "sapling"; nullifier: Hex }>;
+  saplingOutputs: Array<{ pool: "sapling"; cmu: Hex }>;
+  orchardActions: Array<{ pool: "orchard"; nullifier: Hex; cmx: Hex }>;
 }): import("@zcashreveal/types").LeakReport["identity"] {
   const senderAddrs: string[] = [];
   for (const v of input.transparent.vin) {
