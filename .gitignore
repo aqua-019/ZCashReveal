@@ -14,4 +14,5 @@ coverage/
 zebrad-data/
 postgres-data/
 redis-data/
-.claude/
+.claude/settings.local.json
+.claude/*.local.*
