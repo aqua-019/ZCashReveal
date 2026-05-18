@@ -16,3 +16,4 @@ postgres-data/
 redis-data/
 .claude/settings.local.json
 .claude/*.local.*
+docker-compose.override.yml
