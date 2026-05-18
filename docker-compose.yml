@@ -1,6 +1,6 @@
 services:
   zebrad:
-    image: zfnd/zebra:1.9.0
+    image: zfnd/zebra:4.4.1
     container_name: zcashreveal-zebrad
     restart: unless-stopped
     ports:
@@ -10,7 +10,9 @@ services:
     volumes:
       - ./zebrad-data:/home/zebra/.cache/zebra
       - ./infra/zebrad/zebrad.toml:/etc/zebrad/zebrad.toml:ro
-    command: ["--config", "/etc/zebrad/zebrad.toml", "start"]
+    environment:
+      CONFIG_FILE_PATH: /etc/zebrad/zebrad.toml
+    command: ["zebrad", "start"]
 
   postgres:
     image: postgres:16-alpine

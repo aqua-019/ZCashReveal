@@ -9,9 +9,6 @@ cache_dir = "/home/zebra/.cache/zebra"
 listen_addr = "0.0.0.0:8232"
 parallel_cpu_threads = 4
 
-[mining]
-debug_like_zcashd = false
-
 [tracing]
 filter = "info"
 
