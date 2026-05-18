@@ -100,3 +100,36 @@ export type CandidateRange<P extends Pool = Pool> = {
   readonly maxPosition: bigint;
   readonly rawCount: bigint;
 };
+
+/**
+ * Claim level mapped from N_eff per RESEARCH.md thresholds. Thresholds are
+ * chosen so the levels match the "report uncertainty, not identity" framing:
+ * above 1000 candidates is genuinely aggregate, below 10 effectively names a
+ * single note and requires a disclosure-backed signal to act on.
+ *
+ *   N_eff > 1000          → "aggregate_only"
+ *   100 < N_eff <= 1000   → "broad_candidate_set"
+ *   10  < N_eff <= 100    → "small_heuristic_set"
+ *   N_eff <= 10           → "requires_disclosure"
+ */
+export type ClaimLevel =
+  | "aggregate_only"
+  | "broad_candidate_set"
+  | "small_heuristic_set"
+  | "requires_disclosure";
+
+/**
+ * Combines a CandidateRange with its derived uncertainty quantification.
+ * Module 4 produces the raw form (uniform posterior over the un-filtered
+ * candidate set, so effectiveSetSize === rawCount). Module 5 will produce
+ * a refined version after the filter stack, where effectiveSetSize falls
+ * below rawCount as candidates are eliminated.
+ */
+export type ClaimAssessment<P extends Pool = Pool> = {
+  readonly pool: P;
+  readonly anchorRoot: Hex;
+  readonly rawCount: bigint;
+  readonly effectiveSetSize: bigint;
+  readonly entropyBits: number;
+  readonly claimLevel: ClaimLevel;
+};
