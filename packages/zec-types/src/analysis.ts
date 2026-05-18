@@ -84,3 +84,19 @@ export type PoolStateSnapshot<P extends Pool = Pool> = {
   readonly nullifierCount: number;
   readonly balanceZat: bigint;
 };
+
+/**
+ * Anchor-bounded raw candidate range for a single spend.
+ * No filtering — this is Cand_0 from RESEARCH.md.
+ *
+ * - minPosition is always 0n in Module 3; lower-bound heuristics land in Modules 4-5.
+ * - maxPosition is the anchor's maxPosition (the highest commitment position the anchor sees).
+ * - rawCount = maxPosition - minPosition + 1n  (positions are 0-indexed inclusive).
+ */
+export type CandidateRange<P extends Pool = Pool> = {
+  readonly pool: P;
+  readonly anchorRoot: Hex;
+  readonly minPosition: bigint;
+  readonly maxPosition: bigint;
+  readonly rawCount: bigint;
+};
