@@ -1,5 +1,9 @@
 /**
- * Postgres persistence for LeakReports.
+ * Postgres persistence for LeakReports (v0.1 mempool observability).
+ *
+ * Module 2's per-pool state-machine tables live in sibling files in this
+ * directory (pool-commitments.ts, pool-anchors.ts, etc.). LeakReports are
+ * a separate persistence concern owned by the mempool ingest pipeline.
  */
 
 import postgres, { type Sql } from "postgres";

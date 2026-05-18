@@ -14,7 +14,7 @@ import { loadConfig } from "./config.js";
 import { ZebradRpc } from "./zebrad-rpc.js";
 import { ZebradZmqSubscriber } from "./zmq-subscriber.js";
 import { MempoolState, type MempoolDiff } from "./mempool-state.js";
-import { createDb, persistLeakReport } from "./persistence.js";
+import { createDb, persistLeakReport } from "./persistence/index.js";
 import { AnchorRegistry, analyze, LinkEngine } from "./decoder/index.js";
 import { asHex, type Hex } from "@zcashreveal/types";
 
