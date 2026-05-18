@@ -58,6 +58,16 @@ export class AnchorIndex<P extends Pool> {
     return this.byRoot.has(root);
   }
 
+  /**
+   * Return the full Anchor record for `root`, or null if unrecorded.
+   * Module 5's time-window filter calls this to read heightCreated; the
+   * generic P guarantees the returned anchor is pool-matched at compile
+   * time.
+   */
+  getByRoot(root: Hex): Anchor<P> | null {
+    return this.byRoot.get(root) ?? null;
+  }
+
   /** Cheap point-in-time summary. */
   snapshot(): { pool: P; anchorCount: number } {
     return { pool: this.pool, anchorCount: this.byRoot.size };

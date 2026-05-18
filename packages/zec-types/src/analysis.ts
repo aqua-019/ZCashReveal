@@ -119,11 +119,40 @@ export type ClaimLevel =
   | "requires_disclosure";
 
 /**
- * Combines a CandidateRange with its derived uncertainty quantification.
- * Module 4 produces the raw form (uniform posterior over the un-filtered
- * candidate set, so effectiveSetSize === rawCount). Module 5 will produce
- * a refined version after the filter stack, where effectiveSetSize falls
- * below rawCount as candidates are eliminated.
+ * Audit record produced by each filter in the scoring stack. The
+ * discriminator is the `filter` name; `params` is typed per-variant.
+ * countIn/countOut are bigint so the entire audit trail preserves
+ * precision across the chain of filter applications.
+ *
+ * Future filters extend this discriminated union. Anchor-membership and
+ * pool-separation filters are intentionally absent: both are enforced at
+ * the TypeScript layer (CandidateRange<P> only exists for a known anchor,
+ * and the generic P prevents cross-pool composition), so no runtime audit
+ * entry would carry new information.
+ */
+export type FilterApplication =
+  | {
+      readonly filter: "time_window";
+      readonly params: {
+        readonly windowBlocks: number;
+        /** Exclusive lower bound of the half-open (lo, hi] height range. */
+        readonly lowHeight: number;
+        /** Inclusive upper bound — equals anchor.heightCreated. */
+        readonly highHeight: number;
+      };
+      readonly countIn: bigint;
+      readonly countOut: bigint;
+    };
+
+/**
+ * Combines a CandidateRange with its derived uncertainty quantification
+ * and the audit trail of filters that produced it. Module 4's assessRaw
+ * returns appliedFilters: [] (no filters applied). Module 5's assessFiltered
+ * populates appliedFilters with one record per filter run.
+ *
+ * Invariant: rawCount is the size of un-filtered Cand_0; effectiveSetSize
+ * is the post-filter count. The two diverge as filters narrow the set;
+ * they are equal when appliedFilters is empty.
  */
 export type ClaimAssessment<P extends Pool = Pool> = {
   readonly pool: P;
@@ -132,4 +161,5 @@ export type ClaimAssessment<P extends Pool = Pool> = {
   readonly effectiveSetSize: bigint;
   readonly entropyBits: number;
   readonly claimLevel: ClaimLevel;
+  readonly appliedFilters: ReadonlyArray<FilterApplication>;
 };
