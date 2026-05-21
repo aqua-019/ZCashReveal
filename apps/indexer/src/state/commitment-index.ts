@@ -61,6 +61,29 @@ export class CommitmentIndex<P extends Pool> {
     return BigInt(this.byPosition.length);
   }
 
+  /**
+   * Count commitments whose height falls in the half-open range (lo, hi]
+   * (exclusive lo, inclusive hi).
+   *
+   * - If lo === hi, the range is empty and the result is 0n.
+   * - If lo > hi, the range is empty and the result is 0n.
+   * - If lo < 0, the lower bound is effectively unbounded since chain
+   *   heights are non-negative; all commitments at height <= hi count.
+   *   (No clamping is performed — the half-open inequality handles this
+   *   naturally.)
+   *
+   * Used by the Module 5 time-window filter to count commitments added
+   * within the last W blocks before an anchor's heightCreated.
+   */
+  countBetweenHeights(lo: number, hi: number): bigint {
+    if (lo >= hi) return 0n;
+    let count = 0n;
+    for (const c of this.byPosition) {
+      if (c.height > lo && c.height <= hi) count++;
+    }
+    return count;
+  }
+
   /** Cheap point-in-time summary. */
   snapshot(): { pool: P; commitmentCount: bigint } {
     return { pool: this.pool, commitmentCount: this.size() };

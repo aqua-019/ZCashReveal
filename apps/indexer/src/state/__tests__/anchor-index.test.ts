@@ -67,6 +67,39 @@ describe("AnchorIndex (happy path)", () => {
   });
 });
 
+describe("AnchorIndex.getByRoot", () => {
+  it("returns the full Anchor for a recorded root", () => {
+    const idx = new AnchorIndex<"sapling">("sapling");
+    const a: Anchor<"sapling"> = {
+      pool: "sapling",
+      root: h(42),
+      maxPosition: 7n,
+      heightCreated: 500,
+    };
+    idx.record(a);
+    const got = idx.getByRoot(h(42));
+    expect(got).not.toBeNull();
+    expect(got).toEqual(a);
+  });
+
+  it("returns null for an unrecorded root", () => {
+    const idx = new AnchorIndex<"sapling">("sapling");
+    expect(idx.getByRoot(h(99))).toBeNull();
+  });
+
+  it("returned anchor's pool matches the index's generic at compile time", () => {
+    const sap = new AnchorIndex<"sapling">("sapling");
+    sap.record({ pool: "sapling", root: h(1), maxPosition: 0n, heightCreated: 1 });
+    const a = sap.getByRoot(h(1));
+    if (a) {
+      // @ts-expect-error - Anchor<"sapling"> must not be assignable to Anchor<"orchard">
+      const crossPool: Anchor<"orchard"> = a;
+      void crossPool;
+    }
+    expect(a).not.toBeNull();
+  });
+});
+
 describe("AnchorIndex (properties)", () => {
   it("re-recording an identical anchor is a no-op", () => {
     fc.assert(

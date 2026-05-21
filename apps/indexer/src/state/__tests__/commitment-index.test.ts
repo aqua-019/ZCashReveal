@@ -64,6 +64,56 @@ describe("CommitmentIndex (happy path)", () => {
   });
 });
 
+describe("CommitmentIndex.countBetweenHeights", () => {
+  it("returns 0n for empty index", () => {
+    const idx = new CommitmentIndex<"sapling">("sapling");
+    expect(idx.countBetweenHeights(0, 1_000_000)).toBe(0n);
+  });
+
+  it("counts commitments in (lo, hi] half-open range", () => {
+    const idx = new CommitmentIndex<"sapling">("sapling");
+    idx.append({ pool: "sapling", cmId: h(1), txid: h(11), height: 100 });
+    idx.append({ pool: "sapling", cmId: h(2), txid: h(12), height: 200 });
+    idx.append({ pool: "sapling", cmId: h(3), txid: h(13), height: 300 });
+    expect(idx.countBetweenHeights(50, 350)).toBe(3n);
+    expect(idx.countBetweenHeights(100, 350)).toBe(2n); // 100 excluded
+    expect(idx.countBetweenHeights(99, 300)).toBe(3n); // 300 included
+    expect(idx.countBetweenHeights(200, 300)).toBe(1n); // 200 excluded, 300 included
+  });
+
+  it("lo === hi returns 0n (empty interval)", () => {
+    const idx = new CommitmentIndex<"sapling">("sapling");
+    idx.append({ pool: "sapling", cmId: h(1), txid: h(11), height: 100 });
+    expect(idx.countBetweenHeights(100, 100)).toBe(0n);
+    expect(idx.countBetweenHeights(50, 50)).toBe(0n);
+  });
+
+  it("lo > hi returns 0n (inverted interval)", () => {
+    const idx = new CommitmentIndex<"sapling">("sapling");
+    idx.append({ pool: "sapling", cmId: h(1), txid: h(11), height: 100 });
+    expect(idx.countBetweenHeights(200, 50)).toBe(0n);
+  });
+
+  it("lo < 0 counts all commitments at height <= hi (no clamping)", () => {
+    const idx = new CommitmentIndex<"sapling">("sapling");
+    idx.append({ pool: "sapling", cmId: h(1), txid: h(11), height: 0 });
+    idx.append({ pool: "sapling", cmId: h(2), txid: h(12), height: 50 });
+    idx.append({ pool: "sapling", cmId: h(3), txid: h(13), height: 100 });
+    // Negative lo: the half-open inequality height > lo holds for all
+    // non-negative heights, so this counts every commitment at height <= hi.
+    expect(idx.countBetweenHeights(-1, 100)).toBe(3n);
+    expect(idx.countBetweenHeights(-1000, 50)).toBe(2n);
+    expect(idx.countBetweenHeights(-1, 0)).toBe(1n); // height 0 included since 0 > -1
+  });
+
+  it("single-height commitment at hi is included, at lo is excluded", () => {
+    const idx = new CommitmentIndex<"sapling">("sapling");
+    idx.append({ pool: "sapling", cmId: h(1), txid: h(11), height: 500 });
+    expect(idx.countBetweenHeights(499, 500)).toBe(1n);
+    expect(idx.countBetweenHeights(500, 501)).toBe(0n);
+  });
+});
+
 describe("CommitmentIndex (properties)", () => {
   it("appended cmIds get positions 0n..n-1 in order", () => {
     fc.assert(
