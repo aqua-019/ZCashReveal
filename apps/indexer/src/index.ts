@@ -15,7 +15,8 @@ import { ZebradRpc } from "./zebrad-rpc.js";
 import { ZebradZmqSubscriber } from "./zmq-subscriber.js";
 import { MempoolState, type MempoolDiff } from "./mempool-state.js";
 import { createDb, persistLeakReport } from "./persistence/index.js";
-import { AnchorRegistry, analyze, LinkEngine } from "./decoder/index.js";
+import { AnchorRegistry, analyze } from "./decoder/index.js";
+import { RoundTripIndex } from "./analysis/round-trip.js";
 import { asHex, type Hex } from "@zcashreveal/types";
 
 const cfg = loadConfig();
@@ -32,7 +33,7 @@ async function main() {
   const sql = createDb(cfg.DATABASE_URL);
   const redis = new Redis(cfg.REDIS_URL, { lazyConnect: false });
   const anchorRegistry = new AnchorRegistry(redis, sql);
-  const linkEngine = new LinkEngine();
+  const roundTrip = new RoundTripIndex();
   const state = new MempoolState(log);
 
   const info = await rpc.getBlockchainInfo();
@@ -105,7 +106,7 @@ async function main() {
         anchorRegistry,
         recentAnchorThreshold: cfg.RECENT_ANCHOR_THRESHOLD,
       });
-      const newLinks = linkEngine.ingest(report);
+      const newLinks = roundTrip.ingest(report);
       report.links = newLinks;
       if (newLinks.length > 0) {
         log.info(

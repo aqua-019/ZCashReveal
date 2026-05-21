@@ -84,6 +84,39 @@ export class CommitmentIndex<P extends Pool> {
     return count;
   }
 
+  /**
+   * Returns the position of the first commitment added at exactly `height`,
+   * and the count of commitments at that height. Returns null if no
+   * commitment at `height` exists.
+   *
+   * Commitments at a given height are always contiguous in position
+   * because the tree is append-only and each block is processed
+   * atomically: a block's commitments are appended as a single contiguous
+   * slice before the next block's commitments arrive.
+   *
+   * Used by Module 5B's amountMatchFilter to map a matched deposit's
+   * height onto the corresponding slice of commitment positions in the
+   * candidate range. Linear scan — same complexity profile as
+   * countBetweenHeights.
+   */
+  positionRangeAtHeight(
+    height: number,
+  ): { firstPosition: bigint; count: bigint } | null {
+    let firstPosition: bigint | null = null;
+    let count = 0n;
+    for (const c of this.byPosition) {
+      if (c.height === height) {
+        if (firstPosition === null) firstPosition = c.position;
+        count++;
+      } else if (firstPosition !== null) {
+        // We've passed the contiguous slice — stop scanning.
+        break;
+      }
+    }
+    if (firstPosition === null) return null;
+    return { firstPosition, count };
+  }
+
   /** Cheap point-in-time summary. */
   snapshot(): { pool: P; commitmentCount: bigint } {
     return { pool: this.pool, commitmentCount: this.size() };

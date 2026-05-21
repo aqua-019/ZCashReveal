@@ -27,6 +27,7 @@ import type {
   Anchor,
   CandidateRange,
   FilterApplication,
+  Hex,
   Pool,
 } from "@zcashreveal/types";
 import type { PoolState } from "../state/pool-state.js";
@@ -132,6 +133,97 @@ export function timeWindowFilter<P extends Pool>(opts: {
         windowBlocks: opts.windowBlocks,
         lowHeight,
         highHeight,
+      },
+      countIn: range.rawCount,
+      countOut,
+    };
+
+    return { range: newRange, application };
+  };
+}
+
+/**
+ * Amount-match filter. Encodes the Kappos-style assumption "this unshield
+ * consumes a note from the matched shielding deposit" and narrows Cand_0
+ * to commitments added at the matched deposit's height.
+ *
+ * The match decision upstream (in RoundTripIndex) is amount equality or
+ * fee-tolerant amount equality — captured in `matchKind` and
+ * `toleranceZat` and recorded in the FilterApplication for audit. The
+ * filter itself operates on `matchedDepositHeight`: it intersects the
+ * input range with the position slice that the matched deposit's block
+ * contributed to the commitment tree (a two-sided intersection that
+ * handles both above-overflow and below-overflow uniformly).
+ *
+ * Edge cases:
+ *   - No commitment at matched-deposit height → empty range (countOut = 0n)
+ *   - Slice does not overlap the input range (above OR below) → empty range
+ *   - Slice partially overlaps → intersection of slice and input range
+ *
+ * ONLY safe to run inside RoundTripIndex's matching path. A spend with
+ * no matched deposit has nothing to feed this filter; calling it
+ * manually for a per-spend assessment is a logic error.
+ */
+export function amountMatchFilter<P extends Pool>(opts: {
+  readonly matchedDepositTxid: Hex;
+  readonly matchedDepositHeight: number;
+  readonly matchedDepositAmountZat: bigint;
+  readonly withdrawalAmountZat: bigint;
+  readonly toleranceZat: bigint;
+  readonly matchKind: "EXACT" | "FEE_TOLERANT";
+}): Filter<P> {
+  return ({ range, state }) => {
+    const slice = state.commitments.positionRangeAtHeight(opts.matchedDepositHeight);
+
+    let newMinPosition: bigint;
+    let newMaxPosition: bigint;
+    let countOut: bigint;
+
+    if (slice === null) {
+      // No commitment at matched-deposit height → degenerate empty range.
+      newMinPosition = range.maxPosition + 1n;
+      newMaxPosition = range.maxPosition;
+      countOut = 0n;
+    } else {
+      const sliceFirst = slice.firstPosition;
+      const sliceLast = slice.firstPosition + slice.count - 1n;
+
+      // Two-sided intersection of [sliceFirst, sliceLast] with
+      // [range.minPosition, range.maxPosition].
+      const effectiveFirst =
+        sliceFirst > range.minPosition ? sliceFirst : range.minPosition;
+      const effectiveLast =
+        sliceLast < range.maxPosition ? sliceLast : range.maxPosition;
+
+      if (effectiveFirst > effectiveLast) {
+        // No overlap — slice falls entirely above or below the input range.
+        newMinPosition = range.maxPosition + 1n;
+        newMaxPosition = range.maxPosition;
+        countOut = 0n;
+      } else {
+        newMinPosition = effectiveFirst;
+        newMaxPosition = effectiveLast;
+        countOut = effectiveLast - effectiveFirst + 1n;
+      }
+    }
+
+    const newRange: CandidateRange<P> = {
+      pool: range.pool,
+      anchorRoot: range.anchorRoot,
+      minPosition: newMinPosition,
+      maxPosition: newMaxPosition,
+      rawCount: countOut,
+    };
+
+    const application: FilterApplication = {
+      filter: "amount_match",
+      params: {
+        matchedDepositTxid: opts.matchedDepositTxid,
+        matchedDepositHeight: opts.matchedDepositHeight,
+        matchedDepositAmountZat: opts.matchedDepositAmountZat,
+        withdrawalAmountZat: opts.withdrawalAmountZat,
+        toleranceZat: opts.toleranceZat,
+        matchKind: opts.matchKind,
       },
       countIn: range.rawCount,
       countOut,
