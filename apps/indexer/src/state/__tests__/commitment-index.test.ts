@@ -114,6 +114,54 @@ describe("CommitmentIndex.countBetweenHeights", () => {
   });
 });
 
+describe("CommitmentIndex.positionRangeAtHeight", () => {
+  it("returns null for empty index", () => {
+    const idx = new CommitmentIndex<"sapling">("sapling");
+    expect(idx.positionRangeAtHeight(100)).toBeNull();
+  });
+
+  it("returns { firstPosition: 0n, count: 1n } for single commitment at height H", () => {
+    const idx = new CommitmentIndex<"sapling">("sapling");
+    idx.append({ pool: "sapling", cmId: h(1), txid: h(11), height: 100 });
+    expect(idx.positionRangeAtHeight(100)).toEqual({
+      firstPosition: 0n,
+      count: 1n,
+    });
+  });
+
+  it("returns correct slice for each of multiple heights", () => {
+    const idx = new CommitmentIndex<"sapling">("sapling");
+    // 3 commitments at height 100 (positions 0..2)
+    idx.append({ pool: "sapling", cmId: h(1), txid: h(11), height: 100 });
+    idx.append({ pool: "sapling", cmId: h(2), txid: h(12), height: 100 });
+    idx.append({ pool: "sapling", cmId: h(3), txid: h(13), height: 100 });
+    // 5 commitments at height 200 (positions 3..7)
+    idx.append({ pool: "sapling", cmId: h(4), txid: h(14), height: 200 });
+    idx.append({ pool: "sapling", cmId: h(5), txid: h(15), height: 200 });
+    idx.append({ pool: "sapling", cmId: h(6), txid: h(16), height: 200 });
+    idx.append({ pool: "sapling", cmId: h(7), txid: h(17), height: 200 });
+    idx.append({ pool: "sapling", cmId: h(8), txid: h(18), height: 200 });
+
+    expect(idx.positionRangeAtHeight(100)).toEqual({
+      firstPosition: 0n,
+      count: 3n,
+    });
+    expect(idx.positionRangeAtHeight(200)).toEqual({
+      firstPosition: 3n,
+      count: 5n,
+    });
+  });
+
+  it("returns null for a height with no commitment", () => {
+    const idx = new CommitmentIndex<"sapling">("sapling");
+    idx.append({ pool: "sapling", cmId: h(1), txid: h(11), height: 100 });
+    idx.append({ pool: "sapling", cmId: h(2), txid: h(12), height: 300 });
+    expect(idx.positionRangeAtHeight(200)).toBeNull();
+    expect(idx.positionRangeAtHeight(50)).toBeNull();
+    expect(idx.positionRangeAtHeight(999)).toBeNull();
+  });
+});
+
 describe("CommitmentIndex (properties)", () => {
   it("appended cmIds get positions 0n..n-1 in order", () => {
     fc.assert(

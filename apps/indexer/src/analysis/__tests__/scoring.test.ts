@@ -7,6 +7,7 @@ import {
 } from "@zcashreveal/types";
 import { PoolState } from "../../state/pool-state.js";
 import {
+  amountMatchFilter,
   applyFilters,
   timeWindowFilter,
   type Filter,
@@ -268,10 +269,25 @@ describe("applyFilters — composition", () => {
 });
 
 describe("Filter type — pool separation at compile time", () => {
-  it("Filter<\"sapling\"> not assignable to Filter<\"orchard\">", () => {
+  it("Filter<\"sapling\"> not assignable to Filter<\"orchard\"> (timeWindowFilter)", () => {
     const saplingFilter = timeWindowFilter<"sapling">({ windowBlocks: 576 });
     // @ts-expect-error - cross-pool Filter assignment must be rejected
     const orchardFilter: Filter<"orchard"> = saplingFilter;
+    void orchardFilter;
+    expect(true).toBe(true);
+  });
+
+  it("Filter<\"sapling\"> not assignable to Filter<\"orchard\"> (amountMatchFilter)", () => {
+    const saplingAmt = amountMatchFilter<"sapling">({
+      matchedDepositTxid: h(1),
+      matchedDepositHeight: 100,
+      matchedDepositAmountZat: 1_000n,
+      withdrawalAmountZat: 1_000n,
+      toleranceZat: 0n,
+      matchKind: "EXACT",
+    });
+    // @ts-expect-error - cross-pool Filter assignment must be rejected
+    const orchardFilter: Filter<"orchard"> = saplingAmt;
     void orchardFilter;
     expect(true).toBe(true);
   });
@@ -298,6 +314,27 @@ describe("Filter type — pool separation at compile time", () => {
       // After narrowing, params.windowBlocks must be a number, not any.
       const n: number = app.params.windowBlocks;
       expect(typeof n).toBe("number");
+    }
+  });
+
+  it("FilterApplication discriminator narrows params on amount_match", () => {
+    const app: FilterApplication = {
+      filter: "amount_match",
+      params: {
+        matchedDepositTxid: h(1),
+        matchedDepositHeight: 100,
+        matchedDepositAmountZat: 1_000n,
+        withdrawalAmountZat: 1_000n,
+        toleranceZat: 0n,
+        matchKind: "EXACT",
+      },
+      countIn: 1n,
+      countOut: 1n,
+    };
+    if (app.filter === "amount_match") {
+      // After narrowing, params.matchKind must be the EXACT|FEE_TOLERANT union.
+      const kind: "EXACT" | "FEE_TOLERANT" = app.params.matchKind;
+      expect(kind).toBe("EXACT");
     }
   });
 });
@@ -328,5 +365,310 @@ describe("FilterResult shape", () => {
     const result: FilterResult<"sapling"> = filter({ range, anchor, state });
     expect(result.range).toBeDefined();
     expect(result.application).toBeDefined();
+  });
+});
+
+describe("amountMatchFilter — algorithm", () => {
+  /**
+   * Helper for amount-match tests. Builds a state with commitments at
+   * specified heights (one per slot), records an anchor, and returns the
+   * usual range + anchor + state triple ready for filter invocation.
+   */
+  function buildMidSliceState(opts: {
+    heights: number[];           // height for each commitment, in append order
+    anchorHeightCreated: number;
+    anchorRoot: ReturnType<typeof h>;
+  }) {
+    const state = new PoolState<"sapling">("sapling");
+    for (let i = 0; i < opts.heights.length; i++) {
+      state.commitments.append({
+        pool: "sapling",
+        cmId: h(i + 1),
+        txid: h(i + 1000),
+        height: opts.heights[i]!,
+      });
+    }
+    const maxPos = BigInt(opts.heights.length - 1);
+    state.anchors.record({
+      pool: "sapling",
+      root: opts.anchorRoot,
+      heightCreated: opts.anchorHeightCreated,
+      maxPosition: maxPos,
+    });
+    return { state, maxPos };
+  }
+
+  it("K=1 at deposit height in middle of range → minPosition = firstPos_H, maxPosition = firstPos_H, rawCount = 1n", () => {
+    // 3 commitments at heights 100, 200, 300 → positions 0, 1, 2.
+    // Matched deposit at height 200: slice = { firstPosition: 1n, count: 1n }.
+    const { state, maxPos } = buildMidSliceState({
+      heights: [100, 200, 300],
+      anchorHeightCreated: 300,
+      anchorRoot: h(10),
+    });
+    const range: CandidateRange<"sapling"> = {
+      pool: "sapling",
+      anchorRoot: h(10),
+      minPosition: 0n,
+      maxPosition: maxPos,
+      rawCount: maxPos + 1n,
+    };
+    const anchor: Anchor<"sapling"> = {
+      pool: "sapling",
+      root: h(10),
+      heightCreated: 300,
+      maxPosition: maxPos,
+    };
+
+    const filter = amountMatchFilter<"sapling">({
+      matchedDepositTxid: h(1000 + 1),
+      matchedDepositHeight: 200,
+      matchedDepositAmountZat: 5_000_000n,
+      withdrawalAmountZat: 5_000_000n,
+      toleranceZat: 0n,
+      matchKind: "EXACT",
+    });
+    const { range: out, application } = filter({ range, anchor, state });
+
+    expect(out.minPosition).toBe(1n);
+    expect(out.maxPosition).toBe(1n);
+    expect(out.rawCount).toBe(1n);
+    expect(application.countIn).toBe(3n);
+    expect(application.countOut).toBe(1n);
+  });
+
+  it("K=5 at deposit height in middle of range → minPosition = firstPos_H, maxPosition = firstPos_H + 4n, rawCount = 5n", () => {
+    // 3 commitments at h=100 (positions 0..2), 5 at h=200 (positions 3..7),
+    // 2 at h=300 (positions 8..9). Total 10 commitments.
+    const heights: number[] = [
+      100, 100, 100,
+      200, 200, 200, 200, 200,
+      300, 300,
+    ];
+    const { state, maxPos } = buildMidSliceState({
+      heights,
+      anchorHeightCreated: 300,
+      anchorRoot: h(20),
+    });
+    const range: CandidateRange<"sapling"> = {
+      pool: "sapling",
+      anchorRoot: h(20),
+      minPosition: 0n,
+      maxPosition: maxPos,
+      rawCount: maxPos + 1n,
+    };
+    const anchor: Anchor<"sapling"> = {
+      pool: "sapling",
+      root: h(20),
+      heightCreated: 300,
+      maxPosition: maxPos,
+    };
+
+    const filter = amountMatchFilter<"sapling">({
+      matchedDepositTxid: h(2000),
+      matchedDepositHeight: 200,
+      matchedDepositAmountZat: 1n,
+      withdrawalAmountZat: 1n,
+      toleranceZat: 0n,
+      matchKind: "EXACT",
+    });
+    const { range: out } = filter({ range, anchor, state });
+
+    expect(out.minPosition).toBe(3n);   // firstPos_H
+    expect(out.maxPosition).toBe(7n);   // firstPos_H + 4
+    expect(out.rawCount).toBe(5n);
+  });
+
+  it("no commitment at deposit height → degenerate empty range, countOut = 0n", () => {
+    // Commitments only at heights 100 and 300; matched deposit claims h=200.
+    const { state, maxPos } = buildMidSliceState({
+      heights: [100, 300],
+      anchorHeightCreated: 300,
+      anchorRoot: h(30),
+    });
+    const range: CandidateRange<"sapling"> = {
+      pool: "sapling",
+      anchorRoot: h(30),
+      minPosition: 0n,
+      maxPosition: maxPos,
+      rawCount: maxPos + 1n,
+    };
+    const anchor: Anchor<"sapling"> = {
+      pool: "sapling",
+      root: h(30),
+      heightCreated: 300,
+      maxPosition: maxPos,
+    };
+
+    const filter = amountMatchFilter<"sapling">({
+      matchedDepositTxid: h(3000),
+      matchedDepositHeight: 200,
+      matchedDepositAmountZat: 0n,
+      withdrawalAmountZat: 0n,
+      toleranceZat: 0n,
+      matchKind: "EXACT",
+    });
+    const { range: out, application } = filter({ range, anchor, state });
+
+    expect(out.rawCount).toBe(0n);
+    expect(out.maxPosition).toBe(maxPos);
+    expect(out.minPosition).toBe(maxPos + 1n); // degenerate: min > max
+    expect(application.countOut).toBe(0n);
+  });
+
+  it("slice extends past anchor's maxPosition → above-clamp, countOut < slice.count", () => {
+    // 3 commitments at h=100 (positions 0..2), then 2 more at h=200 (positions 3..4).
+    // Anchor only sees up to position 1 (maxPosition = 1n). Matched deposit at h=100:
+    // slice = { firstPosition: 0n, count: 3n } but the anchor caps at position 1.
+    // Intersection: [max(0,0), min(2,1)] = [0, 1] → countOut = 2 (clamped from 3).
+    const { state } = buildMidSliceState({
+      heights: [100, 100, 100, 200, 200],
+      anchorHeightCreated: 100,
+      anchorRoot: h(40),
+    });
+    // Override the recorded anchor with the narrower view we want.
+    // (The buildMidSliceState helper records maxPosition = heights.length - 1.)
+    const range: CandidateRange<"sapling"> = {
+      pool: "sapling",
+      anchorRoot: h(40),
+      minPosition: 0n,
+      maxPosition: 1n,
+      rawCount: 2n,
+    };
+    const anchor: Anchor<"sapling"> = {
+      pool: "sapling",
+      root: h(40),
+      heightCreated: 100,
+      maxPosition: 1n,
+    };
+
+    const filter = amountMatchFilter<"sapling">({
+      matchedDepositTxid: h(4000),
+      matchedDepositHeight: 100,
+      matchedDepositAmountZat: 100n,
+      withdrawalAmountZat: 100n,
+      toleranceZat: 0n,
+      matchKind: "EXACT",
+    });
+    const { range: out, application } = filter({ range, anchor, state });
+
+    expect(out.minPosition).toBe(0n);
+    expect(out.maxPosition).toBe(1n);  // clamped from sliceLast=2 down to range.maxPosition=1
+    expect(out.rawCount).toBe(2n);     // clamped from slice.count=3 down to 2
+    expect(application.countIn).toBe(2n);
+    expect(application.countOut).toBe(2n);
+  });
+
+  it("slice falls entirely below already-narrowed input range → degenerate empty range", () => {
+    // Construct a state where positionRangeAtHeight(500) = { firstPosition: 287n, count: 5n }:
+    // 287 commitments at height 1 (positions 0..286), then 5 at height 500 (positions 287..291).
+    // Then call amountMatchFilter on a range that's been narrowed to minPosition = 995n
+    // (simulating a prior filter). The slice at [287, 291] falls entirely below 995 — no overlap.
+    const state = new PoolState<"sapling">("sapling");
+    for (let i = 0; i < 287; i++) {
+      state.commitments.append({
+        pool: "sapling",
+        cmId: h(i + 1),
+        txid: h(i + 10_000),
+        height: 1,
+      });
+    }
+    for (let i = 0; i < 5; i++) {
+      state.commitments.append({
+        pool: "sapling",
+        cmId: h(i + 1_000),
+        txid: h(i + 20_000),
+        height: 500,
+      });
+    }
+    // Sanity-check the slice we're about to filter against.
+    expect(state.commitments.positionRangeAtHeight(500)).toEqual({
+      firstPosition: 287n,
+      count: 5n,
+    });
+
+    // Anchor records a wide view; the range below is what a prior filter would have produced.
+    state.anchors.record({
+      pool: "sapling",
+      root: h(50),
+      heightCreated: 1000,
+      maxPosition: 999n,
+    });
+    const range: CandidateRange<"sapling"> = {
+      pool: "sapling",
+      anchorRoot: h(50),
+      minPosition: 995n, // narrowed by a (hypothetical) prior filter
+      maxPosition: 999n,
+      rawCount: 5n,
+    };
+    const anchor: Anchor<"sapling"> = {
+      pool: "sapling",
+      root: h(50),
+      heightCreated: 1000,
+      maxPosition: 999n,
+    };
+
+    const filter = amountMatchFilter<"sapling">({
+      matchedDepositTxid: h(50_000),
+      matchedDepositHeight: 500,
+      matchedDepositAmountZat: 42n,
+      withdrawalAmountZat: 42n,
+      toleranceZat: 0n,
+      matchKind: "EXACT",
+    });
+    const { range: out, application } = filter({ range, anchor, state });
+
+    expect(out.rawCount).toBe(0n);
+    expect(out.maxPosition).toBe(999n);
+    expect(out.minPosition).toBe(1000n); // maxPosition + 1n — degenerate
+    expect(application.countOut).toBe(0n);
+    expect(application.countIn).toBe(5n);
+  });
+
+  it("FilterApplication.amount_match field-by-field assertion", () => {
+    const { state, maxPos } = buildMidSliceState({
+      heights: [100, 200, 200, 300],
+      anchorHeightCreated: 300,
+      anchorRoot: h(60),
+    });
+    const range: CandidateRange<"sapling"> = {
+      pool: "sapling",
+      anchorRoot: h(60),
+      minPosition: 0n,
+      maxPosition: maxPos,
+      rawCount: maxPos + 1n,
+    };
+    const anchor: Anchor<"sapling"> = {
+      pool: "sapling",
+      root: h(60),
+      heightCreated: 300,
+      maxPosition: maxPos,
+    };
+
+    const opts = {
+      matchedDepositTxid: h(123),
+      matchedDepositHeight: 200,
+      matchedDepositAmountZat: 1_000_000n,
+      withdrawalAmountZat: 999_900n,
+      toleranceZat: 160_000n,
+      matchKind: "FEE_TOLERANT" as const,
+    };
+    const { application } = amountMatchFilter<"sapling">(opts)({
+      range,
+      anchor,
+      state,
+    });
+
+    expect(application.filter).toBe("amount_match");
+    expect(application.params).toEqual({
+      matchedDepositTxid: h(123),
+      matchedDepositHeight: 200,
+      matchedDepositAmountZat: 1_000_000n,
+      withdrawalAmountZat: 999_900n,
+      toleranceZat: 160_000n,
+      matchKind: "FEE_TOLERANT",
+    });
+    expect(application.countIn).toBe(4n);    // total commitments
+    expect(application.countOut).toBe(2n);   // 2 commitments at height 200
   });
 });

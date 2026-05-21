@@ -1,5 +1,6 @@
 import type { Hex, Zatoshi } from "./transactions.js";
 import type { DecodedShieldedBundle } from "./shielded.js";
+import type { ClaimAssessment } from "./analysis.js";
 
 export type LeakClass =
   | "PURE_SHIELDED"
@@ -21,6 +22,12 @@ export interface SpendAnnotation {
   anchorDepthBlocks: number | null;
   isRecentAnchor: boolean;
   severity: Severity;
+  /**
+   * Module 5+ claim assessment for this spend's Cand_0. Optional —
+   * undefined when PoolState is not yet plumbed (populated by Module 7
+   * once AnalyzeContext carries chainState).
+   */
+  assessment?: ClaimAssessment;
 }
 
 export interface OutputAnnotation {
@@ -90,6 +97,14 @@ export interface LinkRecord {
   matchKind: "EXACT" | "FEE_TOLERANT";
   poolPath: "sapling" | "orchard" | "sapling→orchard" | "orchard→sapling";
   confidence: "HIGH" | "MEDIUM" | "LOW";
+  /**
+   * Module 5+ claim assessment for the unshield's spend (computed over
+   * the spend's Cand_0 with the time-window + amount-match filters in
+   * the round-trip context). Optional — undefined when PoolState is not
+   * yet plumbed (populated by Module 7 once AnalyzeContext carries
+   * chainState).
+   */
+  assessment?: ClaimAssessment;
 }
 
 export interface LeakReport {

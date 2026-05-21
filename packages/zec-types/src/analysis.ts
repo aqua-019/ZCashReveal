@@ -142,6 +142,25 @@ export type FilterApplication =
       };
       readonly countIn: bigint;
       readonly countOut: bigint;
+    }
+  | {
+      readonly filter: "amount_match";
+      readonly params: {
+        /** Txid of the matched shielding deposit (the upstream half of the round-trip pair). */
+        readonly matchedDepositTxid: Hex;
+        /** Block height of the matched shielding deposit; filter narrows to commitments at this height. */
+        readonly matchedDepositHeight: number;
+        /** Deposit's net value (positive zat, into-pool). */
+        readonly matchedDepositAmountZat: bigint;
+        /** Withdrawal's net value (positive zat, out-of-pool). */
+        readonly withdrawalAmountZat: bigint;
+        /** Fee tolerance used at match time; documents the assumption envelope. */
+        readonly toleranceZat: bigint;
+        /** Whether the match was exact (amounts equal) or fee-tolerant (within toleranceZat). */
+        readonly matchKind: "EXACT" | "FEE_TOLERANT";
+      };
+      readonly countIn: bigint;
+      readonly countOut: bigint;
     };
 
 /**
