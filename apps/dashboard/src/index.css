@@ -33,6 +33,13 @@
   --color-migration: #B062D9;
   --color-transparent: #D14545;
 
+  /* Per-pool accent tokens (forensic design-system shorthand).
+     Sapling: green-leaning; Orchard: project's gold. Used in inline-style
+     references and in the per-pool indicator components in CandidatesPanel,
+     BoundaryFlowPanel, and PoolStatePanel. */
+  --c-sapling: #5BA88A;
+  --c-orchard: var(--color-zec-gold);
+
   --font-display: "Instrument Serif", serif;
   --font-sans: "Manrope", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;

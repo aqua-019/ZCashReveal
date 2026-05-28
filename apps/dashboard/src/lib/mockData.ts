@@ -7,7 +7,8 @@
  * Toggle via env: VITE_MOCK_MODE=true
  */
 
-import type { RawReport } from "../hooks/useMempool";
+import type { RawAssessment, RawReport } from "../hooks/useMempool";
+import type { PoolStateSummary } from "../components/PoolStatePanel";
 
 function randomHex(bytes: number): string {
   const chars = "0123456789abcdef";
@@ -85,6 +86,7 @@ function mkSpendAnnotation(
   depth: number,
   isRecent: boolean,
   severity: string,
+  assessment?: RawAssessment,
 ) {
   return {
     pool,
@@ -95,6 +97,97 @@ function mkSpendAnnotation(
     anchorDepthBlocks: depth,
     isRecentAnchor: isRecent,
     severity,
+    ...(assessment !== undefined ? { assessment } : {}),
+  };
+}
+
+/**
+ * Build a small_heuristic_set assessment: one time_window filter
+ * narrowing from rawCount → countOut. Used by pureShielded and mixed.
+ */
+function mkAssessmentTimeWindow(opts: {
+  pool: "sapling" | "orchard";
+  rawCount: string;
+  effectiveSetSize: string;
+  entropyBits: number;
+  claimLevel: RawAssessment["claimLevel"];
+  windowBlocks: number;
+  highHeight: number;
+}): RawAssessment {
+  return {
+    pool: opts.pool,
+    anchorRoot: randomHex(32),
+    rawCount: opts.rawCount,
+    effectiveSetSize: opts.effectiveSetSize,
+    entropyBits: opts.entropyBits,
+    claimLevel: opts.claimLevel,
+    appliedFilters: [
+      {
+        filter: "time_window",
+        params: {
+          windowBlocks: opts.windowBlocks,
+          lowHeight: opts.highHeight - opts.windowBlocks,
+          highHeight: opts.highHeight,
+        },
+        countIn: opts.rawCount,
+        countOut: opts.effectiveSetSize,
+      },
+    ],
+  };
+}
+
+/**
+ * Build a requires_disclosure assessment with two filters:
+ * time_window narrows rawCount → afterTime, then amount_match narrows
+ * afterTime → effectiveSetSize. Used by zToT's spends and the link.
+ */
+function mkAssessmentTimeAndAmount(opts: {
+  pool: "sapling" | "orchard";
+  rawCount: string;
+  afterTime: string;
+  effectiveSetSize: string;
+  entropyBits: number;
+  windowBlocks: number;
+  highHeight: number;
+  matchedDepositTxid: string;
+  matchedDepositHeight: number;
+  matchedDepositAmountZat: string;
+  withdrawalAmountZat: string;
+  toleranceZat: string;
+  matchKind: "EXACT" | "FEE_TOLERANT";
+}): RawAssessment {
+  return {
+    pool: opts.pool,
+    anchorRoot: randomHex(32),
+    rawCount: opts.rawCount,
+    effectiveSetSize: opts.effectiveSetSize,
+    entropyBits: opts.entropyBits,
+    claimLevel: "requires_disclosure",
+    appliedFilters: [
+      {
+        filter: "time_window",
+        params: {
+          windowBlocks: opts.windowBlocks,
+          lowHeight: opts.highHeight - opts.windowBlocks,
+          highHeight: opts.highHeight,
+        },
+        countIn: opts.rawCount,
+        countOut: opts.afterTime,
+      },
+      {
+        filter: "amount_match",
+        params: {
+          matchedDepositTxid: opts.matchedDepositTxid,
+          matchedDepositHeight: opts.matchedDepositHeight,
+          matchedDepositAmountZat: opts.matchedDepositAmountZat,
+          withdrawalAmountZat: opts.withdrawalAmountZat,
+          toleranceZat: opts.toleranceZat,
+          matchKind: opts.matchKind,
+        },
+        countIn: opts.afterTime,
+        countOut: opts.effectiveSetSize,
+      },
+    ],
   };
 }
 
@@ -133,9 +226,27 @@ const pureShielded: RawReport = {
     },
   },
   spends: [
-    mkSpendAnnotation("orchard", 0, 23, true, "MEDIUM"),
-    mkSpendAnnotation("orchard", 1, 23, true, "MEDIUM"),
-    mkSpendAnnotation("orchard", 2, 23, true, "MEDIUM"),
+    mkSpendAnnotation("orchard", 0, 23, true, "MEDIUM",
+      mkAssessmentTimeWindow({
+        pool: "orchard", rawCount: "1000", effectiveSetSize: "60",
+        entropyBits: 5.91, claimLevel: "small_heuristic_set",
+        windowBlocks: 576, highHeight: 2_840_489,
+      }),
+    ),
+    mkSpendAnnotation("orchard", 1, 23, true, "MEDIUM",
+      mkAssessmentTimeWindow({
+        pool: "orchard", rawCount: "1000", effectiveSetSize: "60",
+        entropyBits: 5.91, claimLevel: "small_heuristic_set",
+        windowBlocks: 576, highHeight: 2_840_489,
+      }),
+    ),
+    mkSpendAnnotation("orchard", 2, 23, true, "MEDIUM",
+      mkAssessmentTimeWindow({
+        pool: "orchard", rawCount: "1000", effectiveSetSize: "60",
+        entropyBits: 5.91, claimLevel: "small_heuristic_set",
+        windowBlocks: 576, highHeight: 2_840_489,
+      }),
+    ),
   ],
   outputs: [
     { pool: "orchard", index: 0, commitment: randomHex(32) },
@@ -272,9 +383,33 @@ const zToT: RawReport = {
     },
   },
   spends: [
-    mkSpendAnnotation("orchard", 0, 8, true, "MEDIUM"),
-    mkSpendAnnotation("orchard", 1, 8, true, "MEDIUM"),
-    mkSpendAnnotation("orchard", 2, 8, true, "MEDIUM"),
+    mkSpendAnnotation("orchard", 0, 8, true, "MEDIUM",
+      mkAssessmentTimeAndAmount({
+        pool: "orchard", rawCount: "500", afterTime: "20", effectiveSetSize: "3",
+        entropyBits: 1.58, windowBlocks: 96, highHeight: 2_840_504,
+        matchedDepositTxid: SAMPLE_TXIDS[1]!, matchedDepositHeight: 2_840_490,
+        matchedDepositAmountZat: "150000000", withdrawalAmountZat: "149990000",
+        toleranceZat: "160000", matchKind: "FEE_TOLERANT",
+      }),
+    ),
+    mkSpendAnnotation("orchard", 1, 8, true, "MEDIUM",
+      mkAssessmentTimeAndAmount({
+        pool: "orchard", rawCount: "500", afterTime: "20", effectiveSetSize: "3",
+        entropyBits: 1.58, windowBlocks: 96, highHeight: 2_840_504,
+        matchedDepositTxid: SAMPLE_TXIDS[1]!, matchedDepositHeight: 2_840_490,
+        matchedDepositAmountZat: "150000000", withdrawalAmountZat: "149990000",
+        toleranceZat: "160000", matchKind: "FEE_TOLERANT",
+      }),
+    ),
+    mkSpendAnnotation("orchard", 2, 8, true, "MEDIUM",
+      mkAssessmentTimeAndAmount({
+        pool: "orchard", rawCount: "500", afterTime: "20", effectiveSetSize: "3",
+        entropyBits: 1.58, windowBlocks: 96, highHeight: 2_840_504,
+        matchedDepositTxid: SAMPLE_TXIDS[1]!, matchedDepositHeight: 2_840_490,
+        matchedDepositAmountZat: "150000000", withdrawalAmountZat: "149990000",
+        toleranceZat: "160000", matchKind: "FEE_TOLERANT",
+      }),
+    ),
   ],
   outputs: [
     { pool: "orchard", index: 0, commitment: randomHex(32) },
@@ -315,6 +450,13 @@ const zToT: RawReport = {
       matchKind: "FEE_TOLERANT",
       poolPath: "orchard",
       confidence: "HIGH",
+      assessment: mkAssessmentTimeAndAmount({
+        pool: "orchard", rawCount: "500", afterTime: "20", effectiveSetSize: "3",
+        entropyBits: 1.58, windowBlocks: 96, highHeight: 2_840_504,
+        matchedDepositTxid: SAMPLE_TXIDS[1]!, matchedDepositHeight: 2_840_490,
+        matchedDepositAmountZat: "150000000", withdrawalAmountZat: "149990000",
+        toleranceZat: "160000", matchKind: "FEE_TOLERANT",
+      }),
     },
   ],
 };
@@ -350,8 +492,24 @@ const migration: RawReport = {
     },
   },
   spends: [
-    mkSpendAnnotation("sapling", 0, 4250, false, "INFO"),
-    mkSpendAnnotation("sapling", 1, 4250, false, "INFO"),
+    // Spend 0: aggregate_only — deep anchor, no filter narrowing applies.
+    mkSpendAnnotation("sapling", 0, 4250, false, "INFO", {
+      pool: "sapling",
+      anchorRoot: randomHex(32),
+      rawCount: "5000000",
+      effectiveSetSize: "5000000",
+      entropyBits: 22.25,
+      claimLevel: "aggregate_only",
+      appliedFilters: [],
+    }),
+    // Spend 1: broad_candidate_set — time_window narrows from 5M to 800.
+    mkSpendAnnotation("sapling", 1, 4250, false, "INFO",
+      mkAssessmentTimeWindow({
+        pool: "sapling", rawCount: "5000000", effectiveSetSize: "800",
+        entropyBits: 9.64, claimLevel: "broad_candidate_set",
+        windowBlocks: 576, highHeight: 2_836_262,
+      }),
+    ),
   ],
   outputs: [
     { pool: "orchard", index: 0, commitment: randomHex(32) },
@@ -419,9 +577,27 @@ const mixed: RawReport = {
     },
   },
   spends: [
-    mkSpendAnnotation("orchard", 0, 15, true, "MEDIUM"),
-    mkSpendAnnotation("orchard", 1, 15, true, "MEDIUM"),
-    mkSpendAnnotation("orchard", 2, 15, true, "MEDIUM"),
+    mkSpendAnnotation("orchard", 0, 15, true, "MEDIUM",
+      mkAssessmentTimeWindow({
+        pool: "orchard", rawCount: "2000", effectiveSetSize: "45",
+        entropyBits: 5.49, claimLevel: "small_heuristic_set",
+        windowBlocks: 576, highHeight: 2_840_497,
+      }),
+    ),
+    mkSpendAnnotation("orchard", 1, 15, true, "MEDIUM",
+      mkAssessmentTimeWindow({
+        pool: "orchard", rawCount: "2000", effectiveSetSize: "45",
+        entropyBits: 5.49, claimLevel: "small_heuristic_set",
+        windowBlocks: 576, highHeight: 2_840_497,
+      }),
+    ),
+    mkSpendAnnotation("orchard", 2, 15, true, "MEDIUM",
+      mkAssessmentTimeWindow({
+        pool: "orchard", rawCount: "2000", effectiveSetSize: "45",
+        entropyBits: 5.49, claimLevel: "small_heuristic_set",
+        windowBlocks: 576, highHeight: 2_840_497,
+      }),
+    ),
   ],
   outputs: [
     { pool: "orchard", index: 0, commitment: randomHex(32) },
@@ -512,3 +688,33 @@ export const MOCK_REPORTS: RawReport[] = [
 ];
 
 export const MOCK_TIP_HEIGHT = 2_840_522;
+
+/**
+ * Per-pool state snapshot, illustrative historical-scale values.
+ * Sapling: ~8M commitments since activation Oct 2018, ~1.9M anchors
+ * (≈ blocks since activation), ~6.2M nullifiers (≈ accumulated spends).
+ * Orchard: ~328k commitments since NU5 May 2022, ~1.4M anchors, ~94k nullifiers.
+ * Both pools' latest anchor is 10 blocks behind the chain tip — typical
+ * mempool-vs-tip lag.
+ */
+export const MOCK_POOL_SNAPSHOT: {
+  sapling: PoolStateSummary;
+  orchard: PoolStateSummary;
+} = {
+  sapling: {
+    pool: "sapling",
+    commitmentCount: 8_403_217n,
+    anchorCount: 1_924_508,
+    nullifierCount: 6_187_442,
+    lastAnchorHeightCreated: 2_840_512,
+    balanceZat: 0n,
+  },
+  orchard: {
+    pool: "orchard",
+    commitmentCount: 327_891n,
+    anchorCount: 1_412_086,
+    nullifierCount: 94_173,
+    lastAnchorHeightCreated: 2_840_512,
+    balanceZat: 0n,
+  },
+};
