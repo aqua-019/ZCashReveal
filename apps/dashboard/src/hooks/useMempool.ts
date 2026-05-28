@@ -1,6 +1,47 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { WsClient } from "../lib/ws";
-import { MOCK_REPORTS, MOCK_TIP_HEIGHT } from "../lib/mockData";
+import { MOCK_REPORTS, MOCK_TIP_HEIGHT, MOCK_POOL_SNAPSHOT } from "../lib/mockData";
+import type { PoolStateSummary } from "../components/PoolStatePanel";
+
+/**
+ * Wire-shape assessment carried on each SpendAnnotation and LinkRecord.
+ * bigints are JSON-encoded as strings; consumers parse at the boundary
+ * via lib/parsers.parseAssessment. Mirrors @zcashreveal/types'
+ * ClaimAssessment but with the bigint fields stringified.
+ */
+export type RawAssessment = {
+  pool: "sapling" | "orchard";
+  anchorRoot: string;
+  rawCount: string;
+  effectiveSetSize: string;
+  entropyBits: number;
+  claimLevel:
+    | "aggregate_only"
+    | "broad_candidate_set"
+    | "small_heuristic_set"
+    | "requires_disclosure";
+  appliedFilters: Array<
+    | {
+        filter: "time_window";
+        params: { windowBlocks: number; lowHeight: number; highHeight: number };
+        countIn: string;
+        countOut: string;
+      }
+    | {
+        filter: "amount_match";
+        params: {
+          matchedDepositTxid: string;
+          matchedDepositHeight: number;
+          matchedDepositAmountZat: string;
+          withdrawalAmountZat: string;
+          toleranceZat: string;
+          matchKind: "EXACT" | "FEE_TOLERANT";
+        };
+        countIn: string;
+        countOut: string;
+      }
+  >;
+};
 
 interface RawReport {
   txid: string;
@@ -34,7 +75,17 @@ interface RawReport {
       commitments: Array<{ pool: "sapling" | "orchard"; value: string }>;
     };
   };
-  spends: Array<{ pool: "sapling" | "orchard"; index: number; nullifier: string; anchor: string; anchorHeight: number | null; anchorDepthBlocks: number | null; isRecentAnchor: boolean; severity: string }>;
+  spends: Array<{
+    pool: "sapling" | "orchard";
+    index: number;
+    nullifier: string;
+    anchor: string;
+    anchorHeight: number | null;
+    anchorDepthBlocks: number | null;
+    isRecentAnchor: boolean;
+    severity: string;
+    assessment?: RawAssessment;
+  }>;
   outputs: Array<{ pool: "sapling" | "orchard"; index: number; commitment: string }>;
   valueFlow: {
     saplingValueBalanceZat: string;
@@ -65,7 +116,13 @@ interface RawReport {
     matchKind: "EXACT" | "FEE_TOLERANT";
     poolPath: "sapling" | "orchard" | "sapling→orchard" | "orchard→sapling";
     confidence: "HIGH" | "MEDIUM" | "LOW";
+    assessment?: RawAssessment;
   }>;
+}
+
+export interface ChainStateSnapshot {
+  readonly sapling: PoolStateSummary;
+  readonly orchard: PoolStateSummary;
 }
 
 export type { RawReport };
@@ -74,6 +131,12 @@ export interface MempoolView {
   reports: RawReport[];
   tipHeight: number | null;
   connected: boolean;
+  /**
+   * Per-pool state snapshot. Populated in mock mode; null in live mode
+   * until Module 7 plumbs a real source. Consumers must handle null
+   * gracefully (App.tsx skips PoolStatePanel rendering).
+   */
+  snapshot: ChainStateSnapshot | null;
 }
 
 const MAX_REPORTS = 250;
@@ -84,6 +147,9 @@ export function useMempool(): MempoolView {
   const [reports, setReports] = useState<RawReport[]>(() => MOCK_MODE ? MOCK_REPORTS : []);
   const [tipHeight, setTipHeight] = useState<number | null>(() => MOCK_MODE ? MOCK_TIP_HEIGHT : null);
   const [connected, setConnected] = useState(MOCK_MODE);
+  const [snapshot] = useState<ChainStateSnapshot | null>(() =>
+    MOCK_MODE ? MOCK_POOL_SNAPSHOT : null,
+  );
   const clientRef = useRef<WsClient | null>(null);
 
   useEffect(() => {
@@ -133,5 +199,8 @@ export function useMempool(): MempoolView {
     };
   }, []);
 
-  return useMemo(() => ({ reports, tipHeight, connected }), [reports, tipHeight, connected]);
+  return useMemo(
+    () => ({ reports, tipHeight, connected, snapshot }),
+    [reports, tipHeight, connected, snapshot],
+  );
 }

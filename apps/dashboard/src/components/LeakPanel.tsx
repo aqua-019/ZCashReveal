@@ -10,6 +10,7 @@ import {
   LEAK_CLASS_DESCRIPTION,
 } from "../lib/tokens";
 import { zatToZec, shortHex } from "../lib/formatters";
+import { parseAssessment } from "../lib/parsers";
 import {
   IconNullifier,
   IconAnchor,
@@ -20,9 +21,11 @@ import {
   IconShieldCracked,
   IconCopy,
   IconArrowRight,
-  IconArrowDown,
-  IconArrowUp,
 } from "./icons";
+import { SectionHeader } from "./primitives/SectionHeader";
+import { SeverityBadge } from "./primitives/SeverityBadge";
+import { BoundaryFlowPanel } from "./BoundaryFlowPanel";
+import { CandidatesPanel } from "./CandidatesPanel";
 
 interface LeakPanelProps {
   report: RawReport | null;
@@ -37,8 +40,14 @@ export function LeakPanel({ report }: LeakPanelProps) {
       <div className="grid grid-cols-1 gap-7">
         <FindingsSection findings={report.findings} />
         <LinksSection links={report.links} />
+        <AnonymitySetsSection report={report} />
         <IdentitySection report={report} />
-        <ValueFlowSection report={report} />
+        <BoundaryFlowPanel
+          saplingValueBalanceZat={report.valueFlow.saplingValueBalanceZat}
+          orchardValueBalanceZat={report.valueFlow.orchardValueBalanceZat}
+          netTransparentInflowZat={report.valueFlow.netTransparentInflowZat}
+          direction={report.valueFlow.direction}
+        />
         <SpendsSection report={report} />
         <OutputsSection report={report} />
         <FingerprintSection report={report} />
@@ -119,15 +128,6 @@ function Headline({ report }: { report: RawReport }) {
   );
 }
 
-function SeverityBadge({ severity }: { severity: Severity }) {
-  return (
-    <div className="flex flex-col items-end gap-1 shrink-0" style={{ color: SEVERITY_COLOR[severity] }}>
-      <span className="mono text-[9px] uppercase tracking-[0.2em] text-[var(--color-ink-dim)]">Severity</span>
-      <span className="display-italic text-[36px] leading-none">{SEVERITY_LABEL[severity]}</span>
-    </div>
-  );
-}
-
 function Stat({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
@@ -151,15 +151,6 @@ function CopyButton({ text }: { text: string }) {
     >
       <IconCopy size={11} />
     </button>
-  );
-}
-
-function SectionHeader({ index, title }: { index: string; title: string }) {
-  return (
-    <div className="flex items-baseline gap-3 mb-4">
-      <span className="mono text-[10px] text-[var(--color-zec-gold)] tracking-[0.18em]">{index}</span>
-      <h3 className="display text-[22px] text-ink">{title}</h3>
-    </div>
   );
 }
 
@@ -193,73 +184,6 @@ function FindingsSection({ findings }: { findings: RawReport["findings"] }) {
         ))}
       </ul>
     </section>
-  );
-}
-
-function ValueFlowSection({ report }: { report: RawReport }) {
-  const v = report.valueFlow;
-  const sapling = BigInt(v.saplingValueBalanceZat);
-  const orchard = BigInt(v.orchardValueBalanceZat);
-  return (
-    <section>
-      <SectionHeader index="03" title="Value flow" />
-      <div className="grid grid-cols-2 gap-3">
-        <ValueCell pool="Sapling" value={sapling} />
-        <ValueCell pool="Orchard" value={orchard} />
-      </div>
-      <div className="mt-4 glass p-4 rounded-sm">
-        <div className="flex items-center gap-2 mono text-[11px] text-ink">
-          {v.direction === "DEPOSIT" && (
-            <>
-              <span className="text-[var(--color-deposit)]"><IconArrowDown size={12} /></span>
-              <span className="display-italic text-[16px] text-[var(--color-deposit)]">Deposit</span>
-              <span className="text-[var(--color-ink-muted)]">— value flowing into the shielded pool from transparent inputs</span>
-            </>
-          )}
-          {v.direction === "WITHDRAWAL" && (
-            <>
-              <span className="text-[var(--color-withdrawal)]"><IconArrowUp size={12} /></span>
-              <span className="display-italic text-[16px] text-[var(--color-withdrawal)]">Withdrawal</span>
-              <span className="text-[var(--color-ink-muted)]">— value flowing out of the shielded pool to transparent outputs</span>
-            </>
-          )}
-          {v.direction === "INTRA_POOL" && (
-            <>
-              <span className="text-[var(--color-pure)]"><IconArrowRight size={12} /></span>
-              <span className="display-italic text-[16px] text-[var(--color-pure)]">Intra-pool</span>
-              <span className="text-[var(--color-ink-muted)]">— pure shielded transaction within the pool</span>
-            </>
-          )}
-          {v.direction === "NONE" && (
-            <span className="text-[var(--color-ink-muted)]">No shielded value flow.</span>
-          )}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ValueCell({ pool, value }: { pool: string; value: bigint }) {
-  const isZero = value === 0n;
-  const sign = value > 0n ? "+" : value < 0n ? "" : "";
-  return (
-    <div className="glass p-4 rounded-sm">
-      <div className="mono text-[9px] uppercase tracking-[0.18em] text-[var(--color-ink-dim)]">{pool} pool</div>
-      <div className="mt-2 flex items-baseline gap-2">
-        <span className={clsx(
-          "display text-[28px]",
-          isZero ? "text-[var(--color-ink-dim)]"
-            : value > 0n ? "text-[var(--color-withdrawal)]"
-              : "text-[var(--color-deposit)]",
-        )}>
-          {sign}{zatToZec(value)}
-        </span>
-        <span className="mono text-[10px] text-[var(--color-ink-dim)]">ZEC</span>
-      </div>
-      <div className="mt-1 mono text-[10px] text-[var(--color-ink-dim)]">
-        {isZero ? "z to z (no boundary)" : value > 0n ? "leaving pool" : "entering pool"}
-      </div>
-    </div>
   );
 }
 
@@ -554,4 +478,50 @@ function fmtMs(ms: number): string {
   if (ms < 3_600_000) return `${Math.floor(ms / 60_000)}m`;
   if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h`;
   return `${Math.floor(ms / 86_400_000)}d`;
+}
+
+function AnonymitySetsSection({ report }: { report: RawReport }) {
+  const spendsWithAssessment = report.spends.filter(
+    (s) => s.assessment !== undefined,
+  );
+  const linksWithAssessment = (report.links ?? []).filter(
+    (l) => l.assessment !== undefined,
+  );
+  if (spendsWithAssessment.length === 0 && linksWithAssessment.length === 0) {
+    return null;
+  }
+  return (
+    <section>
+      <SectionHeader index="08" title="Anonymity sets" />
+      <p className="text-[12px] leading-[1.5] text-[var(--color-ink-muted)] mb-4 max-w-[68ch]">
+        Each shielded spend has a candidate set of commitments it could be
+        consuming. The filter chain narrows that set under explicit
+        assumptions — never identifying a specific note, only bounding how
+        many remain.
+      </p>
+      <div className="space-y-4">
+        {spendsWithAssessment.map((s) => (
+          <CandidatesPanel
+            key={`spend-${s.pool}-${s.index}`}
+            assessment={parseAssessment(s.assessment!)}
+            spendIndex={s.index}
+          />
+        ))}
+        {linksWithAssessment.length > 0 && (
+          <>
+            <div className="hairline my-2" />
+            <h4 className="mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-ink-dim)] mb-3">
+              Round-trip link assessments
+            </h4>
+            {linksWithAssessment.map((l, i) => (
+              <CandidatesPanel
+                key={`link-${i}`}
+                assessment={parseAssessment(l.assessment!)}
+              />
+            ))}
+          </>
+        )}
+      </div>
+    </section>
+  );
 }

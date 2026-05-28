@@ -148,6 +148,31 @@ export function IconCopy({ size = 14, ...p }: IconProps) {
   );
 }
 
+export function IconCandidates({ size = 14, ...p }: IconProps) {
+  return (
+    <svg {...base(size)} {...p}>
+      <rect x="4" y="4" width="3" height="3" />
+      <rect x="10" y="4" width="3" height="3" opacity="0.6" />
+      <rect x="16" y="4" width="3" height="3" opacity="0.3" />
+      <rect x="4" y="10" width="3" height="3" opacity="0.6" />
+      <rect x="10" y="10" width="3" height="3" />
+      <rect x="16" y="10" width="3" height="3" opacity="0.6" />
+      <rect x="4" y="16" width="3" height="3" opacity="0.3" />
+      <rect x="10" y="16" width="3" height="3" opacity="0.6" />
+      <rect x="16" y="16" width="3" height="3" opacity="0.3" />
+    </svg>
+  );
+}
+
+export function IconFilter({ size = 14, ...p }: IconProps) {
+  return (
+    <svg {...base(size)} {...p}>
+      <path d="M4 5h16M6 10h12M9 15h6" />
+      <circle cx="12" cy="20" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function ZecleakMark({ size = 24, ...p }: IconProps) {
   return (
     <svg

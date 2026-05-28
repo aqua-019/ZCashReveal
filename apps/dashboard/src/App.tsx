@@ -8,9 +8,10 @@ import { AnchorDepthChart } from "./components/AnchorDepthChart";
 import { ValueBalanceMonitor } from "./components/ValueBalanceMonitor";
 import { NullifierFeed } from "./components/NullifierFeed";
 import { TrackingPanel } from "./components/TrackingPanel";
+import { PoolStatePanel } from "./components/PoolStatePanel";
 
 export function App() {
-  const { reports, tipHeight, connected } = useMempool();
+  const { reports, tipHeight, connected, snapshot } = useMempool();
   const [selectedTxid, setSelectedTxid] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,6 +50,16 @@ export function App() {
             <LeakPanel report={selectedReport} />
           </div>
           <div className="glass rounded-sm overflow-y-auto flex flex-col">
+            {snapshot && (
+              <>
+                <PoolStatePanel
+                  sapling={snapshot.sapling}
+                  orchard={snapshot.orchard}
+                  tipHeight={tipHeight ?? snapshot.sapling.lastAnchorHeightCreated}
+                />
+                <div className="hairline mx-4" />
+              </>
+            )}
             <TrackingPanel reports={reports} />
             <div className="hairline mx-4" />
             <AnchorDepthChart reports={reports} />
@@ -66,6 +77,16 @@ export function App() {
             <LeakPanel report={selectedReport} />
           </div>
           <div className="glass rounded-sm overflow-hidden">
+            {snapshot && (
+              <>
+                <PoolStatePanel
+                  sapling={snapshot.sapling}
+                  orchard={snapshot.orchard}
+                  tipHeight={tipHeight ?? snapshot.sapling.lastAnchorHeightCreated}
+                />
+                <div className="hairline mx-4" />
+              </>
+            )}
             <TrackingPanel reports={reports} />
             <div className="hairline mx-4" />
             <AnchorDepthChart reports={reports} />
