@@ -20,6 +20,30 @@ export interface BlockHeader {
   previousblockhash?: Hex;
 }
 
+/**
+ * A verbosity-2 `getblock` response: full transaction objects inline plus the
+ * block-level commitment-tree roots.
+ *
+ * `finalsaplingroot` is absent in blocks before Sapling activation, and
+ * `finalorchardroot` is absent before NU5 activation (see
+ * decoder/activation-heights.ts). Treat their absence as "pool not yet
+ * active at this height", not as "no commitments in this block".
+ */
+export interface RpcBlock {
+  hash: Hex;
+  height: number;
+  time: number;
+  /** Sapling NCT root as of this block. Absent pre-Sapling-activation. */
+  finalsaplingroot?: Hex;
+  /** Orchard NCT root as of this block. Absent pre-NU5-activation. */
+  finalorchardroot?: Hex;
+  /** Full transaction objects (verbosity 2). */
+  tx: RpcTransaction[];
+  previousblockhash?: Hex;
+  nextblockhash?: Hex;
+  confirmations?: number;
+}
+
 export class ZebradRpc {
   private readonly url: string;
   private readonly authHeader: string;
@@ -73,6 +97,21 @@ export class ZebradRpc {
 
   getRawTransaction(txid: Hex): Promise<RpcTransaction> {
     return this.call("getrawtransaction", [txid, 1]);
+  }
+
+  /**
+   * Fetch a full block (verbosity 2) by hash or height.
+   *
+   * The block selector is passed as a string either way: zebrad/zcashd accept
+   * a decimal height string or a block hash in the first `getblock` argument.
+   *
+   * Errors 7B callers should expect (surfaced as {@link RpcError} with `code`):
+   *   -8  RPC_INVALID_PARAMETER     — height out of range (above the tip)
+   *   -5  RPC_INVALID_ADDRESS_OR_KEY — block hash not found
+   */
+  getBlock(id: { hash: Hex } | { height: number }): Promise<RpcBlock> {
+    const selector = "hash" in id ? id.hash : String(id.height);
+    return this.call("getblock", [selector, 2]);
   }
 
   getBlockHeader(hash: Hex): Promise<BlockHeader> {
