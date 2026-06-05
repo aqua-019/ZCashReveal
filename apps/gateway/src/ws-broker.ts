@@ -1,15 +1,13 @@
 import type { WebSocket } from "ws";
 import type { Logger } from "pino";
-import {
-  REDIS_CHANNELS,
-  type MempoolChannelPayload,
-  type TipChannelPayload,
-  type WsServerMessage,
-} from "@zcashreveal/types";
+import { REDIS_CHANNELS, type LeakReport } from "@zcashreveal/types";
 
-export type OutboundFrame =
-  | WsServerMessage
-  | { channel: string; payload: unknown };
+/**
+ * Every frame the gateway emits is a `{ channel, payload }` envelope. The
+ * dashboard's WsClient dispatches on `channel` (the REDIS_CHANNELS values), so
+ * this shape is the contract — see apps/dashboard/src/lib/ws.ts.
+ */
+export type OutboundFrame = { channel: string; payload: unknown };
 
 export class WsBroker {
   private readonly clients = new Set<WebSocket>();
@@ -42,48 +40,29 @@ export class WsBroker {
   }
 
   /**
-   * Map a Redis pub/sub message into a typed WsServerMessage when we recognize
-   * the channel and payload shape; otherwise fall back to a generic envelope.
+   * Wrap a Redis pub/sub message in the `{ channel, payload }` envelope the
+   * dashboard expects. The raw indexer message becomes the payload verbatim —
+   * it already carries its own discriminator (`type` for mempool frames,
+   * `height`/`hash` for tip), so consumers read `payload.type` / `payload.height`
+   * exactly as before. No per-channel shaping: every channel maps identically,
+   * which is why this is one line rather than a switch. Malformed JSON yields
+   * `payload: null` (safeJsonParse swallows the parse error).
    */
   translate(channel: string, raw: string): OutboundFrame {
-    const parsed = safeJsonParse(raw);
-
-    if (channel === REDIS_CHANNELS.mempool && isMempoolPayload(parsed)) {
-      if (parsed.type === "tx_added") {
-        return { type: "tx_added", report: parsed.report };
-      }
-      return { type: "tx_removed", txid: parsed.txid, reason: parsed.reason };
-    }
-
-    if (channel === REDIS_CHANNELS.tip && isTipPayload(parsed)) {
-      return { type: "tip", height: parsed.height, hash: parsed.hash };
-    }
-
-    return { channel, payload: parsed };
+    return { channel, payload: safeJsonParse(raw) };
   }
 }
 
-function isMempoolPayload(v: unknown): v is MempoolChannelPayload {
-  if (!v || typeof v !== "object") return false;
-  const o = v as Record<string, unknown>;
-  if (o.type === "tx_added") return typeof o.report === "object" && o.report !== null;
-  if (o.type === "tx_removed") {
-    return (
-      typeof o.txid === "string" &&
-      (o.reason === "confirmed" || o.reason === "evicted" || o.reason === "replaced")
-    );
-  }
-  return false;
-}
-
-function isTipPayload(v: unknown): v is TipChannelPayload {
-  if (!v || typeof v !== "object") return false;
-  const o = v as Record<string, unknown>;
-  return (
-    o.type === "tip" &&
-    typeof o.height === "number" &&
-    typeof o.hash === "string"
-  );
+/**
+ * The initial snapshot frame sent to each client on connect. Uses the same
+ * `{ channel, payload }` envelope as translate() so the dashboard handles the
+ * snapshot through its `zcashreveal:mempool` listener alongside live diffs.
+ */
+export function snapshotFrame(reports: LeakReport[]): OutboundFrame {
+  return {
+    channel: REDIS_CHANNELS.mempool,
+    payload: { type: "mempool_snapshot", reports },
+  };
 }
 
 function safeJsonParse(s: string): unknown {
