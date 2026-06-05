@@ -24,7 +24,7 @@ import {
 } from "@zcashreveal/types";
 
 import { loadConfig } from "./config.js";
-import { WsBroker } from "./ws-broker.js";
+import { WsBroker, snapshotFrame } from "./ws-broker.js";
 
 const cfg = loadConfig();
 
@@ -104,9 +104,7 @@ async function main() {
         const reports = Object.values(live)
           .map((j) => safeJsonParse(j))
           .filter((r): r is LeakReport => r !== null);
-        socket.send(
-          JSON.stringify({ type: "mempool_snapshot", reports }),
-        );
+        socket.send(JSON.stringify(snapshotFrame(reports)));
       } catch (err) {
         log.warn({ err }, "failed to send snapshot");
       }
