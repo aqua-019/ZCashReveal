@@ -8,6 +8,12 @@ cache_dir = "/home/zebra/.cache/zebra"
 [rpc]
 listen_addr = "0.0.0.0:8232"
 parallel_cpu_threads = 4
+# Dev box: the host-run indexer reaches Zebra over the loopback-mapped RPC port.
+# Zebra has no username/password RPC auth — it's cookie-or-nothing — and the
+# generated cookie rotates on every zebrad restart, which is brittle for a
+# long-lived host process. Disable cookie auth here. Acceptable because the RPC
+# is only reached locally; Phase A tunnels the gateway (:8080), never :8232.
+enable_cookie_auth = false
 
 [tracing]
 filter = "info"
