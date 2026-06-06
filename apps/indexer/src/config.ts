@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const ConfigSchema = z.object({
   ZEBRAD_RPC_URL: z.string().url().default("http://127.0.0.1:8232"),
+  // Kept for portability (zcashd / auth-enabled Zebra); the current dev-mode Zebra runs enable_cookie_auth=false and ignores these.
   ZEBRAD_RPC_USER: z.string().default("zcashreveal"),
   ZEBRAD_RPC_PASSWORD: z.string().default("changeme"),
   ZEBRAD_ZMQ_URL: z.string().default("tcp://127.0.0.1:28332"),

@@ -4,7 +4,10 @@ services:
     container_name: zcashreveal-zebrad
     restart: unless-stopped
     ports:
-      - "8232:8232"
+      # 7Y: loopback-bind the RPC port — Zebra runs with enable_cookie_auth=false
+      # (see infra/zebrad/zebrad.toml), so the unauthenticated RPC is restricted
+      # to host-local callers (the indexer). ZMQ (28332) and p2p (8233) unchanged.
+      - "127.0.0.1:8232:8232"
       - "28332:28332"
       - "8233:8233"
     volumes:
