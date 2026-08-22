@@ -1,0 +1,1318 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+
+/* ============================================================================
+   ZEC Forensic - the component layer.
+   ----------------------------------------------------------------------------
+   Every rule below is a named component class harvested from
+   docs/2.0/mockups/zecreveal-2.0-mockups-v2.html. Components reference these
+   classes; they do not assemble ad-hoc Tailwind utility strings. That is the
+   "no Tailwind soup outside the token layer" rule in CLAUDE.md, and the reason
+   the hover grammar and the motion curve can be enforced in one place.
+
+   Three laws are load-bearing here and are commented where they apply:
+     one hover verb  - dim. Siblings recede; nothing lifts, nothing transforms.
+     one curve       - var(--ease), durations var(--t1|2|3).
+     one ceremony    - block arrival (.tide), and nothing else animates.
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--f-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: var(--gold);
+  color: var(--gold-ink);
+}
+
+a {
+  color: var(--blue-fn);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--blue-fn);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+}
+
+/* Keyboard users must be able to reach the content past the system bar. */
+.skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: var(--gold);
+  color: var(--gold-ink);
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 10px 16px;
+}
+
+.skip:focus {
+  left: 0;
+  text-decoration: none;
+}
+
+/* ---------- registers ----------------------------------------------------
+   Confirmed data is engraved (letterspaced, tabular); pending data is
+   provisional (italic, dimmed). The register carries the epistemic status, so
+   a reader can tell a settled number from an in-flight one without a legend. */
+
+.mono {
+  font-family: var(--f-mono);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.display {
+  font-family: var(--f-display);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.num {
+  font-family: var(--f-numeral);
+  font-variation-settings: "opsz" 144, "SOFT" 30;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.engraved {
+  font-family: var(--f-mono);
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums lining-nums;
+  color: var(--ink);
+}
+
+.provisional {
+  font-family: var(--f-mono);
+  color: var(--ink-dim);
+  font-style: italic;
+}
+
+.measure {
+  max-width: var(--measure);
+}
+
+.note {
+  font-size: 13px;
+  color: var(--ink-dim);
+  line-height: 1.6;
+}
+
+.note i {
+  font-family: var(--f-display);
+  font-style: italic;
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.src {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  color: var(--ink-mute);
+  letter-spacing: 0.04em;
+}
+
+.src a {
+  color: var(--ink-dim);
+}
+
+/* ---------- eyebrow ---------- */
+.eyebrow {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.eyebrow b {
+  color: var(--gold);
+  font-weight: 500;
+}
+
+/* ---------- grain overlay ----------
+   A fixed film over the whole page. Static: it is texture, not motion. */
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.38;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.93 0 0 0 0 0.90 0 0 0 0 0.85 0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+.shell {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- system bar ---------- */
+.sysbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 10px 28px;
+  background: rgba(18, 17, 16, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+
+.wordmark {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  color: var(--ink);
+}
+
+.wordmark:hover {
+  text-decoration: none;
+}
+
+.wordmark .z {
+  width: 22px;
+  height: 22px;
+  color: var(--gold);
+  align-self: center;
+}
+
+.wordmark .name {
+  font-family: var(--f-display);
+  font-style: italic;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.wordmark .name em {
+  color: var(--gold);
+  font-style: italic;
+}
+
+.wordmark .tag {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  color: var(--ink-mute);
+  text-transform: uppercase;
+}
+
+/* ---------- screen nav ----------
+   The hover verb, in one rule: hovering the group dims every sibling that is
+   neither hovered nor active. Colour only - no transform is declared anywhere
+   in this block, which is what assertion A6 verifies. */
+.screens {
+  display: flex;
+  gap: 2px;
+  margin-left: 10px;
+  flex-wrap: wrap;
+}
+
+.screens a {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  color: var(--ink-dim);
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition:
+    color var(--t1) var(--ease),
+    background-color var(--t1) var(--ease);
+}
+
+.screens a:hover {
+  text-decoration: none;
+}
+
+.screens a .i {
+  color: var(--ink-faint);
+  margin-right: 6px;
+}
+
+.screens a[aria-current="page"] {
+  color: var(--gold-ink);
+  background-color: var(--gold);
+}
+
+.screens a[aria-current="page"] .i {
+  color: var(--gold-ink);
+}
+
+.screens:hover a:not(:hover):not([aria-current="page"]) {
+  color: var(--ink-faint);
+}
+
+/* ---------- epoch clock ---------- */
+.clock {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  letter-spacing: 0.06em;
+}
+
+.clock .h {
+  color: var(--ink);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.clock .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-wash);
+}
+
+.clock .age {
+  color: var(--ink-mute);
+}
+
+/* ---------- the one ceremony: block arrival ----------
+   A slow luminance tide. Under prefers-reduced-motion the component is never
+   constructed, so `.on` is never applied and this transition never runs. */
+.tide {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(1200px 500px at 50% -10%, rgba(244, 183, 40, 0.09), transparent 70%);
+  opacity: 0;
+  transition: opacity 2.4s var(--ease);
+}
+
+.tide.on {
+  opacity: 1;
+}
+
+/* ---------- page frame ---------- */
+.screen {
+  padding: 0 28px 60px;
+}
+
+.block {
+  border-top: 1px solid var(--line);
+  padding: 26px 0 8px;
+  margin-top: 26px;
+}
+
+.block-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+
+.block-head .lead {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+
+.block-head .idx {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--gold);
+}
+
+.block-head h2 {
+  font-family: var(--f-display);
+  font-size: 28px;
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.block-head .right {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  color: var(--ink-mute);
+  font-style: italic;
+  text-align: right;
+}
+
+.glass {
+  background: linear-gradient(180deg, rgba(34, 31, 27, 0.72), rgba(26, 24, 22, 0.72));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  backdrop-filter: blur(10px);
+}
+
+.card {
+  padding: 18px 20px;
+}
+
+.hair {
+  height: 1px;
+  background: var(--line);
+}
+
+.grid {
+  display: grid;
+  gap: 14px;
+}
+
+.g2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.g3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.g4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.g5 {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+@media (max-width: 1100px) {
+  .g3,
+  .g4,
+  .g5 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .g2,
+  .g3,
+  .g4,
+  .g5 {
+    grid-template-columns: 1fr;
+  }
+
+  .screen {
+    padding: 0 16px 40px;
+  }
+
+  .sysbar {
+    padding: 10px 16px;
+    flex-wrap: wrap;
+  }
+
+  .clock {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+/* ---------- chip / conf / pill ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  color: var(--ink-dim);
+}
+
+.chip.gold {
+  color: var(--gold);
+  border-color: var(--gold-dim);
+}
+
+.chip.danger {
+  color: var(--danger);
+  border-color: rgba(228, 85, 63, 0.5);
+}
+
+.chip.ok {
+  color: var(--ok);
+  border-color: rgba(63, 167, 118, 0.5);
+}
+
+.chip.blue {
+  color: var(--blue-fn);
+  border-color: rgba(76, 141, 255, 0.5);
+}
+
+.conf {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.conf.high {
+  color: var(--ok);
+}
+
+.conf.med {
+  color: var(--warn);
+}
+
+.conf.low {
+  color: var(--ink-mute);
+}
+
+.pill {
+  display: inline-block;
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 1px solid var(--line-strong);
+  color: var(--ink-dim);
+}
+
+.pill.exact {
+  color: var(--ok);
+  border-color: rgba(63, 167, 118, 0.5);
+}
+
+.pill.bounded {
+  color: var(--gold);
+  border-color: var(--gold-dim);
+}
+
+.pill.label {
+  color: var(--p-transparent);
+  border-color: rgba(58, 139, 217, 0.5);
+}
+
+.pill.undefined-claim {
+  color: var(--danger);
+  border-color: rgba(228, 85, 63, 0.5);
+}
+
+/* ---------- swatch ---------- */
+.sw {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  vertical-align: -1px;
+  margin-right: 6px;
+}
+
+/* ---------- metric ---------- */
+.metric {
+  padding: 16px 18px;
+  border-left: 1px solid var(--line);
+}
+
+.metric .l {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.metric .v {
+  font-family: var(--f-numeral);
+  font-variation-settings: "opsz" 144, "SOFT" 30;
+  font-weight: 300;
+  font-size: 40px;
+  line-height: 1.05;
+  margin-top: 6px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.metric .v.gold {
+  color: var(--gold);
+}
+
+.metric .s {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  color: var(--ink-dim);
+  letter-spacing: 0.08em;
+  margin-top: 6px;
+}
+
+.metrics {
+  display: flex;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.metrics .metric {
+  flex: 1 1 180px;
+}
+
+/* ---------- key/value ---------- */
+.kv {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 14px;
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+}
+
+.kv .k {
+  color: var(--ink-mute);
+}
+
+.kv .v {
+  color: var(--ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.kv.stack {
+  grid-template-columns: 1fr;
+  gap: 2px 0;
+}
+
+.kv.stack .k {
+  margin-top: 8px;
+}
+
+.kv.stack .v {
+  text-align: left;
+  padding-left: 0;
+}
+
+/* ---------- quote ---------- */
+.quote {
+  font-family: var(--f-display);
+  font-size: 21px;
+  line-height: 1.35;
+  color: var(--ink);
+  text-wrap: pretty;
+  margin: 0;
+}
+
+.quote .who {
+  display: block;
+  margin-top: 10px;
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+/* ---------- tables ---------- */
+.tbl-wrap {
+  overflow-x: auto;
+}
+
+.tbl-wrap table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.tbl-wrap th {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  text-align: left;
+  font-weight: 500;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.tbl-wrap td {
+  padding: 10px;
+  border-bottom: 1px solid var(--line-faint);
+  vertical-align: top;
+  font-size: 13px;
+}
+
+.tbl-wrap td.mono,
+.tbl-wrap th.mono {
+  font-family: var(--f-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.tbl-wrap caption {
+  caption-side: top;
+  text-align: left;
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  padding-bottom: 8px;
+}
+
+/* ---------- ledger rows ---------- */
+.ledger {
+  border-top: 1px solid var(--line-strong);
+}
+
+.lrow {
+  display: grid;
+  grid-template-columns: 64px 1.6fr 1fr 92px;
+  gap: 14px;
+  padding: 14px 0 14px 14px;
+  border-bottom: 1px solid var(--line-faint);
+  align-items: start;
+  position: relative;
+  transition: opacity var(--t2) var(--ease);
+}
+
+.ledger:hover .lrow:not(:hover) {
+  opacity: 0.55;
+}
+
+.lrow::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--line-strong);
+}
+
+.lrow.crit::before {
+  background: var(--danger);
+}
+
+.lrow.high::before {
+  background: var(--danger);
+  opacity: 0.55;
+}
+
+.lrow .id {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: var(--gold);
+  letter-spacing: 0.1em;
+}
+
+.lrow .name {
+  font-family: var(--f-display);
+  font-size: 19px;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.lrow .name small {
+  display: block;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink-mute);
+  margin-top: 5px;
+}
+
+.lrow .cell {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  line-height: 1.5;
+}
+
+.lrow .cell b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+@media (max-width: 1000px) {
+  .lrow {
+    grid-template-columns: 52px 1fr;
+  }
+
+  .lrow .hide-m {
+    display: none;
+  }
+}
+
+/* ---------- reasoning ---------- */
+.reason {
+  border-left: 2px solid var(--gold);
+  padding-left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.reason .r {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  line-height: 1.5;
+}
+
+.reason .r .n {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  color: var(--gold);
+  padding-top: 3px;
+}
+
+.reason .r b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* ---------- inference chain ---------- */
+.chain {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-left: 1px solid var(--line-strong);
+  padding-left: 14px;
+  margin: 6px 0 0;
+}
+
+.chain .st {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-faint);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+}
+
+.chain .st .n {
+  font-family: var(--f-numeral);
+  font-variation-settings: "opsz" 144;
+  font-weight: 300;
+  font-size: 26px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.chain .st .w {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.chain .st .w b {
+  color: var(--ink);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+}
+
+.chain .st .cost {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--danger);
+}
+
+.assume {
+  font-family: var(--f-display);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--ink-dim);
+  margin-top: 8px;
+}
+
+/* ---------- sub-navigation ---------- */
+.subnav {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  margin-top: 18px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.subnav a,
+.subnav button {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 7px 11px;
+  color: var(--ink-dim);
+  border-radius: 2px;
+  text-decoration: none;
+  transition:
+    color var(--t1) var(--ease),
+    background-color var(--t1) var(--ease);
+}
+
+.subnav a:hover {
+  text-decoration: none;
+}
+
+.subnav [aria-current="page"],
+.subnav [aria-selected="true"] {
+  color: var(--ink);
+  background-color: var(--surface-2);
+  box-shadow: inset 0 -2px 0 var(--gold);
+}
+
+.subnav:hover a:not(:hover):not([aria-current="page"]),
+.subnav:hover button:not(:hover):not([aria-selected="true"]) {
+  color: var(--ink-faint);
+}
+
+.subnav .path {
+  margin-left: auto;
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  color: var(--ink-mute);
+  letter-spacing: 0.06em;
+}
+
+/* ---------- search ---------- */
+.search {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  border-radius: var(--radius);
+  margin-top: 22px;
+  overflow: hidden;
+}
+
+.search .ic {
+  display: flex;
+  align-items: center;
+  padding: 0 14px 0 16px;
+  color: var(--gold);
+}
+
+.search input {
+  flex: 1;
+  background: none;
+  border: 0;
+  color: var(--ink);
+  font-family: var(--f-mono);
+  font-size: 15px;
+  padding: 16px 0;
+  outline: none;
+  letter-spacing: 0.02em;
+  min-width: 0;
+}
+
+.search input::placeholder {
+  color: var(--ink-mute);
+}
+
+.search .go {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 0 20px;
+  background: var(--gold);
+  color: var(--gold-ink);
+  border-radius: 0;
+}
+
+.search .kind {
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border-left: 1px solid var(--line);
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+
+/* ---------- tooltip ---------- */
+.tip {
+  position: fixed;
+  z-index: 90;
+  pointer-events: none;
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  padding: 7px 10px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--ink);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  max-width: 300px;
+}
+
+/* ---------- hero ---------- */
+.hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin-top: 26px;
+  min-height: 620px;
+  background: var(--bg-deep);
+}
+
+.hero canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.hero .veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(18, 17, 16, 0.15), rgba(18, 17, 16, 0.78) 88%);
+}
+
+.hero .over {
+  position: relative;
+  z-index: 2;
+  padding: 46px 48px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-height: 620px;
+  justify-content: flex-end;
+}
+
+.hero h1 {
+  font-family: var(--f-display);
+  font-style: italic;
+  font-size: clamp(64px, 9vw, 132px);
+  line-height: 0.9;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+}
+
+.hero h1 em {
+  color: var(--gold);
+  font-style: italic;
+}
+
+.hero .sub {
+  max-width: 880px;
+  font-family: var(--f-sans);
+  font-size: 16.5px;
+  line-height: 1.6;
+  color: var(--ink-dim);
+}
+
+.hero .sub b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.hero .over > .eyebrow,
+.hero .over > h1,
+.hero .over > .sub {
+  max-width: calc(100% - 460px);
+}
+
+.leaks {
+  position: absolute;
+  z-index: 2;
+  right: 48px;
+  top: 44px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  align-items: flex-end;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.leak {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: rgba(18, 17, 16, 0.55);
+  border: 1px solid var(--line);
+  padding: 6px 10px;
+  border-radius: 2px;
+  width: max-content;
+  transition: opacity var(--t2) var(--ease);
+}
+
+.leak .k {
+  color: var(--gold);
+  font-weight: 500;
+}
+
+.leak .off {
+  color: var(--ink-faint);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.leaks:hover .leak:not(:hover) {
+  opacity: 0.45;
+}
+
+@media (max-width: 1100px) {
+  .hero .over > .eyebrow,
+  .hero .over > h1,
+  .hero .over > .sub {
+    max-width: none;
+  }
+
+  .leaks {
+    position: static;
+    padding: 28px 48px 0;
+    align-items: flex-start;
+  }
+}
+
+/* ---------- record head ---------- */
+.record-head {
+  padding: 40px 0 10px;
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 40px;
+  align-items: end;
+}
+
+.record-head h1 {
+  font-family: var(--f-display);
+  font-size: clamp(44px, 5.6vw, 76px);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+}
+
+.record-head h1 em {
+  font-style: italic;
+  color: var(--gold);
+}
+
+.record-head .dek {
+  font-size: 16.5px;
+  line-height: 1.6;
+  color: var(--ink-dim);
+  max-width: var(--measure);
+  margin-top: 18px;
+}
+
+.record-head .dek b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+@media (max-width: 900px) {
+  .record-head {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- placeholder panel ----------
+   Every route in this handoff is a shell around a stated gap. The panel names
+   the handoff that fills it, so an unfinished page reads as a scheduled one
+   rather than as a bug. */
+.pending {
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  padding: 22px 24px;
+  background: rgba(26, 24, 22, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pending .h {
+  font-family: var(--f-display);
+  font-size: 20px;
+  color: var(--ink);
+}
+
+.pending p {
+  font-size: 13.5px;
+  color: var(--ink-dim);
+  line-height: 1.6;
+  max-width: var(--measure);
+}
+
+/* ---------- footer ledger ---------- */
+.ledgerfoot {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 28px 28px;
+  border-top: 1px solid var(--line);
+  margin-top: 36px;
+  background: rgba(26, 24, 22, 0.4);
+}
+
+.ledgerfoot .code {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  margin: 0;
+}
+
+.ledgerfoot .line {
+  display: flex;
+  gap: 14px;
+}
+
+.ledgerfoot .n {
+  color: var(--ink-faint);
+  width: 24px;
+  letter-spacing: 0.14em;
+  flex: none;
+}
+
+.ledgerfoot .meta {
+  display: flex;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  color: var(--ink-mute);
+  letter-spacing: 0.2em;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* ---------- legend ---------- */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ---------- gallery (dev only) ---------- */
+.gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.spec {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.spec > .eyebrow b {
+  color: var(--gold);
+}
+
+.spec .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+@media (max-width: 1600px) {
+  .clock .age:first-of-type {
+    display: none;
+  }
+
+  .wordmark .tag {
+    display: none;
+  }
+}
+
+/* ---------- reduced motion ----------
+   The belt to the architecture's braces. Components already refuse to build
+   their loops (see components/ambience/*); this stops any transition declared
+   above from running should one ever be added by hand. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .tide {
+    display: none;
+  }
+}

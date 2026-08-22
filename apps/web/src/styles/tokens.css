@@ -1,0 +1,136 @@
+/* ============================================================================
+   ZECReveal 2.0 design tokens - "ZEC Forensic"
+   ----------------------------------------------------------------------------
+   Harvested verbatim from docs/2.0/mockups/zecreveal-2.0-mockups-v2.html :root.
+   That file is the source of truth for values; HANDOFF-01 section 3 restates
+   the ten colour tokens and the curve, and apps/web/scripts/check-tokens.mjs
+   asserts every one of them against this file.
+
+   Note on pool hues: docs/2.0/ZECREVEAL-2.0-PLAN.md section 6 lists an earlier,
+   lighter set (#8FB3C9 / #6FB58C / #E0B15A / #D77BAA / #9B8CFF). The mockup
+   marks the set below "validated, fixed order" and HANDOFF-01 section 3 names
+   these exact values, so these are the shipped ones.
+
+   Dark-committed: there is one theme. `color-scheme: dark` tells the UA so
+   form controls and scrollbars match, and there is no light-mode fork to
+   drift out of sync.
+   ========================================================================== */
+
+:root {
+  /* -- ground -------------------------------------------------------------- */
+  --bg: #121110;
+  --bg-deep: #0c0b0a;
+  --surface: #1a1816;
+  --surface-2: #221f1b;
+  --surface-3: #2a2621;
+
+  /* -- rules --------------------------------------------------------------- */
+  --line: rgba(237, 230, 216, 0.1);
+  --line-strong: rgba(237, 230, 216, 0.18);
+  --line-faint: rgba(237, 230, 216, 0.06);
+
+  /* -- ink ----------------------------------------------------------------- */
+  --ink: #ede6d8;
+  --ink-dim: #b3a996;
+  --ink-mute: #7c7366;
+  --ink-faint: #4f4840;
+
+  /* -- accent: a budget, not a decoration ----------------------------------
+     ZEC gold is spent on exactly three things: the primary action, the active
+     state, and value crossing a pool boundary. Anything else uses ink. */
+  --gold: #f4b728;
+  --gold-ink: #1a1405;
+  --gold-dim: rgba(244, 183, 40, 0.55);
+  --gold-wash: rgba(244, 183, 40, 0.08);
+
+  /* -- functional (outside the palette, PALRULE-03) ------------------------- */
+  --blue-fn: #4c8dff;
+
+  /* -- semantic ------------------------------------------------------------ */
+  --danger: #e4553f;
+  --danger-wash: rgba(228, 85, 63, 0.1);
+  --warn: #d9a441;
+  --ok: #3fa776;
+
+  /* -- pools (validated, fixed order) -------------------------------------- */
+  --p-transparent: #3a8bd9;
+  --p-sprout: #1f9e62;
+  --p-sapling: #d9641e;
+  --p-orchard: #c94f8f;
+  --p-ironwood: #8b7fe6;
+
+  /* -- ambience ------------------------------------------------------------ */
+  --fog: rgba(237, 230, 216, 0.045);
+
+  /* -- type ----------------------------------------------------------------
+     The four --f-* families resolve to the next/font CSS variables declared in
+     src/app/layout.tsx, each with a real fallback stack so the page is legible
+     before (or without) the webfont. */
+  --f-display: var(--font-instrument-serif), Georgia, "Times New Roman", serif;
+  --f-numeral: var(--font-fraunces), var(--font-instrument-serif), Georgia, serif;
+  --f-mono: var(--font-jetbrains-mono), "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --f-sans: var(--font-manrope), "Helvetica Neue", Arial, sans-serif;
+
+  /* -- motion: one curve, three durations ---------------------------------- */
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --t1: 180ms;
+  --t2: 320ms;
+  --t3: 500ms;
+
+  /* -- measure ------------------------------------------------------------- */
+  --measure: 64ch;
+  --radius: 3px;
+
+  color-scheme: dark;
+}
+
+/* ============================================================================
+   Tailwind v4 theme bridge
+   ----------------------------------------------------------------------------
+   @theme exposes the tokens above to Tailwind's utility generator, so a
+   component writes `text-ink-dim` or `border-line` instead of an arbitrary
+   value. Utilities outside this layer are the "Tailwind soup" CLAUDE.md bans:
+   if a colour is not here, it is not in the design system.
+   ========================================================================== */
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-deep: var(--bg-deep);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-line-faint: var(--line-faint);
+
+  --color-ink: var(--ink);
+  --color-ink-dim: var(--ink-dim);
+  --color-ink-mute: var(--ink-mute);
+  --color-ink-faint: var(--ink-faint);
+
+  --color-gold: var(--gold);
+  --color-gold-ink: var(--gold-ink);
+  --color-gold-dim: var(--gold-dim);
+  --color-gold-wash: var(--gold-wash);
+
+  --color-blue-fn: var(--blue-fn);
+  --color-danger: var(--danger);
+  --color-danger-wash: var(--danger-wash);
+  --color-warn: var(--warn);
+  --color-ok: var(--ok);
+
+  --color-p-transparent: var(--p-transparent);
+  --color-p-sprout: var(--p-sprout);
+  --color-p-sapling: var(--p-sapling);
+  --color-p-orchard: var(--p-orchard);
+  --color-p-ironwood: var(--p-ironwood);
+
+  --font-display: var(--f-display);
+  --font-numeral: var(--f-numeral);
+  --font-mono: var(--f-mono);
+  --font-sans: var(--f-sans);
+
+  --ease-zec: var(--ease);
+  --radius-zec: var(--radius);
+}

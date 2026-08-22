@@ -58,6 +58,17 @@ export default tseslint.config(
     },
   },
   {
+    // apps/web runs in the browser as well as in the Node render pass, so it
+    // needs both global sets. `no-undef` is already off for TypeScript under
+    // typescript-eslint (the compiler owns that check), but a plain .js or
+    // .mjs config file in this tree would otherwise be judged against Node
+    // globals alone.
+    files: ["apps/web/**/*.{ts,tsx,js,mjs,cjs}"],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser },
+    },
+  },
+  {
     // Tests may shadow and re-declare freely. Unused fixture builders are reported as
     // warnings, not errors: HANDOFF-00 forbids edits under apps/*/src, so a real finding
     // there (block-decoder.test.ts: unused `saplingSpend`) must stay visible without

@@ -1,0 +1,29 @@
+{
+  // Extends the monorepo base for strictness, then overrides the module system:
+  // the base targets Node (NodeNext) for the indexer/gateway, while Next.js
+  // needs bundler resolution, JSX preservation and DOM libs. Strict,
+  // noUncheckedIndexedAccess and exactOptionalPropertyTypes all survive.
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "preserve",
+    "allowJs": true,
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "incremental": true,
+    "plugins": [{ "name": "next" }],
+    "paths": { "@/*": ["./src/*"] }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": ["node_modules", ".next"]
+}
