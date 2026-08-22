@@ -105,3 +105,11 @@ git push origin --delete claude/build-leak-panel-I0181
 `z-cash-reveal-dashboard` (singular, no `2`), which still listens to this repository and
 fails a build on every push. The live project is `z-cash-reveal-dashboard2` and it must
 survive until the 2.0 cutover in `handoffs/HANDOFF-11-live-wiring.md`.
+
+This is now more than cosmetic. The orphan's Vercel Root Directory is `apps/dashboard`,
+which no longer exists after HANDOFF-00, so its build can never succeed again and it will
+put a permanent red check on every pull request. Confirmed on both branches: the combined
+commit status reports `Vercel - z-cash-reveal-dashboard: failure` on `origin/main` as well
+as on the handoff branch, while `z-cash-reveal-dashboard2` reports success from the new
+`legacy/dashboard/dist` output. Deleting the orphan project in the Vercel dashboard clears
+it; no repository change is involved.

@@ -261,9 +261,9 @@ NOTICED (outside scope, not acted on):
     they must not be "cleaned".
 
 UNVERIFIED (labelled):
-  - That Vercel's build succeeds from the new outputDirectory. The build and its output
-    path were verified locally (A6), but the Vercel-side run is UNVERIFIED and is an
-    operator click.
+  - Nothing remains unverified about the Vercel build. It was UNVERIFIED at the time of
+    writing and has since been settled by the PR's own deployment (Executed, see
+    VERCEL below): the live project built and deployed from the new outputDirectory.
   - That `pnpm --filter @zcashreveal/dashboard build` runs in CI. It does not: CI never
     builds the legacy app on its own, only `pnpm build` via turbo, which does include it.
     A6 was verified locally, not on the runner.
@@ -277,8 +277,25 @@ GATE ROUNDS: 0 · no assertion required a re-dispatch. A3 (lint error inside a f
   protects) and A5 (unsatisfiable literal) were identified and resolved during first
   execution, before any gate evaluation, so no fingerprinted round was opened.
 
-PREVIEW URL (if any): none. This handoff ships no deployable surface; apps/web arrives in
-  HANDOFF-01.
+VERCEL (Executed, from the PR's commit statuses):
+  z-cash-reveal-dashboard2  SUCCESS  "Deployment has completed"
+    Preview: https://z-cash-reveal-dashboard2-git-claude-aqu-6c018a-aquatic-17b9f112.vercel.app
+    This is the assertion A6 result confirmed end to end by Vercel itself: the live v0.2
+    project builds from legacy/dashboard and serves. The outputDirectory change is good.
+  z-cash-reveal-dashboard   FAILURE  "Deployment has failed"
+    NOT caused by this PR. This is the orphaned project DEPLOY.md line 35 already records
+    for deletion - it has a Root Directory of apps/dashboard and has been failing on every
+    push for months. Verified identical on the base branch: the combined status for
+    origin/main at 30b2a35 also reports
+      Vercel - z-cash-reveal-dashboard   failure
+      Vercel - z-cash-reveal-dashboard2  success
+    so the PR's red check is the pre-existing condition, not a regression. The move to
+    legacy/ does make it permanent rather than intermittent, which is an argument for
+    doing the deletion now; it is listed under "Related operator cleanup" in
+    docs/2.0/BRANCH-CLEANUP.md. GitHub Actions CI itself is green.
+
+PREVIEW URL (if any): the v0.2 dashboard preview above. This handoff ships no new
+  deployable surface; apps/web arrives in HANDOFF-01.
 ```
 
 ## §8 LEDGER — appended to `handoffs/LEDGER.md` by docs-scribe; read by L2 before the next handoff
