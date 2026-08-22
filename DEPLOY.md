@@ -1,10 +1,18 @@
 # Deploying ZCashReveal
 
-The dashboard ships from `apps/dashboard` and lives at https://z-cash-reveal-dashboard2.vercel.app/. This doc captures the exact Vercel configuration that produces a clean build — every setting here was found by debugging, not by reading docs.
+> **Superseded.** This document describes the **v0.2** Vercel deployment of the parked
+> Vite dashboard (`legacy/dashboard`, project `z-cash-reveal-dashboard2`). It is kept
+> because that project must keep building until the 2.0 cutover. The 2.0 deployment
+> (`apps/web` on the new `zecreveal` Vercel project, plus the VPS indexer/gateway) is
+> specified in [docs/2.0/ZECREVEAL-2.0-PLAN.md](docs/2.0/ZECREVEAL-2.0-PLAN.md) §4 and
+> delivered by [handoffs/HANDOFF-10-infra.md](handoffs/HANDOFF-10-infra.md), which
+> replaces this file with `DEPLOY-2.0.md`. Do not treat anything below as current for 2.0.
+
+The dashboard ships from `legacy/dashboard` (moved from `apps/dashboard` in HANDOFF-00) and lives at https://z-cash-reveal-dashboard2.vercel.app/. This doc captures the exact Vercel configuration that produces a clean build — every setting here was found by debugging, not by reading docs.
 
 ## Project settings (Vercel UI)
 
-- **Root Directory:** `./` (project root, not `apps/dashboard`)
+- **Root Directory:** `./` (project root, not `legacy/dashboard`)
 - **Framework Preset:** Other
 - **Build Command:** unset (UI override OFF — `vercel.json` drives it)
 - **Install Command:** unset (UI override OFF)
@@ -29,7 +37,7 @@ If a deploy regresses, diff against `fa4bd58` first.
 
 ## Pitfalls (do not repeat)
 
-- Do not set Root Directory to `apps/dashboard`. The build runs from `./` and the workspace tooling depends on it. Setting it to the subdirectory produces "dist not found" errors.
+- Do not set Root Directory to `legacy/dashboard`. The build runs from `./` and the workspace tooling depends on it. Setting it to the subdirectory produces "dist not found" errors.
 - Do not enable the Output Directory override in the UI. Same failure mode.
 - Do not rely on `vercel.json`'s `env` block for Vite vars. Set them in the UI.
 - Delete the orphaned `z-cash-reveal-dashboard` Vercel project (singular, no `2`). It still listens to the GitHub repo and triggers a failing build on every push. The live project is `z-cash-reveal-dashboard2`.

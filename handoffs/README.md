@@ -14,7 +14,7 @@ Aqua Stack v4.1 session. Read CLAUDE.md, then handoffs/LEDGER.md, then pick the 
 
 | # | Handoff | Branch | Track | Depends on | Status |
 |---|---|---|---|---|---|
-| 00 | [Housekeeping, docs import, CI runs tests, CLAUDE.md](HANDOFF-00-housekeeping.md) | `feat/v2-00-housekeeping` | Foundation — first | — | `open` |
+| 00 | [Housekeeping, docs import, CI runs tests, CLAUDE.md](HANDOFF-00-housekeeping.md) | `claude/aqua-stack-v4-1-handoff-818gb3` | Foundation — first | — | `shipped` |
 | 01 | [`apps/web` scaffold + the ZEC Forensic design system](HANDOFF-01-web-scaffold.md) | `feat/v2-01-web-scaffold` | Web | 00 | `queued` |
 | 02 | [`packages/content` — zod schemas + research seeds](HANDOFF-02-content-package.md) | `feat/v2-02-content` | Web | 00 | `queued` |
 | 03 | [The Record — Splash, Beware, Contradictions, Timeline, Network, Method, Flows, Sources](HANDOFF-03-record-pages.md) | `feat/v2-03-record-pages` | Web | 01, 02 | `queued` |
@@ -29,7 +29,7 @@ Aqua Stack v4.1 session. Read CLAUDE.md, then handoffs/LEDGER.md, then pick the 
 | 12 | [7B / 7C runtime wiring — PoolState replay, confirmed-block driver, assessments on the live path](HANDOFF-12-runtime-poolstate.md) | `feat/v2-12-runtime-poolstate` | Integration | 06, 07, 08 | `queued` |
 | 13 | [Mode A — viewing-key decryption in the browser (2.1; PLAN ONLY, stop for approval)](HANDOFF-13-mode-a-wasm.md) | `feat/v2-13-mode-a (plan only)` | 2.1 — plan only | 04, 11 | `queued` |
 
-Web (01→04), Data (05→09) and Infra (10) are independent once 00 is closed. 11 and 12 integrate. 13 is plan-only.
+Web (01→04), Data (05→09) and Infra (10) are independent once 00 is closed. 00 is `shipped` (PR opened, not merged); it becomes `closed` when Aqua merges, and only then should 01, 02, 05, 06 and 10 be released. 11 and 12 integrate. 13 is plan-only.
 
 ## Human clicks (L4 — nothing here is done by an agent)
 | When | What the operator does |

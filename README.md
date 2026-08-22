@@ -1,69 +1,123 @@
 # ZCashReveal
 
-> **Shielded ≠ Silent.** A live forensic mempool that visualizes the public
-> metadata Zcash zk-SNARKs do *not* hide — and traces value across the
-> shielded fog using the Kappos round-trip heuristic.
+> **Shielded is not Silent.** The zk-SNARK hides note values and endpoints. The chain still
+> publishes nullifiers, anchors, commitments and every boundary amount — and, since NU6.3,
+> every Orchard to Ironwood migration amount. ZECReveal is the public instrument that makes
+> that boundary legible, and the public record that keeps the receipts.
+
+**Report uncertainty, not identity.** Public chain data does not deanonymise Zcash shielded
+transactions; it bounds the set of possibilities. Every number here is either exact and
+public, or a bound with its assumptions printed beside it. Nothing in this project claims to
+know who sent what to whom.
+
+**Status: 2.0 in progress.** v0.2 (indexer, gateway, shared types, 178 tests) is on `main`
+and is the foundation. The 2.0 build — the public site, the four-pool model and the ZEC
+Tracking suite — is being delivered handoff by handoff; see [`handoffs/`](handoffs/).
 
 ## The thesis
 
-Zcash markets its shielded pools (Sapling, Orchard) as private by
-zero-knowledge proof. The proof hides note values, sender addresses, and
-recipient addresses for shielded inputs and outputs. It does **not** hide
-everything. The protocol publishes four classes of public per-transaction
-data:
+Zcash markets its shielded pools as private by zero-knowledge proof. The proof hides note
+values, sender addresses and recipient addresses for shielded inputs and outputs. It does
+not hide everything. Four classes of per-transaction data are public by construction:
 
 | Field | Public information |
 |---|---|
 | **nullifiers** | One per spent note. Globally unique. Reveals spent-set growth and timing. |
-| **valueBalance** | Signed net amount crossing each pool's t↔z boundary. Reveals every deposit and withdrawal amount in full. |
+| **valueBalance** | Signed net amount crossing each pool's t/z boundary. Reveals every deposit and withdrawal amount in full. |
 | **anchors** | Merkle root of the note commitment tree at spend time. Reveals a window during which the spent note could have entered. |
 | **commitments** | One per output note. Reveals tree growth, output counts, dust patterns. |
 
-And the protocol cannot hide the **transparent side** of any t→z deposit
-or z→t withdrawal. Every shielding publishes the sender's transparent
-address. Every unshielding publishes the recipient's transparent address.
-The shielded middle is a *temporary* fog.
+Nor can the protocol hide the transparent side of any t-to-z deposit or z-to-t withdrawal:
+every shielding publishes the sender's transparent address, every unshielding publishes the
+recipient's. The shielded middle is a temporary fog, and Kappos et al. (USENIX Security
+2018) showed that round-trip pairs — a deposit amount matching a later withdrawal within
+fee tolerance — narrow it sharply. Two further facts drive 2.0: twice in ten years
+(Sprout 2016-18, Orchard 2022-26) a pool ran on an unsound circuit and neither window can
+ever be cryptographically cleared, and ZIP 318 makes every Orchard to Ironwood migration
+amount public.
 
-The Kappos et al. (USENIX Security 2018) "Empirical Analysis of Anonymity
-in Zcash" showed that round-trip pairs — where a deposit amount matches
-a later withdrawal amount within fee tolerance — collapse this fog with
-high probability. ZCashReveal builds this analysis pipeline open-source.
+## What 2.0 is
 
-## What it does today (v0.1)
+Two halves, one identity — see [`docs/2.0/ZECREVEAL-2.0-PLAN.md`](docs/2.0/ZECREVEAL-2.0-PLAN.md).
 
-Real-time mempool ingestion, per-tx decoding of every Sapling + Orchard
-shielded action, and visualization of the four leak classes plus
-round-trip linking. Live stream, per-tx forensic panel, sender/recipient
-identity with transparent addresses + nullifier/commitment cryptographic
-pseudonyms, round-trip Tracking panel, anchor depth histogram,
-value-flow chart, live nullifier feed, wallet fingerprint heuristics.
+- **The Record** — static, citable, zero-motion: the exploit ledger, the contradictions
+  between marketing claims and on-chain reality, the timeline, the promotion network, and a
+  sources page where every claim carries a source URL, a confidence level and a
+  last-verified date.
+- **The ZEC Tracking suite** — live and deterministic: turnstile ledger across
+  Sprout / Sapling / Orchard / Ironwood / transparent, the unprovable residual, Ironwood
+  birth (a new pool's commitment tree grows from zero, so early anchors bound tiny candidate
+  sets), the ZIP 318 migration lens, and the live mempool with candidate sets and inference
+  chains. The public page renders from a per-block snapshot, so it is never blank when the
+  feed is down; it shows the age of what it is showing.
 
-## Architecture
+The maths that bounds all of it is in [`docs/RESEARCH-v0.2.md`](docs/RESEARCH-v0.2.md)
+(the formal spine) and [`docs/2.0/TRACKING-MATH.md`](docs/2.0/TRACKING-MATH.md)
+(exact / bounded / never claimed).
+
+## Repository layout
 
 ```
-zebrad → indexer (leak-analyzer + link-engine) → postgres + redis
-                                              → gateway (Fastify + WS)
-                                              → dashboard (React 19 + Vite)
+apps/
+  indexer/          Zebra RPC + ZMQ, four-pool state machine, persistence, analysis
+  gateway/          Fastify REST + WebSocket broker over Redis pub/sub
+packages/
+  zec-types/        shared types: branded Hex, Zatoshi, pool union, leak taxonomy
+legacy/
+  dashboard/        the parked v0.2 Vite SPA - frozen, harvested, then deleted
+docs/
+  RESEARCH-v0.2.md  the formal model (state machine, candidate sets, claim levels)
+  2.0/              the 2.0 plan, research dossier, tracking math, mockups, v0.2 notes
+handoffs/           the unit of work: README index, HANDOFF-00..13, LEDGER.md, LOG.md
+infra/              zebrad configuration
+scripts/            CI guards (integration-coverage assert, emoji scan)
 ```
 
-Mock mode (`VITE_MOCK_MODE=true`) ships synthetic mempool data so the
-dashboard renders fully on Vercel without a backend connected.
+`apps/web` (Next.js App Router), `apps/publisher` (snapshot) and `packages/content`
+(zod-validated research data) arrive with handoffs 01, 09 and 02.
 
-## Roadmap
+## Working on it
 
-**v0.2 — Mathematics.** Note Commitment Tree model, nullifier hypothesis
-engine, anchor-bounded candidate sets, Shannon entropy + effective
-anonymity set per spend, turnstile boundary-flow analysis, subset-sum /
-LP-relaxation, probabilistic flow graph, S2O migration bridging. See
-RESEARCH.md.
+Node 22 (see `.nvmrc`), pnpm 9.12.0.
 
-**v0.3 — GigaUI / GigaUX.** 3D commitment-tree flythrough, animated
-round-trip pulse, full graph explorer, mobile-native gestures.
+```bash
+pnpm install --frozen-lockfile
+pnpm build          # turbo, topological
+pnpm typecheck      # all packages
+pnpm lint           # eslint flat config; Math.random is banned repo-wide
+pnpm -r test        # 178 tests: indexer 171, gateway 7
+./scripts/check-no-emoji.sh
+```
+
+37 of the indexer's tests are Postgres-backed integration tests. They gate themselves on a
+live reachability probe, so without a database they skip silently and the suite still
+reports green. To run them:
+
+```bash
+docker compose up -d postgres          # operator action; not run by agents
+export DATABASE_URL=postgres://zcashreveal:zcashreveal@localhost:5432/zcashreveal
+pnpm --filter @zcashreveal/indexer migrate
+pnpm --filter @zcashreveal/indexer test    # 170 passed, 1 skipped
+```
+
+The last skip needs a captured mainnet block fixture in
+`apps/indexer/test/fixtures/blocks/`; it self-activates once one is committed. CI runs the
+full set against a `postgres:16` service and fails the build if those 37 ever skip again
+(`scripts/assert-no-skipped-integration.mjs`).
+
+## How work is organised
+
+[`CLAUDE.md`](CLAUDE.md) is the contract: conventions, the design system, and the Aqua Stack
+v4.1 operating model. Work arrives as a numbered handoff in [`handoffs/`](handoffs/) with
+binary, machine-checkable assertions; a session executes the one marked `status: open`, and
+**every pull request stops at opened**. Merging, deploying and production promotion are
+human actions. [`handoffs/LEDGER.md`](handoffs/LEDGER.md) is the append-only record of what
+each revolution learned.
 
 ## License
 
-[AGPL-3.0](./LICENSE). Patterns inspired by mempool.space (AGPL-3.0).
-No code copied verbatim. Decoder and link engine are original work
-derived from the Zcash protocol spec.
+[AGPL-3.0](./LICENSE). Patterns inspired by mempool.space (AGPL-3.0); no code copied
+verbatim. The decoder and link engine are original work derived from the Zcash protocol
+specification.
 
 Pre-alpha. Built for cypherpunks, not for compliance.
