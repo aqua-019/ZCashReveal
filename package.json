@@ -2,22 +2,28 @@
   "name": "zcashreveal",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Shielded-pool forensic mempool for Zcash",
   "packageManager": "pnpm@9.12.0",
   "scripts": {
     "dev": "turbo run dev --parallel",
     "build": "turbo run build",
-    "lint": "turbo run lint",
+    "lint": "eslint .",
     "typecheck": "turbo run typecheck",
-    "clean": "turbo run clean && rm -rf node_modules"
+    "clean": "turbo run clean && rm -rf node_modules",
+    "test": "turbo run test"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.9.0",
+    "eslint": "^10.9.0",
+    "globals": "^17.11.0",
     "turbo": "^2.3.0",
     "typescript": "^5.6.3",
-    "@types/node": "^22.9.0"
+    "typescript-eslint": "^8.67.0"
   },
   "engines": {
-    "node": ">=20.0.0",
-    "pnpm": ">=9.0.0"
+    "node": ">=22.0.0",
+    "pnpm": ">=9.12.0"
   }
 }

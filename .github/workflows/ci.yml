@@ -1,21 +1,100 @@
 name: CI
+
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Matches the postgres service below and the default in
+  # apps/indexer/src/persistence/__tests__/integration/_setup.ts. The 5433 remap in
+  # docs/2.0/v0.2-notes/postgres-port-5433.patch is a dev-host workaround, not a
+  # project convention, so CI stays on 5432.
+  DATABASE_URL: postgres://zcashreveal:zcashreveal@localhost:5432/zcashreveal
 
 jobs:
-  typecheck:
+  verify:
+    name: typecheck, lint, test
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: zcashreveal
+          POSTGRES_PASSWORD: zcashreveal
+          POSTGRES_DB: zcashreveal
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U zcashreveal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v4
-        with: { version: 9.12.0 }
+        with:
+          version: 9.12.0
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @zcashreveal/types build
-      - run: pnpm --filter @zcashreveal/dashboard build
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace packages
+        run: pnpm build
+
+      - name: Typecheck (all packages)
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: No emoji anywhere
+        run: ./scripts/check-no-emoji.sh
+
+      # Must precede the tests. The integration suites probe for a reachable database,
+      # not for migrated tables: an unmigrated-but-reachable Postgres unskips all 37
+      # and then fails on missing relations.
+      - name: Migrate database
+        run: pnpm --filter @zcashreveal/indexer migrate
+
+      - name: Test - apps/indexer (vitest run, Postgres-backed)
+        run: >-
+          pnpm --filter @zcashreveal/indexer exec
+          vitest run --reporter=default --reporter=json --outputFile=../../indexer-results.json
+
+      # vitest exits 0 when the integration suites skip themselves, so a broken
+      # DATABASE_URL would otherwise produce a green run with 37 fewer tests. See A5.
+      - name: Assert Postgres integration tests actually ran
+        run: node scripts/assert-no-skipped-integration.mjs indexer-results.json
+
+      - name: Test - apps/gateway (vitest run)
+        run: pnpm --filter @zcashreveal/gateway exec vitest run
+
+      # packages/content arrives in HANDOFF-02; until then this step reports and passes.
+      - name: Validate content package
+        run: |
+          if [ -d packages/content ]; then
+            pnpm --filter @zcashreveal/content validate
+          else
+            echo "packages/content does not exist yet (arrives in HANDOFF-02); skipping validation."
+          fi
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: indexer-vitest-report
+          path: indexer-results.json
+          if-no-files-found: ignore
