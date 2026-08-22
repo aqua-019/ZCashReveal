@@ -74,7 +74,7 @@ Make the repository ready for a multi-session 2.0 build **without changing any r
 ```
 STATUS: DONE-WITH-ASSUMPTIONS
 
-BRANCH / PR: claude/aqua-stack-v4-1-handoff-818gb3 -> PR_PLACEHOLDER (draft, stops at opened)
+BRANCH / PR: claude/aqua-stack-v4-1-handoff-818gb3 -> #31 (https://github.com/aqua-019/ZCashReveal/pull/31) (draft, stops at opened)
   The front-matter named feat/v2-00-housekeeping. This session was opened with a
   harness-designated branch and instructed not to push elsewhere without explicit
   permission, so the work is on the designated branch. LEDGER question 1.
@@ -141,20 +141,45 @@ A3 FAIL (Executed): scratch file containing `return Math.random();` ->
    the chain tip instead (FNV-1a -> mulberry32); see CLAUDE.md, Design system
    no-restricted-properties", rc=1. Removed; rc=0 restored. Rule confirmed active.
 
-A4 PARTIAL (Read + Executed-locally; CI run URL below):
+A4 PASS (Executed on CI):
    .github/workflows/ci.yml contains `services: postgres` (image postgres:16, pg_isready
    health check) and two steps invoking `vitest run` - one for apps/indexer, one for
-   apps/gateway. Verified by parsing the YAML: job `verify`, services ['postgres'],
-   14 steps. The whole step sequence was rehearsed locally against a real PostgreSQL 16
-   before commit - install/build/typecheck/lint/emoji/migrate/indexer-vitest/assert/
-   gateway-vitest/content-validate, every step rc=0. The run on the PR is the one thing
-   that cannot be evidenced before the PR exists: CI_RUN_PLACEHOLDER.
+   apps/gateway. Verified by parsing the YAML: job `verify`, services ['postgres'].
+   The workflow passed on this PR at head 0eb45d4:
+     run 32603472860 - conclusion SUCCESS
+     https://github.com/aqua-019/ZCashReveal/actions/runs/32603472860
+   All 16 steps green: Install, Build, Typecheck (all packages), Lint, No emoji anywhere,
+   Migrate database, Test - apps/indexer, Assert Postgres integration tests actually ran,
+   Test - apps/gateway, Validate content package, Upload test report.
+   Runner log excerpts:
+     [migrate] apply 001_initial.sql / 002_candidate_analysis.sql / done
+     Test Files 19 passed (19); Tests 170 passed | 1 skipped (171)     [indexer]
+     Test Files  1 passed  (1); Tests   7 passed (7)                   [gateway]
+     packages/content does not exist yet (arrives in HANDOFF-02); skipping validation.
+   The whole sequence had also been rehearsed locally against a real PostgreSQL 16
+   before the first push; every step rc=0 there too.
+   NOTE: the write-back commit that fills in these numbers necessarily triggers a fresh
+   run of the same workflow on the new head. The run above is the evidence for 0eb45d4.
 
 A5 CORRECTED (Executed) - the literal clause is unsatisfiable; the intent is met.
-   PASS (intent): with a live migrated PostgreSQL 16 on 127.0.0.1:55432,
+   PASS (intent), locally: with a live migrated PostgreSQL 16 on 127.0.0.1:55432,
      `pnpm --filter @zcashreveal/indexer test` -> "Test Files 19 passed (19)",
      "Tests 170 passed | 1 skipped (171)". All 37 Postgres-gated integration tests
      executed; 0 integration tests skipped.
+   PASS (intent), on CI (run 32603472860): every one of the seven integration files
+     reports executed tests, summing to exactly 37 -
+       integration/pool-anchors.test.ts          7 tests
+       integration/pool-boundary-flows.test.ts   8 tests
+       integration/pool-commitments.test.ts      7 tests
+       integration/pool-nullifiers.test.ts       5 tests
+       integration/precision.test.ts             4 tests
+       integration/replay.test.ts                2 tests
+       integration/rollback.test.ts              4 tests
+     and the guard step printed:
+       [assert] total=171 passed=170 failed=0 skipped=1
+       [assert] integration files with executed tests: 7
+       [assert] skipped (allowed): decodeBlock - real mainnet fixture ...
+       [assert] OK: every Postgres integration test executed.
    FAIL (as specified in §5): with DATABASE_URL unset ->
      "Tests 133 passed | 38 skipped (171)" - and vitest still exits 0.
    CORRECTION: §5 says the summary must show "0 skipped for apps/indexer". It cannot.
@@ -236,12 +261,17 @@ NOTICED (outside scope, not acted on):
     they must not be "cleaned".
 
 UNVERIFIED (labelled):
-  - That the CI workflow passes on GitHub's runners. Every step was rehearsed locally
-    against a real PostgreSQL 16, but GitHub's `services:` networking, the pnpm cache and
-    actions/setup-node reading .nvmrc are UNVERIFIED until the run reports.
   - That Vercel's build succeeds from the new outputDirectory. The build and its output
-    path were verified locally; the Vercel-side run is UNVERIFIED and is an operator
-    click.
+    path were verified locally (A6), but the Vercel-side run is UNVERIFIED and is an
+    operator click.
+  - That `pnpm --filter @zcashreveal/dashboard build` runs in CI. It does not: CI never
+    builds the legacy app on its own, only `pnpm build` via turbo, which does include it.
+    A6 was verified locally, not on the runner.
+  - Nothing else. A1-A5 and A7-A9 are Executed with transcripts above; A4 and A5 now
+    carry CI evidence as well as local.
+  - Noticed on the runner, not acted on: GitHub warns that actions/checkout@v4,
+    setup-node@v4, upload-artifact@v4 and pnpm/action-setup@v4 still target Node 20 and
+    are being forced onto Node 24. Cosmetic today; a future handoff should bump them.
 
 GATE ROUNDS: 0 · no assertion required a re-dispatch. A3 (lint error inside a file A8
   protects) and A5 (unsatisfiable literal) were identified and resolved during first
