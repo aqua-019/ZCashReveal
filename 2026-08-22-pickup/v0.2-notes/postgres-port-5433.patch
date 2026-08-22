@@ -1,0 +1,86 @@
+From 09aabfeee02ef8f4b190da922a323f10a3527c8a Mon Sep 17 00:00:00 2001
+From: Aqua <aqua-019@users.noreply.github.com>
+Date: Tue, 9 Jun 2026 17:40:39 +0000
+Subject: [PATCH] fix(infra): move Postgres host port 5432->5433 to avoid local
+ collision
+
+The committed default mapped host 5432 directly, colliding with a Postgres
+already listening on 5432 on the dev host. Remap the host side to 5433
+(container keeps 5432 internally) and update DATABASE_URL defaults in
+.env.example, indexer/gateway config, and the integration test setup. No app logic change.
+---
+ .env.example                                                 | 2 +-
+ apps/gateway/src/config.ts                                   | 2 +-
+ apps/indexer/src/config.ts                                   | 2 +-
+ apps/indexer/src/persistence/__tests__/integration/_setup.ts | 2 +-
+ docker-compose.yml                                           | 2 +-
+ 5 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/.env.example b/.env.example
+index acbe0b0..9532ea7 100644
+--- a/.env.example
++++ b/.env.example
+@@ -5,7 +5,7 @@ ZEBRAD_RPC_PASSWORD=changeme
+ ZEBRAD_ZMQ_URL=tcp://127.0.0.1:28332
+ 
+ # Persistence
+-DATABASE_URL=postgres://zcashreveal:zcashreveal@localhost:5432/zcashreveal
++DATABASE_URL=postgres://zcashreveal:zcashreveal@localhost:5433/zcashreveal
+ REDIS_URL=redis://localhost:6379
+ 
+ # Indexer
+diff --git a/apps/gateway/src/config.ts b/apps/gateway/src/config.ts
+index 25f19b7..8e4e858 100644
+--- a/apps/gateway/src/config.ts
++++ b/apps/gateway/src/config.ts
+@@ -11,7 +11,7 @@ const Schema = z.object({
+   DATABASE_URL: z
+     .string()
+     .default(
+-      "postgres://zcashreveal:zcashreveal@localhost:5432/zcashreveal",
++      "postgres://zcashreveal:zcashreveal@localhost:5433/zcashreveal",
+     ),
+ });
+ 
+diff --git a/apps/indexer/src/config.ts b/apps/indexer/src/config.ts
+index 38ed396..cafb1fe 100644
+--- a/apps/indexer/src/config.ts
++++ b/apps/indexer/src/config.ts
+@@ -7,7 +7,7 @@ const ConfigSchema = z.object({
+   ZEBRAD_RPC_PASSWORD: z.string().default("changeme"),
+   ZEBRAD_ZMQ_URL: z.string().default("tcp://127.0.0.1:28332"),
+ 
+-  DATABASE_URL: z.string().default("postgres://zcashreveal:zcashreveal@localhost:5432/zcashreveal"),
++  DATABASE_URL: z.string().default("postgres://zcashreveal:zcashreveal@localhost:5433/zcashreveal"),
+   REDIS_URL: z.string().default("redis://localhost:6379"),
+ 
+   INDEXER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
+diff --git a/apps/indexer/src/persistence/__tests__/integration/_setup.ts b/apps/indexer/src/persistence/__tests__/integration/_setup.ts
+index 8365cce..b0d993c 100644
+--- a/apps/indexer/src/persistence/__tests__/integration/_setup.ts
++++ b/apps/indexer/src/persistence/__tests__/integration/_setup.ts
+@@ -20,7 +20,7 @@
+ import postgres, { type Sql } from "postgres";
+ 
+ const DEFAULT_URL =
+-  "postgres://zcashreveal:zcashreveal@localhost:5432/zcashreveal";
++  "postgres://zcashreveal:zcashreveal@localhost:5433/zcashreveal";
+ 
+ function url(): string {
+   return process.env.DATABASE_URL ?? DEFAULT_URL;
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 35eae8d..7d1a0ba 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -25,7 +25,7 @@ services:
+       POSTGRES_USER: zcashreveal
+       POSTGRES_PASSWORD: zcashreveal
+       POSTGRES_DB: zcashreveal
+-    ports: ["5432:5432"]
++    ports: ["5433:5432"]  # host 5433 -> container 5432 (avoids local Postgres collision)
+     volumes: ["./postgres-data:/var/lib/postgresql/data"]
+     healthcheck:
+       test: ["CMD-SHELL", "pg_isready -U zcashreveal"]
+-- 
+2.34.1
+
