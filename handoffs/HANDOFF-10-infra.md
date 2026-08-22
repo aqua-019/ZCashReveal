@@ -2,7 +2,7 @@
 handoff: 10
 title: Infra: Zebra 6.2.x compose, VPS runbook, tunnel, DEPLOY-2.0
 status: queued
-branch: feat/v2-10-infra
+branch: the session-designated branch (name it `feat/v2-10-infra` if you may choose)
 track: Infra
 depends_on: 00
 written_by: L2 (Cowork) · 22 Aug 2026
@@ -47,6 +47,8 @@ Production infrastructure as files: a compose stack for a Linux VPS (Zebra 6.2.x
 ## §4 DELIVERABLES
 
 1. `docker-compose.yml` (prod), `docker-compose.dev.yml` (Windows override), three Dockerfiles, updated `zebrad.toml`, `RUNBOOK-VPS.md`, `DEPLOY-2.0.md`, `.env.example`.
+2. **Mainnet block fixture** (LEDGER-00 Q4): capture one post-NU5 mainnet block from the synced Zebra into `apps/indexer/test/fixtures/blocks/mainnet-<height>.json` and commit it, so `block-decoder.test.ts` stops self-skipping. Record the height, hash and RPC command used in `RUNBOOK-VPS.md`.
+3. Bump the pinned GitHub Actions (`actions/checkout`, `actions/setup-node`, `actions/upload-artifact`, `pnpm/action-setup`) to versions whose runtime is not deprecated — the HANDOFF-00 run warned that all four are being forced onto Node 24 (LEDGER-00 NOTICED).
 
 ## §5 ASSERTIONS — binary, machine-checkable, each needs a pass-state and a fail-state transcript
 
@@ -58,6 +60,7 @@ Production infrastructure as files: a compose stack for a Linux VPS (Zebra 6.2.x
 - **A6.** `RUNBOOK-VPS.md` contains a command for each of: provisioning, first sync, wipe-and-resync, backup, upgrade, tunnel create/route/run (checklist test by `docs-scribe`).
 - **A7.** `DEPLOY-2.0.md` lists every `NEXT_PUBLIC_*` and every server-only `SNAPSHOT_*` variable used in `apps/web` (script cross-checks `grep -rhoE '(NEXT_PUBLIC|SNAPSHOT)_[A-Z_]*' apps/web/src` against the doc).
 - **A8.** `.env.example` contains both `REDIS_URL` and `SNAPSHOT_REDIS_URL` with comments naming their roles, and in `docker-compose.yml` the string `SNAPSHOT_REDIS_URL` appears inside the `publisher` service block only (script splits the file per service and greps) *(fail side: add it to `gateway` → the script fails)*.
+- **A9.** With the fixture committed, `pnpm --filter @zcashreveal/indexer test` reports 0 skipped and `node scripts/assert-no-skipped-integration.mjs` prints no `skipped (allowed)` line *(fail side: move the fixture aside → the test self-skips again)*.
 
 ## §6 DISPATCH HINTS (director-build decides; these are L2's routing suggestions)
 

@@ -13,6 +13,18 @@ Read docs/2.0/ZECREVEAL-2.0-PLAN.md, docs/2.0/TRACKING-MATH.md and docs/2.0/RESE
 - Evidence: every §5 assertion gets a two-polarity transcript (pass state and fail state). Every claim in §7 carries provenance — Executed (output shown) / Read (file + commit) / UNVERIFIED (labelled). Assumptions are dispositioned ACCEPTED / CORRECTED / DEFERRED; deferrals go to §8.
 - Finish: fill §7 REPORT in the handoff, append §8 to `handoffs/LEDGER.md`, add a `LOG.md` line, set `status: shipped`, open the PR (`gh pr create`, heredoc body, no emoji). **Every PR stops at opened.** No merge, no deploy, no Vercel env changes, no `docker compose up`, no branch deletion — those are operator clicks.
 
+## Revolution protocol (handoffs/ maintains itself; no file uploads)
+
+Every session, in this order:
+
+1. RECONCILE — first commit on your branch, before any handoff work. Set every handoff whose PR is merged into main to `status: closed`; set the one you are executing to `status: in-progress`; for each track (Web 01-04, Data 05-09, Infra 10, Integration 11-12) set the lowest-numbered `queued` handoff whose `depends_on` are all closed to `status: open` — exactly one open per track; rewrite the Status column of the table in handoffs/README.md to match. Commit: `chore(handoffs): reconcile status before HANDOFF-NN`.
+2. L2 RESOLUTION — if the prompt contains a block fenced as `L2 RESOLUTION`, append it verbatim to handoffs/LEDGER.md beneath the ledger block of the handoff it names, then apply every instruction under its FOLDS heading. L2 (Cowork) has no write access to this repository; that block is the only channel by which verification results, answers to ledger questions and amendments to future handoffs reach you. If there is no such block, skip.
+3. EXECUTE the open handoff under its §1-§6.
+4. WRITE-BACK — before the PR opens: fill §7 in your own handoff and set it to `status: shipped`; append your §8 block to handoffs/LEDGER.md (append-only — never rewrite an earlier block, including L2's); add one row to handoffs/LOG.md; update the handoffs/README.md table. The PR title MUST begin `HANDOFF-NN:` — LOG.md and LEDGER.md key on the title, not the branch, because the harness names branches. Stop at **opened**.
+5. ARCHIVE — save the prompt that started your session verbatim to `handoffs/prompts/PROMPT-NN.md` in the same commit as RECONCILE. The repository, not anyone's desktop, is where the prompt history lives.
+
+Status flips, the README table, LEDGER appends, LOG rows and the prompt archive are the only cross-handoff edits a session makes.
+
 ## Stack
 pnpm + Turbo monorepo · packages/zec-types (shared types + DTOs) · packages/content (zod schemas + research data) · packages/zebra-rpc (typed Zebra client) · apps/indexer (Node 22, Zebra RPC/ZMQ, Postgres + Redis, analysis) · apps/gateway (Fastify REST + WS) · apps/publisher (snapshot.json → file + managed Redis) · apps/web (Next.js App Router, React 19, Tailwind v4) · legacy/dashboard (v0.2, read-only).
 

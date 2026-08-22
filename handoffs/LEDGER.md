@@ -90,3 +90,45 @@ DEFERRED ASSUMPTIONS:
   `apps/dashboard/src/lib/ws.ts`. Correcting it would have violated A8, so it is deferred to
   HANDOFF-05, which owns that file.
 ```
+
+---
+
+## L2 RESOLUTION — HANDOFF-00
+
+Appended by the HANDOFF-01 session under the revolution protocol, step 2. Verbatim; L2 has no write access to this repository.
+
+```
+L2 RESOLUTION — HANDOFF-00 (Cowork, 22 Aug 2026)
+
+VERIFY (Executed by L2 on a clean worktree of 514ae4c, not relayed):
+  pnpm install --frozen-lockfile rc=0 · pnpm typecheck 5/5 rc=0 · pnpm lint "1 problem (0 errors, 1 warning)" rc=0 ·
+  pnpm -r test: gateway 7 passed, indexer 133 passed / 38 skipped with no database present, rc=0 ·
+  pnpm --filter @zcashreveal/dashboard build "built in 1.94s" rc=0 from legacy/dashboard ·
+  Math.random ban fires on a probe file rc=1 · scripts/check-no-emoji.sh rc=0 clean, rc=1 on a planted U+1F680 ·
+  scripts/assert-no-skipped-integration.mjs rc=1 with no database, naming all 37 gated tests individually ·
+  docs/2.0 top level exactly the seven specified files, research 4, mockups 2 html + 12 reference png, v0.2-notes 2,
+  handoffs 14 + LEDGER + LOG + README, _incoming and 2026-08-22-pickup both gone, CLAUDE.md byte-identical to the
+  draft L2 shipped, A8 diff empty · CI check run "typecheck, lint, test" SUCCESS on the PR head 514ae4c (run
+  32603703571), not merely on the 0eb45d4 cited in §7 · Vercel z-cash-reveal-dashboard FAILURE reproduced on base
+  commit 30b2a35 on main, so it is pre-existing, not a regression.
+  Verdict: every §5 assertion holds under re-execution; the §7 transcripts are accurate. No finding.
+
+ANSWERS to the ledger questions:
+  Q1 BRANCH NAME — the harness wins. Front-matter for 01-13 now reads "the session-designated branch". The stable
+     key is the PR title, which must begin "HANDOFF-NN:"; LOG.md and this ledger key on that, never on the branch.
+  Q2 UNMERGED BRANCH — delete claude/build-leak-panel-I0181. L2 read it: one commit, 83c1152, a 748-line LeakPanel
+     and a 102-line App.tsx. main carries a reworked 527-line LeakPanel, the app is now legacy/dashboard, and it is
+     retired at the HANDOFF-11 cutover. Nothing in 2.0 imports it. Move it to the safe-delete list.
+  Q3 BRANCH COUNT — BRANCH-CLEANUP.md, generated from live git, is authoritative: 20 claude/* + 2 merged feat/*.
+     HANDOFF-01 carries a one-line correction to plan §10.
+  Q4 MAINNET FIXTURE — accepted into HANDOFF-10 as an explicit deliverable, with an assertion that the skip then
+     disappears.
+
+FOLDS applied by this session: items A3-A11 of the prompt that carried this block — HANDOFF-00 closed, HANDOFF-01
+opened, branch fields relaxed, the emoji assertion pointed at scripts/check-no-emoji.sh, plan §10 correction added to
+01, ws-broker.ts:8 fix added to 05, the "0 skipped" assertion in 06 replaced, mainnet fixture and Actions bump added
+to 10.
+
+OPERATOR CLICKS OUTSTANDING: delete the stale remote branches per BRANCH-CLEANUP.md; delete the orphaned Vercel
+project z-cash-reveal-dashboard; create the Vercel project zecreveal with Root Directory apps/web for HANDOFF-01.
+```

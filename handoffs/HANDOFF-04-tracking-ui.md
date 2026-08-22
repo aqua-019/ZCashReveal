@@ -2,7 +2,7 @@
 handoff: 04
 title: ZEC Tracking UI in fixture mode — search, mempool, address, tx, pools, reveal
 status: queued
-branch: feat/v2-04-tracking-ui
+branch: the session-designated branch (name it `feat/v2-04-tracking-ui` if you may choose)
 track: Web
 depends_on: 01, 02 (03 optional)
 written_by: L2 (Cowork) · 22 Aug 2026

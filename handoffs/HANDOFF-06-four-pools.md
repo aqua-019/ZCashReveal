@@ -2,7 +2,7 @@
 handoff: 06
 title: Indexer: four pools + migration 003 + post-NU6.3 invariants
 status: queued
-branch: feat/v2-06-four-pools
+branch: the session-designated branch (name it `feat/v2-06-four-pools` if you may choose)
 track: Data
 depends_on: 00
 written_by: L2 (Cowork) · 22 Aug 2026
@@ -49,7 +49,7 @@ Widen the pool model to `sprout | sapling | orchard | ironwood` across types, st
 
 ## §5 ASSERTIONS — binary, machine-checkable, each needs a pass-state and a fail-state transcript
 
-- **A1.** `pnpm --filter @zcashreveal/indexer test` passes with ≥ 171 tests and 0 skipped when `DATABASE_URL` is set (CI job from HANDOFF-00).
+- **A1.** `pnpm --filter @zcashreveal/indexer test` passes with >= 171 tests and **no Postgres-gated test skipped** when a migrated database is reachable — assert with `node scripts/assert-no-skipped-integration.mjs`, not with a raw skip count: one test (`block-decoder.test.ts`, real mainnet fixture) stays skipped until HANDOFF-10 captures the fixture.
 - **A2.** Applying migrations on a fresh DB and on a DB migrated through 001→002 both succeed; re-running is idempotent (integration test).
 - **A3.** A `pool_commitments` insert with `pool='ironwood'` succeeds and with `pool='tachyon'` fails the CHECK (integration test, both polarities).
 - **A4.** `poolsActiveAt(3_428_142)` excludes `ironwood`; `poolsActiveAt(3_428_143)` includes it (unit test).

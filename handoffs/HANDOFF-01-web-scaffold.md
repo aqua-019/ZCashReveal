@@ -1,10 +1,10 @@
 ---
 handoff: 01
 title: `apps/web` scaffold + the ZEC Forensic design system
-status: queued
-branch: feat/v2-01-web-scaffold
+status: open
+branch: the session-designated branch (name it `feat/v2-01-web-scaffold` if you may choose)
 track: Web
-depends_on: 00
+depends_on: 00 (closed)
 written_by: L2 (Cowork) · 22 Aug 2026
 stack: Aqua Stack v4.1
 ---
@@ -53,6 +53,7 @@ Scaffold `apps/web` (Next.js 15 App Router, React 19, TypeScript strict, Tailwin
 4. Routes with the shell and plan-derived placeholder copy: `/`, `/beware`, `/contradictions`, `/timeline`, `/network`, `/method`, `/flows`, `/track`, `/sources`; metadata + OG image route; `/dev/primitives` (dev-only).
 5. `docs/2.0/DEPLOY-2.0.md` (first version): new Vercel project `zecreveal`, Framework Next.js, Root Directory `apps/web`, env `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_SNAPSHOT_URL`, `NEXT_PUBLIC_DATA_MODE`.
 6. `apps/web/README.md` with the Lighthouse/axe budget (perf ≥ 95, a11y ≥ 95 on `/beware`) and how to verify reduced motion.
+7. One-line correction in `docs/2.0/ZECREVEAL-2.0-PLAN.md` §10: the stale branch count is 20 `claude/*` (19 merged, 1 not) + 2 merged `feat/*`, not 22 — `docs/2.0/BRANCH-CLEANUP.md` is generated from live git and is authoritative (LEDGER-00 Q3).
 
 ## §5 ASSERTIONS — binary, machine-checkable, each needs a pass-state and a fail-state transcript
 
@@ -63,7 +64,7 @@ Scaffold `apps/web` (Next.js 15 App Router, React 19, TypeScript strict, Tailwin
 - **A5.** With `prefers-reduced-motion: reduce` emulated (Playwright `emulateMedia`), `FogCanvas` schedules no `requestAnimationFrame` (instrument with a counter exposed on `window.__zr.rafCalls` in dev) and `Tide` adds no class over 90 s of simulated time.
 - **A6.** Hover on any `ScreenNav` button changes only `color`/`background-color` of siblings — computed `transform` remains `none` (Playwright reads computed styles).
 - **A7.** Every route in the deliverables list returns HTTP 200 from `next start` and contains the SysBar (`[data-ui=sysbar]`).
-- **A8.** No emoji in `apps/web` (same grep as HANDOFF-00).
+- **A8.** `./scripts/check-no-emoji.sh` exits 0 (the scanner HANDOFF-00 shipped). The raw `grep -rP '[\x{1F300}-...]'` written into HANDOFF-00 §5 is a false-negative generator on GNU grep and must not be reused in any handoff.
 
 ## §6 DISPATCH HINTS (director-build decides; these are L2's routing suggestions)
 
