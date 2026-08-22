@@ -84,13 +84,22 @@ export default function SplashPage() {
       <MetricRow>
         <Metric
           label="Unprovable residual"
-          value={fmtInt(RESIDUAL)}
-          sub={`ZEC - ${fmtPct(RESIDUAL / SUPPLY)} of supply - Sprout + Orchard`}
+          value={
+            <>
+              {fmtInt(RESIDUAL)} <span style={{ fontSize: 22, color: "var(--ink-dim)" }}>ZEC</span>
+            </>
+          }
+          sub={`Orchard ${fmtInt(POOL_ZEC.orchard)} + Sprout ${fmtInt(POOL_ZEC.sprout)} - ${fmtPct(RESIDUAL / SUPPLY)} of supply`}
           accent
         />
-        <Metric label="Shielded supply" value={fmtInt(SUPPLY - POOL_ZEC.transparent)} sub="ZEC across four pools" />
-        <Metric label="Unsound days" value="2,192" sub="Sprout 730 + Orchard 1,462" />
-        <Metric label="Pools" value="4" sub="Sprout, Sapling, Orchard (exit-only), Ironwood" />
+        <Metric
+          label="Transparent supply"
+          value={fmtPct(POOL_ZEC.transparent / SUPPLY)}
+          sub={`${fmtInt(POOL_ZEC.transparent)} ZEC in t-addresses - as public as Bitcoin`}
+        />
+        <Metric label="Orchard drain" value="80.6%" sub="exit-only since 3,428,143" />
+        <Metric label="Ironwood pool" value="3.13M" sub={`born 28 Jul 2026 at zero - ${fmtPct(POOL_ZEC.ironwood / SUPPLY)} of supply`} />
+        <Metric label="Chain life unsound" value="61%" sub="about 6.0 of 9.8 years - Sprout 2016-18, Orchard 2022-26" />
       </MetricRow>
 
       <Block
@@ -165,24 +174,28 @@ export default function SplashPage() {
         </div>
       </Block>
 
-      <Block idx="03" title="Screens" right="the Record is numbered like evidence">
-        <div className="grid g3">
-          {SCREENS.filter((s) => s.href !== "/").map((s) => (
-            <Glass key={s.href}>
-              <Eyebrow idx={s.idx}>{s.half}</Eyebrow>
-              <h3 className="display" style={{ fontSize: 24, marginTop: 8 }}>
-                <Link href={s.href} style={{ color: "var(--ink)" }}>
-                  {s.title}
-                </Link>
-              </h3>
-              <p className="note" style={{ marginTop: 8 }}>
-                {s.dek}
-              </p>
-              <p className="eyebrow" style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}>
-                {s.href}
-                <IconArrowRight size={12} />
-              </p>
-            </Glass>
+      <Block idx="03" title="Open a surface" right="the Record is numbered like evidence">
+        <div className="grid g3 entries">
+          {SCREENS.filter((s) => s.href !== "/").map((s, i) => (
+            <Link className="entry" key={s.href} href={s.href}>
+              <span className="top">
+                <span className="letter" aria-hidden="true">
+                  {String.fromCharCode(65 + i)}
+                </span>
+                <span className="lbl">
+                  {s.label} - {s.half}
+                </span>
+                <span className="arrow" aria-hidden="true">
+                  <IconArrowRight size={14} />
+                </span>
+              </span>
+              <span className="t">{s.title}</span>
+              <span className="d">{s.dek}</span>
+              <span className="hint">
+                <span>open</span>
+                <span>{s.href}</span>
+              </span>
+            </Link>
           ))}
         </div>
       </Block>

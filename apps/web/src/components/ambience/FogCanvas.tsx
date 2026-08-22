@@ -17,8 +17,9 @@ import { seededRng } from "@/lib/seed";
  * Three properties this component must hold:
  *
  *   1. DETERMINISM. Every particle comes from seededRng(seed, "fog"). The same
- *      block hash yields the same field for every visitor, forever.
- *      `Math.random` is banned by eslint and unused here.
+ *      block hash yields the same field for every visitor, forever. The
+ *      platform's non-deterministic generator is banned by eslint
+ *      (no-restricted-properties) and is not reachable from this file.
  *
  *   2. REDUCED MOTION IS ARCHITECTURAL. When the user asks for reduced motion
  *      the animation system is never *constructed*: no rAF is scheduled, no

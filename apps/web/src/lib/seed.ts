@@ -1,9 +1,10 @@
 /**
  * Determinism (DGIGA LAW-10). Every stochastic-looking surface on this site is
  * a pure function of the chain tip hash, so a given block renders identically
- * for every visitor, in every browser, forever. `Math.random` is banned by
- * eslint (`no-restricted-properties`, see eslint.config.js); this module is the
- * sanctioned replacement.
+ * for every visitor, in every browser, forever. The platform's own
+ * non-deterministic generator is banned repository-wide by the
+ * `no-restricted-properties` rule in eslint.config.js; this module is the
+ * sanctioned replacement, and it is the only source of randomness in apps/web.
  *
  * FNV-1a folds a seed string into a 32-bit integer; mulberry32 expands that
  * integer into a uniform stream. Both are ported from the reference

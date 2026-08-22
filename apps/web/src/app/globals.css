@@ -1127,6 +1127,94 @@ p {
   }
 }
 
+/* ---------- surface cards ----------
+   The mockup's `.entry`: a whole card that is one link. The hover verb applies
+   at the group (`.entries`), so pointing at one card recedes the others; the
+   card itself warms its border rather than lifting. No transform. */
+.entries {
+  display: grid;
+}
+
+.entry {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 22px 18px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition:
+    border-color var(--t2) var(--ease),
+    background-color var(--t2) var(--ease),
+    opacity var(--t2) var(--ease);
+}
+
+.entry:hover {
+  border-color: var(--gold-dim);
+  background-color: var(--surface-2);
+  text-decoration: none;
+}
+
+.entries:hover .entry:not(:hover) {
+  opacity: 0.6;
+}
+
+.entry .top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.entry .letter {
+  font-family: var(--f-display);
+  font-style: italic;
+  font-size: 18px;
+  line-height: 1.2;
+  padding: 1px 9px;
+  border: 1px solid var(--gold-dim);
+  color: var(--gold);
+}
+
+.entry .lbl {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--gold);
+  flex: 1;
+}
+
+.entry .arrow {
+  color: var(--ink-mute);
+  display: inline-flex;
+}
+
+.entry .t {
+  font-family: var(--f-display);
+  font-size: 26px;
+  line-height: 1.1;
+}
+
+.entry .d {
+  font-size: 13px;
+  color: var(--ink-dim);
+  line-height: 1.55;
+}
+
+.entry .hint {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
 /* ---------- record head ---------- */
 .record-head {
   padding: 40px 0 10px;
