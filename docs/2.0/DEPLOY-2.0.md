@@ -117,6 +117,10 @@ build explicitly rather than trusting the project's settings to be clean:
 `legacy/dashboard/dist` is what the stored setting was feeding it. `scripts/check-vercel-config.mjs`
 asserts all four, so a later edit cannot quietly hand control back to the dashboard.
 
+**Verified.** The deployment on the commit that added the pin succeeded:
+`dpl_CrmijWHtimk842w65Tkux7vibZg1`, `READY`, built in 19 s, log reading
+`Running "next build"` and `Build Completed`, all twelve routes prerendered.
+
 **Operator click, one — clear the stale build overrides on the `zecreveal` project.** Settings →
 Build & Development. `apps/web/vercel.json` overrides them so the build no longer depends on this,
 but leaving the legacy dashboard's build command stored on the new project is a trap for whoever

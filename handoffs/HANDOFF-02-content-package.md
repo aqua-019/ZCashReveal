@@ -289,6 +289,22 @@ DELETING THE ROOT FILE WAS NECESSARY BUT NOT SUFFICIENT (Executed, post-push):
   GitHub Actions CI is green on 9cc2dca (run 32611476921, conclusion success), so
   this is a Vercel-only failure and the repository's own gate never went red.
 
+  VERIFIED (Executed): the deployment on 95aba04, the commit that pinned the four
+  keys, SUCCEEDED. dpl_CrmijWHtimk842w65Tkux7vibZg1, readyState READY, built in
+  19 s. Its log reads
+
+    Running "install" command: `pnpm install --frozen-lockfile`...
+    Detected Next.js version: 15.5.23
+    Running "next build"
+    Compiled successfully in 4.1s
+    Build Completed in /vercel/output [19s]
+    Deployment completed
+
+  and prerenders all twelve routes. Compare the same lines on the previous
+  deployment, which ran the dashboard's build command instead. The pin is what
+  changed, and it is what fixed it. No agent deployed anything: Vercel builds every
+  push to the PR branch.
+
 Deliverable 1, the operator click, stated as fold 8 requires (Read + UNVERIFIED):
 
   The root vercel.json is deleted in this PR. Whether the operator has already
@@ -508,11 +524,11 @@ UNVERIFIED (labelled):
    them in CI. Its result is recorded on PR #33, not here.
  - Whether the operator has moved the deleted file's settings into
    z-cash-reveal-dashboard2. Assume not.
- - Whether pinning the four keys in apps/web/vercel.json actually makes the
-   zecreveal build succeed. Vercel documents vercel.json as taking precedence over
-   stored project settings, and the failure mode is now precisely understood, but
-   only a deployment proves it. Pushing this branch triggers one automatically; its
-   result is on PR #33, not here. No agent deployed anything.
+ - The section 5 route checklist against the preview. The preview deployment is
+   behind Vercel Deployment Protection, so a fetch returns 302 to the SSO endpoint
+   rather than the app; the routes are listed as prerendered in the build output but
+   have not been requested over the wire. That checklist is an operator step on a
+   deployment the checker can actually reach.
 
 GATE ROUNDS: 4 · fingerprints (file · rule · severity)
 
@@ -557,8 +573,10 @@ worse call, but it is L2's rule and L2 should say so.
           sources.json · a title must name the source, not restate the claim · MID
           sources.json · an id must not move when a title improves · MID
 
-PREVIEW URL (if any): none. packages/content renders nothing, and the zecreveal
-Vercel project is still an outstanding operator click.
+PREVIEW URL: https://zecreveal-git-claude-aqua-stack-v4-l2-r-3f5876-aquatic-17b9f112.vercel.app
+(deployment dpl_CrmijWHtimk842w65Tkux7vibZg1 on 95aba04, READY). It is behind Vercel
+Deployment Protection, so it needs an authenticated browser. packages/content itself
+renders nothing; what this proves is that apps/web builds and deploys again.
 ```
 
 ## §8 LEDGER — appended to `handoffs/LEDGER.md` by docs-scribe; read by L2 before the next handoff
