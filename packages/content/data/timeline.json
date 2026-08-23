@@ -1,1 +1,2357 @@
-[]
+[
+  {
+    "id": "T2013-01-01",
+    "date": "2013-01-01",
+    "datePrecision": "year",
+    "dateText": "2013",
+    "category": "LAUNCH",
+    "title": "Zerocoin protocol by Johns Hopkins researchers",
+    "summary": "Zerocoin protocol — Matthew Green, Ian Miers, Christina Garman (Johns Hopkins).",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "protocol",
+      "zerocoin",
+      "johns-hopkins",
+      "cryptography"
+    ],
+    "sources": [
+      "S-wikipedia-wikipedia-zcash"
+    ]
+  },
+  {
+    "id": "T2014-05-01",
+    "date": "2014-05-01",
+    "datePrecision": "month",
+    "dateText": "May 2014",
+    "category": "LAUNCH",
+    "title": "Zerocash peer-reviewed paper published at IEEE S&P",
+    "summary": "Zerocash: Decentralized Anonymous Payments from Bitcoin — Ben-Sasson, Chiesa, Garman, Green, Miers, Tromer, Virza — IEEE S&P (Oakland) 2014.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zerocash",
+      "ieee-sp",
+      "peer-review",
+      "privacy"
+    ],
+    "sources": [
+      "S-zerocash-project-org-ben-sasson-chiesa-garman-gr",
+      "S-iacr-eprint-eprint-2014-349"
+    ]
+  },
+  {
+    "id": "T2015-01-01",
+    "date": "2015-01-01",
+    "datePrecision": "year",
+    "dateText": "2015",
+    "category": "LAUNCH",
+    "title": "Zerocoin Electric Coin Company founded",
+    "summary": "Zerocoin Electric Coin Company founded; Zooko Wilcox CEO.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "ecc",
+      "founding",
+      "zooko-wilcox",
+      "leadership"
+    ],
+    "sources": [
+      "S-wikipedia-wikipedia-zcash"
+    ]
+  },
+  {
+    "id": "T2016-04-26",
+    "date": "2016-04-26",
+    "datePrecision": "day",
+    "dateText": "26 Apr 2016",
+    "category": "EXPLOIT",
+    "title": "ECC discloses three pre-launch protocol vulnerabilities",
+    "summary": "ECC discloses three pre-launch protocol vulnerabilities: Faerie Gold (Zooko Wilcox), InternalH Collision (Taylor Hornby, critical — would have allowed counterfeiting), security-proof error (Daira Hopwood).",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "vulnerability",
+      "pre-launch",
+      "counterfeiting",
+      "disclosure"
+    ],
+    "sources": [
+      "S-electric-coin-company-ecc-fixing-vulnerabilities"
+    ]
+  },
+  {
+    "id": "T2016-09-23",
+    "date": "2016-09-23",
+    "datePrecision": "day",
+    "dateText": "23 Sep 2016",
+    "category": "FUND",
+    "title": "2 million dollars raised from 17 investors",
+    "summary": "2 M raised from 17 investors; company valued at 32 M post; effective ~15.24/coin. Investors named: Aaron Grieshaber, Branson Bollinger, Maple Ventures (Amir Chetrit, Steven Nerayoff), Brian Cartmell, Vlad Zamfir, Roger Ver, Digital Currency Group / Barry Silbert, Charles Songhurst, Fenbushi, ShapeShift / Erik Voorhees, David Lee Kuo Chuen, Fred Ehrsam, Sebastian Serrano, Li Xiaolai. Founders' Reward published: of 10% of the monetary base — founders/employees/advisors 5.72%, investors 1.65%, Zcash Company strategic reserve 1.19%, Zcash Foundation 1.44%.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "funding",
+      "founders-reward",
+      "investors",
+      "tokenomics"
+    ],
+    "sources": [
+      "S-electric-coin-company-ecc-continued-funding-and"
+    ]
+  },
+  {
+    "id": "T2016-10-23",
+    "date": "2016-10-23",
+    "datePrecision": "day",
+    "dateText": "23 Oct 2016",
+    "category": "LAUNCH",
+    "title": "The Ceremony — Sprout parameter generation MPC",
+    "summary": "The Ceremony — Sprout parameter generation MPC, six participants, six locations.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "ceremony",
+      "sprout",
+      "mpc",
+      "parameter-generation"
+    ],
+    "sources": [
+      "S-electric-coin-company-ecc-the-design-of-the-cere"
+    ]
+  },
+  {
+    "id": "T2016-10-28",
+    "date": "2016-10-28",
+    "datePrecision": "day",
+    "dateText": "28 Oct 2016",
+    "category": "LAUNCH",
+    "secondaryCategory": "MARKET",
+    "title": "Mainnet launch with extreme price volatility",
+    "summary": "Mainnet launch. Slow-start mining. Poloniex prints 1 ZEC ≈ 3,300 BTC (>2 M) intraday, then 48 BTC the same day; BitMEX futures hit 10 BTC (6,864). CoinGecko records the all-time high of 3,191.93 on this date.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "mainnet",
+      "launch",
+      "market",
+      "volatility"
+    ],
+    "sources": [
+      "S-coindesk-coindesk-bitcoin-prices-roar-past-700-b",
+      "S-coingecko-nominal-all-time-high-3-191-93-on-28-o"
+    ]
+  },
+  {
+    "id": "T2016-11-14",
+    "date": "2016-11-14",
+    "datePrecision": "day",
+    "dateText": "14 Nov 2016",
+    "category": "GOV",
+    "title": "CoinDesk publishes critique of Zcash security theater",
+    "summary": "CoinDesk publishes Zcash and the Art of Security Theater — Greg Slepak's critique; Peter Todd's you're trusting me and five other participants not to collude.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance",
+      "criticism",
+      "ceremony",
+      "security"
+    ],
+    "sources": [
+      "S-coindesk-coindesk-zcash-and-the-art-of-security"
+    ]
+  },
+  {
+    "id": "T2017-01-01",
+    "date": "2017-01-01",
+    "datePrecision": "year",
+    "dateText": "2017",
+    "category": "LEAD",
+    "title": "Josh Cincinnati becomes ZF Executive Director",
+    "summary": "Josh Cincinnati becomes ZF's first Executive Director (served ~3 years).",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "leadership",
+      "foundation",
+      "executive-director"
+    ],
+    "sources": [
+      "S-zcash-community-forum-zcash-community-forum-josh"
+    ]
+  },
+  {
+    "id": "T2017-01-01-2",
+    "date": "2017-01-01",
+    "datePrecision": "year",
+    "dateText": "2017",
+    "category": "MARKET",
+    "title": "JPMorgan integrates Zcash ZKP tech into Quorum",
+    "summary": "JPMorgan integrates Zcash ZKP tech into Quorum.",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "market",
+      "jpmorgan",
+      "quorum",
+      "enterprise"
+    ],
+    "sources": [
+      "S-wikipedia-wikipedia-zcash"
+    ]
+  },
+  {
+    "id": "T2017-02-14",
+    "date": "2017-02-14",
+    "datePrecision": "day",
+    "dateText": "14 Feb 2017",
+    "category": "GOV",
+    "title": "Zcash Foundation incorporated in Delaware",
+    "summary": "Zcash Foundation incorporated in Delaware (announced 7 Mar 2017). Bootstrap board: Andrew Miller (chair/treasurer), Peter Van Valkenburgh (secretary), Matthew Green, Naval Ravikant.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance",
+      "foundation",
+      "board",
+      "incorporation"
+    ],
+    "sources": [
+      "S-zcash-foundation-zf-first-announcement-from-the"
+    ]
+  },
+  {
+    "id": "T2017-12-04",
+    "date": "2017-12-04",
+    "datePrecision": "day",
+    "dateText": "4 Dec 2017",
+    "category": "EXPLOIT",
+    "title": "Quesnelle publishes round-trip linkability result",
+    "summary": "Quesnelle publishes the round-trip linkability result: 31.5% of shielded coins.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "exploit",
+      "linkability",
+      "analysis",
+      "deanonymization"
+    ],
+    "sources": [
+      "S-arxiv-quesnelle-on-the-linkability-of-zcash-tran"
+    ]
+  },
+  {
+    "id": "T2018-03-01",
+    "date": "2018-03-01",
+    "datePrecision": "day",
+    "dateText": "1 Mar 2018",
+    "category": "EXPLOIT",
+    "title": "Ariel Gabizon discovers BCTV14 counterfeiting bug",
+    "summary": "Ariel Gabizon discovers the BCTV14 counterfeiting bug. Kept to four people for 8 months.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "exploit",
+      "counterfeiting",
+      "bctv14",
+      "disclosure"
+    ],
+    "sources": [
+      "S-electric-coin-company-ecc-zcash-counterfeiting-v"
+    ]
+  },
+  {
+    "id": "T2018-03-27",
+    "date": "2018-03-27",
+    "datePrecision": "day",
+    "dateText": "27 Mar 2018",
+    "category": "GOV",
+    "title": "ECC announces 2018 audit programme",
+    "summary": "ECC announces the 2018 audit programme (NCC Group, Coinspect, Least Authority, Kudelski, Mary Maller) — 26 days after the counterfeiting bug was found and withheld.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance",
+      "audit",
+      "security",
+      "transparency"
+    ],
+    "sources": [
+      "S-electric-coin-company-ecc-2018-zcash-security-au"
+    ]
+  },
+  {
+    "id": "T2018-04-01",
+    "date": "2018-04-01",
+    "datePrecision": "range",
+    "dateText": "Apr-Jun 2018",
+    "dateEnd": "2018-06-30",
+    "category": "REG",
+    "title": "Japan FSA pressure causes Coincheck to delist ZEC",
+    "summary": "Japan FSA pressure; Coincheck delists ZEC, XMR, DASH.",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "regulation",
+      "japan",
+      "fsa",
+      "delisting"
+    ],
+    "sources": [
+      "S-ccn-ccn-coincheck-to-delist-privacy-coins"
+    ]
+  },
+  {
+    "id": "T2018-04-13",
+    "date": "2018-04-13",
+    "datePrecision": "day",
+    "dateText": "13 Apr 2018",
+    "category": "TECH",
+    "title": "Powers of Tau ceremony completes for Sapling",
+    "summary": "Powers of Tau ceremony completes — nearly 90 participants — for Sapling parameters.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "tech",
+      "ceremony",
+      "sapling",
+      "mpc"
+    ],
+    "sources": [
+      "S-coindesk-coindesk-zcash-completes-powers-of-tau"
+    ]
+  },
+  {
+    "id": "T2018-05-01",
+    "date": "2018-05-01",
+    "datePrecision": "month",
+    "dateText": "May 2018",
+    "category": "REG",
+    "title": "NYDFS approves ZEC trading on Gemini",
+    "summary": "NYDFS approves ZEC trading on Gemini.",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "regulation",
+      "nydfs",
+      "gemini",
+      "trading"
+    ],
+    "sources": [
+      "S-wikipedia-wikipedia-zcash"
+    ]
+  },
+  {
+    "id": "T2018-06-26",
+    "date": "2018-06-26",
+    "datePrecision": "day",
+    "dateText": "26 Jun 2018, 01:37 UTC",
+    "height": 347500,
+    "category": "TECH",
+    "title": "Overwinter network upgrade activates",
+    "summary": "Overwinter — block 347,500.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "tech",
+      "upgrade",
+      "overwinter"
+    ],
+    "sources": [
+      "S-zcash-zcash-upgrade-overwinter"
+    ]
+  },
+  {
+    "id": "T2018-07-01",
+    "date": "2018-07-01",
+    "datePrecision": "day",
+    "dateText": "1 Jul 2018",
+    "category": "FUND",
+    "title": "CoinDesk reports Zooko's Founders' Reward details",
+    "summary": "CoinDesk reports Zooko's Founders' Reward: 2,033 ZEC/month ≈ 3.65 M/yr, 0.9% of total supply; 20% split across Zooko + ZF + Zcash Company + 44 other stakeholders.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "funding",
+      "founders-reward",
+      "transparency"
+    ],
+    "sources": [
+      "S-coindesk-coindesk-what-does-crypto-care-if-zooko"
+    ]
+  },
+  {
+    "id": "T2018-08-15",
+    "date": "2018-08-15",
+    "datePrecision": "range",
+    "dateText": "15-17 Aug 2018",
+    "dateEnd": "2018-08-17",
+    "category": "EXPLOIT",
+    "title": "Kappos et al. USENIX Security 2018 anonymity analysis",
+    "summary": "Kappos et al., USENIX Security 2018 — anonymity set reduced 69.1%; only 0.3% of transactions z→z.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "exploit",
+      "anonymity",
+      "research",
+      "analysis"
+    ],
+    "sources": [
+      "S-usenix-kappos-yousaf-maller-meiklejohn-an-empiri"
+    ]
+  },
+  {
+    "id": "T2018-09-18",
+    "date": "2018-09-18",
+    "datePrecision": "range",
+    "dateText": "18-20 Sep 2018",
+    "dateEnd": "2018-09-20",
+    "category": "EXPLOIT",
+    "title": "CVE-2018-17144 disclosed in Bitcoin Core",
+    "summary": "CVE-2018-17144 disclosed in Bitcoin Core (inflation + DoS).",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "exploit",
+      "bitcoin-core",
+      "cve",
+      "inflation"
+    ],
+    "sources": [
+      "S-bitcoin-core-bitcoin-core-cve-2018-17144-disclos"
+    ]
+  },
+  {
+    "id": "T2018-10-28",
+    "date": "2018-10-28",
+    "datePrecision": "day",
+    "dateText": "28 Oct 2018",
+    "height": 419200,
+    "category": "TECH",
+    "secondaryCategory": "EXPLOIT",
+    "title": "Sapling activation with silent CVE-2019-7167 fix",
+    "summary": "Sapling — block 419,200. Silently fixes CVE-2019-7167 (Groth16/BLS12-381). Publicly framed as a 90% proving-time / 97% memory improvement.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "tech",
+      "sapling",
+      "upgrade",
+      "exploit-fix"
+    ],
+    "sources": [
+      "S-electric-coin-company-ecc-sapling-activation-com"
+    ]
+  },
+  {
+    "id": "T2018-11-13",
+    "date": "2018-11-13",
+    "datePrecision": "day",
+    "dateText": "13 Nov 2018",
+    "category": "EXPLOIT",
+    "title": "Horizen and Komodo notified of counterfeiting bug",
+    "summary": "Horizen and Komodo privately notified of the counterfeiting bug, 90-day deadline.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "exploit",
+      "disclosure",
+      "counterfeiting"
+    ],
+    "sources": [
+      "S-electric-coin-company-ecc-zcash-counterfeiting-v"
+    ]
+  },
+  {
+    "id": "T2018-11-27",
+    "date": "2018-11-27",
+    "datePrecision": "day",
+    "dateText": "27 Nov 2018",
+    "category": "TECH",
+    "title": "ZIP 308 created for Sprout to Sapling migration",
+    "summary": "ZIP 308 (Sprout→Sapling migration / turnstile) created — Daira-Emma Hopwood.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "tech",
+      "zip",
+      "migration",
+      "sprout-sapling"
+    ],
+    "sources": [
+      "S-zcash-improvement-proposals-zip-308-sprout-sapli"
+    ]
+  },
+  {
+    "id": "T2019-01-01",
+    "date": "2019-01-01",
+    "datePrecision": "year",
+    "dateText": "2019",
+    "category": "TECH",
+    "title": "Sean Bowe discovers Halo recursive proofs",
+    "summary": "Sean Bowe discovers Halo — recursive proofs without a trusted setup.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "tech",
+      "halo",
+      "proofs",
+      "recursion"
+    ],
+    "sources": [
+      "S-wikipedia-wikipedia-zcash"
+    ]
+  },
+  {
+    "id": "T2019-02-04",
+    "date": "2019-02-04",
+    "datePrecision": "day",
+    "dateText": "4 Feb 2019",
+    "category": "GOV",
+    "title": "Zcash Foundation informed of CVE-2019-7167",
+    "summary": "Zcash Foundation informed of CVE-2019-7167 — one day before the public.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance",
+      "cve",
+      "disclosure"
+    ],
+    "sources": [
+      "S-zcash-foundation-zf-concerning-the-sprout-vulner"
+    ]
+  },
+  {
+    "id": "T2019-02-05",
+    "date": "2019-02-05",
+    "datePrecision": "day",
+    "dateText": "5 Feb 2019",
+    "category": "EXPLOIT",
+    "title": "Public disclosure of CVE-2019-7167",
+    "summary": "Public disclosure of CVE-2019-7167.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "exploit",
+      "cve",
+      "counterfeiting",
+      "disclosure"
+    ],
+    "sources": [
+      "S-electric-coin-company-ecc-zcash-counterfeiting-v"
+    ]
+  },
+  {
+    "id": "T2019-02-21",
+    "date": "2019-02-21",
+    "datePrecision": "day",
+    "dateText": "21 Feb 2019",
+    "category": "GOV",
+    "title": "Zcash Company rebrands to Electric Coin Company",
+    "summary": "Zcash Company rebrands to Electric Coin Company.",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance",
+      "rebranding",
+      "ecc"
+    ],
+    "sources": [
+      "S-wikipedia-wikipedia-zcash"
+    ]
+  },
+  {
+    "id": "T2019-02-25",
+    "date": "2019-02-25",
+    "datePrecision": "day",
+    "dateText": "25 Feb 2019",
+    "category": "TECH",
+    "title": "ZIP 209 created for chain value pool balances",
+    "summary": "ZIP 209 (prohibit out-of-range chain value pool balances — the turnstile) created — Sean Bowe, Daira-Emma Hopwood. Deployed without a network upgrade (v2.0.4 testnet, v2.0.5 mainnet).",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "tech",
+      "zip",
+      "turnstile",
+      "chain-value"
+    ],
+    "sources": [
+      "S-zcash-improvement-proposals-zip-209-prohibit-out"
+    ]
+  },
+  {
+    "id": "T2019-03-31",
+    "date": "2019-03-31",
+    "datePrecision": "day",
+    "dateText": "31 Mar 2019",
+    "category": "TECH",
+    "title": "ZIP 212 created for improved unlinkability",
+    "summary": "ZIP 212 created — Sean Bowe, Daira-Emma Hopwood. Removes reliance on zk-SNARK soundness for diversified-address unlinkability.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "tech",
+      "zip",
+      "privacy",
+      "unlinkability"
+    ],
+    "sources": [
+      "S-zcash-improvement-proposals-zip-212-note-plainte"
+    ]
+  },
+  {
+    "id": "T2019-09-20",
+    "date": "2019-09-20",
+    "datePrecision": "day",
+    "dateText": "20/30 Sep 2019",
+    "category": "REG",
+    "title": "Upbit delists ZEC and privacy coins due to FATF",
+    "summary": "Upbit delists ZEC and five other privacy coins (FATF guidance); OKEx Korea earlier that month.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "regulation",
+      "delisting",
+      "fatf",
+      "korea"
+    ],
+    "sources": [
+      "S-coindesk-coindesk-south-korea-s-upbit-delists-pr"
+    ]
+  },
+  {
+    "id": "T2019-09-24",
+    "date": "2019-09-24",
+    "datePrecision": "day",
+    "dateText": "24 Sep 2019",
+    "category": "EXPLOIT",
+    "title": "zcashd fixes CVE-2019-16930 and CVE-2019-17048",
+    "summary": "zcashd 2.0.7-3 fixes CVE-2019-16930 (REJECT) and CVE-2019-17048 (PING) — Tramèr, Boneh, Paterson.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "exploit",
+      "cve",
+      "patch"
+    ],
+    "sources": [
+      "S-electric-coin-company-fixed-zcashd-2-0-7-3-relea"
+    ]
+  },
+  {
+    "id": "T2019-11-06",
+    "date": "2019-11-06",
+    "datePrecision": "range",
+    "dateText": "6-7 Nov 2019",
+    "dateEnd": "2019-11-07",
+    "category": "GOV",
+    "title": "ECC donates Zcash trademark to Zcash Foundation",
+    "summary": "ECC donates the Zcash trademark to the Zcash Foundation — creating a two-party veto: neither org alone can declare a chain Zcash; both must consent to consensus-changing upgrades or the chain splits and neither side may use the name.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance",
+      "trademark",
+      "veto"
+    ],
+    "sources": [
+      "S-electric-coin-company-ecc-electric-coin-co-donat",
+      "S-coindesk-coindesk-zcash-trademark-talks-were-abo"
+    ]
+  },
+  {
+    "id": "T2019-11-10",
+    "date": "2019-11-10",
+    "datePrecision": "day",
+    "dateText": "10 Nov 2019",
+    "category": "FUND",
+    "secondaryCategory": "GOV",
+    "title": "ZIP 1014 created establishing dev fund model",
+    "summary": "ZIP 1014 created — Andrew Miller, Zooko Wilcox (original: Eran Tromer). 20% dev fund: 35% Bootstrap/ECC, 25% ZF, 40% Major Grants; four years; ZF board members barred from holding ECC equity (grace period to 1 Nov 2021).",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "funding",
+      "dev-fund",
+      "governance",
+      "zip"
+    ],
+    "sources": [
+      "S-zcash-improvement-proposals-zip-1014-dev-fund"
+    ]
+  },
+  {
+    "id": "T2019-12-11",
+    "date": "2019-12-11",
+    "datePrecision": "day",
+    "dateText": "11 Dec 2019, 21:51 UTC",
+    "height": 653600,
+    "category": "TECH",
+    "title": "Blossom network upgrade activates",
+    "summary": "Blossom — block 653,600.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "tech",
+      "upgrade",
+      "blossom"
+    ],
+    "sources": [
+      "S-zcash-zcash-upgrade-blossom"
+    ]
+  },
+  {
+    "id": "T2020-01-01",
+    "date": "2020-01-01",
+    "datePrecision": "year",
+    "dateText": "2020",
+    "category": "GOV",
+    "title": "ECC becomes wholly owned subsidiary of Bootstrap",
+    "summary": "ECC becomes a wholly owned subsidiary of the Bootstrap Project, a 501(c)(3).",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance",
+      "bootstrap",
+      "restructuring"
+    ],
+    "sources": [
+      "S-wikipedia-wikipedia-zcash"
+    ]
+  },
+  {
+    "id": "T2020-07-16",
+    "date": "2020-07-16",
+    "datePrecision": "day",
+    "dateText": "16 Jul 2020, 10:56 UTC",
+    "height": 903000,
+    "category": "TECH",
+    "title": "Heartwood network upgrade activates",
+    "summary": "Heartwood — block 903,000 (Flyclient ZIP 221, shielded coinbase ZIP 213).",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "tech",
+      "upgrade",
+      "heartwood"
+    ],
+    "sources": [
+      "S-zcash-zcash-upgrade-heartwood"
+    ]
+  },
+  {
+    "id": "T2020-07-28",
+    "date": "2020-07-28",
+    "datePrecision": "day",
+    "dateText": "28 Jul 2020",
+    "category": "EXPLOIT",
+    "title": "zcashd v3.1.0 ships with fChecked bug",
+    "summary": "zcashd v3.1.0 ships — introducing the fChecked bug that silently disabled Sprout proof verification for the next 5.7 years.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "exploit",
+      "bug",
+      "verification",
+      "sprout"
+    ],
+    "sources": [
+      "S-zodl-zodl-zcashd-sprout-verification-vulnerabili"
+    ]
+  },
+  {
+    "id": "T2020-07-31",
+    "date": "2020-07-31",
+    "datePrecision": "day",
+    "dateText": "31 Jul 2020",
+    "category": "LEAD",
+    "secondaryCategory": "GOV",
+    "title": "Josh Cincinnati resigns as ZF Executive Director",
+    "summary": "Josh Cincinnati resigns as ZF ED: mutual trust was irreparably lost with ECC leadership; he judged it unlikely that the ECC's top leadership would ever change.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "leadership",
+      "governance",
+      "resignation"
+    ],
+    "sources": [
+      "S-zcash-community-forum-zcash-community-forum-josh"
+    ]
+  },
+  {
+    "id": "T2020-09-29",
+    "date": "2020-09-29",
+    "datePrecision": "day",
+    "dateText": "29 Sep 2020",
+    "category": "REG",
+    "title": "Gemini enables shielded ZEC withdrawals",
+    "summary": "Gemini enables shielded ZEC withdrawals (Sapling) — claims a first.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "regulation",
+      "gemini",
+      "sapling",
+      "withdrawal"
+    ],
+    "sources": [
+      "S-the-block-the-block-gemini-shielded-withdrawals"
+    ]
+  },
+  {
+    "id": "T2020-11-18",
+    "date": "2020-11-18",
+    "datePrecision": "day",
+    "dateText": "18 Nov 2020, 12:34 UTC",
+    "height": 1046400,
+    "category": "FUND",
+    "secondaryCategory": "TECH",
+    "title": "Canopy upgrade with first halving and dev fund",
+    "summary": "Canopy — block 1,046,400. First halving (6.25 → 3.125 ZEC). Founders' Reward ends; Dev Fund begins: miners 80%, Major Grants 8%, ECC 7%, ZF 5%. ZIP 212 activates.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "tech",
+      "upgrade",
+      "canopy",
+      "halving",
+      "dev-fund"
+    ],
+    "sources": [
+      "S-zcash-zcash-upgrade-canopy"
+    ]
+  },
+  {
+    "id": "T2021-01-01",
+    "date": "2021-01-01",
+    "datePrecision": "month",
+    "dateText": "Early 2021",
+    "category": "LEAD",
+    "title": "Jack Gavigan (\"Dodger\") becomes ZF Executive Director",
+    "summary": "Jack Gavigan (\"Dodger\") becomes ZF Executive Director",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-zcash-foundation-zf-bids-farewell-to-jack-gaviga"
+    ]
+  },
+  {
+    "id": "T2021-07-13",
+    "date": "2021-07-13",
+    "datePrecision": "day",
+    "dateText": "13 Jul 2021",
+    "category": "EXPLOIT",
+    "title": "Viewing-key leak in Nighthawk and ECC iOS wallets via memo \"Reply-To\"",
+    "summary": "Viewing-key leak in Nighthawk and ECC iOS wallets via memo \"Reply-To\"",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance"
+    ],
+    "sources": [
+      "S-electric-coin-company-ecc-privacy-leak-bug-in-ni"
+    ]
+  },
+  {
+    "id": "T2022-04-01",
+    "date": "2022-04-01",
+    "datePrecision": "month",
+    "dateText": "Apr 2022",
+    "category": "GOV",
+    "title": "Edward Snowden revealed as \"John Dobbertin\", the sixth Ceremony participant (Zcash Media)",
+    "summary": "Edward Snowden revealed as \"John Dobbertin\", the sixth Ceremony participant (Zcash Media)",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-wikipedia-wikipedia-zcash"
+    ]
+  },
+  {
+    "id": "T2022-05-31",
+    "date": "2022-05-31",
+    "datePrecision": "day",
+    "dateText": "31 May 2022, 17:50:05 UTC",
+    "category": "TECH",
+    "title": "NU5 activates Orchard and introduces CVE-2026-54496",
+    "summary": "NU5 — block 1,687,104. Orchard, Halo 2 (no trusted setup), unified addresses. Introduces CVE-2026-54496",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "security-issue",
+      "network-upgrade",
+      "pool-specific"
+    ],
+    "sources": [
+      "S-zcash-zcash-upgrade-nu5"
+    ],
+    "secondaryCategory": "EXPLOIT"
+  },
+  {
+    "id": "T2022-06-15",
+    "date": "2022-06-15",
+    "datePrecision": "day",
+    "dateText": "mid-Jun 2022",
+    "category": "EXPLOIT",
+    "title": "Sandblasting begins (~2 weeks after NU5)",
+    "summary": "Sandblasting begins (~2 weeks after NU5)",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "network-upgrade"
+    ],
+    "sources": [
+      "S-github-start-mid-june-2022-roughly-two-weeks-aft"
+    ]
+  },
+  {
+    "id": "T2022-08-15",
+    "date": "2022-08-15",
+    "datePrecision": "day",
+    "dateText": "15 Aug 2022",
+    "category": "TECH",
+    "title": "ZIP 317 created (proportional fees)",
+    "summary": "ZIP 317 created (proportional fees)",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-zcash-improvement-proposals-mechanism-a-flat-1-0"
+    ]
+  },
+  {
+    "id": "T2022-10-01",
+    "date": "2022-10-01",
+    "datePrecision": "month",
+    "dateText": "Oct 2022",
+    "category": "EXPLOIT",
+    "title": "Chain size ~30 GB → >100 GB; attack costs ~$10/day",
+    "summary": "Chain size ~30 GB → >100 GB; attack costs ~$10/day",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-protos-chain-bloat-30-gb-100-gb-tripled-by-octob"
+    ]
+  },
+  {
+    "id": "T2022-12-01",
+    "date": "2022-12-01",
+    "datePrecision": "month",
+    "dateText": "Dec 2022",
+    "category": "GOV",
+    "title": "Shielded Labs founded by Jason McGee",
+    "summary": "Shielded Labs founded by Jason McGee (\"aquietinvestor\") as a non-profit Swiss Association — explicitly to \"decentralize development away from US-based organizations\"",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-zcash-community-forum-shielded-labs-founding-thr"
+    ]
+  },
+  {
+    "id": "T2023-04-01",
+    "date": "2023-04-01",
+    "datePrecision": "month",
+    "dateText": "Apr 2023",
+    "category": "TECH",
+    "title": "zcashd v5.5.0 makes ZIP 317 fees the default",
+    "summary": "zcashd v5.5.0 makes ZIP 317 fees the default",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-zcash-improvement-proposals-mechanism-a-flat-1-0"
+    ]
+  },
+  {
+    "id": "T2023-08-31",
+    "date": "2023-08-31",
+    "datePrecision": "day",
+    "dateText": "31 Aug 2023",
+    "category": "REG",
+    "title": "SEC opens probe into the Zcash Foundation (\"SF-04569\")",
+    "summary": "SEC opens probe into the Zcash Foundation (\"SF-04569\")",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance"
+    ],
+    "sources": [
+      "S-crypto-news-crypto-news-sec-ends-zcash-foundatio"
+    ]
+  },
+  {
+    "id": "T2023-09-15",
+    "date": "2023-09-15",
+    "datePrecision": "day",
+    "dateText": "15 Sep 2023",
+    "category": "EXPLOIT",
+    "title": "ViaBTC hashrate dominance prompts Coinbase to restrict ZEC",
+    "summary": "ViaBTC controls 53% of Zcash hashrate. Coinbase raises confirmations 40 → 110 and moves ZEC to limit-only",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "funding",
+      "market"
+    ],
+    "sources": [
+      "S-crypto-news-crypto-news-coinbase-limits-zcash-tr"
+    ],
+    "secondaryCategory": "MARKET"
+  },
+  {
+    "id": "T2023-11-01",
+    "date": "2023-11-01",
+    "datePrecision": "month",
+    "dateText": "Nov 2023",
+    "category": "EXPLOIT",
+    "title": "Sandblast transactions stop entering the mempool",
+    "summary": "Sandblast transactions stop entering the mempool",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-github-start-mid-june-2022-roughly-two-weeks-aft"
+    ]
+  },
+  {
+    "id": "T2023-12-18",
+    "date": "2023-12-18",
+    "datePrecision": "day",
+    "dateText": "18 Dec 2023",
+    "category": "LEAD",
+    "title": "Zooko steps down as ECC CEO; Swihart succeeds him",
+    "summary": "Zooko Wilcox steps down as ECC CEO after 8 years; Josh Swihart (previously SVP Growth) becomes CEO. Zooko remains a Bootstrap director. \"Zcash took over not only my life but also my identity.\"",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance"
+    ],
+    "sources": [
+      "S-the-block-the-block-zooko-steps-down-as-ecc-ceo"
+    ]
+  },
+  {
+    "id": "T2024-01-12",
+    "date": "2024-01-12",
+    "datePrecision": "day",
+    "dateText": "12 Jan 2024",
+    "category": "REG",
+    "title": "Binance tags ZEC; Zcash proposes TEX addresses",
+    "summary": "Binance monitoring tag; Zcash proposes TEX / Traceable Unified Addresses to avoid delisting",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-dl-news-dl-news-how-firo-and-zcash-dodged-binanc"
+    ]
+  },
+  {
+    "id": "T2024-03-28",
+    "date": "2024-03-28",
+    "datePrecision": "day",
+    "dateText": "28 Mar 2024",
+    "category": "TECH",
+    "title": "Zashi wallet launches (iOS; Android late April)",
+    "summary": "Zashi wallet launches (iOS; Android late April)",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-electric-coin-company-ecc-meet-zashi-28-mar-2024"
+    ]
+  },
+  {
+    "id": "T2024-07-04",
+    "date": "2024-07-04",
+    "datePrecision": "day",
+    "dateText": "4 Jul 2024",
+    "category": "MARKET",
+    "title": "ZEC all-time low: $16.08",
+    "summary": "ZEC all-time low: $16.08",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "market"
+    ],
+    "sources": [
+      "S-coingecko-nominal-all-time-high-3-191-93-on-28-o"
+    ]
+  },
+  {
+    "id": "T2024-07-05",
+    "date": "2024-07-05",
+    "datePrecision": "day",
+    "dateText": "5 Jul 2024",
+    "category": "LEAD",
+    "title": "Zooko departs as Bootstrap Executive Director and resigns from the Bootstrap board",
+    "summary": "Zooko departs as Bootstrap Executive Director and resigns from the Bootstrap board",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance"
+    ],
+    "sources": [
+      "S-electric-coin-company-ecc-zooko-and-a-new-focus"
+    ]
+  },
+  {
+    "id": "T2024-08-08",
+    "date": "2024-08-08",
+    "datePrecision": "day",
+    "dateText": "8 Aug 2024",
+    "category": "MARKET",
+    "title": "Forbes calls Zcash a zombie blockchain",
+    "summary": "Forbes: \"zombie blockchain\" — 3 tx/min, $14,367 total fee revenue in 2023, market cap under $500 M (from $3.5 B peak), only 9% of supply shielded; ECC treasury ~$9.2 M; ZF treasury ~$9.2 M; Zooko drew ~$5 M/yr 2016–2020",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "network-upgrade",
+      "governance",
+      "market"
+    ],
+    "sources": [
+      "S-forbes-forbes-how-satoshi-collaborator-zooko-wil"
+    ],
+    "secondaryCategory": "FUND"
+  },
+  {
+    "id": "T2024-08-26",
+    "date": "2024-08-26",
+    "datePrecision": "day",
+    "dateText": "26 Aug 2024",
+    "category": "FUND",
+    "title": "ZIP 1015 creates the lockbox and ZCG split",
+    "summary": "ZIP 1015 created — Jason McGee, @Peacemonger, Kris Nuttycombe. 12% lockbox + 8% ZCG",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "network-upgrade"
+    ],
+    "sources": [
+      "S-zcash-improvement-proposals-zip-1015-block-subsi"
+    ]
+  },
+  {
+    "id": "T2024-10-03",
+    "date": "2024-10-03",
+    "datePrecision": "day",
+    "dateText": "3 Oct 2024",
+    "category": "LEAD",
+    "title": "Sean Bowe departs ECC to do independent Zcash research",
+    "summary": "Sean Bowe departs ECC to do independent Zcash research",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance"
+    ],
+    "sources": [
+      "S-zcash-community-forum-zcash-community-forum-i-m"
+    ]
+  },
+  {
+    "id": "T2024-11-23",
+    "date": "2024-11-23",
+    "datePrecision": "day",
+    "dateText": "23 Nov 2024, 11:02:59 UTC",
+    "category": "FUND",
+    "title": "NU6 activates the second halving and the lockbox",
+    "summary": "NU6 — block 2,726,400. Second halving (3.125 → 1.5625 ZEC). ECC's and ZF's direct funding streams end; 12% to a lockbox with no agreed disbursement mechanism, 8% to ZCG. Swihart: \"Our wallet address will no longer be codified in the protocol\"",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "network-upgrade",
+      "funding",
+      "governance"
+    ],
+    "sources": [
+      "S-zcash-zcash-upgrade-nu6",
+      "S-electric-coin-company-ecc-zcash-halvening-nu6-23"
+    ],
+    "secondaryCategory": "TECH"
+  },
+  {
+    "id": "T2025-01-28",
+    "date": "2025-01-28",
+    "datePrecision": "day",
+    "dateText": "28 Jan 2025",
+    "category": "GOV",
+    "title": "Draft `ecc-zbloc` \"Zcash Governance Bloc\" — Josh Swihart, Daira-Emma Hopwood. Status: Obsolete",
+    "summary": "Draft `ecc-zbloc` \"Zcash Governance Bloc\" — Josh Swihart, Daira-Emma Hopwood. Status: Obsolete",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance"
+    ],
+    "sources": [
+      "S-zcash-improvement-proposals-draft-ecc-zbloc-obso"
+    ]
+  },
+  {
+    "id": "T2025-02-19",
+    "date": "2025-02-19",
+    "datePrecision": "day",
+    "dateText": "19 Feb 2025",
+    "category": "FUND",
+    "title": "ZIP 1016 and ZIP 271 create new funding models",
+    "summary": "ZIP 1016 (Community & Coinholder Funding Model — Josh Swihart owner) and ZIP 271 (dev-fund extension + one-time 78,750 ZEC disbursement to a 2-of-3 multisig held by ZF, ECC and Shielded Labs) created",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "funding",
+      "governance",
+      "market"
+    ],
+    "sources": [
+      "S-zcash-improvement-proposals-zip-1016-community-a",
+      "S-zcash-improvement-proposals-zip-271-dev-fund-ext"
+    ],
+    "secondaryCategory": "GOV"
+  },
+  {
+    "id": "T2025-03-04",
+    "date": "2025-03-04",
+    "datePrecision": "day",
+    "dateText": "4 Mar 2025",
+    "category": "LEAD",
+    "title": "Jack Gavigan steps down as ZF ED",
+    "summary": "Jack Gavigan steps down as ZF ED after four years; Alex Bornstein interim",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance"
+    ],
+    "sources": [
+      "S-zcash-foundation-zf-changing-of-the-guard-4-mar"
+    ]
+  },
+  {
+    "id": "T2025-04-01",
+    "date": "2025-04-01",
+    "datePrecision": "month",
+    "dateText": "Apr 2025",
+    "category": "TECH",
+    "title": "Project Tachyon launched by Sean Bowe — oblivious synchronisation, scalability",
+    "summary": "Project Tachyon launched by Sean Bowe — oblivious synchronisation, scalability",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-sean-bowe-sean-bowe-tachyon-scaling-zcash-with-o"
+    ]
+  },
+  {
+    "id": "T2025-05-22",
+    "date": "2025-05-22",
+    "datePrecision": "day",
+    "dateText": "22 May 2025",
+    "category": "MARKET",
+    "title": "ECC publishes \"The Privacy Illusion: What Crypto Gets Wrong\"",
+    "summary": "ECC publishes \"The Privacy Illusion: What Crypto Gets Wrong\"",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance"
+    ],
+    "sources": [
+      "S-electric-coin-company-ecc-the-privacy-illusion-2"
+    ]
+  },
+  {
+    "id": "T2025-08-01",
+    "date": "2025-08-01",
+    "datePrecision": "month",
+    "dateText": "Aug 2025",
+    "category": "MARKET",
+    "title": "ZEC cycle low ~$35",
+    "summary": "ZEC cycle low ~$35",
+    "confidence": "low",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "market"
+    ],
+    "sources": [
+      "S-bitmex-com-zec-545-on-29-may-624-peak-on-4-jun-3"
+    ]
+  },
+  {
+    "id": "T2025-10-01",
+    "date": "2025-10-01",
+    "datePrecision": "day",
+    "dateText": "~1 Oct 2025",
+    "category": "NET",
+    "title": "Naval Ravikant calls ZEC insurance against Bitcoin",
+    "summary": "Naval Ravikant (2015 Zerocoin Electric Coin Company co-investor, founding Zcash Foundation board member) calls ZEC \"insurance against Bitcoin\" while posting a chart of ZEC rising $49→$68. Protos notes ZEC actually correlates positively with BTC and had underperformed it over the full history.",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "promotion-network",
+      "naval-ravikant",
+      "influencer",
+      "conflict-of-interest"
+    ],
+    "sources": [
+      "S-protos-zcash-vs-bitcoin-debate-exposes-naval-rav"
+    ]
+  },
+  {
+    "id": "T2025-10-18",
+    "date": "2025-10-18",
+    "datePrecision": "day",
+    "dateText": "18 Oct 2025",
+    "category": "NET",
+    "title": "Coinbase Institutional publishes hedged ZEC research",
+    "summary": "Coinbase Institutional research (\"Zcash: Demand for Privacy\", Colin Basco) is notably hedged: \"the path from here is mostly a function of how BTC trades.\" Coinbase lists ZEC, Coinbase Custody holds the Grayscale trust's ZEC, and Coinbase Ventures invested in ZODL — none of which is disclosed in the report.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "promotion-network",
+      "coinbase",
+      "institutional-research"
+    ],
+    "sources": [
+      "S-coinbase-com-coinbase-institutional"
+    ]
+  },
+  {
+    "id": "T2025-10-24",
+    "date": "2025-10-24",
+    "datePrecision": "range",
+    "dateText": "24-26 Oct 2025",
+    "dateEnd": "2025-10-26",
+    "category": "NET",
+    "secondaryCategory": "MARKET",
+    "title": "Mumtaz and Hayes hype ZEC; price jumps 30%",
+    "summary": "Mert Mumtaz (Helius CEO) calls Zcash \"the fastest horse\" for privacy (24 Oct, CoinDesk podcast), never disclosing a ZEC position. Arthur Hayes posts a $10,000 ZEC price target on X (~26 Oct). ZEC rises +30% in 24h ($272→$355) on the call.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "promotion-network",
+      "mert-mumtaz",
+      "arthur-hayes",
+      "market"
+    ],
+    "sources": [
+      "S-coindesk-coindesk-podcast",
+      "S-yahoo-finance-arthur-hayes-10-000-zec",
+      "S-coinmarketcap-zec-surges-30percent-after-arthur"
+    ]
+  },
+  {
+    "id": "T2025-11-01",
+    "date": "2025-11-01",
+    "datePrecision": "day",
+    "dateText": "1 Nov 2025",
+    "category": "LEAD",
+    "title": "Alex Bornstein appointed permanent ZF Executive Director",
+    "summary": "Alex Bornstein appointed permanent ZF Executive Director",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-zcash-foundation-zf-board-appoints-alex-bornstei"
+    ]
+  },
+  {
+    "id": "T2025-11-01-2",
+    "date": "2025-11-01",
+    "datePrecision": "month",
+    "dateText": "Nov 2025",
+    "category": "FUND",
+    "title": "NU6.1 activates ZIP 271 and ZIP 1016 funding",
+    "summary": "NU6.1 — mainnet block 3,146,400 (ZIP 255). Activates ZIP 271 (78,750 ZEC disbursement) and ZIP 1016 (8% ZCG / 12% coinholder-controlled, to the third halving at block 4,406,400). ⚠️ exact activation date unverified",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "network-upgrade",
+      "market"
+    ],
+    "sources": [
+      "S-zcash-improvement-proposals-zip-255-deployment-o"
+    ],
+    "secondaryCategory": "TECH"
+  },
+  {
+    "id": "T2025-11-01-3",
+    "date": "2025-11-01",
+    "datePrecision": "month",
+    "dateText": "Nov 2025",
+    "category": "MARKET",
+    "title": "ZEC cycle high ~$723",
+    "summary": "ZEC cycle high ~$723",
+    "confidence": "low",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "market"
+    ],
+    "sources": [
+      "S-bitmex-com-zec-545-on-29-may-624-peak-on-4-jun-3"
+    ]
+  },
+  {
+    "id": "T2025-11-03",
+    "date": "2025-11-03",
+    "datePrecision": "day",
+    "dateText": "3 Nov 2025",
+    "category": "NET",
+    "title": "CoinDesk Research runs Zcash report sponsored by GenZcash",
+    "summary": "CoinDesk Research publishes \"Inside Zcash: Encrypted Money at Planetary Scale\" (updated 7 Nov), disclosed at the top as sponsored by \"GenZcash\" — an entity whose identity could not be established. It ran three days before ZEC broke $530 and supplied the \"encrypted money at planetary scale\" framing later reused in a Messari report title.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "promotion-network",
+      "sponsored-research",
+      "coindesk",
+      "genzcash"
+    ],
+    "sources": [
+      "S-coindesk-coindesk-com-research-inside-zcash-encr"
+    ]
+  },
+  {
+    "id": "T2025-11-04",
+    "date": "2025-11-04",
+    "datePrecision": "day",
+    "dateText": "4 Nov 2025",
+    "category": "NET",
+    "title": "Galaxy Digital frames ZEC as Bitcoin's spiritual successor",
+    "summary": "Galaxy Digital research (Will Owens) frames Zcash's advocates as calling it \"encrypted Bitcoin,\" a \"spiritual successor\" to Bitcoin; no Galaxy ZEC position is disclosed in the coverage.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "promotion-network",
+      "galaxy-digital",
+      "institutional-research"
+    ],
+    "sources": [
+      "S-decrypt-zcash-surging-cypherpunk-principles-bitc"
+    ]
+  },
+  {
+    "id": "T2025-11-06",
+    "date": "2025-11-06",
+    "datePrecision": "day",
+    "dateText": "6 Nov 2025",
+    "category": "NET",
+    "title": "Barry Silbert sells Grayscale Zcash Trust shares",
+    "summary": "Barry Silbert (2015 Zcash Company co-investor, DCG founder, Grayscale chairman) sells 9,753 shares of the Grayscale Zcash Trust per SEC filing while ZEC traded ~$544 (prior sale 25 Jul: 1,897 shares).",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "promotion-network",
+      "barry-silbert",
+      "grayscale",
+      "insider-selling"
+    ],
+    "sources": [
+      "S-thecoinrepublic-com-coin-republic"
+    ]
+  },
+  {
+    "id": "T2025-11-10",
+    "date": "2025-11-10",
+    "datePrecision": "day",
+    "dateText": "10 Nov 2025",
+    "category": "REG",
+    "title": "Gemini enables Orchard shielded withdrawals",
+    "summary": "Gemini enables Orchard shielded withdrawals",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "pool-specific"
+    ],
+    "sources": [
+      "S-electric-coin-company-ecc-gemini-sets-the-standa"
+    ]
+  },
+  {
+    "id": "T2025-11-12",
+    "date": "2025-11-12",
+    "datePrecision": "day",
+    "dateText": "12 Nov 2025",
+    "category": "NET",
+    "title": "Cypherpunk Technologies launches with Winklevoss-backed ZEC treasury",
+    "summary": "Cypherpunk Technologies (Winklevoss-backed, Nasdaq: CYPH, formerly Leap Therapeutics) buys 203,775 ZEC for $50 M (~$245/ZEC); launched with a $58.88 M private placement led by Winklevoss Capital",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "market",
+      "stakeholders"
+    ],
+    "sources": [
+      "S-coingecko-coingecko-treasuries",
+      "S-pr-newswire-pr-newswire-cypherpunk-taps-zooko-as"
+    ],
+    "secondaryCategory": "MARKET"
+  },
+  {
+    "id": "T2025-11-15",
+    "date": "2025-11-15",
+    "datePrecision": "range",
+    "dateText": "15–16 Nov 2025",
+    "category": "EXPLOIT",
+    "title": "Ledger drops v1 tx support; pre-2018 ZEC unspendable on Ledger",
+    "summary": "Ledger drops v1 tx support; pre-2018 ZEC unspendable on Ledger",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "market"
+    ],
+    "sources": [
+      "S-the-defiant-the-defiant-ledger-draws-heat-as-pre"
+    ],
+    "secondaryCategory": "REG",
+    "dateEnd": "2025-11-16"
+  },
+  {
+    "id": "T2025-11-18",
+    "date": "2025-11-18",
+    "datePrecision": "day",
+    "dateText": "18 Nov 2025",
+    "category": "NET",
+    "title": "Cypherpunk +29,869 ZEC ($18 M) at ~$603",
+    "summary": "Cypherpunk +29,869 ZEC ($18 M) at ~$603",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "market",
+      "stakeholders"
+    ],
+    "sources": [
+      "S-coingecko-coingecko-treasuries"
+    ],
+    "secondaryCategory": "MARKET"
+  },
+  {
+    "id": "T2025-11-26",
+    "date": "2025-11-26",
+    "datePrecision": "day",
+    "dateText": "26 Nov 2025",
+    "category": "MARKET",
+    "title": "Grayscale files to convert the Zcash Trust to an ETF",
+    "summary": "Grayscale files to convert the Zcash Trust to an ETF",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-wikipedia-wikipedia-zcash"
+    ],
+    "secondaryCategory": "REG"
+  },
+  {
+    "id": "T2025-12-01",
+    "date": "2025-12-01",
+    "datePrecision": "day",
+    "dateText": "1 Dec 2025",
+    "category": "GOV",
+    "title": "Bootstrap announces organisational restructuring — the proximate trigger of the ECC rupture",
+    "summary": "Bootstrap announces organisational restructuring — the proximate trigger of the ECC rupture",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance"
+    ],
+    "sources": [
+      "S-ccn-ccn-zcash-dev-drama-explained-cashz-pivot"
+    ]
+  },
+  {
+    "id": "T2025-12-09",
+    "date": "2025-12-09",
+    "datePrecision": "day",
+    "dateText": "9 Dec 2025",
+    "category": "NET",
+    "title": "Zooko named strategic advisor to Cypherpunk",
+    "summary": "Zooko Wilcox named strategic advisor to Cypherpunk Technologies; described as Chief Product Officer of Shielded Labs",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "stakeholders"
+    ],
+    "sources": [
+      "S-pr-newswire-pr-newswire-cypherpunk-taps-zooko-as"
+    ],
+    "secondaryCategory": "LEAD"
+  },
+  {
+    "id": "T2025-12-19",
+    "date": "2025-12-19",
+    "datePrecision": "day",
+    "dateText": "19 Dec 2025",
+    "category": "NET",
+    "title": "Swihart joins Cypherpunk as paid advisor after Zooko",
+    "summary": "Josh Swihart, then CEO of Electric Coin Company, joins Cypherpunk Technologies as a paid strategic advisor — ten days after Zooko Wilcox (Shielded Labs CPO) took the same role on 9 Dec 2025.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "promotion-network",
+      "josh-swihart",
+      "cypherpunk",
+      "conflict-of-interest"
+    ],
+    "sources": [
+      "S-investing-com-investing-com",
+      "S-pr-newswire-pr-newswire-cypherpunk-taps-zooko-as"
+    ]
+  },
+  {
+    "id": "T2025-12-30",
+    "date": "2025-12-30",
+    "datePrecision": "day",
+    "dateText": "30 Dec 2025",
+    "category": "NET",
+    "title": "Cypherpunk +56,418 ZEC ($29 M) at ~$514",
+    "summary": "Cypherpunk +56,418 ZEC ($29 M) at ~$514",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "market",
+      "stakeholders"
+    ],
+    "sources": [
+      "S-coingecko-coingecko-treasuries"
+    ],
+    "secondaryCategory": "MARKET"
+  },
+  {
+    "id": "T2026-01-07",
+    "date": "2026-01-07",
+    "datePrecision": "range",
+    "dateText": "7–8 Jan 2026",
+    "category": "GOV",
+    "title": "Entire ECC engineering team resigns in \"the rupture\"",
+    "summary": "THE RUPTURE. The entire ECC engineering and product team resigns. Swihart: \"the entire ECC team left after being constructively discharged\"; names the Bootstrap board majority — Zaki Manian, Christina Garman, Alan Fairless, Michelle Lai — and calls it \"malicious governance.\" Bootstrap replies that the dispute is about \"compliance and fiduciary duty, not Zcash's mission\" and protecting \"mission-owned assets from private capture.\" ZEC −14% to −20%",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance",
+      "market"
+    ],
+    "sources": [
+      "S-the-block-the-block-zcash-developers-quit-form-n",
+      "S-coindesk-january-2026-the-entire-ecc-engineering",
+      "S-crypto-news-crypto-news-ecc-team-quits-in-bootst"
+    ],
+    "secondaryCategory": "LEAD",
+    "dateEnd": "2026-01-08"
+  },
+  {
+    "id": "T2026-01-08",
+    "date": "2026-01-08",
+    "datePrecision": "day",
+    "dateText": "8 Jan 2026",
+    "category": "GOV",
+    "title": "Departed ECC team regroups as cashZ",
+    "summary": "Team regroups as cashZ (cashz.org), a for-profit startup. Swihart: \"We need to scale Zcash to billions of users. Startups can scale, but nonprofits can't.\"",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-ccn-ccn-zcash-dev-drama-explained-cashz-pivot"
+    ]
+  },
+  {
+    "id": "T2026-01-15",
+    "date": "2026-01-15",
+    "datePrecision": "day",
+    "dateText": "15 Jan 2026",
+    "category": "REG",
+    "title": "SEC closes the Zcash Foundation probe, no enforcement. ZEC +10–14%",
+    "summary": "SEC closes the Zcash Foundation probe, no enforcement. ZEC +10–14%",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance",
+      "market"
+    ],
+    "sources": [
+      "S-crypto-news-crypto-news-sec-ends-zcash-foundatio"
+    ]
+  },
+  {
+    "id": "T2026-01-21",
+    "date": "2026-01-21",
+    "datePrecision": "day",
+    "dateText": "21 Jan 2026",
+    "category": "NET",
+    "title": "Winklevoss twins donate 3,221 ZEC to Shielded Labs",
+    "summary": "Tyler and Cameron Winklevoss personally donate 3,221 ZEC (~$1.2M) to Shielded Labs — their second donation — where Zooko Wilcox, a paid Cypherpunk advisor, is Chief Product Officer.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "promotion-network",
+      "winklevoss",
+      "shielded-labs",
+      "donation"
+    ],
+    "sources": [
+      "S-dl-news-the-winklevoss-twins-personally-donated"
+    ]
+  },
+  {
+    "id": "T2026-01-26",
+    "date": "2026-01-26",
+    "datePrecision": "day",
+    "dateText": "26 Jan 2026",
+    "category": "NET",
+    "title": "Zooko calls 'encrypted Bitcoin' the winning meme",
+    "summary": "Zooko Wilcox tells Bankless: \"Zcash being encrypted Bitcoin is the winning meme because it's only two words\" — explicitly framing the slogan as a memetic strategy to build consensus for protocol upgrades.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "promotion-network",
+      "zooko-wilcox",
+      "bankless",
+      "narrative"
+    ],
+    "sources": [
+      "S-bankless-zcash-founder-on-privacy-ai-and-how-zec"
+    ]
+  },
+  {
+    "id": "T2026-01-29",
+    "date": "2026-01-29",
+    "datePrecision": "day",
+    "dateText": "29 Jan 2026",
+    "category": "NET",
+    "title": "Gemini launches Zcash Edition credit card",
+    "summary": "Gemini launches a Zcash Edition credit card paying up to 4% cashback in ZEC; Gemini's ZEC trading volume rises 45% after launch. Gemini is owned by the Winklevosses, who also seeded Cypherpunk Technologies.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "promotion-network",
+      "gemini",
+      "winklevoss",
+      "product-launch"
+    ],
+    "sources": [
+      "S-crypto-briefing-gemini-the-winklevoss-exchange-l"
+    ]
+  },
+  {
+    "id": "T2026-02-16",
+    "date": "2026-02-16",
+    "datePrecision": "range",
+    "dateText": "16–17 Feb 2026",
+    "category": "GOV",
+    "title": "Zashi wallet rebrands to Zodl",
+    "summary": "Zashi wallet rebrands to Zodl",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "stakeholders"
+    ],
+    "sources": [
+      "S-crypto-news-crypto-news-zashi-rebrands-to-zodl"
+    ],
+    "dateEnd": "2026-02-17"
+  },
+  {
+    "id": "T2026-03-04",
+    "date": "2026-03-04",
+    "datePrecision": "day",
+    "dateText": "4 Mar 2026",
+    "category": "NET",
+    "title": "Nasdaq issues deficiency notice to Cypherpunk",
+    "summary": "Nasdaq issues a deficiency notice to Cypherpunk Technologies (CYPH) after the stock closed below $1.00 for 30 consecutive days; 180-day cure deadline 31 Aug 2026; a reverse split is flagged as an option.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "promotion-network",
+      "cypherpunk",
+      "nasdaq",
+      "dilution"
+    ],
+    "sources": [
+      "S-stocktitan-8-k-via-stocktitan-2"
+    ]
+  },
+  {
+    "id": "T2026-03-09",
+    "date": "2026-03-09",
+    "datePrecision": "day",
+    "dateText": "9 Mar 2026",
+    "category": "FUND",
+    "title": "ZODL raises $25M seed round",
+    "summary": "Zcash Open Development Lab (ZODL) raises $25 M seed — Paradigm, a16z crypto, Winklevoss Capital, Coinbase Ventures, Cypherpunk Technologies, Chapter One, Balaji Srinivasan + angels. Led by Josh Swihart",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "funding",
+      "stakeholders"
+    ],
+    "sources": [
+      "S-coindesk-9-march-2026-the-departed-team-led-by-f"
+    ],
+    "secondaryCategory": "GOV"
+  },
+  {
+    "id": "T2026-03-12",
+    "date": "2026-03-12",
+    "datePrecision": "day",
+    "dateText": "12 Mar 2026",
+    "category": "NET",
+    "title": "Cypherpunk +4,680 ZEC ($2 M) at ~$428",
+    "summary": "Cypherpunk +4,680 ZEC ($2 M) at ~$428",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "market",
+      "stakeholders"
+    ],
+    "sources": [
+      "S-coingecko-coingecko-treasuries"
+    ],
+    "secondaryCategory": "MARKET"
+  },
+  {
+    "id": "T2026-03-23",
+    "date": "2026-03-23",
+    "datePrecision": "range",
+    "dateText": "23–31 Mar 2026",
+    "category": "EXPLOIT",
+    "title": "Sprout proof-verification bypass disclosed and fixed",
+    "summary": "Sprout proof-verification bypass disclosed and fixed (zcashd v6.12.0). ~25,424 ZEC (~$6.5 M) exposed; 5.7-year window",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "market",
+      "pool-specific"
+    ],
+    "sources": [
+      "S-zodl-zodl-zcashd-sprout-verification-vulnerabili"
+    ],
+    "dateEnd": "2026-03-31"
+  },
+  {
+    "id": "T2026-03-27",
+    "date": "2026-03-27",
+    "datePrecision": "day",
+    "dateText": "27 Mar 2026",
+    "category": "EXPLOIT",
+    "title": "First Zebra security advisories published (GHSA-qp6f-w4r3-h8wg Critical; GHSA-3vmh-33xr-9cqh / CVE-2026-34377)",
+    "summary": "First Zebra security advisories published (GHSA-qp6f-w4r3-h8wg Critical; GHSA-3vmh-33xr-9cqh / CVE-2026-34377)",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "security-issue",
+      "stakeholders"
+    ],
+    "sources": [
+      "S-github-zcashfoundation-zebra-advisories-pages-1"
+    ]
+  },
+  {
+    "id": "T2026-04-01",
+    "date": "2026-04-01",
+    "datePrecision": "month",
+    "dateText": "Apr 2026",
+    "category": "GOV",
+    "title": "Taylor Hornby hired to review the protocol (contracted via Shielded Labs)",
+    "summary": "Taylor Hornby hired to review the protocol (contracted via Shielded Labs)",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-the-block-the-block-31-within-24-h-of-the-announ"
+    ]
+  },
+  {
+    "id": "T2026-04-01-2",
+    "date": "2026-04-01",
+    "datePrecision": "month",
+    "dateText": "Apr 2026",
+    "category": "MARKET",
+    "title": "Foundry launches a dedicated Zcash mining pool",
+    "summary": "Foundry launches a dedicated Zcash mining pool",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-wikipedia-wikipedia-zcash"
+    ]
+  },
+  {
+    "id": "T2026-04-04",
+    "date": "2026-04-04",
+    "datePrecision": "range",
+    "dateText": "4–17 Apr 2026",
+    "category": "EXPLOIT",
+    "title": "Four-bug disclosure by Alex \"Scalar\" Sol — including the turnstile accounting bypass",
+    "summary": "Four-bug disclosure by Alex \"Scalar\" Sol — including the turnstile accounting bypass",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "security-issue"
+    ],
+    "sources": [
+      "S-zodl-zodl-several-zcash-vulnerabilities-remediat"
+    ],
+    "dateEnd": "2026-04-17"
+  },
+  {
+    "id": "T2026-05-01",
+    "date": "2026-05-01",
+    "datePrecision": "month",
+    "dateText": "May 2026",
+    "category": "MARKET",
+    "title": "Grayscale files for a spot Zcash ETF",
+    "summary": "Grayscale files for a spot Zcash ETF; ZEC surges past $800 (May peak ~$650–670)",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "market"
+    ],
+    "sources": [
+      "S-crypto-news-the-first-privacy-coin-etf-inside-gr"
+    ]
+  },
+  {
+    "id": "T2026-05-02",
+    "date": "2026-05-02",
+    "datePrecision": "range",
+    "dateText": "2–8 May 2026",
+    "category": "EXPLOIT",
+    "title": "Advisory wave: Zebra Criticals (CVE-2026-44497 etc.); zcashd Critical use-after-free (CVE-2024-52911 parity)",
+    "summary": "Advisory wave: Zebra Criticals (CVE-2026-44497 etc.); zcashd Critical use-after-free (CVE-2024-52911 parity)",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "security-issue",
+      "stakeholders"
+    ],
+    "sources": [
+      "S-github-zcashfoundation-zebra-advisories-pages-1"
+    ],
+    "dateEnd": "2026-05-08"
+  },
+  {
+    "id": "T2026-05-06",
+    "date": "2026-05-06",
+    "datePrecision": "day",
+    "dateText": "6 May 2026",
+    "category": "NET",
+    "secondaryCategory": "MARKET",
+    "title": "Multicoin discloses ZEC position; price jumps 30%",
+    "summary": "Multicoin Capital managing partner Tushar Jain discloses a \"significant position\" in ZEC built since Feb 2026, size undisclosed, framing it as \"a return to the cypherpunk ideals crypto was founded on\"; ZEC rises >30% on the disclosure.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "promotion-network",
+      "multicoin",
+      "market"
+    ],
+    "sources": [
+      "S-yahoo-finance-yahoo-coindesk"
+    ]
+  },
+  {
+    "id": "T2026-05-28",
+    "date": "2026-05-28",
+    "datePrecision": "day",
+    "dateText": "28 May 2026",
+    "category": "TECH",
+    "title": "Anthropic releases Claude Opus 4.8",
+    "summary": "Anthropic releases Claude Opus 4.8",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-zcash-community-forum-note-the-asymmetry-the-iro"
+    ]
+  },
+  {
+    "id": "T2026-05-29",
+    "date": "2026-05-29",
+    "datePrecision": "day",
+    "dateText": "29 May 2026, 23:53",
+    "category": "EXPLOIT",
+    "title": "Taylor Hornby finds the Orchard soundness bug",
+    "summary": "Taylor Hornby finds the Orchard soundness bug — one day after the model's release",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "security-issue",
+      "pool-specific"
+    ],
+    "sources": [
+      "S-zodl-zodl-orchard-vulnerability-successfully-rem"
+    ]
+  },
+  {
+    "id": "T2026-06-01",
+    "date": "2026-06-01",
+    "datePrecision": "range",
+    "dateText": "1–2 Jun 2026",
+    "category": "EXPLOIT",
+    "title": "Emergency soft fork at block 3,363,426 disables Orchard",
+    "summary": "Emergency soft fork at block 3,363,426 disables Orchard",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "network-upgrade",
+      "pool-specific"
+    ],
+    "sources": [
+      "S-zcash-foundation-zf-zebra-4-5-3-and-5-0-0-emerge"
+    ],
+    "secondaryCategory": "TECH",
+    "dateEnd": "2026-06-02"
+  },
+  {
+    "id": "T2026-06-03",
+    "date": "2026-06-03",
+    "datePrecision": "day",
+    "dateText": "3 Jun 2026",
+    "category": "TECH",
+    "title": "NU6.2 hard fork re-enables Orchard with fixed circuit",
+    "summary": "NU6.2 hard fork at block 3,364,600 — fixed circuit, Orchard re-enabled. zcashd v6.20.0, zebrad v5.0.0",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "network-upgrade",
+      "pool-specific"
+    ],
+    "sources": [
+      "S-zcash-zcash-upgrade-nu6-2"
+    ]
+  },
+  {
+    "id": "T2026-06-04",
+    "date": "2026-06-04",
+    "datePrecision": "day",
+    "dateText": "4 Jun 2026",
+    "category": "EXPLOIT",
+    "title": "Orchard bug disclosed publicly; ZEC falls 31%",
+    "summary": "Public disclosure (Zooko Wilcox, Jason McGee, Taylor Hornby). ZEC −31% in 24 h to $409.64; peak $624 → $309 by 5 Jun (−50% in <48 h)",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "market"
+    ],
+    "sources": [
+      "S-the-block-the-block-31-within-24-h-of-the-announ",
+      "S-bitmex-com-zec-545-on-29-may-624-peak-on-4-jun-3"
+    ],
+    "secondaryCategory": "MARKET"
+  },
+  {
+    "id": "T2026-06-04-2",
+    "date": "2026-06-04",
+    "datePrecision": "range",
+    "dateText": "4–5 Jun 2026",
+    "category": "MARKET",
+    "title": "Arthur Hayes liquidates his entire ZEC position",
+    "summary": "Arthur Hayes liquidates his entire ZEC position: exploitation could not be \"cryptographically proven impossible\"",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "security-issue",
+      "market"
+    ],
+    "sources": [
+      "S-coindesk-arthur-hayes-liquidated-his-entire-zec"
+    ],
+    "dateEnd": "2026-06-05"
+  },
+  {
+    "id": "T2026-06-05",
+    "date": "2026-06-05",
+    "datePrecision": "day",
+    "dateText": "5 Jun 2026",
+    "category": "NET",
+    "title": "Cypherpunk reaffirms its 5%-of-supply target",
+    "summary": "Cypherpunk (314,185.70 ZEC, ~1.88% of supply) reaffirms its 5%-of-supply target. Cameron Winklevoss: \"Encrypted money with provable correctness is unstoppable.\"",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "funding",
+      "stakeholders"
+    ],
+    "sources": [
+      "S-the-block-the-block-cypherpunk-remains-committed"
+    ],
+    "secondaryCategory": "MARKET"
+  },
+  {
+    "id": "T2026-06-06",
+    "date": "2026-06-06",
+    "datePrecision": "day",
+    "dateText": "6 Jun 2026",
+    "category": "TECH",
+    "title": "Ironwood announced — a new shielded pool",
+    "summary": "Ironwood announced — a new shielded pool",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "pool-specific"
+    ],
+    "sources": [
+      "S-zodl-zodl-zodl-com"
+    ]
+  },
+  {
+    "id": "T2026-06-15",
+    "date": "2026-06-15",
+    "datePrecision": "day",
+    "dateText": "15 Jun 2026",
+    "category": "EXPLOIT",
+    "title": "CVE-2026-54496 published; Anthropic's Mythos audit clears Zcash",
+    "summary": "GHSA-ww9q-8r59-xv46 / CVE-2026-54496 published (CVSS 9.3). Same day: Zooko announces Anthropic's \"Mythos\" whole-protocol audit found no further serious bugs; ZEC +25–30%",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "security-issue",
+      "market"
+    ],
+    "sources": [
+      "S-github-ghsa-ww9q-8r59-xv46-cve-2026-54496-orchar",
+      "S-crypto-briefing-15-jun-2026-zooko-announces-anth"
+    ],
+    "secondaryCategory": "MARKET"
+  },
+  {
+    "id": "T2026-07-13",
+    "date": "2026-07-13",
+    "datePrecision": "range",
+    "dateText": "13–19 Jul 2026",
+    "category": "EXPLOIT",
+    "title": "zcashd advisory backfill, including GHSA-ghc3-g8w4-whf9 (Critical) for the Orchard soundness failure",
+    "summary": "zcashd advisory backfill, including GHSA-ghc3-g8w4-whf9 (Critical) for the Orchard soundness failure",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "stakeholders",
+      "pool-specific"
+    ],
+    "sources": [
+      "S-github-zcash-zcash-security-disclosures"
+    ],
+    "dateEnd": "2026-07-19"
+  },
+  {
+    "id": "T2026-07-16",
+    "date": "2026-07-16",
+    "datePrecision": "day",
+    "dateText": "16 Jul 2026",
+    "category": "TECH",
+    "title": "ZF announces Zakura, a second full node built from the Zebra codebase",
+    "summary": "ZF announces Zakura, a second full node built from the Zebra codebase",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-zcash-foundation-zf-blog-index"
+    ]
+  },
+  {
+    "id": "T2026-07-18",
+    "date": "2026-07-18",
+    "datePrecision": "day",
+    "dateText": "18 Jul 2026, 22:51:43 UTC",
+    "category": "TECH",
+    "title": "zcashd reaches end of life, shuts down permanently",
+    "summary": "zcashd end of life at block 3,417,100 — automatic permanent shutdown; cannot restart",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-zcash-z-cash-zcashd-deprecation-eol"
+    ]
+  },
+  {
+    "id": "T2026-07-19",
+    "date": "2026-07-19",
+    "datePrecision": "day",
+    "dateText": "19 Jul 2026",
+    "category": "TECH",
+    "title": "`zcash/zcash` repository archived (read-only)",
+    "summary": "`zcash/zcash` repository archived (read-only)",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-github-github-zcash-zcash-security-advisories"
+    ]
+  },
+  {
+    "id": "T2026-07-28",
+    "date": "2026-07-28",
+    "datePrecision": "day",
+    "dateText": "28 Jul 2026, 13:00 UTC",
+    "category": "TECH",
+    "title": "NU6.3 Ironwood launches a new shielded pool",
+    "summary": "NU6.3 \"Ironwood\" — block 3,428,143. New formally verified (Lean) shielded pool; v6 tx format (ZIP 229); quantum recoverability (ZIP 2005); Orchard restricted to withdrawals only (ZIP 2006), creating the supply-verification turnstile",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "network-upgrade",
+      "pool-specific"
+    ],
+    "sources": [
+      "S-zcash-improvement-proposals-28-jul-2026-nu6-3-ir",
+      "S-the-block-sean-bowe-on-the-outcome-soundness-of"
+    ]
+  },
+  {
+    "id": "T2026-07-29",
+    "date": "2026-07-29",
+    "datePrecision": "day",
+    "dateText": "29 Jul 2026",
+    "category": "TECH",
+    "title": "Ironwood's first-day migration moves 176,000 ZEC",
+    "summary": "First-day migration: ~176,000 ZEC (~$81 M) into Ironwood, ~5% of Orchard's 3.66 M ZEC. Swihart: \"Orchard was fixed in 5 days and replaced in 60.\" Sean Bowe: \"a cross-team collaboration has just changed Zcash's history.\"",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "market",
+      "pool-specific"
+    ],
+    "sources": [
+      "S-coindesk-coindesk-80m-zec-crosses-into-ironwood"
+    ],
+    "secondaryCategory": "MARKET"
+  },
+  {
+    "id": "T2026-08-12",
+    "date": "2026-08-12",
+    "datePrecision": "day",
+    "dateText": "12 Aug 2026",
+    "category": "NET",
+    "title": "Cypherpunk reports Q2 results, adds Dev Ojha as advisor",
+    "summary": "Cypherpunk Q2 2026 results: net income $39.4M ($0.18 diluted EPS) on a $46.0M unrealised ZEC gain; holdings 323,394.38 ZEC at $341.83 weighted-average cost; adds advisor Dev Ojha (Valar Group).",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "promotion-network",
+      "cypherpunk",
+      "dev-ojha"
+    ],
+    "sources": [
+      "S-pr-newswire-cypherpunk-technologies-reports-seco"
+    ]
+  },
+  {
+    "id": "T2026-08-14",
+    "date": "2026-08-14",
+    "datePrecision": "day",
+    "dateText": "14 Aug 2026",
+    "category": "GOV",
+    "title": "McGee proposes doubling Hornby's bug bounty to $1.5M",
+    "summary": "Jason McGee (Shielded Labs founder) proposes doubling Taylor Hornby's requested $750k bonus grant to $1.5M for the Orchard counterfeiting disclosure, arguing the original was 0.033% of ~$2.3B at risk versus an industry norm of 0.24%+; the bug bounty programme had closed days before Hornby's find, forcing the retroactive-grant route. Status: \"Ready For Vote.\"",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance",
+      "taylor-hornby",
+      "bug-bounty",
+      "shielded-labs"
+    ],
+    "sources": [
+      "S-zcash-community-forum-bounty-zcash-s-bug-bounty"
+    ]
+  },
+  {
+    "id": "T2026-08-17",
+    "date": "2026-08-17",
+    "datePrecision": "range",
+    "dateText": "17–18 Aug 2026",
+    "category": "NET",
+    "title": "Cypherpunk acquires 18% of Zcash network hashrate",
+    "summary": "Cypherpunk acquires ~18% of Zcash network hashrate for $33.33 M (Bitmain Z15 Pro fleet, 4.2 GSol/s, ~7,800 ZEC/month) from Moria Mining LLC and Winklevoss Treasury Investments LLC. Holdings 323,394.38 ZEC (~1.92% of supply). Kevin Zhang heads mining",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "funding",
+      "market",
+      "stakeholders"
+    ],
+    "sources": [
+      "S-crypto-news-crypto-news-cypherpunk-becomes-large"
+    ],
+    "dateEnd": "2026-08-18",
+    "secondaryCategory": "MARKET"
+  },
+  {
+    "id": "T2026-08-21",
+    "date": "2026-08-21",
+    "datePrecision": "day",
+    "dateText": "21 Aug 2026",
+    "category": "MARKET",
+    "title": "Grayscale files fifth amended S-3 for Zcash ETF",
+    "summary": "Grayscale files a fifth amended S-3 for the Zcash ETF — ticker ZCSH, NYSE Arca, 2.5% sponsor fee, BNY Mellon transfer agent, Coinbase Custody. Trust AUM >$260 M; a DCG unit discussing contributing ~200,000 ZEC",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcash-event"
+    ],
+    "sources": [
+      "S-the-block-the-block-grayscale-moves-closer-to-fi"
+    ],
+    "secondaryCategory": "REG"
+  },
+  {
+    "id": "T2026-08-22",
+    "date": "2026-08-22",
+    "datePrecision": "day",
+    "dateText": "22 Aug 2026",
+    "category": "MARKET",
+    "title": "ZEC trades near $791 with 26.8% shielded",
+    "summary": "ZEC ~$790.76, market cap ~$13.34 B, circulating 16.89 M / 21 M (80.4%). Shielded: roughly 26-27% (CipherScan: 25.9% at block 3,456,227; ZECStats: 26.8%) (4,530,445 ZEC). Ironwood migration 80.6% complete; ~708,841 ZEC still stranded in Orchard",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "market",
+      "pool-specific"
+    ],
+    "sources": [
+      "S-coingecko-nominal-all-time-high-3-191-93-on-28-o",
+      "S-zec-stats-zec-stats-zecstats-com",
+      "S-cipherscan-migration-status-22-aug-2026-3-13-m-z"
+    ]
+  }
+]
