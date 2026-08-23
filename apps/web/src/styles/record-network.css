@@ -1,0 +1,210 @@
+/* ============================================================================
+   /network - the promotion lattice.
+   ----------------------------------------------------------------------------
+   Route-local rules for the one Record surface that draws a graph and a
+   catalogue of quotations. Everything this page can borrow it borrows:
+   .glass, .card, .kv, .tbl-wrap, .claim, .cite, .chart, .plot, .ent, .fair and
+   the .conf ladder all live in globals.css and are used unchanged. What is
+   here is only what has no equivalent there, and every class carries the `nw-`
+   prefix so a rule from this file can never be mistaken for a system rule.
+
+   Three laws hold as they do everywhere else: one hover verb (dim), one curve
+   (var(--ease)), and nothing animates. There is no `animation:` in this file
+   and there must not be - assertion A6 measures zero registered animations on
+   every Record page, and this is a Record page.
+   ========================================================================== */
+
+/* ---------- the loop diagram ----------
+   Node titles use the shared `.plot .node-label`. The second line needs to be
+   quieter and smaller than the first without leaving the mono register, and it
+   takes the same halo in the same ground, so the two lines of a box read as
+   one label rather than as two differently-mounted ones. */
+.plot .nw-sub {
+  font-family: var(--f-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  fill: var(--ink-mute);
+  text-anchor: middle;
+  dominant-baseline: middle;
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+
+/* Two edge kinds and exactly two, distinguished twice over: money is a solid
+   gold line, people is a dashed orchard one. Colour alone would fail anyone
+   who cannot separate the two hues, so the dash carries the same information
+   a second time. The stroke colours are set on the elements, as the other
+   charts set theirs; only the dash pattern is a class. */
+.plot .nw-edge-people {
+  stroke-dasharray: 3 4;
+}
+
+/* Edge labels are the shared `.plot .edge-label`, unchanged: mono, ink-mute,
+   centred, and stroked in the page ground under itself so a label sitting on
+   the line it names knocks a hole in it instead of fighting it. That class
+   fixes `text-anchor: middle`, and a CSS declaration beats a presentation
+   attribute, so every label on this diagram is centred on its own line and the
+   positions in the component are chosen on that basis rather than nudged with
+   an anchor that would not apply. The diagram therefore sits on the page
+   ground rather than inside a `.glass` card: a halo painted in the wrong
+   ground reads as a smudge.
+   ========================================================================== */
+
+/* ---------- the statements-against-price chart ----------
+   A dated statement is a rule dropped from its label to the floor. The rule is
+   gold because the date is the claim being made about the price; the label is
+   ink, because text on this site is never set in a series colour. */
+.plot .nw-mark-rule {
+  stroke: var(--gold-dim);
+  stroke-width: 1;
+}
+
+.plot .nw-mark-label {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  fill: var(--ink-dim);
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 3.5;
+  stroke-linejoin: round;
+}
+
+/* ---------- the phrase catalogue ----------
+   Each chip is a slogan and its first known origin. The hover verb is dim and
+   it is applied at the group, so pointing at one phrase recedes the rest - the
+   mockup's "hover to isolate", which is a reading aid rather than a state. */
+.nw-phrases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.nw-ph {
+  display: block;
+  flex: 1 1 300px;
+  max-width: 520px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  transition:
+    opacity var(--t1) var(--ease),
+    border-color var(--t1) var(--ease);
+}
+
+.nw-phrases:hover .nw-ph:not(:hover) {
+  opacity: 0.55;
+}
+
+.nw-ph:hover {
+  border-color: var(--line-strong);
+}
+
+.nw-ph .nw-text {
+  display: block;
+  font-family: var(--f-display);
+  font-style: italic;
+  font-size: 19px;
+  line-height: 1.25;
+  color: var(--ink);
+}
+
+.nw-ph .nw-origin {
+  display: block;
+  margin-top: 7px;
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  line-height: 1.6;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+/* What the chain or the record says against the phrase. The mockup's chip has
+   no room for it; this page makes room, because a catalogue of slogans that
+   prints the slogan and withholds the objection is a catalogue of slogans. */
+.nw-ph .nw-tension {
+  display: block;
+  margin-top: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+}
+
+/* ---------- entity cards ----------
+   `.ent` in globals.css styles one card. This is the field they sit in. */
+.nw-ents {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.nw-ent-card {
+  padding: 14px 16px;
+}
+
+.nw-ent-card .ent .nw-role {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+  margin-top: 4px;
+}
+
+/* ---------- the counter-evidence card ----------
+   `.fair` recolours the surface; these two are its internals. The heading is
+   set in --ok rather than gold on purpose: this panel is not the accent's
+   business, and making it gold would file it under "active state". */
+.nw-fair-head b {
+  color: var(--ok);
+}
+
+.nw-dropped b {
+  color: var(--ink);
+}
+
+.nw-fair-list {
+  margin: 10px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+}
+
+.nw-fair-list li {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-mute);
+}
+
+.nw-fair-list li b {
+  color: var(--ink-dim);
+  font-weight: 600;
+}
+
+/* ---------- narrow screens ----------
+   `.g2` already collapses at 720px. Both SVGs scale with their viewBox, but a
+   1000-unit lattice of 200-unit boxes stops being readable long before the
+   column does, so on a phone the diagram scrolls inside its own figure rather
+   than shrinking its type to nothing. The scroll goes on the `<figure>`
+   itself, selected by its `data-chart` value: the figure holds exactly one
+   `<svg>` and one `<table>` as siblings (assertion A3 counts them), so there
+   is no wrapper element to hang it on, and inventing one would break the
+   count. The table twin is the same content and is always present.
+   ========================================================================== */
+
+@media (max-width: 760px) {
+  [data-chart="network-loop"] {
+    overflow-x: auto;
+  }
+
+  [data-chart="network-loop"] > .plot {
+    min-width: 720px;
+  }
+
+  .nw-ph {
+    flex-basis: 100%;
+  }
+}

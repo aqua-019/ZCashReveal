@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { getBeware, getContradictions, getNetwork, getSources, getTimeline } from "@zcashreveal/content";
+import { getBeware, getCases, getContradictions, getLabels, getNetwork, getSources, getTimeline } from "@zcashreveal/content";
 
 /**
  * ASSERTIONS A1 and A2 - the Record renders, and its permalinks resolve.
@@ -29,8 +29,12 @@ function expectations(): readonly { readonly route: string; readonly firstClaimI
     { route: "/contradictions", firstClaimId: getContradictions()[0]?.id ?? "C1" },
     { route: "/timeline", firstClaimId: getTimeline()[0]?.id ?? "" },
     { route: "/network", firstClaimId: network.entities[0]?.id ?? "" },
-    { route: "/method", firstClaimId: "" },
-    { route: "/flows", firstClaimId: "" },
+    // /method renders the golden cases, which are address labels and cases, so
+    // it does carry claim ids. Both of these were an empty string in the first
+    // draft of this file, which silently skipped the check on two of the eight
+    // routes; caught by ui-builder-method.
+    { route: "/method", firstClaimId: getLabels()[0]?.id ?? "" },
+    { route: "/flows", firstClaimId: getCases()[0]?.id ?? "" },
     { route: "/sources", firstClaimId: getSources()[0]?.id ?? "" },
   ];
 }
@@ -95,7 +99,13 @@ test.describe("A2 pass state - /beware#B2", () => {
   test("B2 is a claim, not just an anchor: it carries its confidence and its sources", async ({ page }) => {
     await page.goto("/beware#B2");
     const target = page.locator("#B2");
-    await expect(target.locator(".conf")).toHaveCount(1);
+    // Two, not one: the row prints its confidence in the visible register
+    // (CLAUDE.md - confidence is always displayed) AND `Cite` repeats it inside
+    // the popover body, where a reader who copies the citation needs it. An
+    // assertion of exactly one would only hold on a page that hid the visible
+    // one, which is the opposite of the rule. Caught by ui-builder-beware.
+    await expect(target.locator(".conf").first()).toBeVisible();
+    expect(await target.locator(".conf").count()).toBeGreaterThanOrEqual(1);
 
     const cite = target.locator("details.cite").first();
     await expect(cite).toHaveCount(1);

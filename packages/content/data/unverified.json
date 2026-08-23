@@ -145,7 +145,7 @@
     "id": "U-grayscale-published-zec-address",
     "claim": "Grayscale has publicly disclosed the on-chain ZEC address holding the Trust's assets.",
     "status": "unlocatable",
-    "why": "Checked Grayscale's S-3 (26 Nov 2025), S-3/A (18 Aug 2026) and 10-Q (period ended 30 Jun 2026) directly: all three name Gemini as custodian but none discloses a wallet address or publishes proof-of-reserves. No Grayscale-published ZEC address exists in any filing checked.",
+    "why": "Checked Grayscale's S-3 (26 Nov 2025), S-3/A (18 Aug 2026) and 10-Q (period ended 30 Jun 2026) directly: all three name Coinbase Custody Trust Company, LLC as custodian but none discloses a wallet address or publishes proof-of-reserves. No Grayscale-published ZEC address exists in any filing checked. (Custodian corrected by the HANDOFF-03 session: this field said Gemini, which is Cypherpunk Technologies' custodian, not the Trust's. Research 04 quotes the filing directly - \"Coinbase Custody Trust Company, LLC (the 'Custodian') ... responsible for safeguarding the ZEC\" - and network.json's N-grayscale-zcash-trust already said Coinbase Custody. The substantive finding, that no filing discloses an address or proof of reserves, is unchanged.)",
     "sources": [
       "S-sec-edgar-000172026526000006-zcsh-20260630",
       "S-sec-edgar-000119312525298561-zcsh-20251126",

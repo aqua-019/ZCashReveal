@@ -1,0 +1,198 @@
+/* ============================================================================
+   /flows - the component classes this surface adds, and nothing else.
+   ----------------------------------------------------------------------------
+   Everything /flows needs that already exists in globals.css is used unchanged:
+   block, glass, card, grid, g2, kv, tbl-wrap, conf, chip, pill, note, mono,
+   src, eyebrow, record-head, dek, quote, hair, claim, anchor, cite, quarantine,
+   ent, refuses, reason, chain, assume, sr-only, measure.
+
+   The mockup's #flows markup uses two classes that globals.css does not carry -
+   `.cp` (the compact table-cell register) and `.warnbox` (the false-inference
+   box). Both are re-declared here under the `fl-` prefix rather than added to
+   globals.css, because other workers are editing that file in parallel and a
+   route-local surface has no business widening the shared layer.
+
+   No `animation:` appears below, and no rule declares a transition. Assertion
+   A6 measures `document.getAnimations().length === 0` on this page.
+   ========================================================================== */
+
+/* ---------- the compact cell register (mockup `.cp`) ----------
+   Table cells on this page carry sentences, not values: what a transfer proves,
+   who applied a label and by what method, what a claim did and did not
+   establish. They are set in mono at the mockup's 11px so the prose reads as
+   apparatus rather than as body copy, in --ink-dim rather than --ink-mute
+   because at 11px --ink-mute is the floor of AA and this is real reading. */
+.fl-cp {
+  display: block;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+}
+
+.fl-cp b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.fl-cp + .fl-cp {
+  margin-top: 6px;
+}
+
+/* The attribution line that sits under every rendered label: who applied it and
+   at what precedence. Quieter than .fl-cp, and never absent - a label whose
+   labeller is not printed beside it is an identity claim, which this site does
+   not make. */
+.fl-attrib {
+  display: block;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  color: var(--ink-mute);
+  margin-top: 5px;
+}
+
+/* The address itself: the one thing on this page the chain actually states. */
+.fl-addr {
+  display: block;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--ink);
+  word-break: break-all;
+}
+
+/* ---------- the reconstruction ledger (mockup `pre.code`) ----------
+   A diagram made of monospace text: ten lines, column-aligned by spaces, with a
+   hand-drawn rule marking the subtotal. It is preformatted text and stays
+   preformatted text - reflowing it or converting it to a table destroys the
+   only thing it is for, which is that the arithmetic is visible. */
+.fl-code {
+  margin: 0;
+  padding: 14px 16px;
+  background: var(--bg-deep);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums lining-nums;
+  white-space: pre;
+  tab-size: 2;
+}
+
+/* ---------- the false-inference warning (mockup `.warnbox`) ----------
+   Two rich-list balances sit near two disclosed institutional positions. The
+   near-match and the refusal are rendered together; removing either half breaks
+   the point, so the box is a first-class surface rather than a footnote. The
+   danger register is spent here and, on this page, only here - CLAUDE.md
+   reserves it for Beware severity, and a warning against publishing a false
+   identification is the same order of thing. */
+.fl-warn {
+  border: 1px solid rgba(228, 85, 63, 0.45);
+  background: var(--danger-wash);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+
+.fl-warn .eyebrow b {
+  color: var(--danger);
+}
+
+/* ---------- the pill legend ----------
+   Pill is the site's central epistemic control, and on this page it does the
+   most work it does anywhere. The legend states what each of the four means
+   here, next to the head, so no reader has to infer it from context. */
+.fl-legend {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fl-legend li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-mute);
+}
+
+/* ---------- the thirteen open gaps ----------
+   The mockup sets these two-up in a CSS multi-column block. `break-inside` keeps
+   an item from being split across the column boundary, which would read as two
+   separate gaps. */
+.fl-gaps {
+  columns: 2;
+  column-gap: 28px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fl-gaps li {
+  break-inside: avoid;
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+}
+
+.fl-gaps .n {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--ink-mute);
+  margin-right: 6px;
+}
+
+/* ---------- spacing the mockup carries as inline styles ---------- */
+.fl-gap-s {
+  margin-top: 10px;
+}
+
+.fl-gap-m {
+  margin-top: 14px;
+}
+
+.fl-stack {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+/* A key/value block whose values are sentences rather than figures. The shared
+   .kv right-aligns its value column, which is right for a number and unreadable
+   for a paragraph. */
+.fl-kv-prose .v {
+  text-align: left;
+  font-family: var(--f-sans);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+}
+
+.fl-kv-prose .k {
+  align-self: start;
+}
+
+.fl-kv-prose b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+@media (max-width: 900px) {
+  .fl-gaps {
+    columns: 1;
+  }
+
+  .fl-legend {
+    grid-template-columns: 1fr;
+  }
+}

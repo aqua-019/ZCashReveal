@@ -1,0 +1,227 @@
+/* ============================================================================
+   /method - the component layer this one surface adds
+   ----------------------------------------------------------------------------
+   Everything /method needs already exists in globals.css: .block, .glass,
+   .card, .grid, .kv, .chip, .pill, .tbl-wrap, .note, .measure, .formula,
+   .refuses, .chain, .reason, .assume and the claim apparatus. The rules below
+   are the four shapes that did not, and each is prefixed `mt-` so a parallel
+   edit to globals.css cannot collide with them.
+
+   The three laws hold here as everywhere: one hover verb (dim), one curve, and
+   nothing animates. There is no transition in this file at all - /method is a
+   Record surface, which is zero-motion by architecture (DGIGA TP05), and
+   assertion A6 counts animations on it.
+   ========================================================================== */
+
+/* ---------- the claim ladder, in the record head ----------
+   A .kv whose value column is a chip followed by a clause rather than a
+   figure. The base rule right-aligns .v and sets tabular numerals, which is
+   correct for a balance and wrong for a sentence, so the ladder flips the
+   column order and lets the value wrap. The keys are the decade-spaced
+   thresholds and stay on one line: read down the column they are the scale,
+   which is the only reason this reads as a ladder and not as a list. */
+.mt-ladder {
+  grid-template-columns: auto 1fr;
+  gap: 10px 14px;
+}
+
+.mt-ladder .k {
+  white-space: nowrap;
+  padding-top: 3px;
+}
+
+.mt-ladder .v {
+  text-align: left;
+  font-variant-numeric: normal;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--ink-dim);
+}
+
+/* The amber rung. The component layer ships four chip tones - gold, danger,
+   ok, blue - and the ladder needs a fifth step between gold and danger, or two
+   adjacent claim levels would be painted the same colour and the ramp would
+   stop meaning anything. --warn is already a token (it is what .conf.med and
+   .quarantine are painted in), so this spends nothing new. */
+.chip.mt-warn {
+  color: var(--warn);
+  border-color: rgba(217, 164, 65, 0.5);
+}
+
+/* Every card on this page opens with the same mono kicker, and the mockup gives
+   each of them the same 8px of air beneath. One class rather than eleven inline
+   styles. */
+.mt-card-eyebrow {
+  margin-bottom: 8px;
+}
+
+/* The contract panel under the record head: the ladder read from the other
+   side. It is a full-width surface rather than a footnote in the aside, because
+   the refusals are the half of the ladder a marketing version of this page
+   would leave out, and burying them in a narrow card would be that omission by
+   other means. */
+.mt-contract {
+  margin-top: 18px;
+}
+
+/* ---------- label precedence ----------
+   Five tiers, numbered, with the corpus's own count beside each. The count is
+   the argument for printing the tier at all: almost nothing on this site is
+   labelled by consensus, and a reader should be able to see that without
+   auditing the registry. */
+.mt-precedence {
+  margin-top: 14px;
+}
+
+.mt-precedence-chain {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.mt-precedence-chain li {
+  flex: 1 1 180px;
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.mt-precedence-chain .mt-rank {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--gold);
+}
+
+.mt-precedence-chain .mt-tier {
+  font-family: var(--f-display);
+  font-size: 17px;
+  color: var(--ink);
+}
+
+/* ---------- the estimator table ----------
+   Two cells that carry more than a phrase: the statement, which pairs what an
+   estimator computes with what it refuses to compute, and the lineage, which
+   is the mockup's `.cp` register - mono, dim, with the emphasised run in ink. */
+.mt-statement {
+  display: block;
+  max-width: 54ch;
+}
+
+/* `.refuses` in globals.css declares no `display`, which is right for the
+   block-level uses on this page but leaves an inline `<span class="refuses">`
+   inside a table cell unable to take its own top margin - an inline box ignores
+   vertical margin, and the refusal would sit flush against the statement it
+   qualifies. Give the in-table uses a block box. Nothing else about the rule
+   changes, and globals.css is not touched. */
+.mt-statement .refuses,
+.tbl-wrap td .refuses {
+  display: block;
+}
+
+.mt-statement .refuses {
+  margin-top: 8px;
+}
+
+.mt-lineage {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  line-height: 1.55;
+  max-width: 34ch;
+}
+
+.mt-lineage b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* An internal reference - a v0.2 module, a section of RESEARCH.md - is not a
+   Source and never gets a link that implies it is one. It is set apart in the
+   muted register so a reader can see at a glance which rows rest on published
+   work and which rest on this repository. */
+.mt-lineage .mt-internal {
+  color: var(--ink-mute);
+  font-style: italic;
+}
+
+/* The chain-facts column of the golden cases: computed figures, so it is set in
+   the register the rest of the site uses for computed figures. */
+.mt-facts {
+  display: block;
+  max-width: 44ch;
+  line-height: 1.7;
+}
+
+/* ---------- the posterior ----------
+   .formula already sets the mono block; a <pre> only needs its default margin
+   removed so the card's own inset governs the spacing. */
+.mt-posterior {
+  margin: 0;
+}
+
+/* ---------- the viewing-key ceremony ----------
+   Four panes, three of which say what a key reveals and one of which says what
+   nothing reveals. The fourth is not a footnote to the other three: it is the
+   reason the other three are allowed to exist, so it is the same size and sits
+   in the same row. */
+.mt-ceremony {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 1100px) {
+  .mt-ceremony {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .mt-ceremony {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mt-cell {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  line-height: 1.55;
+}
+
+.mt-cell b {
+  display: block;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.mt-cell.mt-yes {
+  border-left: 2px solid rgba(63, 167, 118, 0.5);
+}
+
+.mt-cell.mt-yes b {
+  color: var(--ok);
+}
+
+.mt-cell.mt-no {
+  border-left: 2px solid rgba(228, 85, 63, 0.5);
+}
+
+.mt-cell.mt-no b {
+  color: var(--danger);
+}
