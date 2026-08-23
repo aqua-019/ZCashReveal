@@ -320,8 +320,24 @@ export const addressTxSchema = z.object({
   direction: directionSchema,
   /** The direction as the table prints it, e.g. "t to z - partial". */
   directionText: z.string().min(1),
-  /** Signed: negative leaves the address. */
+  /**
+   * Signed net movement for this address: negative leaves it. This is what the
+   * amount column prints.
+   */
   amountZat: zatSchema,
+  /**
+   * Gross value paid TO this address by this transaction, and gross value spent
+   * FROM it. Both non-negative, and `amountZat` is their difference.
+   *
+   * A single transaction can be both: the lockbox's April spend puts 129.8202
+   * ZEC into the pool by spending a 7,438.2295 UTXO and taking 7,308.4093 back
+   * as change. An explorer's "received" and "sent" totals are sums of these
+   * gross legs, not of the net movement, which is why they are separate fields
+   * rather than a sign convention - deriving `received` from `amountZat` alone
+   * understates it by every change output the address ever took.
+   */
+  creditZat: zatSchema,
+  debitZat: zatSchema,
   /** An aside the amount needs, e.g. the change split. Optional. */
   amountNote: z.string().min(1).optional(),
   counterparty: z.object({
@@ -600,25 +616,23 @@ export type MempoolView = z.infer<typeof mempoolViewSchema>;
    Flows summary (the Tracking-side digest of the Record's /flows)
    ========================================================================== */
 
+/**
+ * The Tracking side of /flows: a summary, not a second copy.
+ *
+ * Deliverable 2 makes this "a summary linking to the Record `/flows`", and
+ * there is deliberately no rich list here. The Record page holds those rows,
+ * with their provenance and their unbound chip, and HANDOFF-03's own ledger
+ * records what happens when one fact lives in two files - a correction lands in
+ * one and the site then contradicts itself. So this view carries the case
+ * ledger, the outcome, what is documented about institutions and what is not
+ * supported, and everything else is a link.
+ */
 export const flowsViewSchema = z.object({
   headline: z.string().min(1),
   case: caseViewSchema,
   outcome: z.array(z.object({ k: z.string().min(1), v: z.string().min(1) })).min(1),
   institutions: z.array(z.object({ k: z.string().min(1), v: z.string().min(1) })).min(1),
   notSupported: z.string().min(1),
-  richList: z
-    .array(
-      z.object({
-        rank: countSchema,
-        address: z.string().min(1),
-        balanceZat: zatSchema,
-        script: z.enum(["p2pkh", "p2sh"]),
-        read: z.string().min(1),
-        label: labelViewSchema.nullable(),
-      }),
-    )
-    .min(1),
-  richListNote: z.string().min(1),
 });
 export type FlowsView = z.infer<typeof flowsViewSchema>;
 
