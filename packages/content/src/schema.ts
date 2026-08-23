@@ -51,8 +51,15 @@ export type SupplyBucket = z.infer<typeof supplyBucketSchema>;
 /** An exact decimal ZEC amount, kept as a string so no rounding happens in transit. */
 export const zecAmountSchema = z.string().regex(/^\d{1,12}(\.\d{1,8})?$/, "expected a decimal ZEC amount");
 
-/** Zatoshi, kept as a digit string and widened to bigint by the loaders. */
-export const zatoshiSchema = z.string().regex(/^\d{1,20}$/, "expected an integer zatoshi count");
+/**
+ * Zatoshi. JSON has no integer type wide enough, so the seed stores a digit
+ * string and the schema widens it: everything downstream of `.parse()` holds a
+ * bigint, which is what CLAUDE.md requires of every zatoshi value.
+ */
+export const zatoshiSchema = z
+  .string()
+  .regex(/^\d{1,20}$/, "expected an integer zatoshi count")
+  .transform((digits) => BigInt(digits));
 
 /* -------------------------------------------------------------------------- */
 /* Sources                                                                    */

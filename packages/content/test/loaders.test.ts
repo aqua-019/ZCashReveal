@@ -108,9 +108,10 @@ describe("stats", () => {
     expect(total).toBeLessThan(100.1);
   });
 
-  it("keeps zatoshi consistent with the ZEC figure it reports", () => {
+  it("hands out zatoshi as bigint, consistent with the ZEC figure it reports", () => {
     for (const pool of getStats().pools) {
-      expect(BigInt(pool.zatoshi)).toBe(BigInt(Math.round(Number(pool.zec) * 1e8)));
+      expect(typeof pool.zatoshi).toBe("bigint");
+      expect(pool.zatoshi).toBe(BigInt(Math.round(Number(pool.zec) * 1e8)));
     }
   });
 
