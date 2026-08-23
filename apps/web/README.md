@@ -44,6 +44,13 @@ From HANDOFF-02, `pnpm --filter @zcashreveal/content validate` joins that list. 
 yet: `packages/content` does not exist, and the filter would fail with a pnpm error rather than
 a gate failure, which is worse than not running it.
 
+**The build needs network.** `next/font/google` fetches Instrument Serif, Fraunces, JetBrains
+Mono and Manrope from `fonts.googleapis.com` and `fonts.gstatic.com` during `next build`, and
+caches them into `.next` so nothing is fetched at runtime. A failed fetch is a hard build error,
+not a fall back to the declared stacks - so CI and Vercel both need egress to those two hosts.
+If that ever becomes a problem, the fix is to vendor the four families and switch to
+`next/font/local`, which is the only spelling of `next/font` that is fully hermetic.
+
 **Playwright.** The browsers are pre-installed at `/opt/pw-browsers`
 (`PLAYWRIGHT_BROWSERS_PATH`) and the version is pinned to 1.56.1. **Never run
 `playwright install`** — it re-downloads into the wrong prefix and takes the suite offline.
@@ -113,6 +120,23 @@ wins (it marks its set "validated, fixed order" and HANDOFF-01 §3 names those e
 
 Both are hard numbers, not aspirations. Measured on a **production build** and the **mobile**
 preset (Lighthouse's default), which is the slower of the two and therefore the honest one.
+
+**Measured at HANDOFF-01: performance 99, accessibility 100** (Lighthouse 12, mobile,
+simulated throttling; FCP 0.8 s, LCP 1.9 s, TBT 80 ms, CLS 0.005). Two changes were needed to
+get there and both are load-bearing, so do not undo them casually:
+
+- **Only Manrope is preloaded** (`src/app/layout.tsx`). It carries the body copy and is the LCP
+  element on every Record page. Preloading all four families put 213 KiB of font requests in
+  front of it and held LCP at 3.0 s; dropping the other three to `preload: false` moved it to
+  1.9 s. They still load immediately from the same origin - they simply stop competing for the
+  first round of bandwidth. The cost is CLS 0.005, which is a twentieth of the 0.1 threshold.
+- **The system bar does not prefetch** (`src/components/ui/ScreenNav.tsx`). Nine links on every
+  page meant eight RSC payloads fetched on every load.
+
+Accessibility reached 100 by fixing three real defects rather than by tuning: `--ink-mute` and
+`--ink-faint` were 4.04:1 and 2.10:1 against the ground and are used for body-size text, the
+Track search field had `outline: none` and so no focus indicator at all, and the exploit ledger
+used ARIA list roles on elements that cannot carry them. See the HANDOFF-01 ledger block.
 
 `/beware` is the budget page because it is the densest zero-motion Record surface: the most
 DOM, the most tabular data, the most severity chips, and no ambience to hide behind. If

@@ -15,9 +15,11 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
  * anything carrying `data-tip`. `Tooltip` is the ergonomic wrapper that puts
  * the attribute on its child.
  *
- * Accessibility: the tip is decoration over content that must already be
- * legible without it. The wrapper mirrors the text into `title` so keyboard and
- * screen-reader users get the same string; nothing is tooltip-only.
+ * Accessibility: the tip is pointer-only, so nothing may live in it alone. The
+ * wrapper mirrors its text into `title`, which covers the assistive-technology
+ * path but not the keyboard one - a plain span takes no focus. Treat the tip as
+ * a convenience over content that is already legible, and put anything load
+ * bearing in the visible text. Escape dismisses it (WCAG 2.1 AA 1.4.13).
  */
 
 const OFFSET = 14;
@@ -61,14 +63,20 @@ export function TooltipLayer() {
       setText(null);
     }
 
+    function onKeyDown(e: KeyboardEvent): void {
+      if (e.key === "Escape") setText(null);
+    }
+
     document.addEventListener("mousemove", onMove, { passive: true });
     document.addEventListener("mouseleave", onLeave);
+    document.addEventListener("keydown", onKeyDown);
     window.addEventListener("blur", onLeave);
     window.addEventListener("scroll", onLeave, { passive: true });
 
     return () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseleave", onLeave);
+      document.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("blur", onLeave);
       window.removeEventListener("scroll", onLeave);
     };
@@ -93,8 +101,13 @@ export function TooltipLayer() {
  */
 export function Tooltip({ text, children }: { readonly text: string; readonly children: ReactNode }) {
   return (
-    <span data-primitive="Tooltip" data-tip={text} title={text}>
+    // No `title`. The browser would render its own tooltip with the same string
+    // a beat after ours, giving every hover two overlapping popups - and on a
+    // non-focusable span `title` is not announced anyway, so it bought nothing.
+    // The hidden span is what carries the text to assistive technology.
+    <span data-primitive="Tooltip" data-tip={text}>
       {children}
+      <span className="sr-only">{text}</span>
     </span>
   );
 }

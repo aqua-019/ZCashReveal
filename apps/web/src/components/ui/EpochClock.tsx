@@ -32,7 +32,11 @@ export function EpochClock({ tip, blockIntervalMs = 75_000 }: { readonly tip: Ch
   }, [tip.height, blockIntervalMs]);
 
   return (
-    <div className="clock" aria-live="polite" data-primitive="EpochClock" data-ui="epochclock">
+    // No aria-live yet. The height advances on a local interval against a
+    // fixture, so announcing it would tell a screen-reader user that the chain
+    // moved when no block arrived and no feed exists. HANDOFF-11 puts
+    // aria-live="polite" on the height span alone, once the event is real.
+    <div className="clock" data-primitive="EpochClock" data-ui="epochclock">
       <span className="dot" aria-hidden="true" />
       <span>
         block{" "}
@@ -41,7 +45,7 @@ export function EpochClock({ tip, blockIntervalMs = 75_000 }: { readonly tip: Ch
         </span>
       </span>
       <span className="age">
-        {fmtBlockAge(tip.snapshotAgeBlocks)} - seed {seedLabel(tip.hash)}
+        {fmtBlockAge(tip.snapshotAgeBlocks)} · seed {seedLabel(tip.hash)}
       </span>
       <span className="age">{fmtTipTime(tip.timeMs)}</span>
     </div>

@@ -78,6 +78,21 @@ p {
   margin: 0;
 }
 
+/* Visually hidden, still announced. Clip-path rather than the -9999px
+   technique: the label stays inside the layout, so it cannot become a stray
+   line of text if an ancestor's overflow changes. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Keyboard users must be able to reach the content past the system bar. */
 .skip {
   position: absolute;
@@ -278,7 +293,7 @@ p {
 }
 
 .screens a .i {
-  color: var(--ink-faint);
+  color: var(--ink-mute);
   margin-right: 6px;
 }
 
@@ -291,8 +306,11 @@ p {
   color: var(--gold-ink);
 }
 
+/* The dim verb. --ink-mute, not --ink-faint: receding must not mean becoming
+   unreadable, and hovering the bar used to drop the whole rest of the nav to
+   2.09:1. A recessed label is still a label. */
 .screens:hover a:not(:hover):not([aria-current="page"]) {
-  color: var(--ink-faint);
+  color: var(--ink-mute);
 }
 
 /* ---------- epoch clock ---------- */
@@ -554,6 +572,68 @@ p {
   margin-right: 6px;
 }
 
+.sw.t {
+  background: var(--p-transparent);
+}
+
+.sw.sp {
+  background: var(--p-sprout);
+}
+
+.sw.sa {
+  background: var(--p-sapling);
+}
+
+.sw.o {
+  background: var(--p-orchard);
+}
+
+.sw.i {
+  background: var(--p-ironwood);
+}
+
+/* ---------- pool bar ----------
+   Segments are flex items sized by flex-basis, so their widths are the pool
+   shares. `flex-grow: 0` and `flex-shrink: 0` keep a 0.13 per cent pool from
+   being rounded away by the free-space distribution, and the 2px floor keeps
+   it visible at all. */
+.poolbar {
+  display: flex;
+  gap: 2px;
+  height: 34px;
+  background: var(--surface);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.poolbar .seg {
+  display: block;
+  flex-grow: 0;
+  flex-shrink: 0;
+  min-width: 2px;
+  height: 34px;
+}
+
+.poolbar .seg.t {
+  background: var(--p-transparent);
+}
+
+.poolbar .seg.sp {
+  background: var(--p-sprout);
+}
+
+.poolbar .seg.sa {
+  background: var(--p-sapling);
+}
+
+.poolbar .seg.o {
+  background: var(--p-orchard);
+}
+
+.poolbar .seg.i {
+  background: var(--p-ironwood);
+}
+
 /* ---------- metric ---------- */
 .metric {
   padding: 16px 18px;
@@ -581,6 +661,14 @@ p {
 
 .metric .v.gold {
   color: var(--gold);
+}
+
+/* The unit trails the figure; it does not compete with it. */
+.metric .v small {
+  font-size: 18px;
+  color: var(--ink-dim);
+  letter-spacing: 0;
+  margin-left: 8px;
 }
 
 .metric .s {
@@ -705,11 +793,14 @@ p {
 /* ---------- ledger rows ---------- */
 .ledger {
   border-top: 1px solid var(--line-strong);
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 .lrow {
   display: grid;
-  grid-template-columns: 64px 1.6fr 1fr 92px;
+  grid-template-columns: 64px 1.6fr 1fr 0.9fr 0.9fr 92px;
   gap: 14px;
   padding: 14px 0 14px 14px;
   border-bottom: 1px solid var(--line-faint);
@@ -776,9 +867,33 @@ p {
   font-weight: 500;
 }
 
+/* Detectability is the column that makes the ledger forensic rather than a
+   list of CVEs, so it gets its own register: no is danger, yes is ok,
+   partial is warn. */
+.lrow .det {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.det.no {
+  color: var(--danger);
+}
+
+.det.yes {
+  color: var(--ok);
+}
+
+.det.part {
+  color: var(--warn);
+}
+
 @media (max-width: 1000px) {
+  /* Three columns, not two: the window and its dates are the row's substance
+     and must survive the narrow layout. Only the cause and the discoverer are
+     `hide-m`, which is what the mockup hides. */
   .lrow {
-    grid-template-columns: 52px 1fr;
+    grid-template-columns: 52px 1fr 1fr;
   }
 
   .lrow .hide-m {
@@ -815,6 +930,10 @@ p {
 .reason .r b {
   color: var(--ink);
   font-weight: 500;
+}
+
+.reason .r .mono {
+  font-size: 11px;
 }
 
 /* ---------- inference chain ---------- */
@@ -912,7 +1031,7 @@ p {
 
 .subnav:hover a:not(:hover):not([aria-current="page"]),
 .subnav:hover button:not(:hover):not([aria-selected="true"]) {
-  color: var(--ink-faint);
+  color: var(--ink-mute);
 }
 
 .subnav .path {
@@ -941,6 +1060,17 @@ p {
   color: var(--gold);
 }
 
+/* The ring is drawn once, around the whole field, rather than inside it: the
+   input has no border of its own and sits flush against the icon and the
+   button, so an inner outline would read as a misaligned box. `outline: none`
+   on the input alone (the previous spelling) beat the global :focus-visible
+   rule on specificity and left the one text input on the site with no focus
+   indicator at all. */
+.search:focus-within {
+  outline: 2px solid var(--blue-fn);
+  outline-offset: 2px;
+}
+
 .search input {
   flex: 1;
   background: none;
@@ -949,9 +1079,12 @@ p {
   font-family: var(--f-mono);
   font-size: 15px;
   padding: 16px 0;
-  outline: none;
   letter-spacing: 0.02em;
   min-width: 0;
+}
+
+.search input:focus-visible {
+  outline: none;
 }
 
 .search input::placeholder {
@@ -1009,12 +1142,19 @@ p {
   background: var(--bg-deep);
 }
 
+/* The component owns its box. FogCanvas sets only the width/height ATTRIBUTES
+   (the backing store, rect times dpr), so without a CSS size the element lays
+   out at the attribute value in CSS pixels and renders at 2x on a HiDPI
+   display anywhere outside the hero. */
+canvas[data-ui="fog"] {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .hero canvas {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
 }
 
 .hero .veil {
@@ -1104,7 +1244,7 @@ p {
 }
 
 .leak .off {
-  color: var(--ink-faint);
+  color: var(--ink-mute);
   text-decoration: line-through;
   text-decoration-thickness: 1px;
 }
@@ -1125,6 +1265,17 @@ p {
     padding: 28px 48px 0;
     align-items: flex-start;
   }
+}
+
+/* ---------- fairness panel ----------
+   What cuts the other way, set in the "ok" register rather than the neutral
+   one. A promotion lattice without this panel is an insinuation, so the panel
+   is a first-class surface and has to look like one. Ported from the mockup;
+   `border-color` and `background` rather than shorthands, so it overrides
+   .glass without having to restate its geometry. */
+.fair {
+  border-color: rgba(63, 167, 118, 0.35);
+  background: rgba(63, 167, 118, 0.05);
 }
 
 /* ---------- surface cards ----------
@@ -1260,13 +1411,22 @@ p {
    the handoff that fills it, so an unfinished page reads as a scheduled one
    rather than as a bug. */
 .pending {
-  border: 1px dashed var(--line-strong);
+  /* Solid, not dashed. A dashed rectangle is the generic web-UI placeholder
+     idiom and appears nowhere in the mockup; the recessed ground and the
+     provisional eyebrow carry "not yet delivered" in the register the system
+     already has. */
+  border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 22px 24px;
-  background: rgba(26, 24, 22, 0.4);
+  background: var(--bg-deep);
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.pending .eyebrow {
+  font-style: italic;
+  color: var(--ink-dim);
 }
 
 .pending .h {
@@ -1309,7 +1469,7 @@ p {
 }
 
 .ledgerfoot .n {
-  color: var(--ink-faint);
+  color: var(--ink-mute);
   width: 24px;
   letter-spacing: 0.14em;
   flex: none;
@@ -1344,6 +1504,44 @@ p {
 .legend li {
   display: inline-flex;
   align-items: center;
+}
+
+/* ---------- capability cards ---------- */
+.cango {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 18px;
+}
+
+@media (max-width: 900px) {
+  .cango {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cango .c {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.cango .c .h {
+  font-family: var(--f-display);
+  font-size: 19px;
+  margin-bottom: 6px;
+}
+
+.cango .c .h em {
+  color: var(--gold);
+  font-style: italic;
+}
+
+.cango .c p {
+  font-size: 12.5px;
+  color: var(--ink-dim);
+  line-height: 1.55;
 }
 
 /* ---------- gallery (dev only) ---------- */

@@ -59,7 +59,7 @@ export function SearchBar({
       <span className="ic" aria-hidden="true">
         <IconSearch />
       </span>
-      <label htmlFor={id} className="sr-only" style={{ position: "absolute", left: -9999 }}>
+      <label htmlFor={id} className="sr-only">
         Search the chain
       </label>
       <input

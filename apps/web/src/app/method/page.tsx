@@ -25,10 +25,10 @@ interface LevelRow {
 
 /** The claim ladder, mirroring analysis/claim-classifier.ts. Lower-inclusive. */
 const LEVELS: readonly LevelRow[] = [
-  { level: "aggregate_only", range: "N_eff > 1000", means: "Publishable only as a distribution. No per-transaction statement." },
-  { level: "broad_candidate_set", range: "100 to 1000", means: "A bound worth reporting. Names nothing." },
-  { level: "small_heuristic_set", range: "10 to 100", means: "Reportable with the assumption stack shown in full." },
-  { level: "requires_disclosure", range: "N_eff <= 10", means: "Not published as a finding. The set is small enough to harm." },
+  { level: "aggregate_only", range: "N_eff > 1,000", means: "Publishable only as a distribution. No per-transaction statement." },
+  { level: "broad_candidate_set", range: "1,000 - 100", means: "A bound worth reporting. Names nothing." },
+  { level: "small_heuristic_set", range: "100 - 10", means: "Reportable with the assumption stack shown in full." },
+  { level: "requires_disclosure", range: "N_eff \u2264 10", means: "Not published as a finding. The set is small enough to harm." },
 ];
 
 const COLUMNS: readonly Column<LevelRow>[] = [

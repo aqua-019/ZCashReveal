@@ -49,7 +49,13 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: `pnpm build && pnpm start --port ${PORT}`,
+    // `rm -rf .next` first. NEXT_PUBLIC_* values are inlined at BUILD time, so a
+    // `.next` left over from a build with different env (a plain `pnpm build`,
+    // say) can be reused and the suite then measures the wrong configuration:
+    // observed as /dev/primitives answering 404 under a run whose webServer env
+    // sets NEXT_PUBLIC_ENABLE_DEV_SURFACES=1. Only generated output is removed,
+    // and a cold build costs about ten seconds.
+    command: `rm -rf .next && pnpm build && pnpm start --port ${PORT}`,
     url: BASE_URL,
     // Never reuse. The usual `reuseExistingServer: !CI` is a trap here, because
     // this command BUILDS before it serves: a reused server keeps answering

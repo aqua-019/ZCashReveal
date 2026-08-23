@@ -25,7 +25,17 @@ export function ScreenNav({ ariaLabel = "Screens" }: { readonly ariaLabel?: stri
       {SCREENS.map((s) => {
         const active = isActive(pathname, s.href);
         return (
-          <Link key={s.href} href={s.href} {...(active ? { "aria-current": "page" as const } : {})}>
+          <Link
+            key={s.href}
+            href={s.href}
+            // The bar carries every screen on every page, so the default
+            // viewport prefetch pulls eight RSC payloads on each load and puts
+            // them in front of the fonts on a throttled connection. The Record
+            // is static and small; fetching a screen when it is asked for is
+            // fast enough, and the first paint is what the budget measures.
+            prefetch={false}
+            {...(active ? { "aria-current": "page" as const } : {})}
+          >
             <span className="i" aria-hidden="true">
               {s.idx}
             </span>

@@ -33,8 +33,7 @@ export function FooterLedger({ tip }: { readonly tip: ChainTip }) {
       </div>
       <div className="meta">
         <span>
-          BUILD 2.0-SCAFFOLD - SNAPSHOT {fmtBlockAge(tip.snapshotAgeBlocks).toUpperCase()} - AMBIENCE SEEDED BY TIP HASH (FNV-1A TO
-          MULBERRY32)
+          BUILD 2.0-scaffold · SNAPSHOT {fmtBlockAge(tip.snapshotAgeBlocks)} · AMBIENCE seeded by tip hash (FNV-1a to mulberry32)
         </span>
         <span>BUILT FOR CYPHERPUNKS, NOT FOR COMPLIANCE</span>
       </div>

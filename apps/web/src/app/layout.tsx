@@ -26,14 +26,22 @@ const instrumentSerif = Instrument_Serif({
   style: ["normal", "italic"],
   variable: "--font-instrument-serif",
   display: "swap",
+  // Only Manrope is preloaded. It carries the body copy and is the LCP element
+  // on every Record page; the display, numeral and data faces still load
+  // immediately from the same origin, but they no longer compete with it for
+  // the first round of bandwidth.
+  preload: false,
   fallback: ["Georgia", "Times New Roman", "serif"],
 });
 
 const fraunces = Fraunces({
   subsets: ["latin"],
-  axes: ["SOFT", "WONK", "opsz"],
+  // opsz and SOFT only. WONK is never set by any rule in globals.css, and every
+  // axis carried is weight in the variable font that every visitor downloads.
+  axes: ["SOFT", "opsz"],
   variable: "--font-fraunces",
   display: "swap",
+  preload: false,
   fallback: ["Georgia", "serif"],
 });
 
@@ -41,6 +49,7 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-jetbrains-mono",
   display: "swap",
+  preload: false,
   fallback: ["IBM Plex Mono", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
 });
 

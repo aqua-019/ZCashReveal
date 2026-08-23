@@ -30,10 +30,15 @@ fi
 
 # legacy/ is the frozen v0.2 SPA and docs/2.0/research/ holds imported third-party
 # research that uses U+26A0 as an UNVERIFIED marker; both are carved out by A9.
+# apps/web (HANDOFF-01) is the first tree with user-visible copy outside the
+# original list: CSS carries content strings through ::before, and .mjs carries
+# script output. Both are scanned now. .next is generated and is excluded so a
+# post-build run does not walk route types.
 hits=$(grep -rnP "$PATTERN" \
   --include='*.md' --include='*.ts' --include='*.tsx' --include='*.yml' --include='*.yaml' \
+  --include='*.css' --include='*.mjs' --include='*.cjs' --include='*.js' \
   --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.turbo --exclude-dir=dist \
-  --exclude-dir=legacy --exclude-dir=research \
+  --exclude-dir=.next --exclude-dir=legacy --exclude-dir=research \
   . 2>/dev/null)
 
 if [ -n "$hits" ]; then
@@ -42,4 +47,4 @@ if [ -n "$hits" ]; then
   exit 1
 fi
 
-echo "check-no-emoji: OK - no emoji in *.md, *.ts, *.tsx, *.yml (excluding legacy/ and research/)."
+echo "check-no-emoji: OK - no emoji in *.md, *.ts, *.tsx, *.yml, *.css, *.mjs, *.js (excluding legacy/, research/ and .next/)."

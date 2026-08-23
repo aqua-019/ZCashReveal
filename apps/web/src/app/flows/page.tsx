@@ -75,7 +75,7 @@ export default function FlowsPage() {
             />
             <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
               <Chip tone="ok">exact</Chip>
-              <Chip tone="gold">fee-tolerant</Chip>
+              <Chip>fee-tolerant</Chip>
               <Chip>relative epsilon</Chip>
               <Chip>subset-sum k &lt;= 3</Chip>
             </div>

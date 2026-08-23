@@ -47,7 +47,7 @@ export default function BewarePage() {
         aside={
           <MetricRow>
             <Metric label="Entries" value="18" sub="5 in depth" />
-            <Metric label="Unsound days" value="2,192" sub="Sprout 730 + Orchard 1,462" accent />
+            <Metric label="Unsound days" value="2,192" sub="Sprout 730 · Orchard 1,462" />
           </MetricRow>
         }
       />
@@ -59,19 +59,25 @@ export default function BewarePage() {
             severity="crit"
             name="Sprout counterfeiting - BCTV14 soundness"
             sub="CVE-2019-7167"
-            window="28 Oct 2016 to 28 Oct 2018"
-            detail="Found 1 Mar 2018; fixed silently at Sapling, 28 Oct 2018; disclosed 5 Feb 2019, 341 days later. Ariel Gabizon (ECC), confirmed by Sean Bowe."
-            detectable={<span style={{ color: "var(--danger)" }}>NO - only via a turnstile that never concluded</span>}
+            window="28 Oct 2016 - 28 Oct 2018"
+            dates="found 1 Mar 2018 · fixed 28 Oct 2018, silently, at Sapling · disclosed 5 Feb 2019, 341 days later"
+            cause="Key generation emitted extra bypass elements; a cheating prover could skip a consistency check, minting unlimited counterfeit shielded value."
+            discoveredBy="Ariel Gabizon (ECC) · confirmed by Sean Bowe"
+            detectable="no"
+            detectableNote="NO - only via a turnstile that never concluded"
             confidence="high"
           />
           <LedgerRow
             id="B2"
             severity="crit"
             name="Orchard Action circuit soundness"
-            sub="CVE-2026-54496 - CVSS 9.3"
-            window="31 May 2022 to 1 Jun 2026"
-            detail="Found 29 May 2026; soft fork 2 Jun; NU6.2 3 Jun; disclosed 4 Jun. One missing copy constraint left the nullifier key unenforced."
-            detectable={<span style={{ color: "var(--danger)" }}>NO - forged nullifiers are indistinguishable</span>}
+            sub="CVE-2026-54496 · CVSS 9.3"
+            window="31 May 2022 - 1 Jun 2026"
+            dates="found 29 May 2026 · soft fork 2 Jun · NU6.2 3 Jun · disclosed 4 Jun"
+            cause="One missing copy constraint in the double-and-add loop left the nullifier key unenforced, permitting forged keys and repeat spends."
+            discoveredBy="Taylor Hornby, on a Shielded Labs engagement"
+            detectable="no"
+            detectableNote="NO - forged nullifiers are indistinguishable"
             confidence="high"
           />
         </Ledger>

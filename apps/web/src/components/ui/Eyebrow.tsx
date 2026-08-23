@@ -18,7 +18,7 @@ export function Eyebrow({
       {idx === undefined ? null : (
         <>
           <b>{idx}</b>
-          {" - "}
+          {"\u00a0\u2014\u00a0"}
         </>
       )}
       {children}

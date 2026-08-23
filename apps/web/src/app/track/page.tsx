@@ -54,44 +54,40 @@ export default function TrackPage() {
       <SearchBar />
 
       <Block idx="01" title="What you can and cannot get" right="stated before you search, not after">
-        <div className="grid g3">
-          <Glass>
+        <div className="cango">
+          <div className="c">
             <p>
               <Pill kind="exact" />
             </p>
-            <h3 className="display" style={{ fontSize: 19, marginTop: 10 }}>
-              Transparent
-            </h3>
-            <p className="note" style={{ marginTop: 6 }}>
+            <h3 className="h">Transparent</h3>
+            <p>
               Balance, full history, counterparties, exact amounts, exact times. Every t-address that ever shielded or unshielded
               is a public endpoint, and both sides of that crossing are in the clear.
             </p>
-          </Glass>
-          <Glass>
+          </div>
+          <div className="c">
             <p>
               <Pill kind="bounded" />
             </p>
-            <h3 className="display" style={{ fontSize: 19, marginTop: 10 }}>
-              Shielded
-            </h3>
-            <p className="note" style={{ marginTop: 6 }}>
-              Existence, nullifiers, anchor, action counts, fees and every boundary amount - plus an upper bound on the candidate
+            <h3 className="h">Shielded</h3>
+            <p>
+              Existence, nullifiers, anchor, action counts, fees and every boundary amount, plus an upper bound on the candidate
               set for a spend. Note values and endpoints inside a z-to-z transfer stay hidden, and this site does not guess at
               them.
             </p>
-          </Glass>
-          <Glass>
+          </div>
+          <div className="c">
             <p>
               <Pill kind="undefined" />
             </p>
-            <h3 className="display" style={{ fontSize: 19, marginTop: 10 }}>
-              Identity
+            <h3 className="h">
+              <em>Identity</em>
             </h3>
-            <p className="note" style={{ marginTop: 6 }}>
+            <p>
               Never. Not from clustering, not from timing, not from amount matching. A label is displayed only with its
               provenance rank, and a behavioural guess is displayed as a heuristic, not as a name.
             </p>
-          </Glass>
+          </div>
         </div>
       </Block>
 

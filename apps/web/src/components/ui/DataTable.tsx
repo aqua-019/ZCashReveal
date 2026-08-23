@@ -28,7 +28,11 @@ export function DataTable<Row>({
   readonly rowKey: (row: Row, index: number) => string;
 }) {
   return (
-    <div className="tbl-wrap" data-primitive="DataTable" tabIndex={0} role="group" aria-label={caption}>
+    // tabIndex only: the <caption> already names the table, and repeating it as
+    // an aria-label on a role="group" wrapper makes a screen reader read the
+    // same sentence twice on entry. The tab stop is what a scrollable region
+    // needs to be reachable by keyboard.
+    <div className="tbl-wrap" data-primitive="DataTable" tabIndex={0}>
       <table>
         <caption>{caption}</caption>
         <thead>

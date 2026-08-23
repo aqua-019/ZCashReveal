@@ -32,8 +32,17 @@
   /* -- ink ----------------------------------------------------------------- */
   --ink: #ede6d8;
   --ink-dim: #b3a996;
-  --ink-mute: #7c7366;
-  --ink-faint: #4f4840;
+  /* Raised from the mockup's #7c7366 and #4f4840, which are 4.04:1 and 2.10:1
+     against --bg. Both are used for real text at 9.5-12px - eyebrows, table
+     headers, key columns, the nav index numerals - which is normal text under
+     WCAG, so 4.5:1 applies and neither cleared it. #8f8576 is 5.20:1 on --bg
+     and still 4.52:1 on --surface-2, the darkest ground it is painted on.
+     --ink-faint is now 3.05:1 and is reserved for non-text: hairline rules and
+     inactive marks. Same hue ramp, same relationships, legible.
+     This diverges from the mockup :root, which is why it is a ledger question
+     rather than a silent edit - see the section 8 block for HANDOFF-01. */
+  --ink-mute: #8f8576;
+  --ink-faint: #6a6157;
 
   /* -- accent: a budget, not a decoration ----------------------------------
      ZEC gold is spent on exactly three things: the primary action, the active

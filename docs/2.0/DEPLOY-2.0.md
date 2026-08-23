@@ -57,6 +57,19 @@ Why each of those is what it is:
 - **Node 22.** The repo's `.nvmrc` pins `22`; `apps/web` is written against Node 22 and
   `@types/node@^22`.
 
+### The build requires egress to Google Fonts
+
+`apps/web` uses `next/font/google`, which fetches Instrument Serif, Fraunces, JetBrains Mono and
+Manrope at **build time** and self-hosts them from `_next/static/media` afterwards, so a visitor
+never contacts Google. The build, however, does: it needs `fonts.googleapis.com` and
+`fonts.gstatic.com`, and a failed fetch is a hard build error rather than a fall back to the
+declared fallback stacks. Vercel's build network reaches both. If a future network policy blocks
+them, the fix is in code (vendor the four families, switch to `next/font/local`), not in the
+dashboard.
+
+`apps/web/vercel.json` pins `"framework": "nextjs"` so the preset is recorded in the repository
+rather than only in the project settings.
+
 ### Caution: the repo-root `vercel.json`
 
 `/vercel.json` at the repo root belongs to the **legacy dashboard** project — it hard-codes

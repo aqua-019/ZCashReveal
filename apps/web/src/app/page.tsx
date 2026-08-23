@@ -4,11 +4,11 @@ import { FogCanvas } from "@/components/ambience/FogCanvas";
 import { IconArrowRight } from "@/components/icons";
 import { Block } from "@/components/ui/Block";
 import { Chip } from "@/components/ui/Chip";
+import { Pill } from "@/components/ui/Pill";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Glass } from "@/components/ui/Glass";
 import { Metric, MetricRow } from "@/components/ui/Metric";
-import { Tooltip } from "@/components/ui/Tooltip";
-import { FIXTURE_TIP, POOL_LABEL, POOL_ORDER, POOL_VAR } from "@/lib/chain";
+import { FIXTURE_TIP, POOL_LABEL, POOL_ORDER, POOL_SW } from "@/lib/chain";
 import { fmtInt, fmtPct } from "@/lib/format";
 import { SCREENS } from "@/lib/nav";
 
@@ -86,7 +86,7 @@ export default function SplashPage() {
           label="Unprovable residual"
           value={
             <>
-              {fmtInt(RESIDUAL)} <span style={{ fontSize: 22, color: "var(--ink-dim)" }}>ZEC</span>
+              {fmtInt(RESIDUAL)} <small>ZEC</small>
             </>
           }
           sub={`Orchard ${fmtInt(POOL_ZEC.orchard)} + Sprout ${fmtInt(POOL_ZEC.sprout)} - ${fmtPct(RESIDUAL / SUPPLY)} of supply`}
@@ -114,28 +114,29 @@ export default function SplashPage() {
         }
       >
         <Glass>
-          <div style={{ display: "flex", gap: 2, height: 34, background: "var(--surface)", borderRadius: 2, overflow: "hidden" }}>
+          <div className="poolbar" data-testid="poolbar">
             {POOL_ORDER.map((k) => {
               const share = POOL_ZEC[k] / SUPPLY;
               return (
-                <Tooltip key={k} text={`${POOL_LABEL[k]} - ${fmtInt(POOL_ZEC[k])} ZEC - ${fmtPct(share)} of supply`}>
-                  <span
-                    style={{
-                      display: "block",
-                      width: `${share * 100}%`,
-                      minWidth: 2,
-                      height: 34,
-                      background: `var(${POOL_VAR[k]})`,
-                    }}
-                  />
-                </Tooltip>
+                // data-tip goes on the flex item itself. TooltipLayer listens at
+                // the document, so no wrapper element is needed - and a wrapper
+                // here would BE the flex item, leaving the percentage width to
+                // resolve against a shrink-to-fit box and collapsing all five
+                // segments to the 2px floor.
+                <span
+                  key={k}
+                  className={`seg ${POOL_SW[k]}`}
+                  style={{ flexBasis: `${share * 100}%` }}
+                  data-pool={k}
+                  data-tip={`${POOL_LABEL[k]} - ${fmtInt(POOL_ZEC[k])} ZEC - ${fmtPct(share)} of supply`}
+                />
               );
             })}
           </div>
           <ul className="legend" style={{ marginTop: 12 }}>
             {POOL_ORDER.map((k) => (
               <li key={k}>
-                <i className="sw" style={{ background: `var(${POOL_VAR[k]})` }} aria-hidden="true" />
+                <i className={`sw ${POOL_SW[k]}`} aria-hidden="true" />
                 {POOL_LABEL[k]} - {fmtInt(POOL_ZEC[k])}
               </li>
             ))}
@@ -166,7 +167,7 @@ export default function SplashPage() {
               from the last good snapshot when the feed is down, and says how old it is.
             </p>
             <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
-              <Chip tone="gold">bounded</Chip>
+              <Pill kind="bounded" />
               <Chip>snapshot baseline</Chip>
               <Chip tone="blue">seeded ambience</Chip>
             </div>

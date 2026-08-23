@@ -46,6 +46,20 @@ export const POOL_VAR: Record<PoolKey, string> = {
   ironwood: "--p-ironwood",
 };
 
+/**
+ * The `.sw` modifier class per pool. The hue itself lives in the token layer
+ * (globals.css `.sw.t`, `.sw.sp`, ...); this maps a pool to its class so no
+ * component has to inline a colour. POOL_VAR remains for the few places that
+ * genuinely need the custom property, such as a percentage-width flex band.
+ */
+export const POOL_SW: Record<PoolKey, string> = {
+  transparent: "t",
+  sprout: "sp",
+  sapling: "sa",
+  orchard: "o",
+  ironwood: "i",
+};
+
 export const POOL_LABEL: Record<PoolKey, string> = {
   transparent: "Transparent",
   sprout: "Sprout",

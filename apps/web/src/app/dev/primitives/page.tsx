@@ -33,11 +33,12 @@ export const metadata: Metadata = {
 /**
  * The primitives gallery.
  *
- * Development-only: reachable in `next dev`, and in a production build running
- * with NEXT_PUBLIC_DATA_MODE=fixture (which is how the Playwright suite
- * exercises it, so the assertions run against shipped output rather than a dev
- * bundle). A deployed site sets DATA_MODE to snapshot or live and this route
- * returns 404 - see docs/2.0/DEPLOY-2.0.md.
+ * Development-only, and the gate fails closed: reachable in `next dev`, and in
+ * a production build only when NEXT_PUBLIC_ENABLE_DEV_SURFACES=1. The single
+ * place that variable is ever set is apps/web/playwright.config.ts, so the
+ * assertions run against shipped output rather than a dev bundle. A deployed
+ * site never sets it and this route returns 404 whatever NEXT_PUBLIC_DATA_MODE
+ * says - see src/lib/env.ts and docs/2.0/DEPLOY-2.0.md.
  *
  * Every primitive in the HANDOFF-01 deliverables appears here at least once,
  * with every variant of the ones that have variants. Assertion A4 walks the
@@ -214,8 +215,11 @@ export default function PrimitivesPage() {
               name="LedgerRow - critical"
               sub="the danger rule runs down the left edge"
               window="an interval"
-              detail="Supporting detail, dimmed."
-              detectable="NO"
+              dates="the dates below it, dimmed"
+              cause="The root-cause column. Hidden below 1000px; the window above is not."
+              discoveredBy="who found it · and who confirmed it"
+              detectable="no"
+              detectableNote="NO - the danger register"
               confidence="high"
             />
             <LedgerRow
@@ -223,10 +227,22 @@ export default function PrimitivesPage() {
               severity="high"
               name="LedgerRow - high"
               window="an interval"
-              detectable="PARTIAL"
+              cause="Same columns, lighter severity rule."
+              discoveredBy="an analyst, cited"
+              detectable="part"
+              detectableNote="PARTIAL - the warn register"
               confidence="med"
             />
-            <LedgerRow id="G3" name="LedgerRow - note" window="an interval" detectable="YES" confidence="low" />
+            <LedgerRow
+              id="G3"
+              name="LedgerRow - note"
+              window="an interval"
+              cause="No severity rule at all."
+              discoveredBy="a public filing"
+              detectable="yes"
+              detectableNote="YES - the ok register"
+              confidence="low"
+            />
           </Ledger>
         </div>
       </Block>

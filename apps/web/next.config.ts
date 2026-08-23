@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 import type { NextConfig } from "next";
 
 /**
@@ -7,7 +9,10 @@ import type { NextConfig } from "next";
  * instead of stopping at the app directory.
  */
 const nextConfig: NextConfig = {
-  outputFileTracingRoot: new URL("../..", import.meta.url).pathname,
+  // fileURLToPath, not .pathname: the latter is percent-encoded, so any
+  // checkout directory containing a space or a non-ASCII character would root
+  // the trace at a path that does not exist.
+  outputFileTracingRoot: fileURLToPath(new URL("../..", import.meta.url)),
   reactStrictMode: true,
   poweredByHeader: false,
   eslint: {
