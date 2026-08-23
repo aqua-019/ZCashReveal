@@ -127,11 +127,13 @@ export async function buildTxView(
       {
         label: "fee",
         value: zecText(feeZat, 8),
-        note: unresolved
-          ? "A lower bound: at least one input could not be resolved to the output it spends, so the input total is incomplete."
-          : indexed?.feeZat != null
-            ? "As the indexer recorded it when this transaction was in the mempool."
-            : "Computed from the outputs this transaction spends. No node reports a fee on getrawtransaction.",
+        note: isCoinbase
+          ? "A coinbase pays no fee. Its outputs are created by issuance rather than by spending, so there is no input total to take a difference from."
+          : unresolved
+            ? "A lower bound: at least one input could not be resolved to the output it spends, so the input total is incomplete."
+            : indexed?.feeZat != null
+              ? "As the indexer recorded it when this transaction was in the mempool."
+              : "Computed from the outputs this transaction spends. No node reports a fee on getrawtransaction.",
         accent: false,
       },
       {
@@ -142,8 +144,12 @@ export async function buildTxView(
       },
       {
         label: "conventional fee",
-        value: conventional ? "yes" : "no",
-        note: `ZIP 317 would price this at ${zecText(conventionalFeeZat(logicalActions), 8)}.`,
+        // "no" on a coinbase would read as "it underpaid". A coinbase is not a
+        // fee-paying transaction at all, and ZIP 317 does not price one.
+        value: isCoinbase ? "not priced" : conventional ? "yes" : "no",
+        note: isCoinbase
+          ? "ZIP 317 prices the transactions a wallet builds. A coinbase is built by the consensus rules and pays nothing."
+          : `ZIP 317 would price this at ${zecText(conventionalFeeZat(logicalActions), 8)}.`,
         accent: false,
       },
       {
