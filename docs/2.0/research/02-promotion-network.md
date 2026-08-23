@@ -154,6 +154,18 @@ This is the most forensically significant structure in the dossier. All of the f
 | **Douglas E. Onsi** | Cypherpunk CEO | **(a)** **1,000,000 RSUs** granted 2 Jul 2026 | Frames strategy as "long-term shareholder value through active participation in Zcash" | 12 Nov 2025 / 12 Aug 2026 | PRNewswire | HIGH |
 | **Barry Silbert** | DCG founder; Grayscale chairman | **(a)** 2015 co-investor in Zerocoin Electric Coin Company; DCG owns Grayscale (391k+ ZEC); **DCG in talks to buy ~200,000 ZEC** for the ETF | *"The bet that we're making, is 5%-10% of Bitcoin over the next few years, is going to find its way into privacy-focused cryptocurrencies"*; separately said ZEC could **500x** | 11 Feb 2026 (Bitcoin Investor Week, NYC) | [The Block](https://www.theblock.co/post/389472/dcg-barry-silbert-bitcoin-privacy-crypto-zcash) | HIGH |
 | Barry Silbert | — | — | **Sold 9,753 shares of Grayscale Zcash Trust** per SEC filing while ZEC traded ~$544 (prior sale 25 Jul: 1,897 shares) | **6 Nov 2025** | [Coin Republic](https://www.thecoinrepublic.com/2025/11/06/breaking-barry-silbert-sells-grayscale-zcash-trust-shares-as-zec-price-soars/) | MED |
+
+> **CORRECTION (HANDOFF-03 session, 23 Aug 2026).** The Barry Silbert row above is transcribed from a
+> secondary report and it misstates the primary record on three counts.
+> [`04-exchange-inflows-insider-selling.md`](04-exchange-inflows-insider-selling.md) section 5.5 reads the
+> two Form 144 filings directly from SEC EDGAR: **Silbert Family Investments LLC** (CIK 0001979086) filed on
+> **5 Nov 2025** for **9,753** shares at **$407,312.59**, and **Barry E. Silbert** personally (CIK 0001976415)
+> filed on **6 Nov 2025** for **1,000** shares at **$47,250.00**. So the 9,753 figure belongs to the family
+> office and not to the individual; the date attached to it is the individual's filing date; and the
+> "~$544" is a **ZEC price attached to a share sale** - these are ZCSH trust shares sold on OTCQX at about
+> $41.76 each, and **no ZEC moved on-chain**. The 1,897-share July sale appears only in this secondary and is
+> not in the EDGAR table, so it is not published. `packages/content` ships the EDGAR reading with both primary
+> filings cited. Section 5.5's own rule applies: always distinguish trust-share sales from coin sales.
 | **Mert Mumtaz** | Helius (Solana infra) CEO | **(c)/(a)?** Describes a "barbell: Bitcoin and Zcash on one end" — **never explicitly disclosed a ZEC position** | Zcash as "the fastest horse" for privacy | 24 Oct 2025 | [CoinDesk podcast](https://www.coindesk.com/podcasts/coindesk-podcast-network/why-zcash-is-the-fastest-horse-for-privacy-helius-ceo-mert-mumtaz) | MED |
 | Mert Mumtaz | — | — | *"a low-entropy carrier in a high-entropy world"*; "true fungibility"; "immaculate forgotten coin"; "Trojan horse for adoption" | 19 May 2026 | [BigGo](https://finance.biggo.com/news/486e6ece5f83ea4a) | MED |
 | Mert Mumtaz | — | — | Said ZEC overtaking XRP (a ~2,600% move) would be "easy" | ~2026 | [TradingView/U.Today](https://www.tradingview.com/news/u_today:e268c0a1f094b:0-zcash-zec-needs-2-600-to-pass-xrp-easy-says-top-solana-contributor-mert-mumtaz/) | LOW |

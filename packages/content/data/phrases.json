@@ -2,7 +2,7 @@
   {
     "id": "P-encrypted-bitcoin",
     "text": "encrypted Bitcoin",
-    "origin": "Predates Galaxy's Nov 2025 report, which attributes it to Zcash's advocates. Zooko himself calls it the winning meme (Bankless, 26 Jan 2026) — i.e. an intentional framing device. Earliest confirmed high-profile use: Tyler Winklevoss, 12 Nov 2025, same day as the $58.9M placement.",
+    "origin": "Predates Galaxy's Nov 2025 report, which attributes it to Zcash's advocates. Zooko himself calls it the winning meme (Bankless, 26 Jan 2026) \u2014 i.e. an intentional framing device. Earliest confirmed high-profile use: Tyler Winklevoss, 12 Nov 2025, same day as the $58.9M placement.",
     "date": "12 Nov 2025",
     "amplifiers": [
       "Tyler Winklevoss",
@@ -214,6 +214,7 @@
     "tension": "Said by the CIO of a company holding 1.9% of the supply with 1,000,000 RSUs of upside.",
     "confidence": "med",
     "sources": [
+      "S-coindesk-tag-zcash",
       "S-coindesk-research-inside-zcash-encrypted-money-a",
       "S-the-block-378582-winklevoss-backed-cypherpunk-ta"
     ],

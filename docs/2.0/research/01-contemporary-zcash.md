@@ -411,6 +411,16 @@ Source: [[electriccoin.co](https://electriccoin.co/blog/zcash-counterfeiting-vul
 
 **Holdings (primary):** the Q2 2026 10-Q reports **393,522.33134026 ZEC**; total assets **$155,252k ($155.25M)** at 30 Jun 2026, down from **$200,441k ($200.4M)** at 31 Dec 2025 [[SEC 10-Q](https://www.sec.gov/Archives/edgar/data/1720265/000172026526000006/zcsh-20260630.htm)] `high`. That is ~**2.3% of circulating ZEC** as of 30 Jun 2026 [[stocktitan](https://www.stocktitan.net/sec-filings/ZCSH/s-3-a-grayscale-zcash-trust-zec-amended-shelf-registration-statement-46cd7cb6a529.html)] `med`. Cryptobriefing cites *"over $260 million"* as of 21 Aug [[cryptobriefing](https://cryptobriefing.com/zcash-zcash-etf-sec-filing/)] `med`; at 393,522 ZEC that implies ~$660/ZEC, consistent with pre-spike pricing. At the 22 Aug price (~$790) the same holdings are worth **~$311M**. `high` (computed)
 
+> **CORRECTION (HANDOFF-03 session, 23 Aug 2026 - LEDGER-02 Q5).** The pairing in the paragraph above is
+> wrong, and the error is in this file rather than in the filing. **393,522.33134026 ZEC** is the
+> **31 Dec 2025** line of the EDGAR table reproduced in
+> [`04-exchange-inflows-insider-selling.md`](04-exchange-inflows-insider-selling.md), where it sits against
+> total assets of **$200,441k**. The **$155,252k** figure quoted above is the **30 Jun 2026** line, whose
+> ZEC holding is **388,673.68359943** - which is also what section 1.5 and the rich-list warning in that same
+> file use, and what the S-3/A's "approximately 2.3% of circulating ZEC as of 30 June 2026" is consistent
+> with. `packages/content` ships the June figure as the headline with the December figure carried alongside,
+> both dated. Anything derived from the sentence above should be re-derived from the June line.
+
 **Premium/discount history** (Oct 2021 – Jun 2026) [[stocktitan](https://www.stocktitan.net/sec-filings/ZCSH/s-3-a-grayscale-zcash-trust-zec-amended-shelf-registration-statement-46cd7cb6a529.html)] `med`:
 - Max premium **+240%**; max discount **−55%**; average premium 53%; average discount 19%; **700 days** trading at a discount
 - 30 Jun 2026: **−17%** discount; 12 Aug 2026: **−7%** discount, close $36.60

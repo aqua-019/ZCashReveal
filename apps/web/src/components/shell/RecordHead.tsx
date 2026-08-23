@@ -38,7 +38,15 @@ export function RecordHead({
             </>
           )}
         </h1>
-        <p className="dek">{dek}</p>
+        {/* A div, not a paragraph. `dek` is arbitrary caller JSX, and a caller
+            that puts a claim's citation in it is putting a <details> inside
+            this element - which the HTML parser treats as closing an open <p>,
+            tearing the disclosure out of the dek, promoting it to a sibling and
+            leaving a stray empty paragraph. Server and client then disagree and
+            React reports a hydration mismatch. The A7 suite caught exactly that
+            at gate round 2, on a dek written earlier the same round. A <div>
+            takes flow content, so no caller can produce it. */}
+        <div className="dek">{dek}</div>
       </div>
       {aside === undefined ? null : <div>{aside}</div>}
     </div>

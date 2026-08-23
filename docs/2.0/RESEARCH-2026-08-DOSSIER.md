@@ -168,6 +168,14 @@ Two detail panels the Beware page should carry verbatim (both `high`): ZF, 5 Feb
 
 **E.3 Other holders/vehicles:** Grayscale Zcash Trust **393,522 ZEC** (Q2 10-Q; ~$311M at $790) → "The Zcash ETF" (ZCSH, NYSE Arca, 2.5% fee, Coinbase Custody, BNY Mellon); DCG ~200,000 ZEC contribution *non-binding*; Zcash Foundation 85,412 ZEC ($36.69M liquid assets, Q1 2026); Multicoin (undisclosed size, Feb 2026); Dragonfly (undisclosed); Maelstrom/Hayes (exited 5 Jun 2026; Arkham: a $174M position lost half its value); NU6 lockbox (12% of subsidy since Nov 2024; 78,750 ZEC disbursed to the ZF/ECC/Shielded Labs multisig). Disclosed entities ≈ 4.7% of supply.
 
+> **CORRECTION (HANDOFF-03 session, 23 Aug 2026 - LEDGER-02 Q5).** The figure **393,522.33134026 ZEC**
+> is the **31 Dec 2025** line of the SEC EDGAR table in
+> [`research/04`](research/04-exchange-inflows-insider-selling.md) (section with total assets $200,441k),
+> and it is mis-paired above with the **Q2 10-Q** and with **$155,252k** total assets. Those belong to the
+> **30 Jun 2026** line, whose ZEC figure is **388,673.68359943**. `packages/content` ships the June figure as
+> the headline with the December figure carried alongside, both dated, and `/network` and `/flows` render it
+> that way. Do not re-harvest the pairing above.
+
 **E.4 People, with exposure:** Zooko Wilcox (FR 0.9% of supply; Shielded Labs CPO; paid CYPH advisor) · Josh Swihart (ZODL CEO; paid CYPH advisor; ZIP 1016 author; "privacy is normal" author 2020) · Tyler & Cameron Winklevoss (Gemini; Winklevoss Capital; CYPH seed; ZODL; Shielded Labs donors) · Will McEvoy (CYPH CIO, 1M RSUs; "most mispriced asset in crypto") · Naval Ravikant (2015 investor; founding ZF board; "insurance against Bitcoin") · Barry Silbert/DCG (seed investor; Grayscale; sold Trust shares 6 Nov 2025; "500x") · Arthur Hayes ("$10k ZEC" 26 Oct 2025; "Butterfly Touch" 11 May 2026; exited 5 Jun 2026; ZachXBT exit-liquidity accusation — allegation) · Mert Mumtaz ("fastest horse"; no disclosed position) · Balaji Srinivasan (ZODL investor) · Tushar Jain/Multicoin (disclosure moved price +30%) · Paul Brigner (ZODL policy chief *and* ZCG committee member) · Taylor Hornby (found both InternalH 2016 and Orchard 2026; ZF board per zfnd.org — `med`).
 
 **E.5 Paid content:** ZCG grant book $20.5M committed / 183 grants; explicitly promotional ≈ $3.5–3.8M (Zcash Media $600k — cancelled at 6/9 milestones; ZecHub 2026 $433k; Zcash Brazil 2026 $345k; Free2Z $333k; ZK AV Club $229k; conference marketing $9k–64k; Twitter ambassador $4.5k). CoinDesk Research 3 Nov 2025 **sponsored by "GenZcash"** (unidentified). ECC "Growth & Regulatory" ≈ 31% of spend (2023). ZF community comms ≈ $31.5k/quarter.

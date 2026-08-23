@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 
-import { Block } from "@/components/ui/Block";
-import { Conf } from "@/components/ui/Conf";
-import { DataTable, type Column } from "@/components/ui/DataTable";
-import { Glass } from "@/components/ui/Glass";
-import { Pending } from "@/components/shell/Pending";
+import { getSources, type Source } from "@zcashreveal/content";
+
 import { RecordHead } from "@/components/shell/RecordHead";
+import { Block } from "@/components/ui/Block";
+import { Glass } from "@/components/ui/Glass";
+import { Metric, MetricRow } from "@/components/ui/Metric";
+import { citationIndex, type Citation } from "@/lib/citations";
+import { fmtInt } from "@/lib/format";
 import { screenByHref } from "@/lib/nav";
 
 const S = screenByHref("/sources");
@@ -15,80 +17,173 @@ export const metadata: Metadata = {
   description: S?.dek ?? "",
 };
 
-interface FieldRow {
-  readonly field: string;
-  readonly rule: string;
+/**
+ * 08 SOURCES - the bibliography.
+ *
+ * Two labelled groups, each with its own count, and not one undifferentiated
+ * list of 328 links (LEDGER-02 Q2, fold 4).
+ *
+ * The bibliography is deliberately larger than the citation graph. It is the
+ * union of every URL in the four research dossiers, which means a reader who
+ * wants to check something the Record did not claim can still find where the
+ * research looked. That is the right shape for a site whose argument is that
+ * the record is public and checkable - but only if the reader can tell the two
+ * apart at a glance, which is what the split below is for.
+ *
+ * Each cited source lists the claims that rest on it, as permalinks. That is
+ * the more useful direction to read the graph in: a source matters because of
+ * what was built on it, and a reader who distrusts a publisher can see in one
+ * line exactly which claims they now need to discount.
+ */
+
+/** Sort by publisher, then title, so the list is scannable by who published it. */
+function byPublisherThenTitle(a: Source, b: Source): number {
+  const p = a.publisher.localeCompare(b.publisher, "en");
+  return p === 0 ? a.title.localeCompare(b.title, "en") : p;
 }
 
-/** The record shape packages/content enforces. The build fails without these. */
-const FIELDS: readonly FieldRow[] = [
-  { field: "id", rule: "Stable and permalinkable. /beware#B5 must keep resolving." },
-  { field: "claim", rule: "The statement, in the words being examined." },
-  { field: "sources[]", rule: "At least one. Each with url, title and date. Zero sources fails the build." },
-  { field: "confidence", rule: "high, med or low. Always rendered next to the claim." },
-  { field: "lastVerified", rule: "The date the source was last fetched and read." },
-];
+function SourceRow({
+  source,
+  citations = [],
+}: {
+  readonly source: Source;
+  /** Empty for an uncited source, which is a state, not an absence. */
+  readonly citations?: readonly Citation[] | undefined;
+}) {
+  return (
+    <li id={source.id}>
+      <span className="t">
+        <a href={source.url} rel="noopener noreferrer nofollow">
+          {source.title}
+        </a>
+      </span>
+      <span className="meta">
+        {source.publisher}
+        {source.date === null ? "" : ` · ${source.date}`}
+      </span>
+      <span className="u">{source.url}</span>
+      {citations.length === 0 ? null : (
+        <span className="by">
+          {citations.map((c) => (
+            <a key={c.id} href={c.href} title={`${c.id} in ${c.collection}`}>
+              {c.id}
+            </a>
+          ))}
+        </span>
+      )}
+    </li>
+  );
+}
 
-const COLUMNS: readonly Column<FieldRow>[] = [
-  { key: "field", head: "field", mono: true, cell: (r) => r.field },
-  { key: "rule", head: "rule", cell: (r) => r.rule },
-];
-
-/**
- * 08 SOURCES - the apparatus.
- *
- * The contract, stated on its own page so it can be cited: no claim without a
- * source, no source without a date, and nothing unverified rendered anywhere.
- */
 export default function SourcesPage() {
+  const sources = getSources();
+  const index = citationIndex();
+
+  const cited: Source[] = [];
+  const uncited: Source[] = [];
+  for (const s of sources) {
+    if ((index.get(s.id)?.length ?? 0) > 0) cited.push(s);
+    else uncited.push(s);
+  }
+  cited.sort(byPublisherThenTitle);
+  uncited.sort(byPublisherThenTitle);
+
+  // How many distinct claims rest on the bibliography at all.
+  const claimCount = new Set([...index.values()].flatMap((cs) => cs.map((c) => c.id))).size;
+
+  const publishers = new Set(sources.map((s) => s.publisher)).size;
+  const undated = sources.filter((s) => s.date === null).length;
+
   return (
     <>
       <RecordHead
-        idx="08"
-        kicker="the apparatus"
-        title="Sources"
+        idx="08 SOURCES"
+        kicker="every claim resolves to a URL, a confidence and a date"
+        title="The bibliography is larger than"
+        titleAccent="the argument"
         dek={
           <>
-            Every claim on this site resolves to a source URL, a confidence and a last-verified date. Items the research could
-            not corroborate live in <b>unverified.json</b> and are not rendered anywhere - not greyed out, not marked
-            provisional, not published.
+            {fmtInt(sources.length)} sources, of which {fmtInt(cited.length)} carry a claim on this site and{" "}
+            {fmtInt(uncited.length)} do not. That gap is deliberate. The corpus is the union of every URL the research
+            consulted, so a reader who wants to check something the Record did <b>not</b> claim can still find where the
+            research looked - and a bibliography that only contains what a site already used is a bibliography that cannot be
+            argued with.
           </>
+        }
+        aside={
+          <MetricRow>
+            <Metric label="Cited by the Record" value={fmtInt(cited.length)} sub={`across ${fmtInt(claimCount)} claims`} accent />
+            <Metric label="In the corpus, not cited" value={fmtInt(uncited.length)} sub={`${publishers} publishers in all`} />
+          </MetricRow>
         }
       />
 
-      <Block idx="01" title="What a record must carry" right="enforced by the schema, not by review">
-        <DataTable caption="Required fields on every Record claim" columns={COLUMNS} rows={FIELDS} rowKey={(r) => r.field} />
-      </Block>
-
-      <Block idx="02" title="Confidence is displayed, never inferred" right="three levels, no fourth">
-        <div className="grid g3">
+      <Block idx="01" title="What this page is not" right="the honest limits of a bibliography">
+        <div className="grid g2">
           <Glass>
-            <Conf level="high" />
-            <p className="note" style={{ marginTop: 10 }}>
-              A primary document: a filing, a CVE record, a consensus rule, or the chain itself.
+            <p className="note">
+              Provenance here is proven against the <b>corpus</b>, not against the live web.{" "}
+              <code className="mono">scripts/check-provenance.mjs</code> asserts that every URL in this list occurs in{" "}
+              <code className="mono">docs/2.0/research</code>, and{" "}
+              <code className="mono">scripts/resolve-refs.mjs</code> rewrites citations from URLs to ids and fails on any URL
+              the corpus does not contain. So a citation from outside the research cannot survive a build. What none of that
+              establishes is that a URL still resolves today.
             </p>
           </Glass>
           <Glass>
-            <Conf level="med" />
-            <p className="note" style={{ marginTop: 10 }}>
-              A credible secondary account, or a primary source that is partial or contested.
-            </p>
-          </Glass>
-          <Glass>
-            <Conf level="low" />
-            <p className="note" style={{ marginTop: 10 }}>
-              Reported but thinly sourced. Published only where the claim itself is the subject, and labelled.
+            <p className="note">
+              No link here has been re-fetched. The research reports at least one dead link already, and{" "}
+              {fmtInt(undated)} of these entries carry no publication date because the source states none - an absent date is
+              recorded as absent rather than guessed. A link-rot sweep needs an environment with outbound access and is
+              recorded as deferred in the handoff ledger.
             </p>
           </Glass>
         </div>
       </Block>
 
-      <Block idx="03" title="The source index" right="scheduled">
-        <Pending handoff="HANDOFF-02 / 03" title="Every URL, with its freshness">
-          The full index, grouped by surface and sorted by last-verified date, arrives with packages/content. A monthly
-          verification pass re-fetches each source, flags dead links and bumps the dates.
-        </Pending>
-      </Block>
+      <section className="srcgroup" id="cited">
+        <Block
+          idx="02"
+          title="Cited by the Record"
+          right={
+            <>
+              {fmtInt(cited.length)} of {fmtInt(sources.length)}
+              <br />
+              each listing the claims that rest on it
+            </>
+          }
+        >
+          <ol className="srclist">
+            {cited.map((s) => (
+              <SourceRow key={s.id} source={s} citations={index.get(s.id)} />
+            ))}
+          </ol>
+        </Block>
+      </section>
+
+      <section className="srcgroup" id="uncited">
+        <Block
+          idx="03"
+          title="In the corpus, not cited"
+          right={
+            <>
+              {fmtInt(uncited.length)} of {fmtInt(sources.length)}
+              <br />
+              consulted by the research, not used by a claim
+            </>
+          }
+        >
+          <p className="note measure" style={{ marginBottom: 4 }}>
+            Nothing on this site rests on these. They are here because the research read them, and because a reader auditing a
+            claim we did not make should not have to repeat the search.
+          </p>
+          <ol className="srclist">
+            {uncited.map((s) => (
+              <SourceRow key={s.id} source={s} />
+            ))}
+          </ol>
+        </Block>
+      </section>
     </>
   );
 }

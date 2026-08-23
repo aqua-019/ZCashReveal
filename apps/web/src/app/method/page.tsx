@@ -1,14 +1,21 @@
 import type { Metadata } from "next";
 
+import { MethodCeremony } from "@/components/record/MethodCeremony";
+import { MethodClustering } from "@/components/record/MethodClustering";
+import { ESTIMATOR_COUNTS, MethodEstimators } from "@/components/record/MethodEstimators";
+import { MethodGoldenCases } from "@/components/record/MethodGoldenCases";
+import { ClaimLadder, ClaimLadderRefusals } from "@/components/record/MethodLadder";
+import { MethodPosterior, MethodTaint } from "@/components/record/MethodPosterior";
+import { MethodQueryTable } from "@/components/record/MethodQueryTable";
+import { RecordHead } from "@/components/shell/RecordHead";
 import { Block } from "@/components/ui/Block";
-import { DataTable, type Column } from "@/components/ui/DataTable";
+import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Glass } from "@/components/ui/Glass";
 import { InferenceChain } from "@/components/ui/InferenceChain";
 import { Pill } from "@/components/ui/Pill";
 import { Reason } from "@/components/ui/Reason";
-import { Pending } from "@/components/shell/Pending";
-import { RecordHead } from "@/components/shell/RecordHead";
 import { screenByHref } from "@/lib/nav";
+
 
 const S = screenByHref("/method");
 
@@ -17,117 +24,254 @@ export const metadata: Metadata = {
   description: S?.dek ?? "",
 };
 
-interface LevelRow {
-  readonly level: string;
-  readonly range: string;
-  readonly means: string;
-}
-
-/** The claim ladder, mirroring analysis/claim-classifier.ts. Lower-inclusive. */
-const LEVELS: readonly LevelRow[] = [
-  { level: "aggregate_only", range: "N_eff > 1,000", means: "Publishable only as a distribution. No per-transaction statement." },
-  { level: "broad_candidate_set", range: "1,000 - 100", means: "A bound worth reporting. Names nothing." },
-  { level: "small_heuristic_set", range: "100 - 10", means: "Reportable with the assumption stack shown in full." },
-  { level: "requires_disclosure", range: "N_eff \u2264 10", means: "Not published as a finding. The set is small enough to harm." },
-];
-
-const COLUMNS: readonly Column<LevelRow>[] = [
-  { key: "level", head: "claim level", mono: true, cell: (r) => r.level },
-  { key: "range", head: "effective set size", mono: true, cell: (r) => r.range },
-  { key: "means", head: "what it permits", cell: (r) => r.means },
-];
-
 /**
- * 06 METHOD - how every number on this site is derived.
+ * 06 METHOD - the contract.
  *
- * This page is the site's warrant. It exists so that a reader who distrusts a
- * figure can find the exact step that produced it and reject that step
- * specifically, rather than dismissing the whole instrument.
+ * Every number on the Tracking pages is either exact and public or a bound with
+ * its assumptions printed beside it, and this page is where the site commits to
+ * which is which. It walks down from the unit a reader thinks in - an address -
+ * to what the chain actually contains, through eleven named estimators each
+ * carrying a hard or soft label, into a posterior whose only published output
+ * is an effective candidate count and a claim level, out through the one
+ * client-side ceremony by which a shielded balance may legitimately appear, and
+ * ends at four calibration cases the graders have to pass.
  *
- * The definitions here are RESEARCH.md's, not new ones.
+ * THE SPINE OF THE ARGUMENT IS NEGATIVE. A page that listed techniques without
+ * listing their refusals would be marketing for the techniques. So every
+ * estimator states what it forbids beside what it permits, every claim level
+ * states what it will not license, and the page opens and closes on the same
+ * three things no method here can return: a sender or recipient inside the
+ * shielded pool, a shielded balance without a key, and an owner for any address
+ * not named by consensus rules or by the owner's own filing.
+ *
+ * PROVENANCE, and the distinction that governs the whole file. Material from
+ * `packages/content` - the address labels, the case files - is an external
+ * claim and carries the full apparatus: an id, a confidence, a citation.
+ * Material from docs/2.0/TRACKING-MATH.md is documentation of this site's own
+ * procedure, not a sourced claim about the world, so it is attributed to that
+ * document by name and path and is given no `sources[]` entry. Fabricating one
+ * would be the precise defect this page exists to argue against.
+ *
+ * NOTATION. Symbols are written as TRACKING-MATH writes them - `Cand_0`,
+ * `N_eff`, `Bal^p`, `10^-4` - rather than with typographic sub- and
+ * superscripts. A screen reader announces `N<sub>eff</sub>` as an undivided "N
+ * eff", which assertion A4 exists to catch, and the plain form is the same
+ * string a reader will find in the specification and in the indexer's source.
+ *
+ * BLOCK NUMBERING follows TRACKING-MATH's own sections one to one, so a reader
+ * holding the document can find the paragraph behind any block. Its sections 2
+ * and 3 are one block here because boundary events are only interesting as the
+ * exact events the estimates attach to.
+ *
+ * Zero motion, zero client JavaScript, no charts. The whole argument is carried
+ * by tables and prose; the one drawing this method implies - the taint graph -
+ * belongs on /flows, where the edges have real weights behind them.
  */
 export default function MethodPage() {
   return (
     <>
       <RecordHead
-        idx="06"
-        kicker="how the numbers are made"
-        title="Method"
+        idx="06 METHOD"
+        kicker="what is exact - what is bounded - what is never claimed"
+        title="How the tracking"
+        titleAccent="works"
         dek={
           <>
-            Every bound on this site comes from the same stack: an anchor gives a raw candidate set, filters shrink it, and the
-            entropy of what remains gives <b>N_eff = 2^H</b>. Each filter buys its reduction with an assumption, and the
-            assumption is displayed next to the number it bought.
+            Every number on the Tracking pages is either <b>exact and public</b> or a{" "}
+            <b>bound with its assumptions printed beside it</b>, and the two are never allowed to blur into each other. This
+            page is the contract. It sets out the per-pool state machine, the anchor-bounded candidate sets, the
+            process-of-elimination toolkit, the posterior and the viewing-key mode - and it says, in plain terms, what no
+            method here can return.
           </>
+        }
+        aside={
+          <Glass>
+            <Eyebrow className="mt-card-eyebrow" idx="the four claim levels">
+              N_eff = 2^H - thresholds a decade apart on purpose
+            </Eyebrow>
+            <ClaimLadder />
+          </Glass>
         }
       />
 
-      <Block idx="01" title="The three registers" right="what kind of number is this">
+      <Glass className="mt-contract">
+        <p className="note measure">
+          The mantra has not changed since v0.2: <b>report uncertainty, not identity</b>. The claim level is how that is
+          enforced rather than merely asserted - it is computed from the posterior, it caps what any surface is allowed to
+          say, and it is the same ladder on every page. The bands above are lower-inclusive: the threshold value stays in
+          the tighter level, so <span className="mono">N_eff = 100</span> is{" "}
+          <span className="mono">small_heuristic_set</span> and not <span className="mono">broad_candidate_set</span>. They
+          are coarse deliberately, coarse enough that a small estimation error cannot move a finding across a category, and
+          they are not retuned without calibration data.
+        </p>
+        <ClaimLadderRefusals />
+        <p className="src" style={{ marginTop: 12 }}>
+          Procedure: docs/2.0/TRACKING-MATH.md, sections 0 to 6. Thresholds and the claim-level union:
+          packages/zec-types/src/analysis.ts. Neither is an external source, and neither is cited as one.
+        </p>
+      </Glass>
+
+      <Block idx="00" title="What a query can honestly return" right="the address is the unit a reader thinks in; the chain is not built that way">
         <div className="grid g3">
           <Glass>
             <Pill kind="exact" />
             <p className="note" style={{ marginTop: 10 }}>
-              Transparent chain data. Balances, amounts, heights, counterparties. Arithmetically exact and independently
+              Transparent chain data: balances, amounts, heights, counterparties. Arithmetically exact and independently
               checkable against any node.
             </p>
           </Glass>
           <Glass>
             <Pill kind="bounded" />
             <p className="note" style={{ marginTop: 10 }}>
-              Shielded activity. An upper bound on a candidate set, never a value and never an owner. A bound that shrinks is a
-              bound that bought its reduction with an assumption.
+              Shielded activity. An upper bound on a candidate set, never a value and never an owner. A bound that shrinks
+              is a bound that bought its reduction with an assumption, and the assumption is printed with it.
             </p>
           </Glass>
           <Glass>
             <Pill kind="undefined" />
             <p className="note" style={{ marginTop: 10 }}>
-              Not derivable from public data. Printed as a refusal rather than left blank, because a blank cell reads as an
-              oversight and a refusal reads as a finding.
+              Undefined by construction: not derivable from public data at all. Printed as a refusal rather than left
+              blank, because a blank cell reads as an oversight and a refusal reads as a finding.
             </p>
           </Glass>
         </div>
+        <div style={{ marginTop: 14 }}>
+          <MethodQueryTable />
+        </div>
       </Block>
 
-      <Block idx="02" title="The filter stack" right="illustrative shape, not a real transaction">
-        <div className="grid g2">
+      <Block idx="01" title="Transparent side: exact, plus clustering" right="deterministic - the Bitcoin toolkit applies unchanged">
+        <MethodClustering />
+      </Block>
+
+      <Block
+        idx="02-03"
+        title="Boundary events, and the estimator toolkit"
+        right="every estimator emits an audit record {filter, params, countIn, countOut} - the v0.2 contract, kept verbatim"
+      >
+        <p className="note measure" style={{ marginBottom: 14 }}>
+          For a transaction <i>T</i> and pool <i>p</i>, the public delta <span className="mono">deltaV^p(T)</span> is
+          positive when value leaves the pool and negative when it enters. A transparent address <i>a</i> therefore has{" "}
+          <b>shield events</b> <span className="mono">S(a) = {"{"}(T, X, h){"}"}</span> and <b>deshield events</b>{" "}
+          <span className="mono">D(a) = {"{"}(T, Y, h){"}"}</span>, and both are exact. Everything below is an{" "}
+          <i>estimate</i> attached to those exact events - which is why the boundary is the only place the two registers
+          are allowed to meet.
+        </p>
+
+        <MethodEstimators />
+
+        <p className="note measure" style={{ marginTop: 14 }}>
+          {ESTIMATOR_COUNTS.hard} of the {ESTIMATOR_COUNTS.total} hold unconditionally; the other {ESTIMATOR_COUNTS.soft}{" "}
+          are behavioural priors a wallet is free to violate. A reader who rejects all {ESTIMATOR_COUNTS.soft} soft ones is
+          left with a correct, and much larger, bound - which is the point of separating them.
+        </p>
+
+        <div className="grid g2" style={{ marginTop: 18 }}>
           <Glass>
+            <Eyebrow className="mt-card-eyebrow" idx="the audit record, rendered">
+              illustrative shape, not a real transaction
+            </Eyebrow>
             <InferenceChain
               steps={[
-                { n: "412,908", what: "raw anchor bound", note: "every commitment at or below the anchor position" },
-                { n: "18,204", what: "time window", note: "7 days from heightCreated", cost: "assumes prompt spending" },
-                { n: "63", what: "amount match", note: "two-sided interval, fee tolerance", cost: "assumes one matching deposit" },
+                {
+                  n: "412,908",
+                  what: "raw anchor bound",
+                  note: "every commitment at or below the anchor position",
+                },
+                {
+                  n: "18,204",
+                  what: "time window",
+                  note: "W = 576 blocks, about 12 hours, anchored at heightCreated",
+                  cost: "assumes prompt spending",
+                },
+                {
+                  n: "63",
+                  what: "amount match",
+                  note: "two-sided interval with an explicit fee tolerance",
+                  cost: "assumes one matching deposit",
+                },
               ]}
-              assumption="Drop either assumption and the number returns to the line above it. The raw anchor bound is the only step that holds unconditionally."
+              assumption="Drop either soft assumption and the count returns to the line above it. The raw anchor bound is the only step that holds unconditionally, and it is the only number on this chain a reader is obliged to accept."
             />
+            <div className="refuses" style={{ marginTop: 12 }}>
+              <b>which window produced a number</b>
+              <span>
+                <span className="mono">W = 576</span> blocks is the specified default. The v0.2 code shipped a 7-day
+                window (<span className="mono">MAX_LINK_WINDOW_MS</span>), and the two are not interchangeable, so every
+                rendered figure states the window it was taken over rather than leaving a reader to assume one.
+              </span>
+            </div>
           </Glass>
+
           <Glass>
+            <Eyebrow className="mt-card-eyebrow" idx="why the chain is generated, not narrated">
+              the contract behind the picture
+            </Eyebrow>
             <Reason
               steps={[
-                { n: "01", text: <>The anchor published with a spend fixes a tree position; nothing above it can be the spent note. This is the only universally correct filter.</> },
-                { n: "02", text: <>A time window is a behavioural guess. It is anchored at the height the note was created and it is logged as an assumption, with its parameters.</> },
-                { n: "03", text: <>An amount match intersects two intervals with an explicit fee tolerance. The absolute tolerance inherited from v0.2 is known to miss real round trips; the relative rule replaces it.</> },
-                { n: "04", text: <>Every estimator is a pure function and emits an audit record - filter, params, countIn, countOut - so the chain above is generated, not narrated.</> },
+                {
+                  n: "01",
+                  text: (
+                    <>
+                      The anchor published with a spend fixes a tree position, and nothing above it can be the spent note.
+                      This is the only universally correct filter.
+                    </>
+                  ),
+                },
+                {
+                  n: "02",
+                  text: (
+                    <>
+                      A time window is a behavioural guess. It is anchored at the height the note was created and it is
+                      logged as an assumption, with its parameters; the audit record&apos;s{" "}
+                      <span className="mono">time_window</span> variant carries{" "}
+                      <span className="mono">windowBlocks</span> and a half-open height range where the lower bound is
+                      exclusive and the upper bound is the anchor&apos;s own creation height.
+                    </>
+                  ),
+                },
+                {
+                  n: "03",
+                  text: (
+                    <>
+                      An amount match intersects two intervals with an explicit fee tolerance. Its audit record carries the
+                      matched deposit, both amounts in zatoshi, the tolerance used, and whether the match was exact or
+                      fee-tolerant - so a reader can reconstruct the step rather than take it.
+                    </>
+                  ),
+                },
+                {
+                  n: "04",
+                  text: (
+                    <>
+                      Every estimator is a pure function and emits{" "}
+                      <span className="mono">{"{filter, params, countIn, countOut}"}</span> with both counts as{" "}
+                      <span className="mono">bigint</span>, so the chain above is generated from the run rather than
+                      narrated after it. <span className="mono">rawCount</span> and{" "}
+                      <span className="mono">effectiveSetSize</span> are equal when no filter applied, and diverge by
+                      exactly what the filters took.
+                    </>
+                  ),
+                },
               ]}
             />
           </Glass>
         </div>
       </Block>
 
-      <Block idx="03" title="Claim levels" right="lower-inclusive, coarse on purpose">
-        <DataTable caption="What each effective set size permits" columns={COLUMNS} rows={LEVELS} rowKey={(r) => r.level} />
-        <p className="note" style={{ marginTop: 14 }}>
-          The thresholds are deliberately coarse and are not retuned without calibration data. The lowest band is a refusal to
-          publish, not a confidence rating: a set of ten is small enough that publishing it could harm a person, and no bound
-          this site can compute is worth that.
-        </p>
+      <Block idx="04" title="Combining estimators: the posterior, the entropy, the claim" right="the number a reader sees is N_eff, never a name">
+        <div className="grid g2">
+          <MethodPosterior />
+          <MethodTaint />
+        </div>
       </Block>
 
-      <Block idx="04" title="The full method" right="scheduled">
-        <Pending handoff="HANDOFF-03 / 08" title="Derivations, worked cases and the assumptions panel">
-          The full derivations - turnstile accounting across four pools, the Unprovable Residual, the Orchard drain, the ZIP 318
-          migration lens and the Ironwood birth curve - render here once the analysis toolkit lands, each with the golden cases
-          it was calibrated against.
-        </Pending>
+      <Block idx="05" title="Mode A: the viewing-key ceremony" right="exact - client-side - the only way a shielded balance appears on this site">
+        <MethodCeremony />
+      </Block>
+
+      <Block idx="06" title="Calibration, and the golden cases" right="tests the graders must pass before anything ships">
+        <MethodGoldenCases />
       </Block>
     </>
   );

@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 
+import { getContradictions, type Confidence } from "@zcashreveal/content";
+
+import { ContradictionCard } from "@/components/record/ContradictionCard";
+import { RecordHead } from "@/components/shell/RecordHead";
 import { Block } from "@/components/ui/Block";
 import { Conf } from "@/components/ui/Conf";
+import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Glass } from "@/components/ui/Glass";
-import { Quote } from "@/components/ui/Quote";
-import { Pending } from "@/components/shell/Pending";
-import { RecordHead } from "@/components/shell/RecordHead";
+import { KV } from "@/components/ui/KV";
 import { screenByHref } from "@/lib/nav";
+
 
 const S = screenByHref("/contradictions");
 
@@ -16,56 +20,99 @@ export const metadata: Metadata = {
 };
 
 /**
- * 02 CONTRADICTIONS - marketing claim against on-chain reality.
+ * 02 CONTRADICTIONS - what was claimed, against what the record shows.
  *
- * The structure is the argument: a claim in the display serif, the chain's
- * answer in prose beneath it, and a confidence on the pairing. HANDOFF-02
- * supplies all sixteen from packages/content.
+ * The structure is the argument, so the page is a grid of pairs and nothing
+ * else: the claim as the corpus recorded it, then the chain, the filings or
+ * the disclosure history underneath it. Neither side is paraphrased here - the
+ * corpus holds both strings and this page renders them - because the interest
+ * of a contradiction lies entirely in the exact wording of the two halves.
+ *
+ * The point is not that the claims are lies. Most are defensible with a
+ * qualifier that was left off, and several entries say as much in their own
+ * text: "no trusted setup" is true of Orchard and Ironwood; the disclosure
+ * timeline really did improve by two orders of magnitude between 2019 and
+ * 2026. What the page collects is where the qualifier went.
+ *
+ * The mockup shows eight cards and captions itself "8 of 16 shown". That was a
+ * mockup's economy; all sixteen ship, in the order the corpus numbers them.
+ *
+ * Zero motion: one hover verb, no animation, nothing that arrives.
  */
+
+/** The confidence ladder, in the order `confidenceSchema` declares it. */
+const LADDER: readonly Confidence[] = ["high", "med", "low"];
+
 export default function ContradictionsPage() {
+  const entries = getContradictions();
+
+  // Counted, not asserted: each figure is a tally of the cards below, and each
+  // card carries its own sources, confidence and last-verified date.
+  const tally = LADDER.map((level) => ({ level, n: entries.filter((c) => c.confidence === level).length })).filter(
+    (row) => row.n > 0,
+  );
+  const notHigh = entries.filter((c) => c.confidence !== "high");
+  const verified = [...new Set(entries.map((c) => c.lastVerified))].sort();
+
   return (
     <>
       <RecordHead
-        idx="02"
-        kicker="claims against the chain"
-        title="Contradictions"
+        idx="02 CONTRADICTIONS"
+        kicker="the claim, then the record - all sixteen - zero motion"
+        title="What was claimed, and what the"
+        titleAccent="chain shows"
         dek={
           <>
-            Sixteen public claims set against what the chain actually publishes. The point is not that the claims are lies -
-            most are defensible with a qualifier that was left off. The point is the <b>qualifier</b>, and where it went.
+            {entries.length} public claims set beside what the chain, the filings and the disclosure history actually
+            record. The point is not that the claims are lies - most are defensible with a qualifier that was left off,
+            and several of these entries grant it in their own words. <b>The qualifier is the subject.</b> Every pair
+            carries the claim as the corpus recorded it, the record it collides with, at least one source, a confidence
+            and a last-verified date.
           </>
+        }
+        aside={
+          <Glass>
+            <Eyebrow idx="the set">counted from the cards below</Eyebrow>
+            <div style={{ marginTop: 12 }}>
+              <KV
+                stack
+                entries={[
+                  { k: "entries", v: `${entries.length} - C1 to C${entries.length}` },
+                  { k: "confidence", v: tally.map((row) => `${row.n} ${row.level}`).join(" · ") },
+                  { k: "not high", v: notHigh.map((c) => `${c.id} ${c.confidence}`).join(" · ") },
+                  { k: "last verified", v: verified.join(" · ") },
+                ]}
+              />
+            </div>
+            <p className="note" style={{ marginTop: 12 }}>
+              A pair graded <Conf level="med" /> rests on one reputable secondary source rather than on a primary or two
+              independent ones. It is published at that grade, not held back and not promoted.
+            </p>
+          </Glass>
         }
       />
 
-      <Block idx="01" title="The shape of an entry" right="one structural sample">
-        <div className="grid g2">
-          <Glass>
-            <Quote who="the pattern, not a quotation">A shielded transaction reveals nothing.</Quote>
-            <p className="note" style={{ marginTop: 12 }}>
-              True of a z-to-z transfer&apos;s value and endpoints. Not true of the transaction&apos;s existence, its nullifiers,
-              its anchor, its action count, its fee, or the exact amount of any value crossing the pool boundary in either
-              direction. Roughly three quarters of supply is transparent, so most activity never enters the shielded set at all.
-            </p>
-            <p style={{ marginTop: 12 }}>
-              <Conf level="high" />
-            </p>
-          </Glass>
-          <Glass>
-            <p className="note">
-              Each real entry carries the claim verbatim with its speaker and date, the chain&apos;s answer, at least one source
-              URL, a confidence, and a last-verified date. Where a claim cuts both ways the entry says so - the Record is not an
-              argument that Zcash is bad, it is an argument that the qualifiers belong in public.
-            </p>
-          </Glass>
+      <Block
+        idx="01"
+        title="The sixteen"
+        right={
+          <>
+            claim as recorded, then the chain or the filings
+            <br />
+            id order, C1 to C{entries.length} - every pair sourced
+          </>
+        }
+      >
+        <div className="contra">
+          {entries.map((entry) => (
+            <ContradictionCard entry={entry} key={entry.id} />
+          ))}
         </div>
-      </Block>
 
-      <Block idx="02" title="The sixteen" right="scheduled">
-        <Pending handoff="HANDOFF-02 / 03" title="Contradictions, schema-validated">
-          The sixteen entries come from docs/2.0/RESEARCH-2026-08-DOSSIER.md through packages/content. Several premises in the
-          original brief were corrected by the research and must not be published: they are held in unverified.json and are not
-          rendered anywhere on this site.
-        </Pending>
+        <p className="note measure" style={{ marginTop: 18 }}>
+          The exploit ledger behind several of these pairs is on <a href="/beware">Beware</a>, and the events sit on one
+          axis with the funding and governance strands on <a href="/timeline">the timeline</a>.
+        </p>
       </Block>
     </>
   );

@@ -1,7 +1,7 @@
 ---
 handoff: 02
 title: `packages/content` — zod schemas + research seeds
-status: shipped
+status: closed
 branch: the session-designated branch (name it `feat/v2-02-content-package` if you may choose)
 track: Web
 depends_on: 00

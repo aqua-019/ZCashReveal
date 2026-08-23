@@ -230,7 +230,7 @@
       "kind": "person",
       "title": "Barry Silbert",
       "role": "DCG founder; Grayscale chairman; 2015/2016 seed co-investor in Zerocoin Electric Coin Company; sold Grayscale Zcash Trust shares during the 2025 rally.",
-      "exposure": "Sold 9,753 shares of Grayscale Zcash Trust (6 Nov 2025, ZEC ~$544); prior sale of 1,897 shares on 25 Jul 2025",
+      "exposure": "Filed a Rule 144 notice on 6 Nov 2025 to sell 1,000 Grayscale Zcash Trust shares for $47,250.00. Silbert Family Investments LLC filed separately on 5 Nov 2025 for 9,753 shares, $407,312.59. Both are ZCSH trust shares sold on OTCQX; no ZEC moved on-chain.",
       "summary": "Founder of the holding company that owns the ETF sponsor, and an original ECC investor who sold Trust shares into the rally he was publicly promoting as a possible '500x'.",
       "confidence": "high",
       "lastVerified": "2026-08-22",
@@ -241,6 +241,8 @@
         "share-sale"
       ],
       "sources": [
+        "S-sec-edgar-xsl144x01-primary-doc",
+        "S-sec-edgar-xsl144x01-primary-doc-2",
         "S-thecoinrepublic-com-06-breaking-barry-silbert-se",
         "S-the-block-389472-dcg-barry-silbert-bitcoin-priva",
         "S-electric-coin-company-continued-funding-and-tran"
@@ -892,12 +894,14 @@
       "id": "N-edge-silbert-sells-trust-shares",
       "from": "N-barry-silbert",
       "to": "N-grayscale-zcash-trust",
-      "what": "sold Trust shares",
-      "amount": "9,753 shares (prior sale 1,897 shares, 25 Jul 2025)",
+      "what": "sold Trust shares (personally; the larger sale is his family office's)",
+      "amount": "1,000 shares, $47,250.00 (Silbert Family Investments LLC sold 9,753 shares, $407,312.59, filed 5 Nov 2025)",
       "date": "6 Nov 2025",
-      "confidence": "med",
+      "confidence": "high",
       "lastVerified": "2026-08-22",
       "sources": [
+        "S-sec-edgar-xsl144x01-primary-doc",
+        "S-sec-edgar-xsl144x01-primary-doc-2",
         "S-thecoinrepublic-com-06-breaking-barry-silbert-se"
       ]
     },
@@ -1014,7 +1018,10 @@
       "confidence": "high",
       "lastVerified": "2026-08-22",
       "sources": [
-        "S-zecsec-zecsec",
+        "S-shielded-labs-the-orchard-counterfeiting-vulnera",
+        "S-the-block-403698-zcash-vulnerability-zec-drops",
+        "S-decrypt-370232-frontier-ai-models-find-crypto-bu",
+        "S-unchainedcrypto-com-ai-assisted-audit-uncovers-c",
         "S-github-advisories-ghsa-ww9q-8r59-xv46"
       ]
     },

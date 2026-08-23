@@ -3,13 +3,13 @@
 Read docs/2.0/ZECREVEAL-2.0-PLAN.md, docs/2.0/TRACKING-MATH.md and docs/2.0/RESEARCH-2026-08-DOSSIER.md before changing anything. Owner: Aqua. Claude halts before merge; Aqua merges.
 
 ## Operating model — Aqua Stack v4.1 (docs/2.0/AQUA-STACK-v4.1.png)
-- L2 (Cowork) writes a handoff in `handoffs/` (§1 SCOPE · §2 READING · §3 CONTRACT · §4 DELIVERABLES · §5 binary ASSERTIONS · §6 DISPATCH HINTS). L3 (this session: lead → director-build / director-quality → crews) executes the newest `status: open` handoff, or the one the operator names. L4 (GitHub → Vercel): production promotion is always a human click.
+- L2 (Cowork) writes a handoff in `handoffs/` (§1 SCOPE · §2 READING · §3 CONTRACT · §4 DELIVERABLES · §5 binary ASSERTIONS · §6 DISPATCH HINTS). L3 (this session: lead → director-build / director-quality → crews) executes the lowest-numbered `status: open` handoff, unless the prompt names a file — and the prompt names one whenever more than one track is open (LEDGER-02 Q1). L4 (GitHub → Vercel): production promotion is always a human click.
 - Session start: read this file, then `handoffs/LEDGER.md`, then the handoff. Report spawn mode first (proven by a tool attempt). Directors name every worker they spawn; subagents do not nest.
 - Crews: build — ui-builder, motion-designer, chain-integrator (Sonnet), backend-api, test-engineer, researcher (Haiku); quality — design-reviewer, security-auditor, devops-deployer, docs-scribe (Haiku).
 - Loop 1 PREFLIGHT (READING / FILES / DONE MEANS / INFERRED / NOT-MATCHED) before a Haiku touches an unfamiliar subsystem, anything payment/RPC/auth, a spec longer than a screen, a re-dispatch after a gate FAIL, or a mechanical-rule dispatch.
 - Loop 2 status ladder on every return: `DONE` / `DONE-WITH-ASSUMPTIONS` / `BLOCKED` / `OUT-OF-DEPTH` with FILES · EVIDENCE · ASSUMPTIONS · NOTICED · UNVERIFIED.
 - Loop 3 spec-author review of executed work: `MATCHES-SPEC` / `DIVERGES` / `SPEC-WAS-AMBIGUOUS`.
-- Loop 4 bounded convergence: gate FAIL → at most 3 rounds, fingerprinted file · rule · severity; `NOT CONVERGING` goes to the operator, never a fourth round.
+- Loop 4 bounded convergence: gate FAIL → at most 3 rounds **per finding**, fingerprinted file · rule · severity; a round that surfaces only NEW findings, from a different reviewer or a different file, is not a repeat round. `NOT CONVERGING` — the same finding resisting a third fix — goes to the operator. Never ship a known false statement about a named person to keep a counter down: escalate, or fix it and say so in §7 (LEDGER-02 Q6).
 - Evidence: every §5 assertion gets a two-polarity transcript (pass state and fail state). Every claim in §7 carries provenance — Executed (output shown) / Read (file + commit) / UNVERIFIED (labelled). Assumptions are dispositioned ACCEPTED / CORRECTED / DEFERRED; deferrals go to §8.
 - Finish: fill §7 REPORT in the handoff, append §8 to `handoffs/LEDGER.md`, add a `LOG.md` line, set `status: shipped`, open the PR (`gh pr create`, heredoc body, no emoji). **Every PR stops at opened.** No merge, no deploy, no Vercel env changes, no `docker compose up`, no branch deletion — those are operator clicks.
 
@@ -19,9 +19,9 @@ Every session, in this order:
 
 1. RECONCILE — first commit on your branch, before any handoff work. Set every handoff whose PR is merged into main to `status: closed`; set the one you are executing to `status: in-progress`; for each track (Web 01-04, Data 05-09, Infra 10, Integration 11-12) set the lowest-numbered `queued` handoff whose `depends_on` are all closed to `status: open` — exactly one open per track; rewrite the Status column of the table in handoffs/README.md to match. Commit: `chore(handoffs): reconcile status before HANDOFF-NN`.
 2. L2 RESOLUTION — if the prompt contains a block fenced as `L2 RESOLUTION`, append it verbatim to handoffs/LEDGER.md beneath the ledger block of the handoff it names, then apply every instruction under its FOLDS heading. L2 (Cowork) has no write access to this repository; that block is the only channel by which verification results, answers to ledger questions and amendments to future handoffs reach you. If there is no such block, skip.
-3. EXECUTE the open handoff under its §1-§6.
+3. EXECUTE the lowest-numbered handoff with `status: open`, unless the prompt names a file — and the prompt names one whenever more than one track is open — under its §1-§6.
 4. WRITE-BACK — before the PR opens: fill §7 in your own handoff and set it to `status: shipped`; append your §8 block to handoffs/LEDGER.md (append-only — never rewrite an earlier block, including L2's); add one row to handoffs/LOG.md; update the handoffs/README.md table. The PR title MUST begin `HANDOFF-NN:` — LOG.md and LEDGER.md key on the title, not the branch, because the harness names branches. Stop at **opened**.
-5. ARCHIVE — save the prompt that started your session verbatim to `handoffs/prompts/PROMPT-NN.md` in the same commit as RECONCILE. The repository, not anyone's desktop, is where the prompt history lives.
+5. ARCHIVE — save every message that steered your session to `handoffs/prompts/PROMPT-NN.md`, each verbatim under a heading naming what it is and when it arrived; one file per handoff, not one per message. The first message lands in the same commit as RECONCILE; a message that arrives mid-session is appended in the next commit (LEDGER-02 Q7).
 
 Status flips, the README table, LEDGER appends, LOG rows and the prompt archive are the only cross-handoff edits a session makes.
 

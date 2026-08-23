@@ -63,6 +63,11 @@ test.describe("splash pool bar", () => {
     // catches it even if the tolerance above is ever loosened.
     await page.goto("/");
     const bar = page.getByTestId("poolbar");
+    // Wait for layout before measuring. The sibling test above does this and
+    // has always passed; this one measured immediately and started failing when
+    // HANDOFF-03 put a chart block above the bar and made the page slower to
+    // lay out. The race was always here - the extra content only exposed it.
+    await expect(bar).toBeVisible();
     const transparent = await bar.locator('.seg[data-pool="transparent"]').boundingBox();
     const sprout = await bar.locator('.seg[data-pool="sprout"]').boundingBox();
 

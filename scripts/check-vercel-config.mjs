@@ -59,7 +59,13 @@ if (!existsSync(webConfigPath)) {
     const required = {
       framework: "nextjs",
       installCommand: "pnpm install --frozen-lockfile",
-      buildCommand: "next build",
+      // apps/web depends on the @zcashreveal/content workspace package from
+      // HANDOFF-03 onward, and its package exports resolve to dist/. The bare
+      // `next build` the Next.js preset would run does not build a workspace
+      // dependency, so the command names it. DEPLOY-2.0.md section 1 offers
+      // transpilePackages as the alternative; it does not work here, because
+      // resolution still goes through the package's own exports map.
+      buildCommand: "pnpm --filter @zcashreveal/content build && next build",
       outputDirectory: ".next",
     };
     for (const [key, expected] of Object.entries(required)) {

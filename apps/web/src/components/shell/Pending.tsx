@@ -23,7 +23,9 @@ export function Pending({
         <b>{handoff}</b> - not yet delivered
       </p>
       <h3 className="h">{title}</h3>
-      <p>{children}</p>
+      {/* Same reasoning as RecordHead's dek: `children` is caller JSX and a
+          <p> cannot safely contain flow content. */}
+      <div>{children}</div>
     </div>
   );
 }

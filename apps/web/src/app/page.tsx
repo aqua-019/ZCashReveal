@@ -1,7 +1,11 @@
 import Link from "next/link";
 
+import { getBeware, getStats, getTimeline, resolveSources, type SupplyBucket } from "@zcashreveal/content";
+
 import { FogCanvas } from "@/components/ambience/FogCanvas";
 import { IconArrowRight } from "@/components/icons";
+import { Cite } from "@/components/record/Cite";
+import { TwoWindows, TwoWindowsCite } from "@/components/record/TwoWindows";
 import { Block } from "@/components/ui/Block";
 import { Chip } from "@/components/ui/Chip";
 import { Pill } from "@/components/ui/Pill";
@@ -19,24 +23,28 @@ import { SCREENS } from "@/lib/nav";
  * stay in the haze are what the proof hides; the gold ones that lift are what
  * the chain publishes regardless.
  *
- * Every number below is the committed fixture from docs/2.0 (22 Aug 2026), not
- * a live read - HANDOFF-01 makes no network calls. HANDOFF-11 swaps the source
- * and the markup does not change.
+ * Every figure comes from `packages/content`, which HANDOFF-02 transcribed from
+ * the research dossiers: `stats.json` for the pools and the market, and the
+ * `B1`/`B2`/`C2` claims for the two windows. Nothing is a network read -
+ * HANDOFF-11 swaps the source and the markup does not change - and nothing is a
+ * literal typed into this file, so a figure here cannot disagree with the same
+ * figure on /beware.
  */
 
-/** Pool balances in whole ZEC, from RESEARCH-2026-08-DOSSIER.md via the mockup. */
-const POOL_ZEC: Record<(typeof POOL_ORDER)[number], number> = {
-  transparent: 12_500_223,
-  sprout: 22_621,
-  sapling: 529_015,
-  orchard: 708_841,
-  ironwood: 3_129_287,
-};
+/**
+ * Pool balances in whole ZEC, computed from the seed's zatoshi rather than its
+ * decimal string: `zatoshi` is a bigint after the schema parses it, and CLAUDE.md
+ * requires that no zatoshi value is rounded through a float on its way to a
+ * display. The division is exact for every real balance, which is what makes
+ * `Number()` safe here and not elsewhere.
+ */
+const ZAT_PER_ZEC = 100_000_000n;
 
-const SUPPLY = POOL_ORDER.reduce((a, k) => a + POOL_ZEC[k], 0);
-
-/** The Unprovable Residual: value inside pools whose circuits were unsound. */
-const RESIDUAL = POOL_ZEC.sprout + POOL_ZEC.orchard;
+function poolZec(stats: ReturnType<typeof getStats>): Record<SupplyBucket, number> {
+  const out = {} as Record<SupplyBucket, number>;
+  for (const p of stats.pools) out[p.bucket] = Number(p.zatoshi / ZAT_PER_ZEC);
+  return out;
+}
 
 const PUBLISHED: readonly string[] = [
   "nullifiers - one per spent note",
@@ -48,6 +56,36 @@ const PUBLISHED: readonly string[] = [
 ];
 
 export default function SplashPage() {
+  const stats = getStats();
+  const zec = poolZec(stats);
+  const supply = POOL_ORDER.reduce((a, k) => a + (zec[k] ?? 0), 0);
+  const share = (k: (typeof POOL_ORDER)[number]): number =>
+    (stats.pools.find((p) => p.bucket === k)?.sharePct ?? 0) / 100;
+
+  /**
+   * The Unprovable Residual: value sitting inside pools whose circuits were
+   * unsound. Sprout and Orchard are exactly the two the ledger records as
+   * unsound (B1, B2); Sapling and Ironwood are not, and transparent is not a
+   * pool at all.
+   */
+  const residual = (zec.sprout ?? 0) + (zec.orchard ?? 0);
+  const residualShare = share("sprout") + share("orchard");
+
+  const beware = getBeware();
+  const b1 = beware.find((e) => e.id === "B1");
+  const b2 = beware.find((e) => e.id === "B2");
+
+  /**
+   * The Ironwood migration and the Orchard drain. `stats.json` carries no field
+   * for either: the corpus states them inside the prose of two timeline rows,
+   * which is where these come from. Rendering a figure by slicing a substring
+   * out of a summary would be worse than citing the row, so the row is cited
+   * and the figure is carried here with its source next to it. Recorded in the
+   * section 8 ledger as a field `packages/content` should gain.
+   */
+  const drainRow = getTimeline().find((e) => e.id === "T2026-08-22");
+  const ironwoodRow = getTimeline().find((e) => e.id === "T2026-07-28");
+
   return (
     <>
       <div className="hero">
@@ -86,37 +124,87 @@ export default function SplashPage() {
           label="Unprovable residual"
           value={
             <>
-              {fmtInt(RESIDUAL)} <small>ZEC</small>
+              {fmtInt(residual)} <small>ZEC</small>
             </>
           }
-          sub={`Orchard ${fmtInt(POOL_ZEC.orchard)} + Sprout ${fmtInt(POOL_ZEC.sprout)} - ${fmtPct(RESIDUAL / SUPPLY)} of supply`}
+          sub={`Orchard ${fmtInt(zec.orchard ?? 0)} + Sprout ${fmtInt(zec.sprout ?? 0)} - ${fmtPct(residualShare)} of supply`}
           accent
         />
         <Metric
           label="Transparent supply"
-          value={fmtPct(POOL_ZEC.transparent / SUPPLY)}
-          sub={`${fmtInt(POOL_ZEC.transparent)} ZEC in t-addresses - as public as Bitcoin`}
+          value={fmtPct(share("transparent"))}
+          sub={`${fmtInt(zec.transparent ?? 0)} ZEC in t-addresses - as public as Bitcoin`}
         />
-        <Metric label="Orchard drain" value="80.6%" sub="exit-only since 3,428,143" />
-        <Metric label="Ironwood pool" value="3.13M" sub={`born 28 Jul 2026 at zero - ${fmtPct(POOL_ZEC.ironwood / SUPPLY)} of supply`} />
-        <Metric label="Chain life unsound" value="61%" sub="about 6.0 of 9.8 years - Sprout 2016-18, Orchard 2022-26" />
+        <Metric
+          label="Orchard, sealed"
+          value={fmtInt(zec.orchard ?? 0)}
+          sub="ZEC still inside a pool that has been exit-only since NU6.3"
+        />
+        <Metric
+          label="Ironwood pool"
+          value={`${((zec.ironwood ?? 0) / 1_000_000).toFixed(2)}M`}
+          sub={`${fmtPct(share("ironwood"))} of supply, four weeks after the pool was created`}
+        />
+        <Metric
+          label="Shielded share"
+          value={`${stats.shieldedSharePct.low} to ${stats.shieldedSharePct.high}%`}
+          sub="the two explorers disagree; the range is what is known"
+        />
       </MetricRow>
+
+      {/* Not a <p>. `Cite` renders a <details>, which the HTML parser treats as
+          closing an open paragraph: the disclosure gets torn out of both the
+          <p> and the .claim container, becomes a sibling, and leaves a stray
+          empty paragraph behind - a server/client DOM divergence React reports
+          as a hydration mismatch. Found by design review at gate round 1. The
+          same shape is why record-beware.css documents `.bw-lede` as a div. */}
+      <div className="src" style={{ marginTop: 10 }}>
+        Pool balances and the shielded range as of {stats.asOf}, block {fmtInt(stats.height)}.
+        <span className="claim">
+          <Cite
+            id="stats"
+            href="/#pools"
+            lastVerified={stats.lastVerified}
+            confidence={stats.confidence}
+            sources={resolveSources(stats.sources)}
+          />
+        </span>
+      </div>
 
       <Block
         idx="01"
+        id="two-windows"
+        title="The two windows"
+        right={
+          <>
+            {b1?.window.from} to {b1?.window.to}
+            <br />
+            {b2?.window.from} to {b2?.window.to}
+          </>
+        }
+      >
+        <Glass>
+          <TwoWindows />
+          <TwoWindowsCite />
+        </Glass>
+      </Block>
+
+      <Block
+        idx="02"
+        id="pools"
         title="The pools, at the tip"
         right={
           <>
-            fixture data - HANDOFF-11
+            {stats.asOf} - block {fmtInt(stats.height)}
             <br />
-            wires the live snapshot
+            HANDOFF-11 wires the live snapshot
           </>
         }
       >
         <Glass>
           <div className="poolbar" data-testid="poolbar">
             {POOL_ORDER.map((k) => {
-              const share = POOL_ZEC[k] / SUPPLY;
+              const frac = share(k);
               return (
                 // data-tip goes on the flex item itself. TooltipLayer listens at
                 // the document, so no wrapper element is needed - and a wrapper
@@ -126,25 +214,70 @@ export default function SplashPage() {
                 <span
                   key={k}
                   className={`seg ${POOL_SW[k]}`}
-                  style={{ flexBasis: `${share * 100}%` }}
+                  style={{ flexBasis: `${frac * 100}%` }}
                   data-pool={k}
-                  data-tip={`${POOL_LABEL[k]} - ${fmtInt(POOL_ZEC[k])} ZEC - ${fmtPct(share)} of supply`}
+                  data-tip={`${POOL_LABEL[k]} - ${fmtInt(zec[k] ?? 0)} ZEC - ${fmtPct(frac)} of supply`}
                 />
               );
             })}
           </div>
+          {/* The bar's own table twin. The segments carry pointer tooltips,
+              which are pointer-only by design, so without this the five
+              quantities the bar exists to state are unavailable to a reader
+              who is not using a mouse. Same contract as the SVG charts. */}
+          <table className="sr-only">
+            <caption>Supply by pool at block {fmtInt(stats.height)}</caption>
+            <thead>
+              <tr>
+                <th scope="col">Pool</th>
+                <th scope="col">ZEC</th>
+                <th scope="col">Share of supply</th>
+              </tr>
+            </thead>
+            <tbody>
+              {POOL_ORDER.map((k) => (
+                <tr key={k}>
+                  <th scope="row">{POOL_LABEL[k]}</th>
+                  <td>{fmtInt(zec[k] ?? 0)}</td>
+                  <td>{fmtPct(share(k))}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
           <ul className="legend" style={{ marginTop: 12 }}>
             {POOL_ORDER.map((k) => (
               <li key={k}>
                 <i className={`sw ${POOL_SW[k]}`} aria-hidden="true" />
-                {POOL_LABEL[k]} - {fmtInt(POOL_ZEC[k])}
+                {POOL_LABEL[k]} - {fmtInt(zec[k] ?? 0)}
               </li>
             ))}
           </ul>
+          <p className="note" style={{ marginTop: 14 }}>
+            {supply === 0 ? null : (
+              <>
+                {fmtInt(supply)} ZEC accounted for across five buckets. Transparent is not a pool - it is the absence of one -
+                but supply accounting needs all five on one axis.{" "}
+              </>
+            )}
+            {drainRow === undefined ? null : <>{drainRow.summary} </>}
+            {ironwoodRow === undefined ? null : <>{ironwoodRow.summary}</>}
+          </p>
+          <span className="claim">
+            {drainRow === undefined ? null : (
+              <a className="anchor" href={`/timeline#${drainRow.id}`}>
+                {drainRow.id}
+              </a>
+            )}
+            {ironwoodRow === undefined ? null : (
+              <a className="anchor" href={`/timeline#${ironwoodRow.id}`}>
+                {ironwoodRow.id}
+              </a>
+            )}
+          </span>
         </Glass>
       </Block>
 
-      <Block idx="02" title="Two halves, one identity" right="the Record cites; the Instrument measures">
+      <Block idx="03" title="Two halves, one identity" right="the Record cites; the Instrument measures">
         <div className="grid g2">
           <Glass>
             <Eyebrow idx="A">the Record</Eyebrow>
@@ -175,7 +308,7 @@ export default function SplashPage() {
         </div>
       </Block>
 
-      <Block idx="03" title="Open a surface" right="the Record is numbered like evidence">
+      <Block idx="04" title="Open a surface" right="the Record is numbered like evidence">
         <div className="grid g3 entries">
           {SCREENS.filter((s) => s.href !== "/").map((s, i) => (
             <Link className="entry" key={s.href} href={s.href}>
