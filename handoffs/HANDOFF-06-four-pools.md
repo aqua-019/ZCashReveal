@@ -1,7 +1,7 @@
 ---
 handoff: 06
 title: Indexer: four pools + migration 003 + post-NU6.3 invariants
-status: queued
+status: in-progress
 branch: the session-designated branch (name it `feat/v2-06-four-pools` if you may choose)
 track: Data
 depends_on: 00
@@ -28,6 +28,7 @@ Widen the pool model to `sprout | sapling | orchard | ironwood` across types, st
 - `packages/zec-types/src/{analysis,shielded,leaks,realtime}.ts`
 - `apps/indexer/src/state/*`, `persistence/*`, `migrations/001,002`, `migrate.ts`, `decoder/activation-heights.ts`, `analysis/round-trip.ts`
 - Plan §3.1 (turnstile invariants) and docs/RESEARCH-v0.2.md (state tuple)
+- **Gates fetch `origin/main` before fanning out** (L2 RESOLUTION for HANDOFF-05, fold 8). HANDOFF-05's round-2 gate reviewed the whole project as its diff because the local base was stale, which is most of why it cost 14 agents and 29 minutes. A gate whose diff is the whole tree is not a gate on this change.
 
 ## §3 CONTRACT
 
@@ -47,6 +48,12 @@ Widen the pool model to `sprout | sapling | orchard | ironwood` across types, st
 
 1. Type, state, persistence and analysis changes; migration 003; `poolsActiveAt`; updated tests; a fast-check property test that replay/rollback conserves every pool balance.
 
+2. **`pnpm --filter @zcashreveal/indexer migrate` works on a clean checkout** (L2 RESOLUTION for HANDOFF-05, fold 1, finding F-05-1). On a fresh worktree, after `pnpm install` and before any build, the documented migrate command dies: `Cannot find module '.../packages/zec-types/dist/index.js' imported from apps/indexer/src/config.ts`. This is F-02-1's shape in a place fold 1 of the HANDOFF-04 resolution did not reach: turbo's `test: dependsOn ^build` fixed the test task, and `migrate` is not a turbo task. It does not affect CI, whose order is Install, Build, then migrate. It DOES affect the operator, because HANDOFF-10's runbook will tell a human to run migrations on a VPS from a fresh clone, and this is the command they will run. Fix it with a `premigrate`, or by routing the task through turbo with `dependsOn: ["^build"]`.
+
+3. **Correct ZIP 317 in `docs/2.0/TRACKING-MATH.md` §3.5 and the `/method` component that renders it** (L2 RESOLUTION for HANDOFF-05, fold 4, LEDGER-05 Q3). State ZIP 317's exact transparent term `max(ceil(inSize/150), ceil(outSize/34))`, cite Zebra `zebra-chain/src/transaction/unmined/zip317.rs:160-173`, and keep the count form beside it labelled as the P2PKH-only simplification it is. Add the worked lockbox case: two 2-of-3 P2SH inputs give `L = 4` and a 20,000 zatoshi conventional fee, against the count form's `L = 2` and 10,000. This is not pedantry - the ZIP 271 lockbox is a 2-of-3 P2SH multisig, the divergence lands exactly there, and "the lockbox did not pay the conventional fee" is a false statement about the one address this project exists to track. Sweep every restatement of the count form in the tree in the same commit, per CLAUDE.md's corrected-fact rule.
+
+4. **Compute the transaction fee by summing the outputs a transaction spends, and carry it on the analysis path so `feeZat` is real rather than `0n`** (L2 RESOLUTION for HANDOFF-05, fold 5, LEDGER-05 Q4). A fee is a property of the inputs a transaction spends, so it must be computed by summing the spent outputs, which is the indexer's job and not the boundary's: no node sends a fee field, Zebra's `TransactionObject` has none and neither does zcashd's `getrawtransaction`. Two wallet signatures (NIGHTHAWK, ZCASHD_RUST) and every `isZip317Conventional` call are blind until it exists. §8 MUST record that HANDOFF-08's golden cases depend on this AND on the `expiryheight` fix being merged, and may not be captured before both - for the same reason the fingerprint fix had to precede them: a baseline captured over an analyser that cannot see fees freezes the blindness into the record of correct behaviour.
+
 ## §5 ASSERTIONS — binary, machine-checkable, each needs a pass-state and a fail-state transcript
 
 - **A1.** `pnpm --filter @zcashreveal/indexer test` passes with >= 171 tests and **no Postgres-gated test skipped** when a migrated database is reachable — assert with `node scripts/assert-no-skipped-integration.mjs`, not with a raw skip count: one test (`block-decoder.test.ts`, real mainnet fixture) stays skipped until HANDOFF-10 captures the fixture.
@@ -56,6 +63,7 @@ Widen the pool model to `sprout | sapling | orchard | ironwood` across types, st
 - **A5.** Applying a `BoundaryDelta` with `pool='orchard'`, `height=3_428_200`, `deltaZat=-1n` throws `ExitOnlyViolation`; the same delta at `height=3_428_100` is accepted (unit test, both polarities).
 - **A6.** Property test: for any sequence of deltas across four pools followed by rollback to height h, balances equal the replayed prefix (fast-check, ≥ 200 runs).
 - **A7.** `grep -rn "'sapling' | 'orchard'" packages apps/indexer/src` returns only the `ShieldedPool` definition site (no stale two-pool unions).
+- **A8.** On a tree with `packages/*/dist` deleted, `pnpm install && pnpm --filter @zcashreveal/indexer migrate` exits 0 *(fail side: revert the fix, run the same command, observe the module-resolution error)*. F-05-1, L2 RESOLUTION for HANDOFF-05 fold 1.
 
 ## §6 DISPATCH HINTS (director-build decides; these are L2's routing suggestions)
 
