@@ -1057,3 +1057,152 @@ OPERATOR CLICKS OUTSTANDING, and the first one is now blocking:
   - Before the HANDOFF-11 cutover: move the old root `vercel.json` settings into the
     `z-cash-reveal-dashboard2` project settings.
 ```
+
+---
+
+## HANDOFF-04 — ZEC Tracking UI in fixture mode — search, mempool, address, tx, pools, reveal
+
+Branch `claude/prompt04-p86caa` (harness-designated) · shipped 23 Aug 2026 · gate rounds: 1
+
+```
+QUESTIONS (for the operator / L2):
+
+1. THE FOURTH GOLD JOB DOES NOT COVER A LABEL, AND I READ IT AS COVERING ONE FOR A WHILE.
+   LEDGER-03 Q2 gave gold a fourth licensed job: the system-identity register, "the wordmark,
+   the screen index, the entry letters and the clock dot". I painted the consensus label chip
+   gold on the argument that a consensus label is the system speaking about itself, and the gate
+   was right to call that a finding - a label attributing an address to ZF, ECC and Shielded
+   Labs is a data attribute of third parties, not the system's own furniture. It is ink now, and
+   the precedence rank that the colour was standing in for is printed in words, which CLAUDE.md
+   requires anyway. Two related things want your ruling rather than another gate round.
+   (a) `.entry:hover` and `.tk-examples a:hover` both spend `--gold-dim` on a hover border.
+   HANDOFF-01 shipped the first, so the second is precedent-following rather than drift, and the
+   reviewer declined to file it for that reason - but a hover border is none of the four jobs.
+   (b) The mockup sets the unprovable-residual figure on /pools in gold at 54px. I made it ink,
+   because a share of supply whose soundness cannot be proven is not a boundary crossing and the
+   page's own comment says it does not want "a big gold number to be read as an accusation". If
+   you disagree with either call, the fix is an amendment to CLAUDE.md line 44 and to
+   tokens.css:48 together, not a local exemption in a stylesheet comment - which is what the
+   gate found the first time.
+
+2. /address MEASURES 94, AND THE POINT WAS SPENT ON SOMETHING THE GATE REQUIRED. Fold 3 makes
+   the deployed number authoritative and lets a container number stand at >= 90 with the reason
+   cited. /address was 95-96 before the gate round and is 94 after it, three runs, same result.
+   The cause is spec finding 2: `EstimateCell` rendered a count and a claim chip and NO
+   assumptions, deferring to a transaction page this build cannot serve - so the strongest claim
+   level on the site rendered with the caveat that qualifies it nowhere at all. It renders the
+   full audit trail behind a `<details>` now, which is 3 kB more markup on three cells and moves
+   LCP from 2.6 to 2.8 s under the mobile preset. I did not take it back out to recover the
+   point. If you would rather have 95 than the assumptions, say so and I will make the
+   disclosure lazy; my recommendation is to leave it and let the deployed measurement decide,
+   which is what fold 3 already says.
+
+3. THE DEPLOYED MEASUREMENT IS NOW BLOCKED TWICE, AND THE SECOND BLOCK IS NEW. Operator click 03
+   is Deployment Protection: the API reports `ssoProtection.enabled = true`,
+   `deploymentType = all_except_custom_domains`. That is the known one. The new one is this
+   container: `curl` to the preview host returns `CONNECT tunnel failed, response 403` from the
+   session's egress proxy - not a 302 to SSO, a refusal to open the tunnel at all. So lifting
+   Deployment Protection alone will NOT let a session measure the preview; a session would also
+   need the host allowed, or the measurement has to be taken by the operator, or the site needs
+   a custom domain (which `all_except_custom_domains` already exempts). Worth knowing before the
+   HANDOFF-11 cutover, where the same wall stands between a session and a live gateway.
+
+4. `Unverified.surface` IS REQUIRED, AND 24 OF THE 32 RECORDS RENDER NOWHERE. Deliverable 9 is
+   done: the field is on the schema, `permalink()` reads it, and the apps/web module that held
+   the split is deleted. But LEDGER-03 Q4's own partition is four on /flows, four on /network
+   and the rest unrendered, so three quarters of the corpus now asserts a surface it does not
+   appear on, and `permalink()` returns an anchor that resolves to a page rather than to an
+   element. Two honest options: make `surface` nullable and have `permalink()` refuse rather
+   than emit a dead anchor, or render the other 24 somewhere. The second is an editorial
+   decision about what the quarantine is for and belongs to you, not to a handoff.
+
+5. THE CSP SHIPS WITH `script-src 'unsafe-inline'`, DELIBERATELY. Next.js carries its bootstrap
+   and its flight payload in inline script tags; the alternative is a per-request nonce, which
+   needs middleware, which makes every route dynamic - undoing the work that took /reveal from
+   92 to 97 and costing the whole site its prerendering, to defend against an injection vector a
+   site with no user input, no database and no third-party script does not have. It is stated in
+   next.config.ts rather than hidden. It becomes a real question at HANDOFF-13, when WASM
+   decryption puts real note data in that tab, and I would rather you decide it now than have a
+   later session discover the trade-off under time pressure.
+
+6. A CORRECTION TO LEDGER-03'S OWN DEFERRED LIST, WHICH I AM NOT REWRITING. LEDGER-03 records as
+   a deferred assumption: "The corpus and the loader disagree on chain height (3,456,227 against
+   3,456,938)". They do not. `packages/content/data/stats.json` is `"height": 3456227`, the same
+   value CipherScan gives; 3,456,938 occurs only in research 04's "chain state at time of
+   research" line and in the mockup's /flows eyebrow. The site holds three heights and they are
+   three different things: the balances were read at 3,456,227, the rendered chain tip is
+   3,456,854 (`src/lib/chain.ts`), and the dossier was taken at 3,456,938. /pools states all
+   three now. The ledger is append-only so the earlier line stands as written; this is the
+   correction, in the place the protocol puts it.
+
+INFERENCES MADE (things section 3 did not settle):
+
+- `MempoolRow`, not `MempoolEntry` - the name is taken in transactions.ts, and two DTOs sharing
+  one name is how the wrong one gets imported.
+- Seven routes, not the six deliverable 2 lists, because 4.2 also asks for `/track/flows`.
+- The socket's reconnect delay is full jitter over a doubled window, seeded by
+  `seededRng(url, "socket-jitter")` - `Math.random` is banned and a fixed backoff makes every
+  client retry in lockstep.
+- Frames off the socket are narrowed by a hand-written guard rather than by zod. zod on that
+  path cost 15 kB in the client bundle for a validation the guard does exactly.
+- Estimate DTOs ARE zod schemas, because they are wire contracts and the gateway will parse
+  them at HANDOFF-11; the guard is only for the streaming path.
+
+PATTERNS THAT DID NOT APPLY:
+
+- Loop 1 PREFLIGHT was not issued: no Haiku touched anything, because no worker was spawned for
+  the build. Section 6's three-crew shape did not happen - the operator's standing instruction
+  in this environment is that the Agent tool is not called unless requested. What DID run is the
+  four-reviewer gate, and it earned its cost: 36 findings, of which two were HIGH claims that
+  the site's own arithmetic contradicted.
+- Loop 4's three-rounds-per-finding cap was not approached. One round, 36 findings, none
+  recurring.
+- `gh pr create` is what CLAUDE.md specifies; this environment has no `gh`, and the PR is opened
+  through the GitHub MCP tools instead. LEDGER-03 raised the same mismatch and CLAUDE.md still
+  says gh.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 review):
+
+- "Every estimate renders its assumptions and the claim chip" (section 3). I read it as applying
+  to the estimate PANEL and not to the compact cell, and shipped a cell with a chip and no
+  assumptions. The gate read it as written. The gate is right: the sentence says every estimate,
+  the cell renders an estimate, and the page it deferred to does not exist in this build. Read
+  strictly from here.
+- A8 names /tx ("Playwright on /tx/...") while the property is obviously general. The
+  generalising test existed but its locator matched only the panel's attribute, so it asserted
+  less than its own comment claimed. Both attributes now.
+- Deliverable 8 names "vitest + testing-library + jsdom". I substituted Playwright against a
+  production build, which is stronger evidence about the artefact - but a substitution nobody
+  records is a gap, so both exist now.
+- A5 says "no numeric balance for a shielded address". Its detector has now fired twice on
+  COUNTS - "1,240" and "3.13M" - because a decimal figure is the shape of an amount. The pane
+  writes "about 3,130,000" rather than "3.13M", which is the same three significant figures in a
+  form nothing can mistake for a value. If a later handoff wants magnitude notation on that
+  pane, A5's detector has to learn the difference first.
+
+GATE ROUND COUNTS: 1. Four reviewers (design, security, spec, facts), all FAIL, 36 findings.
+Three were STALE - the CSP, the RevealKey docblock and fold 1 were fixed in the working tree
+while the reviewers read HEAD, which is a real process finding: an uncommitted fix is not a fix.
+The other 33 are addressed in one commit. Fingerprints are in section 7.
+
+DEFERRED ASSUMPTIONS:
+
+- The fourth gold job and the two hover borders. Question 1.
+- /address at 94. Question 2.
+- The deployed Lighthouse measurement, now blocked by the egress proxy as well as by Deployment
+  Protection. Question 3.
+- `Unverified.surface` nullable, or render the other 24. Question 4.
+- `script-src 'unsafe-inline'`. Question 5.
+- `.tk-residual .v` uses `"SOFT" 40` against the shared numeral register's 30. The mockup
+  declares 40 and the fonts contract pins only weight and opsz, so nothing is violated - but it
+  is a third variation-settings variant introduced immediately after a de-duplication pass.
+- `/method`'s posterior formula is a point smaller, a rung dimmer and on a darker ground than it
+  was, as a deliberate consequence of collapsing three preformatted treatments into one. A9's
+  baselines cover /beware and /flows, the two that must NOT move. Recorded in the stylesheet and
+  in section 7 rather than guarded by a baseline, because this consumer is meant to move.
+- `HttpApi` exists and is never selected. It is written against the same nine-member interface
+  the fixture implements, so HANDOFF-11's cutover is an edit to `api()` and to nothing under
+  `src/app` - but it has never spoken to a gateway and is UNVERIFIED as a whole.
+- The eslint no-unused-vars promotion and the unused `saplingSpend` in block-decoder.test.ts
+  remain deferred to 06 or 07, as HANDOFF-00 through 03 all recorded. Still the only warning.
+```
