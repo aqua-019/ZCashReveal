@@ -14,6 +14,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "check:tokens": "node scripts/check-tokens.mjs",
+    "lighthouse": "node scripts/lighthouse.mjs",
+    "screens": "node scripts/screens.mjs",
     "clean": "rm -rf .next .turbo node_modules/.cache"
   },
   "dependencies": {
@@ -29,7 +31,9 @@
     "@types/node": "^22.9.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "chrome-launcher": "^1.2.1",
     "fast-xml-parser": "^5.11.0",
+    "lighthouse": "^13.4.1",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.6.3",
     "vitest": "^4.1.6"

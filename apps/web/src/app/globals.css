@@ -1606,6 +1606,11 @@ canvas[data-ui="fog"] {
   margin-top: 10px;
 }
 
+/* 24px minimum on every side, which is WCAG 2.2 AA target size (2.5.8). At the
+   9.5-10px type this register uses, the natural box is about 18px tall, and
+   these controls repeat once per claim - so a reader on a phone would be
+   aiming at a 400-row page of near-misses. The visual weight is unchanged;
+   only the hit area grows. */
 .claim > .anchor {
   font-family: var(--f-mono);
   font-size: 10px;
@@ -1615,7 +1620,10 @@ canvas[data-ui="fog"] {
   text-decoration: none;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 2px 7px;
+  padding: 0 8px;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
   transition: color var(--t1) var(--ease), border-color var(--t1) var(--ease);
 }
 
@@ -1657,7 +1665,8 @@ canvas[data-ui="fog"] {
   color: var(--ink-mute);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 2px 8px;
+  padding: 0 9px;
+  min-height: 24px;
   transition: color var(--t1) var(--ease), border-color var(--t1) var(--ease);
 }
 
@@ -1923,6 +1932,10 @@ canvas[data-ui="fog"] {
 .tl-filters .chip {
   cursor: pointer;
   text-decoration: none;
+  /* Same 24px floor as the claim apparatus. These are the page's primary
+     control and there are ten of them in a row. */
+  min-height: 24px;
+  padding: 0 9px;
   transition: color var(--t1) var(--ease), border-color var(--t1) var(--ease);
 }
 
@@ -2216,7 +2229,10 @@ canvas[data-ui="fog"] {
   text-decoration: none;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 1px 6px;
+  padding: 0 8px;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
 }
 
 .srclist .by a:hover {

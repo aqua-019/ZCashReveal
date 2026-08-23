@@ -169,7 +169,13 @@ const ROUTES: ReadonlyArray<readonly [RegExp, string]> = [
   [/^P-/, "/network"],
   [/^L-/, "/flows"],
   [/^K-/, "/flows"],
-  [/^U-/, "/sources"],
+  // Corrected by the HANDOFF-03 session: this said "/sources". The quarantine
+  // renders on /flows - HANDOFF-03 deliverable 8 lists the unverified list
+  // there, next to the allegations it refuses - so a U- permalink pointed at a
+  // page the claim is not on. A permalink that resolves to the wrong surface is
+  // worse than none: it tells a reader the claim was not found. Recorded in the
+  // section 8 ledger.
+  [/^U-/, "/flows"],
   [/^S-/, "/sources"],
 ];
 

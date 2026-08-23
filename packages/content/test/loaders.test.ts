@@ -28,6 +28,10 @@ describe("permalink", () => {
     expect(permalink("N-cypherpunk-technologies")).toBe("/network#N-cypherpunk-technologies");
     expect(permalink("P-encrypted-bitcoin")).toBe("/network#P-encrypted-bitcoin");
     expect(permalink("K-2026-01-02")).toBe("/flows#K-2026-01-02");
+    // The quarantine renders on /flows, beside the allegations it refuses, so
+    // that is where a U- permalink must land. HANDOFF-03 corrected this from
+    // "/sources", which pointed at a page the claim is not on.
+    expect(permalink("U-korean-exchange-dominance")).toBe("/flows#U-korean-exchange-dominance");
     expect(permalink("L-t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo")).toBe(
       "/flows#L-t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo",
     );

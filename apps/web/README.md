@@ -5,18 +5,23 @@ Tailwind v4) carrying the "ZEC Forensic" design system. It is the front half of 
 the **Record** (what was found, when it was disclosed, what the marketing said) and the
 **Instrument** (the live turnstile view).
 
-## What HANDOFF-01 delivers, and what it does not
+## What is here, and what is not
 
-**Delivers.** The workspace app itself; the design tokens; the primitive component set; the
-shell (system bar, screen nav, block-height epoch clock, footer ledger); the three ambience
-components and the reduced-motion architecture; the nine public routes with plan-derived
-placeholder copy; a dev-only primitives gallery; and the deployment runbook at
+**HANDOFF-01** delivered the workspace app itself; the design tokens; the primitive component
+set; the shell (system bar, screen nav, block-height epoch clock, footer ledger); the three
+ambience components and the reduced-motion architecture; the nine public routes with
+plan-derived placeholder copy; a dev-only primitives gallery; and the deployment runbook at
 [`docs/2.0/DEPLOY-2.0.md`](../../docs/2.0/DEPLOY-2.0.md).
 
-**Does not deliver.** No real content (HANDOFF-02 ships `packages/content`, HANDOFF-03 the
-Record pages). No Tracking UI (HANDOFF-04). **No network calls of any kind** — the env names in
+**HANDOFF-03** replaced the placeholder copy with the Record, rendered from
+[`@zcashreveal/content`](../../packages/content): the eight Record surfaces, the citation
+apparatus on every claim, the charts and their table twins, the RSS feed at `/beware.xml`, the
+JSON exports at `/api/content/<collection>.json`, and the vendored webfonts that made the build
+hermetic. `src/components/record/` is that layer; `src/app/*/page.tsx` composes it.
+
+**Not here.** No Tracking UI (HANDOFF-04). **No network calls of any kind** — the env names in
 `src/lib/env.ts` are reserved and read by nothing; the first live read is HANDOFF-11. Every
-number visible today is a committed fixture.
+number visible today comes from a committed seed.
 
 ## Commands
 
@@ -31,7 +36,13 @@ pnpm --filter @zcashreveal/web lint         # eslint src test scripts
 pnpm --filter @zcashreveal/web test         # vitest run (unit)
 pnpm --filter @zcashreveal/web test:e2e     # playwright test
 pnpm --filter @zcashreveal/web check:tokens # asserts tokens.css against the contract
+pnpm --filter @zcashreveal/web lighthouse   # A5: the /beware budget, writes the JSON report
+pnpm --filter @zcashreveal/web screens      # deliverable 10: docs/2.0/screens/record-*.png
 ```
+
+`lighthouse` and `screens` both expect a production build already being served on
+`http://127.0.0.1:3311`; pass a different base URL as the first argument. Neither downloads a
+browser - both use the Chromium already at `PLAYWRIGHT_BROWSERS_PATH`.
 
 Repo-wide gates (all of these must pass before a PR opens):
 
@@ -40,16 +51,22 @@ pnpm -r test && pnpm typecheck && pnpm lint
 ./scripts/check-no-emoji.sh
 ```
 
-From HANDOFF-02, `pnpm --filter @zcashreveal/content validate` joins that list. It cannot run
-yet: `packages/content` does not exist, and the filter would fail with a pnpm error rather than
-a gate failure, which is worse than not running it.
+`pnpm --filter @zcashreveal/content validate` and `check:provenance` join that list from
+HANDOFF-02 onward, and both run in CI.
 
-**The build needs network.** `next/font/google` fetches Instrument Serif, Fraunces, JetBrains
-Mono and Manrope from `fonts.googleapis.com` and `fonts.gstatic.com` during `next build`, and
-caches them into `.next` so nothing is fetched at runtime. A failed fetch is a hard build error,
-not a fall back to the declared stacks - so CI and Vercel both need egress to those two hosts.
-If that ever becomes a problem, the fix is to vendor the four families and switch to
-`next/font/local`, which is the only spelling of `next/font` that is fully hermetic.
+**The build needs no network at all.** It used to: the four families were fetched from
+`fonts.googleapis.com` and `fonts.gstatic.com` at build time, a failed fetch was a hard build
+error rather than a fall back to the declared stacks, and it failed once for HANDOFF-01 and once
+more for L2 verifying HANDOFF-02. HANDOFF-03 vendored them - see
+[`src/fonts/README.md`](src/fonts/README.md) for provenance, licences and how to refresh one -
+and `next build` now completes inside an empty network namespace, where DNS resolves nothing.
+That is assertion A9, and it is what unblocks putting the Playwright suite in CI (HANDOFF-10).
+
+**`apps/web` has a workspace dependency now.** `@zcashreveal/content` resolves through its own
+`exports` to `dist/`, so something must build it first. `apps/web/vercel.json` pins
+`pnpm --filter @zcashreveal/content build && next build` and
+`scripts/check-vercel-config.mjs` asserts that exact string. `transpilePackages` does not solve
+this - it changes how Next compiles a package, not how Node resolves it.
 
 **Playwright.** The browsers are pre-installed at `/opt/pw-browsers`
 (`PLAYWRIGHT_BROWSERS_PATH`) and the version is pinned to 1.56.1. **Never run
@@ -237,6 +254,39 @@ Enforced at two places, both an early return before any loop is built:
 [`src/lib/diagnostics.ts`](src/lib/diagnostics.ts) holds the reporting surface (`rafCalls`,
 `tidePulses`, `constructed[]`, `refused{}`). It installs nothing on `window` unless
 `DEV_SURFACES` is true, so a deployed build carries no instrumentation at all.
+
+## The Record apparatus
+
+Four things are on every rendered claim, and none of them is optional. They are the reason the
+site can be argued with rather than merely read.
+
+| What | Where | Why |
+| --- | --- | --- |
+| The claim id, as its own permalink | `<a class="anchor">` inside `<span class="claim">` | `/beware#B2` resolves to the paragraph, not the page |
+| The confidence | `<Conf level>` | a claim whose confidence is hidden is a claim being oversold |
+| The citation | `<Cite>` | id, absolute canonical URL, last-verified date, and every source with its publisher and access date |
+| A table twin, for anything drawn | `<Chart>` + `<ChartTable>` | a reader who cannot see a picture can still read its numbers |
+
+`Cite` is a native `<details>` disclosure rather than a client island. HANDOFF-03 section 3
+listed it among the islands; a disclosure is already keyboard-operable, announced and
+dismissible with no JavaScript, and - the deciding property - it registers no animation, which
+is what assertion A6 measures on every Record page.
+
+Charts are inline SVG built in `src/components/record/Plot.tsx`: real scales including a base-10
+log scale, thin marks, text in ink tokens and never in a series colour, a legend once there are
+two series, and direct labels used sparingly. **One `<figure data-chart>` holds exactly one
+`<svg>` and exactly one `<table>`, as siblings.** Assertion A3 counts them, so that structure is
+fixed rather than conventional.
+
+## Exports
+
+| URL | What |
+| --- | --- |
+| `/beware.xml` | RSS 2.0 over the exploit ledger, one item per entry. `guid` is the claim id with `isPermaLink="false"`, so re-verifying an entry does not re-announce it to every subscriber. |
+| `/api/content/<collection>.json` | All ten collections, prerendered. Zatoshi are emitted as decimal strings: `JSON.stringify` throws on a `bigint` rather than guessing, and a double would lose the low digits. |
+
+Both are pure functions of the content package, so both are checked by `vitest` rather than only
+by Playwright - which puts them in CI, where the Playwright suite is not yet (HANDOFF-10).
 
 ## Determinism: `Math.random` is banned
 

@@ -139,11 +139,21 @@ export function Axes({
   );
 }
 
-/** The `<svg>` element itself, with the shared viewBox and the aria posture A3 expects. */
-export function Plot({ children }: { readonly children: ReactNode }) {
+/**
+ * The `<svg>` element itself, with the shared viewBox and the aria posture A3
+ * expects. Exactly one of these per `<figure data-chart>`: A3 counts svg
+ * elements against table twins, so a chart that needs a second drawing needs a
+ * second figure.
+ *
+ * `height` overrides the shared viewBox height for a chart that is a band
+ * rather than a field - the two-windows diagram is one bar, and 320 units of
+ * viewBox around it would be 200 units of nothing. The width never changes, so
+ * a stroke width still means the same thing on every chart.
+ */
+export function Plot({ height = PLOT.height, children }: { readonly height?: number; readonly children: ReactNode }) {
   return (
     <svg
-      viewBox={`0 0 ${PLOT.width} ${PLOT.height}`}
+      viewBox={`0 0 ${PLOT.width} ${height}`}
       className="plot"
       preserveAspectRatio="xMidYMid meet"
       aria-hidden="true"
