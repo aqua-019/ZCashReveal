@@ -9,9 +9,13 @@ this directory is part of the 2.0 build.
 Two reasons, both temporary:
 
 1. **It is still the live deployment.** The Vercel project `z-cash-reveal-dashboard2` builds
-   from this path (`vercel.json` -> `outputDirectory: legacy/dashboard/dist`) and stays up in
-   mock mode until the 2.0 cutover in
-   [handoffs/HANDOFF-11-live-wiring.md](../../handoffs/HANDOFF-11-live-wiring.md).
+   from this path and stays up in mock mode until the 2.0 cutover in
+   [handoffs/HANDOFF-11-live-wiring.md](../../handoffs/HANDOFF-11-live-wiring.md). It used to be
+   driven by the root `vercel.json`; HANDOFF-02 deleted that file, because Vercel applied it to
+   every project in the repository and broke `apps/web`'s first production build. The build
+   command and output directory now have to be set in that project's own UI settings, and the
+   exact values are in [docs/2.0/DEPLOY-2.0.md](../../docs/2.0/DEPLOY-2.0.md) section 1. Until an
+   operator types them in, this project fails to build.
 2. **It is a harvest source.** `docs/2.0/ZECREVEAL-2.0-PLAN.md` §2 marks this app
    **REBUILD (harvest)**: `src/lib/tokens.ts`, `formatters.ts`, `parsers.ts`,
    `components/icons.tsx` and the panel logic (`CandidatesPanel` inference chain,
@@ -20,8 +24,8 @@ Two reasons, both temporary:
    [handoffs/HANDOFF-04-tracking-ui.md](../../handoffs/HANDOFF-04-tracking-ui.md). The SPA
    shell, the routing and the empty-state behaviour do not carry over.
 
-Once `apps/web` is promoted to production, this directory and the root `vercel.json` are
-deleted together (plan §10).
+Once `apps/web` is promoted to production, this directory is deleted (plan §10). The root
+`vercel.json` that used to go with it is already gone, deleted by HANDOFF-02.
 
 ## Rules while it is parked
 

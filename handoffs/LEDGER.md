@@ -331,6 +331,49 @@ Framework Next.js) if not yet done; delete the stale remote branches per
 
 ---
 
+## L2 RESOLUTION — HANDOFF-01 addendum (Vercel)
+
+Appended by the HANDOFF-02 session under the revolution protocol, step 2. It arrived mid-session, after the HANDOFF-02 block below had already been written, and is placed here rather than at the end of the file because it names HANDOFF-01. Verbatim; L2 has no write access to this repository.
+
+```
+L2 RESOLUTION — HANDOFF-01 addendum, Vercel (Cowork, 23 Aug 2026)
+
+This block arrives mid-session. Apply it in your next commit, before the PR opens. It is two
+extra folds and does not change HANDOFF-02's scope.
+
+FINDING (Executed by L2, not relayed). The `zecreveal` Vercel project now exists
+(prj_rNTLvGWnz92w5qcvROBchPUfdhIR, Root Directory `apps/web`, framework Next.js, no environment
+variables, no custom domain). Its first production build FAILED:
+dpl_9HHZKwUpk798aLxSdMAjy3UDnQNm, errorCode NEXT_OUTPUT_DIR_MISSING. The build log shows Vercel
+ran the ROOT `vercel.json`'s buildCommand verbatim -
+"pnpm --filter=@zcashreveal/types build && pnpm --filter=@zcashreveal/dashboard build" - built
+`legacy/dashboard`, then looked for the root file's outputDirectory at
+`/vercel/path0/apps/web/legacy/dashboard/dist`. `apps/web/vercel.json` was ignored entirely.
+This RESOLVES the HANDOFF-01 §7 UNVERIFIED line "that Vercel resolves vercel.json relative to
+the Root Directory": it does not. The root file is read for every project in this repository and
+overrides the one inside the Root Directory.
+
+FOLDS (apply to THIS handoff, HANDOFF-02):
+  8. §4 - add as the FIRST deliverable: delete the root `vercel.json`. `apps/web` has no
+     workspace dependencies, so with that file gone the Next.js preset builds it with no custom
+     command and `apps/web/vercel.json` (`{"framework":"nextjs"}`) is finally the one that
+     applies. The operator moves the deleted file's settings into the `z-cash-reveal-dashboard2`
+     project settings so that project keeps building until the HANDOFF-11 cutover - Framework
+     Other, Install `pnpm install --frozen-lockfile`, Build `pnpm --filter=@zcashreveal/types
+     build && pnpm --filter=@zcashreveal/dashboard build`, Output `legacy/dashboard/dist`,
+     environment variable `VITE_MOCK_MODE=true`. Record those exact values in
+     `docs/2.0/DEPLOY-2.0.md` and add the click to the `handoffs/README.md` operator table.
+     Delete the file whether or not the operator has done it yet, and say which in §7: the
+     dashboard is legacy, and a red check on it is not a reason to keep the new project broken.
+  9. §5 - add an assertion: no `vercel.json` exists at the repository root, and
+     `apps/web/vercel.json` contains `"framework": "nextjs"` *(fail side: restore the root file
+     in a scratch commit, observe it present, revert)*.
+
+Nothing else in HANDOFF-02 changes. The seven folds you already applied stand.
+```
+
+---
+
 ## HANDOFF-02 — `packages/content` — zod schemas + research seeds
 
 Branch `claude/aqua-stack-v4-l2-resolution-7v7qvw` (harness-designated) · shipped 23 Aug 2026 · gate rounds: 4
@@ -401,6 +444,23 @@ QUESTIONS (for the operator / L2):
    escalate instead next time; if it governs per-finding convergence, CLAUDE.md
    should say "at most 3 rounds per finding".
 
+7. THE PROTOCOL ASSUMES ONE PROMPT PER SESSION, AND THIS SESSION HAD TWO. Step 5
+   says archive "the prompt that started your session" to prompts/PROMPT-NN.md. The
+   Vercel addendum arrived mid-session, after the PR was open. Dropping it would
+   lose half the session's instructions, and overwriting PROMPT-02.md would break
+   the byte-for-byte property L2 verified on PROMPT-01.md, so I appended it under a
+   rule and a heading that says what it is. The file is now two verbatim messages,
+   and each is still byte-identical to what was sent. If you would rather have one
+   file per message, say so and the convention can be PROMPT-NN-a/-b.
+
+8. THE ADDENDUM IS FILED UNDER HANDOFF-01, ABOVE THE HANDOFF-02 BLOCK IT AMENDS.
+   Step 2 says append an L2 RESOLUTION "beneath the ledger block of the handoff it
+   names", and this one names HANDOFF-01. It arrived after the HANDOFF-02 block had
+   been written, so obeying that literally put it earlier in the file than a block
+   it postdates. I did it anyway, because grouping HANDOFF-01's material is clearly
+   the intent and the block itself opens "This block arrives mid-session", so it
+   self-dates. Flagging it because file order in LEDGER.md is no longer chronological.
+
 INFERRED (non-empty inferences a worker made):
 
 - Subagents do not nest in this environment, so a director could not spawn a crew.
@@ -441,6 +501,15 @@ INFERRED (non-empty inferences a worker made):
   `Pool` from packages/zec-types, which is still the v0.2 pair. HANDOFF-06 owns
   widening Pool; when it does, content can switch, with transparent staying
   separate because it is not a pool.
+- Fold 8's premise, "apps/web has no workspace dependencies", is true at this commit
+  and false at the next one: HANDOFF-03 makes apps/web depend on the very package
+  this PR creates. With no root vercel.json and a bare Next.js preset, that build
+  must still build the workspace package, via transpilePackages or an explicit Build
+  Command in project settings, never a restored root file. Written into
+  docs/2.0/DEPLOY-2.0.md as a note addressed to HANDOFF-03.
+- Deleting the root vercel.json falsified three sentences in root DEPLOY.md and
+  legacy/dashboard/README.md that fold 8 did not name. Corrected both: a deletion
+  that leaves the documentation describing the deleted thing is half a deletion.
 - Source ids derive from publisher plus the URL's own path, not from the title.
   The first design used the title, and improving 47 titles moved 46 ids, which
   would have broken every citation. Titles keep improving as the extractor does;
@@ -549,6 +618,13 @@ DEFERRED ASSUMPTIONS:
   recorded. Still the only lint warning in the workspace.
 - Root .env.example still carries the v0.2 VITE_* block and no SNAPSHOT_* names.
   This session's RECONCILE folded it into HANDOFF-10 deliverable 1.
-- Root vercel.json still targets legacy/dashboard. HANDOFF-11 cutover.
+- Root vercel.json: no longer deferred. HANDOFF-00 and HANDOFF-01 both deferred
+  deleting it to the HANDOFF-11 cutover, and the first L2 RESOLUTION for HANDOFF-01
+  said apps/web/vercel.json "makes the outcome the same either way". L2's own build
+  log disproved that, and the addendum's fold 8 supersedes all three deferrals. It
+  is deleted in this PR.
+- `z-cash-reveal-dashboard2` will fail to build until an operator types the deleted
+  file's six settings into that project. Accepted by fold 8, recorded in
+  docs/2.0/DEPLOY-2.0.md section 1 and as row 02 of the operator table.
 - packages/zec-types `Pool` is still the v0.2 pair. HANDOFF-06.
 ```

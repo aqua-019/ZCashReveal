@@ -45,13 +45,23 @@ A typed content package the Record renders from: zod schemas for every claim typ
 
 ## §4 DELIVERABLES
 
-1. `packages/content/src/schema.ts`, `src/loaders.ts` (`getBeware()`, `getContradictions()`, `getTimeline({category?})`, `getNetwork()`, `getPhrases()`, `getLabels()`, `getCase(id)`, `getUnverified()`, `getSources()`, `permalink(id)`).
-2. `packages/content/data/`: `beware.json` (14), `contradictions.json` (16), `timeline.json` (≥ 100), `network.json` (entities + edges from the loop + Cypherpunk ledger), `phrases.json` (catalogue minus the unverified three), `labels.json` (ZIP 271 multisig mainnet/testnet; `t1PKBiv7…` analyst/Lookonchain; `t1gGCYpy…`, `t1Ym8XWv…`, `t1XKfbZY…`, `t1dP1MJw…`, `t1U1NE8w…` with their provenance), `cases.json` (2 Jan 2026 event; lockbox disbursement; 202,076 unshield), `unverified.json`, `sources.json` (every URL de-duplicated), `stats.json` (the 22 Aug 2026 pool/price figures with their sources, for the Splash metrics until the snapshot exists).
-3. `packages/content/scripts/validate.ts` wired to `pnpm --filter @zcashreveal/content validate` and to CI.
-4. **Plan branch-count correction** (LEDGER-01 fold 1): correct the two remaining "22 stale branches"
+1. **Delete the root `vercel.json`** (LEDGER-01 addendum, fold 8). L2 executed the first production
+   build of the new `zecreveal` project and it FAILED with `NEXT_OUTPUT_DIR_MISSING`: Vercel read the
+   ROOT `vercel.json`, built `legacy/dashboard`, then looked for its `outputDirectory` under
+   `apps/web/`. `apps/web/vercel.json` was ignored entirely. The root file is read for every project
+   in this repository and overrides the one inside the Root Directory. `apps/web` has no workspace
+   dependencies, so with the root file gone the Next.js preset builds it with no custom command and
+   `apps/web/vercel.json` finally applies. Record the deleted file's exact settings in
+   `docs/2.0/DEPLOY-2.0.md` and add the operator click to the `handoffs/README.md` table, so
+   `z-cash-reveal-dashboard2` can be kept building from project settings until the HANDOFF-11
+   cutover. Delete the file whether or not the operator has moved them yet, and say which in §7.
+2. `packages/content/src/schema.ts`, `src/loaders.ts` (`getBeware()`, `getContradictions()`, `getTimeline({category?})`, `getNetwork()`, `getPhrases()`, `getLabels()`, `getCase(id)`, `getUnverified()`, `getSources()`, `permalink(id)`).
+3. `packages/content/data/`: `beware.json` (14), `contradictions.json` (16), `timeline.json` (≥ 100), `network.json` (entities + edges from the loop + Cypherpunk ledger), `phrases.json` (catalogue minus the unverified three), `labels.json` (ZIP 271 multisig mainnet/testnet; `t1PKBiv7…` analyst/Lookonchain; `t1gGCYpy…`, `t1Ym8XWv…`, `t1XKfbZY…`, `t1dP1MJw…`, `t1U1NE8w…` with their provenance), `cases.json` (2 Jan 2026 event; lockbox disbursement; 202,076 unshield), `unverified.json`, `sources.json` (every URL de-duplicated), `stats.json` (the 22 Aug 2026 pool/price figures with their sources, for the Splash metrics until the snapshot exists).
+4. `packages/content/scripts/validate.ts` wired to `pnpm --filter @zcashreveal/content validate` and to CI.
+5. **Plan branch-count correction** (LEDGER-01 fold 1): correct the two remaining "22 stale branches"
    claims in `docs/2.0/ZECREVEAL-2.0-PLAN.md` (lines 14 and 126) to 20 `claude/*` + 2 merged `feat/*`,
    matching the §10 line HANDOFF-01 already fixed.
-5. **Mockup tip-hash note** (LEDGER-01 fold 2): in `docs/2.0/mockups/reference/README.md`, record that
+6. **Mockup tip-hash note** (LEDGER-01 fold 2): in `docs/2.0/mockups/reference/README.md`, record that
    the mockup's tip hash literal is 65 hex characters (one zero too many in the leading run) and that
    the canonical fixture is the 64-character value in `apps/web/src/lib/chain.ts`, so no later handoff
    harvests the typo.
@@ -65,6 +75,7 @@ A typed content package the Record renders from: zod schemas for every claim typ
 - **A5.** `labels.json` entry for `t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo` has `labeller: 'consensus'` and cites ZIP 271; the entry for `t1PKBiv7mtzD9bNafYaqyxaENeiNDbpKxxQ` has `labeller: 'analyst'` and `confidence` ≠ `'high'`.
 - **A6.** `cases.json` `K-2026-01-02` has exactly the 9 steps of research 04 §2.1 with amounts 29,999.99 · 1,999.99 · 17,999.99 · 202,076.207 · 50,000.96 · 50,000.5541 · 24,000.9781 · 74,001.9317 · 1,293.9321 (Executed: a test asserts the list).
 - **A7.** `getTimeline({category:'EXPLOIT'})` returns ≥ 20 events and all have `category === 'EXPLOIT'` (unit test).
+- **A8.** No `vercel.json` exists at the repository root, and `apps/web/vercel.json` contains `"framework": "nextjs"` *(fail side: restore the root file in a scratch commit, observe it present, revert)* (LEDGER-01 addendum, fold 9).
 
 ## §6 DISPATCH HINTS (director-build decides; these are L2's routing suggestions)
 
@@ -122,8 +133,15 @@ created  packages/content/package.json, tsconfig.json, vitest.config.ts, README.
          packages/content/test/schema.test.ts, loaders.test.ts, timeline.test.ts,
            labels.test.ts, cases.test.ts
          handoffs/prompts/PROMPT-02.md
-modified .github/workflows/ci.yml (content tests, validate and provenance now
-           unconditional)
+deleted  vercel.json (the repository root file, deliverable 1)
+created  scripts/check-vercel-config.mjs (assertion A8)
+modified .github/workflows/ci.yml (content tests, validate, provenance and the
+           vercel-config check now run unconditionally)
+         docs/2.0/DEPLOY-2.0.md (the root-vercel.json caution rewritten as a
+           resolved finding, with the settings the operator must move, a seventh
+           verification step and the click list renumbered)
+         DEPLOY.md and legacy/dashboard/README.md (both described the deleted
+           file as driving the dashboard build; corrected)
          docs/2.0/ZECREVEAL-2.0-PLAN.md (deliverable 4)
          docs/2.0/mockups/reference/README.md (deliverable 5)
          handoffs/HANDOFF-01, -02, -03, -04, -05, -10 (reconcile + the seven folds)
@@ -218,6 +236,39 @@ A7  the exploit filter. PASS (Executed): vitest test/timeline.test.ts, 9 passed;
     The purity half of A7 is a property of the filter, not of the data: relabelling
     a row cannot break it, because the row then genuinely is EXPLOIT. FAIL b breaks
     the plausible wrong implementation instead, and the assertion catches it.
+
+A8  the Vercel configuration (LEDGER-01 addendum, fold 9). PASS (Executed):
+      $ node scripts/check-vercel-config.mjs
+      vercel config
+        root vercel.json      absent  (expected absent)
+        apps/web/vercel.json  present  (expected present, framework nextjs)
+      OK  the root file is gone and apps/web declares nextjs
+      rc=0
+    FAIL (Executed): restore the root file from HEAD, observe, revert ->
+      vercel config
+        root vercel.json      PRESENT  (expected absent)
+        apps/web/vercel.json  present  (expected present, framework nextjs)
+      FAIL  1 problem
+        vercel.json exists at the repository root. Vercel applies it to every
+        project here, overriding apps/web/vercel.json, and the apps/web build
+        fails with NEXT_OUTPUT_DIR_MISSING. Keep legacy/dashboard building from
+        the z-cash-reveal-dashboard2 project settings instead; the exact values
+        are in docs/2.0/DEPLOY-2.0.md.
+      rc=1
+    Reverted; the check returns rc=0 and the working tree is clean. The check runs
+    in CI, so the root file cannot come back without turning the build red first.
+
+Deliverable 1, the operator click, stated as fold 8 requires (Read + UNVERIFIED):
+
+  The root vercel.json is deleted in this PR. Whether the operator has already
+  moved its settings into the z-cash-reveal-dashboard2 project, I do not know and
+  cannot check: no agent reads or writes Vercel project settings, and L2's finding
+  reports on the zecreveal project only. Treat it as NOT DONE. Until it is,
+  z-cash-reveal-dashboard2 will fail to build, and that is the accepted trade fold
+  8 names: the dashboard is legacy and retired at the HANDOFF-11 cutover, and a red
+  check on it is not a reason to keep the new project broken. The exact settings
+  are recorded in docs/2.0/DEPLOY-2.0.md section 1 and the click is row 02 of the
+  handoffs/README.md operator table.
 
 Whole-workspace evidence (Executed):
     pnpm typecheck            7 of 7 successful (6 before this handoff)
@@ -354,7 +405,17 @@ ASSUMPTIONS (each: ACCEPTED / CORRECTED / DEFERRED -- reason):
     which is stable under title edits and reads better. All 452 citations were
     migrated by URL, none unmapped, and the generator is deterministic: two
     consecutive runs are byte-identical.
-21. DEFERRED. Section 8 carries the rest.
+21. ACCEPTED. Fold 8 says "delete the file whether or not the operator has done it
+    yet". Done, and the consequence is stated above rather than softened: the legacy
+    dashboard project is broken until someone types six settings into a UI.
+22. CORRECTED. Deleting the file made two documents wrong that fold 8 did not name.
+    Root DEPLOY.md said the build command was "unset (UI override OFF, vercel.json
+    drives it)" and legacy/dashboard/README.md said the project builds "from this
+    path (vercel.json -> outputDirectory ...)" and that the directory and the root
+    file are "deleted together" at the cutover. All three statements are now false.
+    Fixing the docs my own deletion broke is part of the deliverable, not scope
+    creep, so both are corrected and DEPLOY.md carries a second superseded banner.
+23. DEFERRED. Section 8 carries the rest.
 
 NOTICED (outside scope, not acted on):
 
@@ -375,6 +436,16 @@ NOTICED (outside scope, not acted on):
    listed live in research 02's source list, while research 03 PART F separately
    notes a Protos article on Naval's conflicts whose URL 404s. Possibly the same
    article. Confidence on that row is med.
+ - Fold 8's reasoning rests on "apps/web has no workspace dependencies", which is
+   true today and stops being true in the very next handoff: HANDOFF-03 renders the
+   Record from `@zcashreveal/content`, which is a `workspace:*` dependency, and this
+   PR is what creates it. With no root vercel.json and a bare Next.js preset, the
+   zecreveal build must still build that workspace package. The fix is
+   `transpilePackages` in next.config, or an explicit Build Command in the zecreveal
+   project settings, and never a restored root vercel.json. Recorded in
+   docs/2.0/DEPLOY-2.0.md as a note to HANDOFF-03 and in section 8.
+ - Root `.vercelignore` is untouched. It excludes apps/indexer, apps/gateway and
+   infra, does no work for zecreveal, and unlike vercel.json does no harm.
  - packages/zec-types still exports `Pool = "sapling" | "orchard"`, the v0.2 pair.
    packages/content defines its own five-value supplyBucket rather than importing
    it. HANDOFF-06 owns widening Pool.
@@ -393,8 +464,15 @@ UNVERIFIED (labelled):
  - No live fetch of any of the 328 source URLs. Provenance is proven against the
    corpus, not against the live web; link rot is unmeasured, and research 03
    PART F already reports at least one 404.
- - The CI workflow's new content steps have not run: the PR does not exist at the
-   time of writing. They are exercised locally by the same commands CI invokes.
+ - The CI workflow's content and vercel-config steps: they are exercised locally by
+   the same commands CI invokes, and the run against the PR head is what proves
+   them in CI. Its result is recorded on PR #33, not here.
+ - Whether the operator has moved the deleted file's settings into
+   z-cash-reveal-dashboard2. No agent reads Vercel project settings. Assume not.
+ - That deleting the root file actually fixes the zecreveal build. The cause is
+   established by L2's build log, and the fix follows from it, but only a fresh
+   deployment proves it and no agent deploys. Operator click 6 in
+   docs/2.0/DEPLOY-2.0.md section 8 is what closes this.
 
 GATE ROUNDS: 4 · fingerprints (file · rule · severity)
 
@@ -511,6 +589,23 @@ QUESTIONS (for the operator / L2):
    escalate instead next time; if it governs per-finding convergence, CLAUDE.md
    should say "at most 3 rounds per finding".
 
+7. THE PROTOCOL ASSUMES ONE PROMPT PER SESSION, AND THIS SESSION HAD TWO. Step 5
+   says archive "the prompt that started your session" to prompts/PROMPT-NN.md. The
+   Vercel addendum arrived mid-session, after the PR was open. Dropping it would
+   lose half the session's instructions, and overwriting PROMPT-02.md would break
+   the byte-for-byte property L2 verified on PROMPT-01.md, so I appended it under a
+   rule and a heading that says what it is. The file is now two verbatim messages,
+   and each is still byte-identical to what was sent. If you would rather have one
+   file per message, say so and the convention can be PROMPT-NN-a/-b.
+
+8. THE ADDENDUM IS FILED UNDER HANDOFF-01, ABOVE THE HANDOFF-02 BLOCK IT AMENDS.
+   Step 2 says append an L2 RESOLUTION "beneath the ledger block of the handoff it
+   names", and this one names HANDOFF-01. It arrived after the HANDOFF-02 block had
+   been written, so obeying that literally put it earlier in the file than a block
+   it postdates. I did it anyway, because grouping HANDOFF-01's material is clearly
+   the intent and the block itself opens "This block arrives mid-session", so it
+   self-dates. Flagging it because file order in LEDGER.md is no longer chronological.
+
 INFERRED (non-empty inferences a worker made):
 
 - Subagents do not nest in this environment, so a director could not spawn a crew.
@@ -551,6 +646,15 @@ INFERRED (non-empty inferences a worker made):
   `Pool` from packages/zec-types, which is still the v0.2 pair. HANDOFF-06 owns
   widening Pool; when it does, content can switch, with transparent staying
   separate because it is not a pool.
+- Fold 8's premise, "apps/web has no workspace dependencies", is true at this commit
+  and false at the next one: HANDOFF-03 makes apps/web depend on the very package
+  this PR creates. With no root vercel.json and a bare Next.js preset, that build
+  must still build the workspace package, via transpilePackages or an explicit Build
+  Command in project settings, never a restored root file. Written into
+  docs/2.0/DEPLOY-2.0.md as a note addressed to HANDOFF-03.
+- Deleting the root vercel.json falsified three sentences in root DEPLOY.md and
+  legacy/dashboard/README.md that fold 8 did not name. Corrected both: a deletion
+  that leaves the documentation describing the deleted thing is half a deletion.
 - Source ids derive from publisher plus the URL's own path, not from the title.
   The first design used the title, and improving 47 titles moved 46 ids, which
   would have broken every citation. Titles keep improving as the extractor does;
@@ -659,6 +763,13 @@ DEFERRED ASSUMPTIONS:
   recorded. Still the only lint warning in the workspace.
 - Root .env.example still carries the v0.2 VITE_* block and no SNAPSHOT_* names.
   This session's RECONCILE folded it into HANDOFF-10 deliverable 1.
-- Root vercel.json still targets legacy/dashboard. HANDOFF-11 cutover.
+- Root vercel.json: no longer deferred. HANDOFF-00 and HANDOFF-01 both deferred
+  deleting it to the HANDOFF-11 cutover, and the first L2 RESOLUTION for HANDOFF-01
+  said apps/web/vercel.json "makes the outcome the same either way". L2's own build
+  log disproved that, and the addendum's fold 8 supersedes all three deferrals. It
+  is deleted in this PR.
+- `z-cash-reveal-dashboard2` will fail to build until an operator types the deleted
+  file's six settings into that project. Accepted by fold 8, recorded in
+  docs/2.0/DEPLOY-2.0.md section 1 and as row 02 of the operator table.
 - packages/zec-types `Pool` is still the v0.2 pair. HANDOFF-06.
 ```

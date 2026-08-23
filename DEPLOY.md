@@ -12,14 +12,22 @@ The dashboard ships from `legacy/dashboard` (moved from `apps/dashboard` in HAND
 
 ## Project settings (Vercel UI)
 
+> **Superseded again, by HANDOFF-02.** The root `vercel.json` this section describes is **deleted**.
+> Vercel applied it to every project in the repository regardless of Root Directory, which broke the
+> first production build of `zecreveal`. These settings now have to live in the
+> `z-cash-reveal-dashboard2` project's own UI settings; the exact values are in
+> `docs/2.0/DEPLOY-2.0.md` section 1.
+
 - **Root Directory:** `./` (project root, not `legacy/dashboard`)
 - **Framework Preset:** Other
-- **Build Command:** unset (UI override OFF — `vercel.json` drives it)
-- **Install Command:** unset (UI override OFF)
-- **Output Directory:** unset (UI override OFF)
+- **Build Command:** `pnpm --filter=@zcashreveal/types build && pnpm --filter=@zcashreveal/dashboard build` (UI override ON since HANDOFF-02)
+- **Install Command:** `pnpm install --frozen-lockfile` (UI override ON since HANDOFF-02)
+- **Output Directory:** `legacy/dashboard/dist` (UI override ON since HANDOFF-02)
 - **Deployment Protection:** Disabled
 
-The pattern: let `vercel.json` define everything, keep the UI clean. Toggling any override on top of `vercel.json` reintroduces the "dist not found" failures we already debugged.
+The original pattern was to let `vercel.json` define everything and keep the UI clean. That is no
+longer available: a root `vercel.json` cannot exist in this repository without breaking `apps/web`,
+so the overrides are now the only place these settings can live.
 
 ## Environment variables
 

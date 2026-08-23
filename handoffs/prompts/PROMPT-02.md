@@ -77,3 +77,51 @@ error shell on a gated-off `/dev/primitives` is cosmetic and stays.
 OPERATOR CLICKS OUTSTANDING: create the Vercel project `zecreveal` (Root Directory `apps/web`,
 Framework Next.js) if not yet done; delete the stale remote branches per
 `docs/2.0/BRANCH-CLEANUP.md`; delete the orphaned Vercel project `z-cash-reveal-dashboard`.
+
+---
+
+# Second message of the same session (mid-session, 23 Aug 2026)
+
+The revolution protocol archives "the prompt that started your session". This session received a
+second prompt after the PR had been opened, carrying an L2 RESOLUTION addendum. Everything above
+this rule is byte-for-byte the prompt that started the session; everything below is the second
+message, also verbatim.
+
+---
+
+L2 RESOLUTION
+
+L2 RESOLUTION — HANDOFF-01 addendum, Vercel (Cowork, 23 Aug 2026)
+
+This block arrives mid-session. Apply it in your next commit, before the PR opens. It is two
+extra folds and does not change HANDOFF-02's scope.
+
+FINDING (Executed by L2, not relayed). The `zecreveal` Vercel project now exists
+(prj_rNTLvGWnz92w5qcvROBchPUfdhIR, Root Directory `apps/web`, framework Next.js, no environment
+variables, no custom domain). Its first production build FAILED:
+dpl_9HHZKwUpk798aLxSdMAjy3UDnQNm, errorCode NEXT_OUTPUT_DIR_MISSING. The build log shows Vercel
+ran the ROOT `vercel.json`'s buildCommand verbatim -
+"pnpm --filter=@zcashreveal/types build && pnpm --filter=@zcashreveal/dashboard build" - built
+`legacy/dashboard`, then looked for the root file's outputDirectory at
+`/vercel/path0/apps/web/legacy/dashboard/dist`. `apps/web/vercel.json` was ignored entirely.
+This RESOLVES the HANDOFF-01 §7 UNVERIFIED line "that Vercel resolves vercel.json relative to
+the Root Directory": it does not. The root file is read for every project in this repository and
+overrides the one inside the Root Directory.
+
+FOLDS (apply to THIS handoff, HANDOFF-02):
+  8. §4 - add as the FIRST deliverable: delete the root `vercel.json`. `apps/web` has no
+     workspace dependencies, so with that file gone the Next.js preset builds it with no custom
+     command and `apps/web/vercel.json` (`{"framework":"nextjs"}`) is finally the one that
+     applies. The operator moves the deleted file's settings into the `z-cash-reveal-dashboard2`
+     project settings so that project keeps building until the HANDOFF-11 cutover - Framework
+     Other, Install `pnpm install --frozen-lockfile`, Build `pnpm --filter=@zcashreveal/types
+     build && pnpm --filter=@zcashreveal/dashboard build`, Output `legacy/dashboard/dist`,
+     environment variable `VITE_MOCK_MODE=true`. Record those exact values in
+     `docs/2.0/DEPLOY-2.0.md` and add the click to the `handoffs/README.md` operator table.
+     Delete the file whether or not the operator has done it yet, and say which in §7: the
+     dashboard is legacy, and a red check on it is not a reason to keep the new project broken.
+  9. §5 - add an assertion: no `vercel.json` exists at the repository root, and
+     `apps/web/vercel.json` contains `"framework": "nextjs"` *(fail side: restore the root file
+     in a scratch commit, observe it present, revert)*.
+
+Nothing else in HANDOFF-02 changes. The seven folds you already applied stand.

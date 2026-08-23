@@ -63,6 +63,12 @@ jobs:
       - name: No emoji anywhere
         run: ./scripts/check-no-emoji.sh
 
+      # Vercel applies a root vercel.json to every project in the repo, whatever
+      # a project's Root Directory says, and it broke apps/web's first production
+      # build. If the root file comes back, apps/web breaks again. See A8.
+      - name: Vercel config
+        run: node scripts/check-vercel-config.mjs
+
       # Must precede the tests. The integration suites probe for a reachable database,
       # not for migrated tables: an unmigrated-but-reachable Postgres unskips all 37
       # and then fails on missing relations.

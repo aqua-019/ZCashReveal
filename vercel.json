@@ -1,8 +1,0 @@
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm --filter=@zcashreveal/types build && pnpm --filter=@zcashreveal/dashboard build",
-  "installCommand": "pnpm install --frozen-lockfile",
-  "outputDirectory": "legacy/dashboard/dist",
-  "framework": null,
-  "env": { "VITE_MOCK_MODE": "true" }
-}
