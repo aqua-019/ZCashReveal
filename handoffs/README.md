@@ -20,7 +20,7 @@ Aqua Stack v4.1 session. Read CLAUDE.md, then handoffs/LEDGER.md, then pick the 
 | # | Handoff | Branch | Track | Depends on | Status |
 |---|---|---|---|---|---|
 | 00 | [Housekeeping, docs import, CI runs tests, CLAUDE.md](HANDOFF-00-housekeeping.md) | `claude/aqua-stack-v4-1-handoff-818gb3` | Foundation — first | — | `closed` |
-| 01 | [`apps/web` scaffold + the ZEC Forensic design system](HANDOFF-01-web-scaffold.md) | session-designated | Web | 00 (closed) | `open` |
+| 01 | [`apps/web` scaffold + the ZEC Forensic design system](HANDOFF-01-web-scaffold.md) | session-designated | Web | 00 (closed) | `shipped` |
 | 02 | [`packages/content` — zod schemas + research seeds](HANDOFF-02-content-package.md) | session-designated | Web | 00 | `queued` |
 | 03 | [The Record — Splash, Beware, Contradictions, Timeline, Network, Method, Flows, Sources](HANDOFF-03-record-pages.md) | session-designated | Web | 01, 02 | `queued` |
 | 04 | [ZEC Tracking UI in fixture mode — search, mempool, address, tx, pools, reveal](HANDOFF-04-tracking-ui.md) | session-designated | Web | 01, 02 (03 optional) | `queued` |
