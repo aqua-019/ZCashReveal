@@ -12,6 +12,8 @@ import {
   type SourceRef,
 } from "@zcashreveal/content";
 
+import { quarantineHref } from "@/lib/quarantine";
+
 /**
  * The citation graph: which claim cites which source.
  *
@@ -82,8 +84,11 @@ export function citationIndex(): CitationIndex {
   for (const k of getCases()) add(k.sources, { id: k.id, href: hrefFor(k.id, "/flows"), collection: "cases" });
   // The quarantine is rendered too: an unverified item is published AS
   // unverified, with the reason, and a source cited in support of a refusal is
-  // still a source the Record uses.
-  for (const u of getUnverified()) add(u.sources, { id: u.id, href: hrefFor(u.id, "/flows"), collection: "unverified" });
+  // still a source the Record uses. It does NOT go through `permalink`: the
+  // quarantine is split across /flows and /network by subject, and
+  // `quarantineHref` is the single place that knows which. Routing these
+  // through the id prefix sent four of them to a page they do not render on.
+  for (const u of getUnverified()) add(u.sources, { id: u.id, href: quarantineHref(u.id), collection: "unverified" });
   add(getStats().sources, { id: "stats", href: "/#pools", collection: "stats" });
 
   cache = index;

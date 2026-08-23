@@ -148,9 +148,10 @@ export function NetworkPrice() {
           which the annotations can be compared with each other. Twenty-five points, no interpolation between them; the corpus
           publishes these twenty-five out of a 366-point daily pull. The rules mark the day a statement was made and claim
           nothing about what followed it. Two incompatible readings of the period are on the record and both are published
-          here: Delphi Digital (Nov 2025) found the rally was whale-driven and had &quot;nothing to do with retail&quot;;
-          CCN, citing CoinMarketCap, found institutional inflows under 20 per cent and read it as retail. They cannot both be
-          right, and the corpus declines to choose. Open interest today is{" "}
+          here, at the weight the corpus gives them rather than at equal weight: Delphi Digital (Nov 2025), which the
+          research grades <b>med</b>, found the rally was whale-driven and had &quot;nothing to do with retail&quot;; CCN,
+          citing CoinMarketCap, graded <b>low</b>, found institutional inflows under 20 per cent and read it as retail.
+          They cannot both be right, the corpus declines to choose, and the weaker of the two is marked as weaker. Open interest today is{" "}
           <b>${(stats.openInterestUsd / 1e9).toFixed(2)}B</b> against a market capitalisation of $
           {(stats.marketCapUsd.low / 1e9).toFixed(1)}B to ${(stats.marketCapUsd.high / 1e9).toFixed(1)}B.
         </>
@@ -217,7 +218,12 @@ export function NetworkPrice() {
  */
 export function NetworkPriceCite() {
   const stats = getStats();
-  const refs = [...new Set([...ZEC_PRICE.flatMap((p) => p.sources), ...stats.sources])];
+  // The two competing readings named in the chart note are claims the chart
+  // makes, so their sources belong in its citation. Without them a reader who
+  // opens the popover to check "Delphi Digital" finds CoinGecko and CipherScan.
+  // Gate round 1.
+  const READINGS = ["S-tradingview-u-today-56fd7e455094b-0-behind-xrp-s", "S-ccn-crypto-zec-500-percent-rally-explained-next"];
+  const refs = [...new Set([...ZEC_PRICE.flatMap((p) => p.sources), ...stats.sources, ...READINGS])];
   return (
     <span className="claim">
       <a className="anchor" href="/network#network-price">

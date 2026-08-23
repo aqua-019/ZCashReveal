@@ -47,24 +47,45 @@ test.describe("A4 pass state - no serious or critical violations", () => {
 });
 
 test.describe("A4 fail state - the same scan on a deliberately broken page", () => {
-  test("axe reports a serious violation once an image loses its alternative text", async ({ page }) => {
+  test("axe reports a serious violation once a focusable element is hidden from assistive technology", async ({ page }) => {
     await page.goto("/beware");
 
     // Plant exactly the kind of defect the gate exists to catch, then re-run the
     // same analyser. Without this half, "zero violations" would also be the
     // result of an analyser that never ran.
+    //
+    // A focusable element hidden from assistive technology, rather than the
+    // image-without-alt this first used: an injected `img` depends on the data
+    // URI decoding and on the element getting a layout box before the scan, and
+    // it did not reliably trip the rule. `aria-hidden` on a link is a pure
+    // markup contradiction - the element takes focus but is not in the
+    // accessibility tree - so axe reports it every time, with no dependency on
+    // paint.
+    // Plant AFTER hydration. React owns this subtree, and a node prepended
+    // while hydration is still in flight is removed again as React reconciles
+    // the server HTML - which showed up as this check passing on its own and
+    // failing inside the full run, where the page has more to do. The assertion
+    // below that the node is still attached is what makes the timing explicit
+    // rather than hopeful.
+    await page.waitForLoadState("networkidle");
+    await page.waitForTimeout(600);
+
     await page.evaluate(() => {
-      const img = document.createElement("img");
-      img.src =
-        "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-      img.width = 40;
-      img.height = 40;
-      document.querySelector("main")?.prepend(img);
+      const bad = document.createElement("a");
+      bad.href = "#planted-by-the-a4-fail-side-check";
+      bad.textContent = "planted";
+      bad.setAttribute("aria-hidden", "true");
+      document.querySelector("main")?.prepend(bad);
     });
+
+    await expect(
+      page.locator('a[href="#planted-by-the-a4-fail-side-check"]'),
+      "the planted node did not survive to the scan",
+    ).toHaveCount(1);
 
     const results = await new AxeBuilder({ page }).analyze();
     const blocking = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
     expect(blocking.length, "the planted defect was not detected - the scan is vacuous").toBeGreaterThan(0);
-    expect(blocking.map((v) => v.id)).toContain("image-alt");
+    expect(blocking.map((v) => v.id)).toContain("aria-hidden-focus");
   });
 });

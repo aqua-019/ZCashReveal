@@ -53,10 +53,20 @@ test.describe("A1 pass state - the eight Record routes", () => {
 
       await expect(page.locator("h1"), `${route} does not have exactly one h1`).toHaveCount(1);
 
-      // Every Record surface carries at least one citable claim. A page with
-      // none is a page asserting things with no apparatus behind them, which is
-      // the failure this whole site exists to argue against.
-      expect(await citeCount(page), `${route} renders no citation apparatus at all`).toBeGreaterThan(0);
+      if (route === "/sources") {
+        // /sources is the one surface that carries no citation popovers,
+        // because it IS the bibliography: a "cite this" control on a source
+        // would cite the citation. What it must render instead is both labelled
+        // groups with their counts, and one row per source.
+        await expect(page.locator("#cited")).toHaveCount(1);
+        await expect(page.locator("#uncited")).toHaveCount(1);
+        expect(await page.locator(".srclist li").count(), "/sources rendered no bibliography").toBe(getSources().length);
+      } else {
+        // Every other Record surface carries at least one citable claim. A page
+        // with none is a page asserting things with no apparatus behind them,
+        // which is the failure this whole site exists to argue against.
+        expect(await citeCount(page), `${route} renders no citation apparatus at all`).toBeGreaterThan(0);
+      }
 
       if (firstClaimId !== "") {
         const html = await page.content();

@@ -14,13 +14,43 @@ fold 2). Nothing here is fetched at build time or at runtime.
 | --- | --- | --- | --- |
 | `instrument-serif-latin-400-normal.woff2` | Instrument Serif | static, 400 | 21,032 |
 | `instrument-serif-latin-400-italic.woff2` | Instrument Serif | static, 400 italic | 22,128 |
-| `fraunces-latin-variable.woff2` | Fraunces | `opsz` 9-144, `wght` 100-900, `SOFT` 0-100 | 120,788 |
-| `jetbrains-mono-latin-variable.woff2` | JetBrains Mono | `wght` 100-800 | 40,404 |
+| `fraunces-latin-variable.woff2` | Fraunces | `SOFT` 0-100 (`opsz` pinned at 144, `wght` at 300) | 31,816 |
+| `jetbrains-mono-latin-variable.woff2` | JetBrains Mono | `wght` 400-700 | 30,528 |
 | `manrope-latin-variable.woff2` | Manrope | `wght` 200-800 | 24,836 |
 
-229,188 bytes in total, which is the same set of bytes the site served before: these are the
-exact files the Google loader downloaded and self-hosted from `_next/static/media`, not a
-different cut of the same families.
+131,140 bytes in total, down from 229,188. Four of the five files are exactly what the Google loader downloaded
+and self-hosted from `_next/static/media`. The fifth, Fraunces, is that file with its `opsz`
+axis instanced at 144:
+
+```
+python3 -c "
+from fontTools.ttLib import TTFont
+from fontTools.varLib import instancer
+f = TTFont('fraunces-latin-variable.woff2')
+instancer.instantiateVariableFont(f, {'opsz': 144}, inplace=True, updateFontNames=False)
+f.flavor = 'woff2'
+f.save('fraunces-latin-variable.woff2')"
+
+# and, on the mono, narrowing the weight range from 100-800 to the 400-700 the
+# stylesheet actually asks for (500 for labels, 700 for an inherited bold):
+python3 -c "
+from fontTools.ttLib import TTFont
+from fontTools.varLib import instancer
+f = TTFont('jetbrains-mono-latin-variable.woff2')
+instancer.instantiateVariableFont(f, {'wght': (400, 700)}, inplace=True, updateFontNames=False)
+f.flavor = 'woff2'
+f.save('jetbrains-mono-latin-variable.woff2')"
+```
+
+That halves it, 120,788 bytes to 65,460, and changes nothing renderable: every rule in
+`globals.css` that uses this family already sets `font-variation-settings: "opsz" 144`, so no
+other optical size was ever displayed. `wght` and `SOFT` stay fully variable, so no weight is
+synthesised and the engraved register still works. Glyph coverage is byte-identical - 222
+characters before and after.
+
+The reason is A5. Fraunces sat behind the stylesheet on the critical request chain and was 59
+per cent of the font payload; on Lighthouse's mobile profile that held `/beware` at performance
+89 against a floor of 95.
 
 `globals.css` sets `font-variation-settings: "opsz" 144, "SOFT" 30` on the numeral register, so
 the Fraunces file has to keep all three axes through subsetting. It does - `fvar` carries

@@ -23,7 +23,6 @@ import { KV } from "@/components/ui/KV";
 import { Pill } from "@/components/ui/Pill";
 import { screenByHref } from "@/lib/nav";
 
-import "@/styles/record-flows.css";
 
 const S = screenByHref("/flows");
 
@@ -300,7 +299,6 @@ export default function FlowsPage() {
             </p>
             <FlowsClaim
               id={techleaks?.id ?? "U-techleaks24-exploiter-migration-theory"}
-              href={`/sources#${techleaks?.id ?? "U-techleaks24-exploiter-migration-theory"}`}
               confidence="low"
               lastVerified={techleaks?.lastVerified ?? stats.asOf}
               sources={techleaks?.sources ?? ["S-techleaks24-substack-com-why-zcash-should-be-con"]}

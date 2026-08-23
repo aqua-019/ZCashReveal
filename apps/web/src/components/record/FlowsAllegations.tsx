@@ -54,7 +54,8 @@ function rows(): readonly Allegation[] {
         techleaks?.why ??
         "Speculation. Report as an allegation and note the absent evidence; do not repeat as fact.",
       id: techleaks?.id ?? "U-techleaks24-exploiter-migration-theory",
-      href: `/sources#${techleaks?.id ?? "U-techleaks24-exploiter-migration-theory"}`,
+      // This row is where the record renders, so this row carries the anchor.
+      anchorHere: true,
       confidence: "low",
       lastVerified: techleaks?.lastVerified ?? "2026-08-22",
       sources: techleaks?.sources ?? ["S-techleaks24-substack-com-why-zcash-should-be-con"],
@@ -183,7 +184,7 @@ function rows(): readonly Allegation[] {
         arkham?.why ??
         "A real quotation with an unresolvable subject. The entity is never named, no exchange, custodian or address is published, and the original post could not be located. This is explicitly not Arthur Hayes.",
       id: arkham?.id ?? "U-arkham-174m-position-post",
-      href: `/sources#${arkham?.id ?? "U-arkham-174m-position-post"}`,
+      anchorHere: true,
       confidence: "low",
       lastVerified: arkham?.lastVerified ?? "2026-08-22",
       sources: arkham?.sources ?? ["S-coindesk-05-arthur-hayes-dumps-zcash-holdings-af"],

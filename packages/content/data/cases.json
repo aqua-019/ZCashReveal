@@ -170,7 +170,7 @@
         "txid": "e179e5b0f9fec1c6a9718b1dbe8cedddf1d8e494db276fe72c047a153365a163"
       }
     ],
-    "verdict": "Proves that a single entity moved roughly 165 million dollars of ZEC out of shielding and has held it transparently ever since. Proves it did not go to an exchange. Does not prove who owns it, or why. An aggregator dated a 202,077 ZEC move to 2025-12-20 and called it a Binance withdrawal; no address was published, and the only on-chain event of that size is this one, seven months later in the wrong direction. Treat the aggregator's date and direction as unconfirmed.",
+    "verdict": "Proves that a single entity moved roughly 165 million dollars of ZEC out of shielding and has held it transparently ever since. Proves it did not go to an exchange. Does not prove who owns it, or why. An aggregator dated a 202,077 ZEC move to 2025-12-20 and called it a Binance withdrawal; no address was published, and the only on-chain event of that size is this one, thirteen days later in the wrong direction. Treat the aggregator's date and direction as unconfirmed.",
     "confidence": "high",
     "sources": [
       "S-blockchain-news-flashnews-zec-zcash-whale-alert",

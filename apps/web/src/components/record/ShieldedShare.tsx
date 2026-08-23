@@ -10,7 +10,13 @@ import { SHIELDED_SHARE, SHIELDED_SHARE_LAST_T } from "@/lib/series";
  *
  * One series, so no legend - the caption names it and the axis carries the
  * unit. Two direct labels, and only two: the May 2026 peak and the current
- * reading, because those are the two numbers the page argues about. Every other
+ * reading, because those are the two numbers the page argues about.
+ *
+ * The series is set in ink, not gold. Gold is a budget with three licensed
+ * jobs - the primary action, the active state, and value crossing a pool
+ * boundary - and a chart series is none of them. This one is a share of supply
+ * aggregated across four pools, so no pool token fits either; ink is what is
+ * left, and it is correct. Changed at gate round 1. Every other
  * point is in the table twin.
  *
  * The last reading is drawn as a BAND, not a point. CipherScan and ZECStats
@@ -79,9 +85,9 @@ export function ShieldedShare() {
           yLabel="share of supply"
         />
         <path d={area} className="band" />
-        <path d={line} className="series" stroke="var(--gold)" />
+        <path d={line} className="series" stroke="var(--ink-dim)" />
         {points.map((p, i) => (
-          <circle key={SHIELDED_SHARE[i]?.when ?? i} cx={p[0]} cy={p[1]} r={3.5} fill="var(--gold)" className="point" />
+          <circle key={SHIELDED_SHARE[i]?.when ?? i} cx={p[0]} cy={p[1]} r={3.5} fill="var(--ink)" className="point" />
         ))}
 
         {/* The current reading: a band between the two explorers, not a point. */}

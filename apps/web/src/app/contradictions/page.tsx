@@ -11,7 +11,6 @@ import { Glass } from "@/components/ui/Glass";
 import { KV } from "@/components/ui/KV";
 import { screenByHref } from "@/lib/nav";
 
-import "@/styles/record-beware.css";
 
 const S = screenByHref("/contradictions");
 

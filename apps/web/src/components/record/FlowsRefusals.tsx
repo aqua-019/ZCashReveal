@@ -220,13 +220,17 @@ export function FlowsQuarantine() {
       </p>
       <ul className="quarantine">
         {records.map((u: Unverified) => (
-          <li key={u.id}>
+          // `id` here is what makes the quarantine permalink resolve. The
+          // U- family routes to /flows (packages/content loaders), and this is
+          // the only place on the site that renders these four records, so this
+          // is where the anchor target belongs. Without it every U- citation
+          // dead-ends on a page that has no such element.
+          <li key={u.id} id={u.id}>
             <span className="st">{u.status}</span>
             <p className="cl">{u.claim}</p>
             <p className="why">{u.why}</p>
             <FlowsClaim
               id={u.id}
-              href={`/sources#${u.id}`}
               confidence={QUARANTINE_CONFIDENCE}
               lastVerified={u.lastVerified}
               sources={u.sources}

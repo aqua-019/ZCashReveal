@@ -48,10 +48,17 @@ test.describe("A6 pass state - reduced motion, no animations registered", () => 
     });
   }
 
-  test("the shell's tide is not merely stopped, it is not painted", async ({ page }) => {
+  test("the ceremony is not on a Record page at all", async ({ page }) => {
+    // Not "stopped" and not "display:none" - absent. Section 3 scopes the
+    // block-arrival tide to the splash, and A6 was previously satisfied by an
+    // element that simply had not pulsed yet: the first pulse is 75 seconds in,
+    // and getAnimations() is read moments after load. The component now renders
+    // nothing off `/`, which is a property a snapshot can actually see.
     await page.goto("/beware");
-    const display = await page.locator(".tide").evaluate((el) => getComputedStyle(el).display);
-    expect(display).toBe("none");
+    await expect(page.locator(".tide")).toHaveCount(0);
+
+    await page.goto("/");
+    await expect(page.locator(".tide")).toHaveCount(1);
   });
 });
 

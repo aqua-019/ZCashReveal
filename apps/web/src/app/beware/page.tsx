@@ -16,7 +16,6 @@ import { Metric, MetricRow } from "@/components/ui/Metric";
 import { Quote } from "@/components/ui/Quote";
 import { screenByHref } from "@/lib/nav";
 
-import "@/styles/record-beware.css";
 
 const S = screenByHref("/beware");
 

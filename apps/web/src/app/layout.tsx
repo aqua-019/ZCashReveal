@@ -56,7 +56,10 @@ const instrumentSerif = localFont({
  */
 const fraunces = localFont({
   src: "../fonts/fraunces-latin-variable.woff2",
-  weight: "100 900",
+  // Instanced at wght 300, which is the only weight any numeral rule asks for
+  // (test/unit/fonts.test.ts holds that assumption). The file carries no wght
+  // axis, so this declares the single weight it has.
+  weight: "300",
   style: "normal",
   variable: "--font-fraunces",
   display: "swap",
@@ -67,7 +70,12 @@ const fraunces = localFont({
 
 const jetbrainsMono = localFont({
   src: "../fonts/jetbrains-mono-latin-variable.woff2",
-  weight: "100 800",
+  // 400 to 700, which is the range the file now carries. The stylesheet asks
+  // for 400 and 500 only; 700 is kept so an inherited `<b>` inside the data
+  // register is drawn rather than synthesised. Declaring a wider range than the
+  // file has would tell the browser it can interpolate weights that are not
+  // there.
+  weight: "400 700",
   style: "normal",
   variable: "--font-jetbrains-mono",
   display: "swap",
@@ -109,6 +117,11 @@ export const metadata: Metadata = {
     description: "A public instrument for the Zcash turnstile, and the public record behind it.",
   },
   robots: { index: true, follow: true },
+  // Declared explicitly as well as by file convention. Without an icon the
+  // browser probes /favicon.ico, gets a 404, and Lighthouse scores
+  // errors-in-console at zero - which is a real console error on every page
+  // load, not merely a scoring artefact.
+  icons: { icon: "/icon.svg" },
 };
 
 export const viewport: Viewport = {

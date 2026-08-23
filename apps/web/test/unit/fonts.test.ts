@@ -70,12 +70,20 @@ function tableTags(bytes: Buffer): string[] {
     } else {
       tags.push(KNOWN_TAGS[index] ?? `?${index}`);
     }
-    // origLength, then transformLength when the transform version is non-zero
-    // for a table that defines one (glyf and loca).
+    // origLength always; then transformLength, but only when the table is
+    // actually transformed - and WOFF2 INVERTS the meaning of the flag between
+    // table families. For `glyf` and `loca`, transformVersion 0 means
+    // transformed and 3 means untransformed; for every other table it is the
+    // other way round. Both branches of this used to read `transform !== 0`,
+    // which is right for the second family and wrong for the first, so the
+    // cursor slipped by one varint on any font whose glyf table is transformed
+    // and the rest of the directory decoded as nonsense. The original Fraunces
+    // happened to survive it; the instanced one did not, which is how it was
+    // found.
     at = skipBase128(bytes, at);
     const tag = tags[tags.length - 1];
     const transform = flags >> 6;
-    const transformed = tag === "glyf" || tag === "loca" ? transform !== 0 : transform !== 0;
+    const transformed = tag === "glyf" || tag === "loca" ? transform === 0 : transform !== 0;
     if (transformed) at = skipBase128(bytes, at);
   }
   return tags;
@@ -120,13 +128,31 @@ describe("vendored webfonts", () => {
     expect(FAMILIES).toHaveLength(5); // four families, five files: the serif has an italic
   });
 
-  it("keeps Fraunces variable on opsz, wght and SOFT", () => {
+  it("keeps Fraunces variable on SOFT, the one axis the stylesheet varies", () => {
     const tags = tableTags(readFileSync(join(FONTS, "fraunces-latin-variable.woff2")));
     // fvar is the axis record. Without it the file is a static instance and
-    // `font-variation-settings: "opsz" 144, "SOFT" 30` in globals.css is inert.
+    // `font-variation-settings: "SOFT" 30` in globals.css is inert.
     expect(tags).toContain("fvar");
-    // gvar carries the outline deltas the axes interpolate between.
+    // gvar carries the outline deltas the axis interpolates between.
     expect(tags).toContain("gvar");
+  });
+
+  it("no numeral rule asks for a weight the instanced Fraunces cannot supply", () => {
+    // Fraunces is instanced at opsz 144 and wght 300, which is what every rule
+    // that uses it already asked for. That is only safe while it stays true: a
+    // rule setting a different weight on the numeral family, or a `<b>` nested
+    // inside one of these elements, would get a synthesised bold instead of a
+    // drawn one. This reads the stylesheet and holds the assumption to it.
+    const css = readFileSync(join(WEB, "src", "app", "globals.css"), "utf8");
+    const blocks = css.split("}");
+    const numeral = blocks.filter((b) => b.includes("var(--f-numeral)"));
+    expect(numeral.length, "no rule uses the numeral family - has it been renamed?").toBeGreaterThan(2);
+    for (const block of numeral) {
+      const weight = /font-weight:\s*(\d+)/.exec(block);
+      expect(weight?.[1], `a numeral rule sets no weight:\n${block.trim().slice(0, 120)}`).toBe("300");
+      const opsz = /font-variation-settings:[^;]*"opsz"\s*(\d+)/.exec(block);
+      if (opsz !== null) expect(opsz[1], "a numeral rule asks for an optical size other than 144").toBe("144");
+    }
   });
 
   it("keeps the two other variable faces variable", () => {
@@ -137,8 +163,12 @@ describe("vendored webfonts", () => {
 
   it("stays inside the webfont budget", () => {
     const total = FAMILIES.reduce((sum, { file }) => sum + readFileSync(join(FONTS, file)).byteLength, 0);
-    // 229 KiB today. The budget is a standing constraint from LEDGER-01 Q4: at
-    // 213 KiB unpreloaded, LCP sat at 3.0 s on the mobile preset. A family that
+    // 141 KiB today, down from 229 KiB: Fraunces was instanced at `opsz` 144
+    // and `wght` 300, which is what every rule in globals.css already asked of
+    // it, cutting the largest file by three quarters with no renderable change.
+    // The test above is what keeps that true. The budget is a standing
+    // constraint from LEDGER-01 Q4 - at 213 KiB unpreloaded, LCP sat at 3.0 s
+    // on the mobile preset - and A5 is what actually enforces it. A family that
     // pushes this over 280 KiB needs an explicit L2 decision, not a passing test.
     expect(total).toBeLessThan(280 * 1024);
   });

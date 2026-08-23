@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import {
+  getContradictions,
   getTimeline,
   resolveSources,
   timelineCategorySchema,
@@ -93,6 +94,8 @@ export default async function TimelinePage({
   const active: string = parsed.success ? parsed.data : ALL;
 
   const events = getTimeline();
+  // The dek states C8's figure, so it cites C8.
+  const c8 = getContradictions().find((c) => c.id === "C8");
 
   const counts = new Map<string, number>();
   for (const e of events) counts.set(e.category, (counts.get(e.category) ?? 0) + 1);
@@ -128,8 +131,8 @@ export default async function TimelinePage({
             Launch, funding, governance, leadership, exploits, upgrades, market and the promotion network on one axis. The
             governance strand alone runs{" "}
             <b>
-              Founders&apos; Reward to ZIP 1014 to ZIP 1015 to ZIP 1016 to the January 2026 walkout to a VC-funded lab writing
-              82 per cent of the code
+              Founders&apos; Reward to ZIP 1014 to ZIP 1015 to ZIP 1016 to the January 2026 walkout to a VC-funded lab whose
+              engineers accounted for roughly 82 per cent of merged protocol and wallet repository changes in Ironwood
             </b>
             . Dates are printed as the record states them: a row the sources date only to a month says so rather than
             borrowing a day from its sort key.
@@ -143,6 +146,18 @@ export default async function TimelinePage({
           </Glass>
         }
       />
+
+      <div className="claim" style={{ marginTop: 10 }}>
+        {c8 === undefined ? null : (
+          <>
+            <a className="anchor" href={`/contradictions#${c8.id}`}>
+              {c8.id}
+            </a>
+            <Cite id={c8.id} lastVerified={c8.lastVerified} confidence={c8.confidence} sources={resolveSources(c8.sources)} />
+            <span className="src">the 82 per cent figure, its scope and its confidence</span>
+          </>
+        )}
+      </div>
 
       <p className="note" style={{ marginTop: 4 }}>
         {events.length} dated entries, {counts.size} strands.{" "}

@@ -16,7 +16,6 @@ import { Pill } from "@/components/ui/Pill";
 import { Reason } from "@/components/ui/Reason";
 import { screenByHref } from "@/lib/nav";
 
-import "@/styles/record-method.css";
 
 const S = screenByHref("/method");
 

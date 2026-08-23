@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="ZCashReveal">
+  <rect width="32" height="32" rx="4" fill="#121110"/>
+  <!-- The turnstile: value crossing a boundary. The bar is the boundary, the
+       mark above it is what the chain publishes, the mark below is what the
+       proof hides. Gold is spent here on exactly the licensed job. -->
+  <rect x="6" y="15" width="20" height="2" rx="1" fill="#f4b728"/>
+  <circle cx="11" cy="9" r="2.5" fill="#ede6d8"/>
+  <circle cx="21" cy="23" r="2.5" fill="#8f8576" opacity="0.5"/>
+</svg>

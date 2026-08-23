@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 
 import { countTidePulse, noteConstructed, noteRefused } from "@/lib/diagnostics";
@@ -15,15 +16,43 @@ import { countTidePulse, noteConstructed, noteRefused } from "@/lib/diagnostics"
  *
  * `periodMs` stands in for the block feed. HANDOFF-11 replaces the interval
  * with the WebSocket's block event; `pulse()` is already the whole contract.
+ *
+ * SCOPED TO THE SPLASH. `Shell` mounts this once for the whole document, which
+ * put the ceremony on every Record page too - and HANDOFF-03 section 3 is
+ * explicit that Record pages are zero-motion "except the Splash fog/tide".
+ * Assertion A6 did not catch it, because it reads `document.getAnimations()`
+ * shortly after load and the tide first pulses 75 seconds in: the assertion was
+ * passing while the page still animated. Found by design review at gate round 1.
+ * The component now renders nothing off `/`, so there is no element to animate
+ * rather than an element that is animated quietly.
  */
 
 const DEFAULT_PERIOD_MS = 75_000;
 const PULSE_MS = 2_600;
 
-export function Tide({ periodMs = DEFAULT_PERIOD_MS }: { readonly periodMs?: number }) {
+export function Tide({
+  periodMs = DEFAULT_PERIOD_MS,
+  always = false,
+}: {
+  readonly periodMs?: number;
+  /**
+   * Render regardless of route. Only the dev-gated primitive gallery sets it:
+   * that page exists to mount every primitive once, and a component that
+   * renders nothing off `/` would otherwise be the one primitive it cannot
+   * show. Nothing in the published site passes it.
+   */
+  readonly always?: boolean;
+}) {
   const ref = useRef<HTMLDivElement | null>(null);
+  const pathname = usePathname();
+  const isSplash = always || pathname === "/";
 
   useEffect(() => {
+    if (!isSplash) {
+      noteRefused("Tide", "the block-arrival ceremony is scoped to the splash");
+      return;
+    }
+
     const el = ref.current;
     if (el === null) return;
 
@@ -52,7 +81,9 @@ export function Tide({ periodMs = DEFAULT_PERIOD_MS }: { readonly periodMs?: num
       if (off !== undefined) clearTimeout(off);
       ref.current?.classList.remove("on");
     };
-  }, [periodMs]);
+  }, [periodMs, isSplash]);
+
+  if (!isSplash) return null;
 
   return <div ref={ref} className="tide" aria-hidden="true" data-primitive="Tide" data-ui="tide" />;
 }

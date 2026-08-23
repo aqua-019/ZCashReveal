@@ -66,6 +66,15 @@ test.describe("A7 pass state - the category filter", () => {
 
     await page.goto("/timeline");
 
+    // Wait for the island to be live before stubbing. The chips are real links
+    // by design, so a click before hydration is a full navigation: the element
+    // detaches, Playwright retries into the new document, and the stub - which
+    // did not survive the navigation - is gone. Clicking GOV first and seeing
+    // the URL change without a reload is the proof that the handler is
+    // attached, and it is the only reliable hydration signal the page exposes.
+    await page.locator('.tl-filters a[href="/timeline?category=GOV"]').click();
+    await expect(page).toHaveURL(/category=GOV/);
+
     // Exactly the failure a sandboxed iframe produces. The platform throws it;
     // nothing but a try/catch at the call site can contain it.
     await page.evaluate(() => {
@@ -151,7 +160,7 @@ test.describe("A11 pass state - rendered dates are the corpus's own", () => {
     const coarse = getTimeline().find((e) => e.datePrecision === "year");
     expect(coarse, "the corpus has no year-precise row to check").toBeDefined();
     if (coarse === undefined) return;
-    await expect(page.locator(`#${CSS.escape(coarse.id)} .d .approx`)).toHaveText("year only");
+    await expect(page.locator(`[id="${coarse.id}"] .d .approx`)).toHaveText("year only");
   });
 });
 
@@ -163,12 +172,23 @@ test.describe("A11 fail state - a formatted sort key is detectable", () => {
     expect(target).toBeDefined();
     if (target === undefined) return;
 
+    // Let hydration finish before mutating React-owned DOM. Without this the
+    // write lands on the server-rendered node and React replaces it during
+    // hydration moments later, so the read back sees the original text and the
+    // check reports a pass it did not earn.
+    await page.locator('.tl-filters a[href="/timeline?category=GOV"]').click();
+    await expect(page).toHaveURL(/category=GOV/);
+    await page.locator('.tl-filters a[href="/timeline"]').click();
+
     await page.evaluate((id) => {
+      // `CSS.escape` IS available here - this callback runs in the page.
       const cell = document.querySelector(`#${CSS.escape(id)} .d`);
       if (cell?.firstChild !== null && cell?.firstChild !== undefined) cell.firstChild.textContent = id.slice(1);
     }, target.id);
 
-    const shown = await page.locator(`#${CSS.escape(target.id)} .d`).evaluate((el) => (el.childNodes[0]?.textContent ?? "").trim());
+    const shown = await page
+      .locator(`[id="${target.id}"] .d`)
+      .evaluate((el) => (el.childNodes[0]?.textContent ?? "").trim());
     expect(shown).toBe(target.date);
     expect(shown, "the planted sort key was not distinguishable from dateText").not.toBe(target.dateText);
   });

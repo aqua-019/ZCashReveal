@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { Tide } from "@/components/ambience/Tide";
 import { FogCanvas } from "@/components/ambience/FogCanvas";
 import { Block } from "@/components/ui/Block";
 import { Chip } from "@/components/ui/Chip";
@@ -289,10 +290,13 @@ export default function PrimitivesPage() {
         <div className="spec" style={{ marginTop: 14 }}>
           <Eyebrow idx="Tide">the one ceremony; never constructed under reduced motion</Eyebrow>
           <p className="note">
-            Tide is a shell singleton, mounted once for the document and already present on this page. It is fixed-position and
-            fully transparent until a block arrives. Mounting a second one here would be two block-arrival ceremonies on one
-            surface, which is the one thing the ceremony budget forbids.
+            Tide is a shell singleton, but from HANDOFF-03 it renders only on the splash: section 3 makes Record pages
+            zero-motion and the ceremony was running on all of them. The shell&apos;s instance is therefore absent here, and
+            this gallery mounts its own with the <code className="mono">always</code> escape - the one place in the tree that
+            passes it. It is fixed-position and fully transparent until a block arrives, so exactly one exists on this page
+            and nothing overlaps.
           </p>
+          <Tide always />
         </div>
         <div className="spec" style={{ marginTop: 14 }}>
           <Eyebrow idx="Grain">static texture, nothing to suppress</Eyebrow>

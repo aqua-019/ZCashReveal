@@ -83,7 +83,7 @@ const RUNGS: readonly Rung[] = [
  * danger, ok and blue. Painting it gold would give two adjacent claim levels the
  * same colour and the ramp would stop carrying information; `--warn` is already
  * a design token, so the fifth step costs nothing new. The rule is
- * `.chip.mt-warn` in styles/record-method.css. It wears the chip class but not
+ * `.chip.mt-warn` in globals.css, route layer /method. It wears the chip class but not
  * `data-primitive="Chip"`, because it is not that component and the primitive
  * audit surface should not be told otherwise.
  */

@@ -152,9 +152,15 @@ export default function SplashPage() {
         />
       </MetricRow>
 
-      <p className="src" style={{ marginTop: 10 }}>
-        Pool balances and the shielded range as of {stats.asOf}, block {fmtInt(stats.height)}.{" "}
-        <span className="claim" style={{ display: "inline-flex", marginTop: 0 }}>
+      {/* Not a <p>. `Cite` renders a <details>, which the HTML parser treats as
+          closing an open paragraph: the disclosure gets torn out of both the
+          <p> and the .claim container, becomes a sibling, and leaves a stray
+          empty paragraph behind - a server/client DOM divergence React reports
+          as a hydration mismatch. Found by design review at gate round 1. The
+          same shape is why record-beware.css documents `.bw-lede` as a div. */}
+      <div className="src" style={{ marginTop: 10 }}>
+        Pool balances and the shielded range as of {stats.asOf}, block {fmtInt(stats.height)}.
+        <span className="claim">
           <Cite
             id="stats"
             href="/#pools"
@@ -163,7 +169,7 @@ export default function SplashPage() {
             sources={resolveSources(stats.sources)}
           />
         </span>
-      </p>
+      </div>
 
       <Block
         idx="01"

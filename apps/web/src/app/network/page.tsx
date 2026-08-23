@@ -27,8 +27,8 @@ import { KV } from "@/components/ui/KV";
 import { Quote } from "@/components/ui/Quote";
 import { ZEC_PRICE } from "@/lib/series";
 import { screenByHref } from "@/lib/nav";
+import { quarantineHref } from "@/lib/quarantine";
 
-import "@/styles/record-network.css";
 
 const S = screenByHref("/network");
 
@@ -264,6 +264,10 @@ export default function NetworkPage() {
    * invalid HTML and makes the permalink ambiguous, which on a page whose whole
    * proposition is "every claim has one canonical address" is worse than untidy.
    */
+  const hayesExit = edgeAt.get("N-edge-hayes-exits-position");
+  const zcashMedia = edgeAt.get("N-edge-zcg-grants-zcash-media");
+  const navalInvests = edgeAt.get("N-edge-naval-invests-ecc");
+
   const edgeClaim = (e: NetworkEdge, home = false) => (
     <span className="claim" {...(home ? { id: e.id } : {})}>
       <a className="anchor" href={`/network#${e.id}`}>
@@ -466,7 +470,18 @@ export default function NetworkPage() {
                                 edgeAt.get("N-edge-winklevoss-capital-sells-mining-fleet")?.date ?? ""
                               }, from the same fund that seeded the company`,
                       },
-                      { k: "shares outstanding", v: "83.9M to 107.76M, +223 per cent year on year" },
+                                            {
+                        k: "shares outstanding",
+                        // Two separate measurements, not one. 83.9M is the
+                        // 31 Dec 2025 count and 107,764,382 the 30 Jun 2026
+                        // count - a half-year move, not a year-on-year one -
+                        // and the +223 per cent figure is a StockAnalysis YoY
+                        // metric against a different base. Printing them as one
+                        // line made the percentage arithmetically false of the
+                        // pair beside it, about a named public company. Gate
+                        // round 1.
+                        v: "83,900,000 at 31 Dec 2025 to 107,764,382 at 30 Jun 2026",
+                      },
                       { k: "overhang", v: "80.77M pre-funded warrants and a $200M Cantor ATM" },
                       { k: "mNAV", v: "about 0.6x on basic shares at $790 ZEC - a discount, not a premium" },
                     ]}
@@ -609,11 +624,9 @@ export default function NetworkPage() {
             <ul className="nw-fair-list">
               <li>
                 <b>The loudest promoter sold, and said so.</b> Arthur Hayes liquidated the entire position on{" "}
-                {edgeAt.get("N-edge-hayes-exits-position")?.date ?? "4-5 Jun 2026"} and disclosed the exit publicly. That is not
-                what a coordinated cartel does.{" "}
-                <a className="src" href="/network#N-edge-hayes-exits-position">
-                  N-edge-hayes-exits-position
-                </a>
+                {hayesExit?.date ?? "4-5 Jun 2026"} and disclosed the exit publicly. That is not
+                what a coordinated cartel does.
+                {hayesExit === undefined ? null : edgeClaim(hayesExit)}
               </li>
               <li>
                 <b>The ecosystem argued with itself in public.</b>{" "}
@@ -634,24 +647,33 @@ export default function NetworkPage() {
               </li>
               <li>
                 <b>The grant programme killed its own biggest promotional grant.</b> The{" "}
-                {edgeAt.get("N-edge-zcg-grants-zcash-media")?.amount ?? "$600,000"} Zcash Media grant was cancelled at six of
-                nine milestones.{" "}
-                <a className="src" href="/network#N-edge-zcg-grants-zcash-media">
-                  N-edge-zcg-grants-zcash-media
-                </a>
+                {zcashMedia?.amount ?? "$600,000"} Zcash Media grant was cancelled at six of
+                nine milestones.
+                {zcashMedia === undefined ? null : edgeClaim(zcashMedia)}
               </li>
               <li>
                 <b>The advocacy predates the rally by years.</b> &quot;Privacy is normal&quot; is an ECC post of{" "}
                 {privacyIsNormal?.date ?? "21 Oct 2020"}; Naval&apos;s investment in the Electric Coin Company is{" "}
-                {edgeAt.get("N-edge-naval-invests-ecc")?.date ?? "2015"}, at{" "}
-                {edgeAt.get("N-edge-naval-invests-ecc")?.amount ?? "an undisclosed amount"}. This is a decade-old network, not
-                one assembled for a pump.
+                {navalInvests?.date ?? "2015"}, at{" "}
+                {navalInvests?.amount ?? "an undisclosed amount"}. This is a decade-old network, not one assembled for a
+                pump.
+                {navalInvests === undefined ? null : edgeClaim(navalInvests)}
               </li>
               <li>
-                <b>The regulator closed its file.</b> {secClosed?.title ?? "The SEC closed the Zcash Foundation probe."}{" "}
-                <a className="src" href={`/timeline#${secClosed?.id ?? "T2026-01-15"}`}>
-                  {secClosed?.id ?? "T2026-01-15"}
-                </a>
+                <b>The regulator closed its file.</b> {secClosed?.title ?? "The SEC closed the Zcash Foundation probe."}
+                {secClosed === undefined ? null : (
+                  <span className="claim">
+                    <a className="anchor" href={`/timeline#${secClosed.id}`}>
+                      {secClosed.id}
+                    </a>
+                    <Cite
+                      id={secClosed.id}
+                      lastVerified={secClosed.lastVerified}
+                      confidence={secClosed.confidence}
+                      sources={resolveSources(secClosed.sources)}
+                    />
+                  </span>
+                )}
               </li>
               <li>
                 <b>The engineering is real and it shipped.</b> {zashi?.title ?? "Zashi wallet launches"} (
@@ -662,10 +684,15 @@ export default function NetworkPage() {
               <li>
                 <b>It disclosed and fixed its own worst bug rather than burying it.</b> {b2?.id ?? "B2"} was found on{" "}
                 {b2?.discovered ?? "29 May 2026, 23:53"}. Fixed: {b2?.fixed ?? "3 Jun 2026"}. Disclosed:{" "}
-                {b2?.disclosed ?? "4 Jun 2026"}.{" "}
-                <a className="src" href={`/beware#${b2?.id ?? "B2"}`}>
-                  {b2?.id ?? "B2"}
-                </a>
+                {b2?.disclosed ?? "4 Jun 2026"}.
+                {b2 === undefined ? null : (
+                  <span className="claim">
+                    <a className="anchor" href={`/beware#${b2.id}`}>
+                      {b2.id}
+                    </a>
+                    <Cite id={b2.id} lastVerified={b2.lastVerified} confidence={b2.confidence} sources={resolveSources(b2.sources)} />
+                  </span>
+                )}
               </li>
               <li>
                 <b>The price fell, hard, twice.</b> From the November high to the March trough the plotted daily closes are{" "}
@@ -682,14 +709,19 @@ export default function NetworkPage() {
             </p>
             <ul className="quarantine">
               {dropped.map((u) => (
-                <li key={u.id}>
+                // `id` is what makes the permalink resolve: this page is where
+                // these four records render, and `quarantineHref` is the one
+                // place that knows it. They pointed at /sources before, which
+                // renders no U- id at all, so every citation dead-ended.
+                <li key={u.id} id={u.id}>
                   <span className="st">{u.status}</span>
                   <p className="cl">{u.claim}</p>
                   <p className="why">{u.why}</p>
                   <span className="claim">
-                    <a className="anchor" href={`/sources#${u.id}`}>
+                    <a className="anchor" href={quarantineHref(u.id)}>
                       {u.id}
                     </a>
+                    <Conf level="low" />
                   </span>
                 </li>
               ))}

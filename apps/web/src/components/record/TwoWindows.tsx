@@ -150,7 +150,7 @@ export function TwoWindows() {
             width={Math.max(x(b.to) - x(b.from), 2)}
             height={barH}
             rx={2}
-            fill={b.sound ? "rgba(237, 230, 216, 0.06)" : "url(#hatch-unsound)"}
+            fill={b.sound ? "var(--line-faint)" : "url(#hatch-unsound)"}
             stroke={b.sound ? "var(--line)" : "rgba(228, 85, 63, 0.7)"}
             strokeWidth={1}
           />

@@ -21,6 +21,7 @@ import {
   toZatoshi,
   utc,
 } from "@/components/record/FlowsAmount";
+import { quarantineHref } from "@/lib/quarantine";
 import { FlowsClaim } from "@/components/record/FlowsClaim";
 import { FlowsEnd } from "@/components/record/FlowsLabels";
 import { Chip } from "@/components/ui/Chip";
@@ -177,7 +178,9 @@ function claimedRows(): readonly ClaimedRow[] {
       to: "unspecified",
       assessment: arkham.why,
       id: arkham.id,
-      href: `/sources#${arkham.id}`,
+      // The record itself is anchored in the allegations table below; this row
+      // cites it there rather than claiming the anchor for a second time.
+      href: quarantineHref(arkham.id),
       sources: arkham.sources,
       // The quarantine carries a status rather than a confidence, and every
       // status in it means "not publishable as fact". Rendering it at low is
@@ -488,7 +491,9 @@ export function FlowsReconstruction() {
               text: (
                 <>
                   <b>Fact.</b> The fresh address received exactly 49,999.97 ZEC from the hot wallet on 24 and 25 December
-                  2025, plus a 0.99 ZEC seed, for 50,000.96 ZEC in total.
+                  2025, and its balance is 50,000.96 ZEC. The 0.99 ZEC difference is arithmetic; the corpus records no
+                  fourth withdrawal, so what it was is not established. Calling it a funding seed would be a behavioural
+                  read, and this step is labelled a fact.
                 </>
               ),
             },
