@@ -92,7 +92,8 @@ The Tracking suite UI in `apps/web`, driven by a typed `ZecApi` interface with a
 STATUS: DONE-WITH-ASSUMPTIONS
 
 BRANCH / PR: claude/prompt04-p86caa (the harness names the branch; the PR title
-  carries HANDOFF-04, which is what LOG.md and LEDGER.md key on). PR: see LOG.md.
+  carries HANDOFF-04, which is what LOG.md and LEDGER.md key on). PR #35, opened as a
+  draft and stopped there: https://github.com/aqua-019/ZCashReveal/pull/35
 
 SPAWN MODE (proven by tool attempt, reported first): the Workflow tool answers
   in this session and was used for the gate - task wnvyleonc, four reviewer
