@@ -11,6 +11,7 @@
     "migrate": "node --import tsx ./src/migrate.ts",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
+    "pretest": "pnpm --filter \"{.}^...\" build",
     "test": "vitest run",
     "test:watch": "vitest",
     "clean": "rm -rf dist"

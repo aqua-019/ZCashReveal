@@ -121,6 +121,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@zcashreveal/content':
+        specifier: workspace:*
+        version: link:../../packages/content
       next:
         specifier: 15.5.23
         version: 15.5.23(@playwright/test@1.56.1)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)

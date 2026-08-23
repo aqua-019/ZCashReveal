@@ -57,15 +57,19 @@ Why each of those is what it is:
 - **Node 22.** The repo's `.nvmrc` pins `22`; `apps/web` is written against Node 22 and
   `@types/node@^22`.
 
-### The build requires egress to Google Fonts
+### RESOLVED at HANDOFF-03: the build no longer needs Google Fonts, or any egress
 
-`apps/web` uses `next/font/google`, which fetches Instrument Serif, Fraunces, JetBrains Mono and
-Manrope at **build time** and self-hosts them from `_next/static/media` afterwards, so a visitor
-never contacts Google. The build, however, does: it needs `fonts.googleapis.com` and
-`fonts.gstatic.com`, and a failed fetch is a hard build error rather than a fall back to the
-declared fallback stacks. Vercel's build network reaches both. If a future network policy blocks
-them, the fix is in code (vendor the four families, switch to `next/font/local`), not in the
-dashboard.
+Until HANDOFF-03 `apps/web` fetched Instrument Serif, Fraunces, JetBrains Mono and Manrope at
+**build time** through `next/font`'s remote loader. A visitor never contacted Google - the files
+were self-hosted from `_next/static/media` afterwards - but the build did, and a failed fetch is a
+hard build error rather than a fall back to the declared stacks. It failed for HANDOFF-01 once and
+for L2 once more while verifying HANDOFF-02.
+
+The four families are now committed under `apps/web/src/fonts` and loaded with `next/font/local`.
+`pnpm build` makes no font request at all: HANDOFF-03 assertion A9 runs the build inside an empty
+network namespace, where DNS resolves nothing, and it reaches `Generating static pages (14/14)`.
+Provenance, the exact CSS2 requests each file came from, the OFL texts and the refresh procedure
+are in `apps/web/src/fonts/README.md`. Nothing about this is a dashboard setting.
 
 `apps/web/vercel.json` pins `"framework": "nextjs"` so the preset is recorded in the repository
 rather than only in the project settings.
@@ -147,13 +151,22 @@ keep the new project broken.
 The root `.vercelignore` stays. It is a v0.2 artefact (it excludes `apps/indexer`, `apps/gateway`,
 `infra`) and does no work for `zecreveal`, but unlike `vercel.json` it does no harm either.
 
-> **A note for HANDOFF-03.** `buildCommand` above is plain `next build`, which is correct only
-> while `apps/web` has no workspace dependencies. HANDOFF-03 makes it depend on
-> `@zcashreveal/content`. At that point either add `transpilePackages: ["@zcashreveal/content"]` to
-> `next.config` and leave the command alone, or change `buildCommand` in `apps/web/vercel.json` to
-> `pnpm --filter @zcashreveal/content build && next build`. Update
-> `scripts/check-vercel-config.mjs` to match, since it pins the expected value. Never fix this by
-> restoring a root `vercel.json`, and never by editing the project settings in the dashboard.
+> **RESOLVED at HANDOFF-03: `buildCommand` now builds the workspace dependency.** HANDOFF-02 left
+> this note because `buildCommand` was a bare `next build`, which is correct only while `apps/web`
+> has no workspace dependencies, and HANDOFF-03 makes it depend on `@zcashreveal/content`.
+>
+> `apps/web/vercel.json` now pins
+> `pnpm --filter @zcashreveal/content build && next build`, and
+> `scripts/check-vercel-config.mjs` asserts that exact string.
+>
+> The `transpilePackages` alternative the note offered does **not** work here, and it is worth
+> saying why so nobody tries it again: `transpilePackages` changes how Next compiles a package, not
+> how Node resolves it. `@zcashreveal/content` declares `"exports"` pointing at `dist/src/index.js`,
+> so resolution fails before Next's compiler is ever consulted unless something has emitted `dist`.
+> Naming the build in the command is the honest fix.
+>
+> Never fix this by restoring a root `vercel.json`, and never by editing the project settings in the
+> dashboard.
 
 ---
 

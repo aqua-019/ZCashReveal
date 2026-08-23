@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint src test scripts",
     "typecheck": "tsc --noEmit",
+    "pretest": "pnpm --filter \"{.}^...\" build",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
@@ -16,6 +17,7 @@
     "clean": "rm -rf .next .turbo node_modules/.cache"
   },
   "dependencies": {
+    "@zcashreveal/content": "workspace:*",
     "next": "15.5.23",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
