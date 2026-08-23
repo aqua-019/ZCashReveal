@@ -1,7 +1,7 @@
 ---
 handoff: 03
 title: The Record — Splash, Beware, Contradictions, Timeline, Network, Method, Flows, Sources
-status: shipped
+status: closed
 branch: the session-designated branch (name it `feat/v2-03-record-pages` if you may choose)
 track: Web
 depends_on: 01, 02

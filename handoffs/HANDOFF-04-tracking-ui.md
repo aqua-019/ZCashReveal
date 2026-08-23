@@ -1,7 +1,7 @@
 ---
 handoff: 04
 title: ZEC Tracking UI in fixture mode — search, mempool, address, tx, pools, reveal
-status: open
+status: in-progress
 branch: the session-designated branch (name it `feat/v2-04-tracking-ui` if you may choose)
 track: Web
 depends_on: 01, 02 (03 optional)
@@ -45,16 +45,24 @@ The Tracking suite UI in `apps/web`, driven by a typed `ZecApi` interface with a
 - **Tip-hash fixture** (LEDGER-01 Q2, fold 5): the canonical tip hash is the 64-character value in
   `apps/web/src/lib/chain.ts`. Never copy the 65-character literal out of the mockup HTML — it carries one
   zero too many in its leading run.
+- **`@zcashreveal/types` is a dependency of `apps/web`** (LEDGER-03 fold 1). The DTOs are imported, never
+  restated: `/method` imports the `ClaimLevel` union rather than declaring its own copy, and the tracking
+  routes import every view type from the package. `apps/web` defines no wire type of its own.
+- **Dates print their own text** (LEDGER-02 Q3, carried forward by LEDGER-03 fold 2). Any date the tracking
+  UI renders prints its record's own `dateText`; a formatted sort key is never rendered, and a record whose
+  `datePrecision` is coarser than `day` never renders a day.
 
 ## §4 DELIVERABLES
 
-1. Routes: `/track` (search + mempool), `/address/[addr]`, `/tx/[txid]`, `/block/[height]`, `/pools`, `/reveal`; `/flows` under Tracking is a summary linking to the Record `/flows`.
-2. `/address`: header with label + provenance chip, exact balance tiles, balance step chart, interaction graph, transactions table with pool-side estimates, Reasoning panel. Fixture: the ZIP 271 lockbox (`t3ev37Q2…`, balance 78,183.4093, received 93,496.6388, sent 15,313.2295, four transactions).
-3. `/tx`: public-fields panel, inference chain (raw → spent-count → time window → amount echo → N_eff → claim), round-trip ledger. Fixture: `7ae85864…` (50,000.5541 ZEC unshield, 2 Jan 2026).
-4. `/pools`: Sankey with normalised node heights and hover, balances table, Unprovable Residual tile, pool history (stacked area with the two unsound bands), drain / migration lens / Ironwood-birth panels.
-5. `/track` mempool: dense table + detail panel with per-class reasoning; WS client (ported from legacy `ws.ts`, reconnecting) fed by a fixture stream in fixture mode.
-6. `/reveal`: Mode B fogged pane + Mode A ceremony UI with client-side prefix validation and the 2.1 gate.
-7. Dashboard test infrastructure (vitest + testing-library + jsdom) with tests for `searchKind` and estimate rendering; `docs/2.0/screens/track-*.png`.
+1. **First, before any tracking CSS is written** (LEDGER-03 Q5, fold 6): the `globals.css` de-duplication pass. Three preformatted-mono treatments collapse to one, two compact-cell registers collapse to one, and seven card insets move onto the five-step inset ladder. HANDOFF-03 folded four route stylesheets into `globals.css` to buy back a render-blocking request; the consolidation stays, and this handoff adds the largest CSS surface in the project, so the collapse is cheaper now than after.
+2. Routes: `/track` (search + mempool), `/address/[addr]`, `/tx/[txid]`, `/block/[height]`, `/pools`, `/reveal`; `/flows` under Tracking is a summary linking to the Record `/flows`.
+3. `/address`: header with label + provenance chip, exact balance tiles, balance step chart, interaction graph, transactions table with pool-side estimates, Reasoning panel. Fixture: the ZIP 271 lockbox (`t3ev37Q2…`, balance 78,183.4093, received 93,496.6388, sent 15,313.2295, four transactions).
+4. `/tx`: public-fields panel, inference chain (raw → spent-count → time window → amount echo → N_eff → claim), round-trip ledger. Fixture: `7ae85864…` (50,000.5541 ZEC unshield, 2 Jan 2026).
+5. `/pools`: Sankey with normalised node heights and hover, balances table, Unprovable Residual tile, pool history (stacked area with the two unsound bands), drain / migration lens / Ironwood-birth panels.
+6. `/track` mempool: dense table + detail panel with per-class reasoning; WS client (ported from legacy `ws.ts`, reconnecting) fed by a fixture stream in fixture mode.
+7. `/reveal`: Mode B fogged pane + Mode A ceremony UI with client-side prefix validation and the 2.1 gate.
+8. Dashboard test infrastructure (vitest + testing-library + jsdom) with tests for `searchKind` and estimate rendering; `docs/2.0/screens/track-*.png`.
+9. A `surface` field on the `Unverified` schema in `packages/content` (LEDGER-03 Q4, fold 5), carrying the route each quarantined record renders beside. `permalink()` reads that field rather than applying a prefix rule, and the split module in `apps/web` that holds the mapping today (`src/lib/quarantine.ts`) is retired.
 
 ## §5 ASSERTIONS — binary, machine-checkable, each needs a pass-state and a fail-state transcript
 
@@ -66,6 +74,8 @@ The Tracking suite UI in `apps/web`, driven by a typed `ZecApi` interface with a
 - **A6.** `/pools` Sankey node heights sum (plus gaps) to ≤ the SVG height (no overflow) — computed in a test from the rendered `rect` attributes.
 - **A7.** The mempool WS client reconnects after a simulated close within 1.5 s (unit test with a fake WebSocket).
 - **A8.** Every `Estimate` rendered contains ≥ 1 `FilterApplication` row with `countIn`/`countOut` and a claim chip (Playwright on `/tx/...`).
+- **A9.** The `globals.css` de-duplication holds (deliverable 1, LEDGER-03 fold 6): each of the three collapsed patterns appears exactly once in the stylesheet, and `/beware` and `/flows` render identically before and after the pass (a Playwright screenshot comparison against baselines captured on the pre-pass tree).
+- **A10.** Lighthouse (LEDGER-03 Q1, fold 3): performance >= 95 and accessibility >= 95 **measured on the deployed preview**. Where no deployed measurement is reachable - Deployment Protection returns 302 to the SSO endpoint for every preview, which is operator click 03 and is now blocking - the container number (`next start`, mobile preset, simulated throttling) is recorded instead, and a Record page of `/beware`'s size passes at >= 90 with that reason cited. Accessibility stays at >= 95 with no exception, on any surface.
 
 ## §6 DISPATCH HINTS (director-build decides; these are L2's routing suggestions)
 
