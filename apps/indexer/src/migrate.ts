@@ -30,8 +30,31 @@ async function main() {
     }
     const body = await readFile(join(MIGRATIONS_DIR, f), "utf8");
     console.log(`[migrate] apply ${f}`);
-    await sql.unsafe(body);
-    await sql`INSERT INTO schema_migrations (name) VALUES (${f})`;
+    /**
+     * The file body and the row that records it commit together or not at all.
+     *
+     * The body itself was never the exposed half: postgres.js sends a
+     * parameterless `unsafe()` as one simple-query message, and Postgres wraps
+     * a multi-statement simple query in an implicit transaction, so a statement
+     * failing mid-file already rolled the whole file back. The gap was between
+     * the two calls. The body committed on its own, and if the
+     * schema_migrations INSERT then failed - a dropped connection, a crash
+     * between the round trips - the database was migrated with nothing on it
+     * saying so, and the next run replayed the entire file against a schema
+     * that already had it.
+     *
+     * 001 and 002 replay harmlessly whatever the runner does, because they only
+     * CREATE ... IF NOT EXISTS. 003 is the first migration that ALTERs objects
+     * it did not create, and it survives a replay only because each of its
+     * ALTERs was written to: DROP CONSTRAINT IF EXISTS before every ADD, ADD
+     * COLUMN IF NOT EXISTS, DROP NOT NULL on a column that may already be
+     * nullable. That is a property a later migration can simply forget to have,
+     * and the runner is the only place it stops being load-bearing.
+     */
+    await sql.begin(async (tx) => {
+      await tx.unsafe(body);
+      await tx`INSERT INTO schema_migrations (name) VALUES (${f})`;
+    });
   }
 
   await sql.end();

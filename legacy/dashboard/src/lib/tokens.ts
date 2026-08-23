@@ -20,12 +20,26 @@ export const SEVERITY_LABEL: Record<Severity, string> = {
   CRITICAL: "CRIT",
 };
 
+/*
+ * THIS APP IS RETIRED AND THESE THREE MAPS ARE KEPT COMPILING, NOT MAINTAINED.
+ *
+ * legacy/dashboard is v0.2, parked read-only by HANDOFF-00 and switched off at
+ * the HANDOFF-11 cutover. It is still in the workspace, so it is still in
+ * `pnpm typecheck`, and `Record<LeakClass, string>` means every widening of
+ * that union lands here as a build failure. HANDOFF-06 added MIGRATION_O2I;
+ * the three entries below are the minimum that keeps the workspace building.
+ *
+ * The O2I colour deliberately reuses the migration token rather than taking a
+ * new one: this app is not getting a design pass, and inventing a colour here
+ * would put a fifth pool-ish token into a palette nobody is going to reconcile.
+ */
 export const LEAK_CLASS_COLOR: Record<LeakClass, string> = {
   PURE_SHIELDED: "var(--color-pure)",
   T_TO_Z: "var(--color-deposit)",
   Z_TO_T: "var(--color-withdrawal)",
   MIXED: "var(--color-medium)",
   MIGRATION_S2O: "var(--color-migration)",
+  MIGRATION_O2I: "var(--color-migration)",
   COINBASE_SHIELDED: "var(--color-low)",
   FULLY_TRANSPARENT: "var(--color-transparent)",
 };
@@ -36,6 +50,7 @@ export const LEAK_CLASS_LABEL: Record<LeakClass, string> = {
   Z_TO_T: "z → t",
   MIXED: "mixed",
   MIGRATION_S2O: "S → O",
+  MIGRATION_O2I: "O → I",
   COINBASE_SHIELDED: "coinbase",
   FULLY_TRANSPARENT: "transparent",
 };
@@ -46,6 +61,7 @@ export const LEAK_CLASS_DESCRIPTION: Record<LeakClass, string> = {
   Z_TO_T: "Shielded to transparent — withdrawal, transparent side fully public",
   MIXED: "Mixed pool transaction — partial t↔z boundary crossing",
   MIGRATION_S2O: "Sapling to Orchard pool migration",
+  MIGRATION_O2I: "Orchard to Ironwood pool migration (ZIP 318)",
   COINBASE_SHIELDED: "Miner shielded coinbase output",
   FULLY_TRANSPARENT: "No shielded components — all data public",
 };

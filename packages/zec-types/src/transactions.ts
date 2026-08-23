@@ -110,6 +110,38 @@ export interface RpcOrchardBundle {
   bindingSig?: Hex | undefined;
 }
 
+/**
+ * One JoinSplit description, as `getrawtransaction` renders it.
+ *
+ * DECLARED HERE SINCE HANDOFF-06 BECAUSE FOUR CALL SITES WERE READING IT
+ * THROUGH `as unknown as`. Sprout's movement is not a `valueBalance` field: each
+ * JoinSplit carries `vpub_old`, the value it takes out of the transparent pool
+ * and puts into Sprout, and `vpub_new`, the value it releases back, so Sprout's
+ * contribution in the `valueBalance` sign convention is `vpub_new - vpub_old`
+ * summed over these. An undeclared field read through a cast is the exact shape
+ * of the `expiryheight` defect HANDOFF-05 found: the cast agrees with whatever
+ * the author typed and the wire is never consulted.
+ *
+ * The `Zat` suffixed fields are the integer ones. The unsuffixed `vpub_old` and
+ * `vpub_new` are ZEC floats (Zebra 6.3.0, types/transaction.rs `JoinSplit`) and
+ * are declared so that reading the wrong one is a type error rather than a
+ * hundred-million-fold mistake.
+ */
+export interface RpcJoinSplit {
+  vpub_old?: number | undefined;
+  vpub_new?: number | undefined;
+  vpub_oldZat?: number | undefined;
+  vpub_newZat?: number | undefined;
+  anchor?: Hex | undefined;
+  nullifiers?: Hex[] | undefined;
+  commitments?: Hex[] | undefined;
+  onetimePubKey?: Hex | undefined;
+  randomSeed?: Hex | undefined;
+  macs?: Hex[] | undefined;
+  proof?: Hex | undefined;
+  ciphertexts?: Hex[] | undefined;
+}
+
 export interface RpcTransaction {
   txid: Hex;
   hash?: Hex | undefined;
@@ -136,13 +168,33 @@ export interface RpcTransaction {
   weight?: number | undefined;
   vin: RpcVin[];
   vout: RpcVout[];
+  /** Sprout. Absent on every transaction that carries no JoinSplit, which is nearly all of them. */
+  vjoinsplit?: RpcJoinSplit[] | undefined;
   vShieldedSpend?: RpcSaplingSpend[] | undefined;
   vShieldedOutput?: RpcSaplingOutput[] | undefined;
   valueBalanceZat?: number | undefined;
   bindingSig?: Hex | undefined;
   orchard?: RpcOrchardBundle | undefined;
   time?: number | undefined;
+  /**
+   * NO NODE SENDS A FEE, AND THESE TWO FIELDS ARE KEPT ONLY TO SAY SO.
+   *
+   * Zebra's `TransactionObject` has no fee field (6.3.0, types/transaction.rs,
+   * scanned in full) and neither does zcashd's `getrawtransaction`: the fee is
+   * the difference between the outputs a transaction spends and what it pays
+   * out, and the spent outputs are not in the response. Reading `tx.feeZat`
+   * therefore yields `undefined` for every transaction from every node, which
+   * is how `BigInt(tx.feeZat ?? 0)` produced a fee of `0n` for every
+   * transaction this project ever analysed.
+   *
+   * Compute the fee with `computeFeeZat` in the indexer, which resolves the
+   * previous outputs. Do not read these. They stay declared because deleting
+   * them would let a future author reintroduce the field believing it arrives.
+   *
+   * @deprecated Never populated by Zebra or zcashd. Use `computeFeeZat`.
+   */
   fee?: number | undefined;
+  /** @deprecated Never populated by Zebra or zcashd. Use `computeFeeZat`. */
   feeZat?: number | undefined;
   blockhash?: Hex | undefined;
   confirmations?: number | undefined;

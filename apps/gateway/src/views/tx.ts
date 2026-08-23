@@ -18,7 +18,7 @@
  * is a lower bound rather than reporting a number computed from a subset.
  */
 import type { LedgerLane, TxView } from "@zcashreveal/types";
-import { claimLevelFor } from "@zcashreveal/types";
+import { claimLevelFor, conventionalFeeZat } from "@zcashreveal/types";
 
 import {
   lanesTouched,
@@ -38,15 +38,6 @@ export interface IndexedLeak {
   readonly severity: "INFO" | "LOW" | "MED" | "HIGH";
   readonly feeZat: bigint | null;
   readonly likelyWallet: string | null;
-}
-
-const ZIP317_MARGINAL_FEE = 5_000n;
-const ZIP317_GRACE_ACTIONS = 2n;
-
-/** ZIP 317's conventional fee for a transaction with this many logical actions. */
-export function conventionalFeeZat(logicalActions: number): bigint {
-  const actions = BigInt(logicalActions);
-  return (actions > ZIP317_GRACE_ACTIONS ? actions : ZIP317_GRACE_ACTIONS) * ZIP317_MARGINAL_FEE;
 }
 
 export async function buildTxView(
@@ -78,7 +69,8 @@ export async function buildTxView(
   const feeZat = isCoinbase ? 0n : indexed?.feeZat ?? inputZat + boundary - outputZat;
 
   // ZIP 317's own definition, from Zebra's implementation of it - not a count
-  // of inputs and outputs. See `zip317LogicalActions`.
+  // of inputs and outputs. See `zip317LogicalActions` in
+  // `packages/zec-types/src/zip317.ts`, which both apps now compute L through.
   const logicalActions = zip317LogicalActions(tx);
   const conventional = feeZat === conventionalFeeZat(logicalActions);
   /** True where the fee above is admittedly incomplete, so no verdict rests on it. */
@@ -252,3 +244,15 @@ export async function buildTxView(
  * `claimLevelFor`.
  */
 export { claimLevelFor };
+
+/**
+ * ZIP 317's conventional fee, for the same reason one level down.
+ *
+ * The arithmetic used to be written out here - `max(2, L) * 5,000` - and again
+ * in `views/mempool.ts`, and a third time in `apps/web`'s mempool fixture, so
+ * the fee curve had three authors and one of them could have been corrected
+ * alone. It is now `packages/zec-types/src/zip317.ts`'s, beside the definition
+ * of L it is a function of; the two belong together, because a change to either
+ * one alone publishes a fee that does not match the actions it prices.
+ */
+export { conventionalFeeZat };

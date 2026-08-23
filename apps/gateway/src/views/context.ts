@@ -146,10 +146,15 @@ export async function resolveInputs(ctx: ReadContext, tx: RpcTransaction): Promi
  * itself uses for `valueBalance`: it is the value the shielded bundle
  * contributes to the transparent value pool.
  *
- * Sapling's balance and Orchard's are summed, and Ironwood's is included as
- * soon as a node sends it - reading the bundle by name rather than by a pool
- * union, because widening `Pool` to four is HANDOFF-06's and this must not
- * pretend to have done it.
+ * Sapling's balance and Orchard's are summed, Sprout's JoinSplit term comes
+ * from the function directly below, and Ironwood's is included as soon as a
+ * node sends it. The bundles are still read BY NAME, through a structural type, rather
+ * than by walking the pool union - and the reason is no longer that the union
+ * is short. HANDOFF-06 widened `Pool` to all four pools, so `ironwood` is a
+ * member of it now; what has not happened is v6 decoding, which is HANDOFF-07's,
+ * so this build has never checked an Ironwood bundle's serialised shape against
+ * a node. A name that may not arrive yet resolves to `0` here, which is the
+ * safe direction for a field that is money.
  */
 export function poolValueBalanceZat(tx: RpcTransaction): bigint {
   const sapling = BigInt(tx.valueBalanceZat ?? 0);
@@ -201,95 +206,27 @@ export function shieldedActionCount(tx: RpcTransaction): number {
    ZIP 317 logical actions
    ========================================================================== */
 
-/** ZIP 317's standard sizes, in bytes. */
-const P2PKH_STANDARD_INPUT_SIZE = 150;
-const P2PKH_STANDARD_OUTPUT_SIZE = 34;
-
 /**
- * The number of logical actions ZIP 317 assigns to a transaction.
+ * ZIP 317's logical-action count, re-exported from the one implementation.
  *
- * TAKEN FROM THE CANONICAL IMPLEMENTATION, not from a summary of it: Zebra
- * 6.3.0, `zebra-chain/src/transaction/unmined/zip317.rs:160-173`, at commit
- * 1c9b245.
+ * THE COPY THAT USED TO LIVE HERE IS GONE, along with its byte-size helpers and
+ * the long argument for them. This project computed L three different ways -
+ * here, in `apps/indexer/src/decoder/fingerprint.ts`, and in prose in
+ * `docs/2.0/TRACKING-MATH.md` section 3.5 - and the three disagreed on ordinary
+ * transactions rather than on edge cases, so `/track` and `/tx` could state two
+ * different action counts for the same transaction. HANDOFF-06 moved the rule
+ * to `packages/zec-types/src/zip317.ts`, which is where the reasoning now lives:
+ * the byte-based transparent term, the case that makes it matter (a 2-of-3 P2SH
+ * lockbox input serialises at 297 bytes, so two of them cost four logical
+ * actions and 20,000 zatoshi where a count of inputs says two and 10,000), and
+ * `zip317LogicalActionsP2pkhApproximation` beside it - the count form, kept so
+ * `/method` can show a reader the difference rather than assert one.
  *
- *   logical = max(ceil(inSize / 150), ceil(outSize / 34))
- *           + 2 * joinsplits
- *           + max(saplingSpends, saplingOutputs)
- *           + orchardActions
- *           + ironwoodActions
- *
- * THREE THINGS ARE EASY TO GET WRONG HERE AND THIS PROJECT GOT ALL THREE
- * WRONG in its first pass. Sapling contributes the MAXIMUM of its spends and
- * outputs, not their sum. Joinsplits count double. And the transparent side is
- * measured in BYTES against a standard size, not in inputs and outputs: a P2SH
- * multisig input is larger than a standard one and costs more than one action,
- * which is precisely the case the site's own subject matter is full of.
- *
- * THREE OTHER PLACES IN THIS PROJECT STATE A DIFFERENT L, and one of them is a
- * specification rather than an implementation.
- *
- *   `apps/indexer/src/decoder/fingerprint.ts` SUMS the transparent input and
- *   output counts and sums Sapling's spends and outputs. Wrong twice over, and
- *   its figure differs from this one for any transaction with more than one
- *   input. Correcting it is analysis and belongs to HANDOFF-08.
- *
- *   `docs/2.0/TRACKING-MATH.md` section 3.5 and the `/method` page that renders
- *   it both give `L = max(t_in, t_out) + 2*nJoinSplit + max(sapling) + orchard`
- *   - the count-based form. That is ZIP 317's rule with its transparent term
- *   APPROXIMATED: the real one is `max(ceil(inSize/150), ceil(outSize/34))`,
- *   and the two agree exactly when every input and output is a standard P2PKH.
- *   They diverge for larger scripts - and the largest script on this site is
- *   the ZIP 271 lockbox, a 2-of-3 P2SH multisig whose inputs run well past 150
- *   bytes. So the one address the project cares most about is the one where its
- *   own stated formula and the protocol disagree.
- *
- * This function follows the protocol, and the divergence from TRACKING-MATH is
- * a question for L2 in the section 8 ledger rather than a silent correction to
- * a document this handoff does not own.
+ * Re-exported rather than deleted because the projections read every derived
+ * quantity through this module, and a second import path for the same rule is
+ * how a second copy of it gets written.
  */
-export function zip317LogicalActions(tx: RpcTransaction): number {
-  const inSize = tx.vin.reduce((acc, v) => acc + transparentInputSize(v), 0);
-  const outSize = tx.vout.reduce((acc, o) => acc + transparentOutputSize(o), 0);
-  const transparent = Math.max(divCeil(inSize, P2PKH_STANDARD_INPUT_SIZE), divCeil(outSize, P2PKH_STANDARD_OUTPUT_SIZE));
-
-  const joinsplits = (tx as unknown as { vjoinsplit?: unknown[] }).vjoinsplit?.length ?? 0;
-  const sapling = Math.max(tx.vShieldedSpend?.length ?? 0, tx.vShieldedOutput?.length ?? 0);
-  const orchard = tx.orchard?.actions.length ?? 0;
-  const ironwood = (tx as unknown as { ironwood?: { actions?: unknown[] } }).ironwood?.actions?.length ?? 0;
-
-  return transparent + 2 * joinsplits + sapling + orchard + ironwood;
-}
-
-/**
- * The serialised size of one transparent input, from what the RPC gives.
- *
- * 32 bytes of previous txid, 4 of previous index, a compact-size script length,
- * the script itself, and 4 of sequence. A coinbase input carries its script in
- * `coinbase` rather than in `scriptSig`, and is the same size otherwise.
- */
-function transparentInputSize(vin: RpcTransaction["vin"][number]): number {
-  const scriptHex = vin.scriptSig?.hex ?? vin.coinbase ?? "";
-  const scriptLen = scriptHex.length >>> 1;
-  return 32 + 4 + compactSize(scriptLen) + scriptLen + 4;
-}
-
-/** 8 bytes of value, a compact-size script length, and the script. */
-function transparentOutputSize(vout: RpcTransaction["vout"][number]): number {
-  const scriptLen = vout.scriptPubKey.hex.length >>> 1;
-  return 8 + compactSize(scriptLen) + scriptLen;
-}
-
-/** Bitcoin's compact-size encoding width for a length. */
-function compactSize(n: number): number {
-  if (n < 253) return 1;
-  if (n <= 0xffff) return 3;
-  if (n <= 0xffff_ffff) return 5;
-  return 9;
-}
-
-function divCeil(a: number, b: number): number {
-  return Math.ceil(a / b);
-}
+export { zip317LogicalActions } from "@zcashreveal/types";
 
 /** Which lanes a transaction touches, in the site's five-lane vocabulary. */
 export function lanesTouched(tx: RpcTransaction): ("transparent" | "sprout" | "sapling" | "orchard" | "ironwood")[] {

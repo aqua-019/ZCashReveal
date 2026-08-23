@@ -157,22 +157,44 @@ const ESTIMATORS: readonly Estimator[] = [
     kind: { pill: "exact", text: "hard" },
     statement: (
       <>
-        ZIP 317: <span className="mono">fee = 5,000 zat &times; max(2, L)</span> with{" "}
+        ZIP 317: <span className="mono">fee = 5,000 zat &times; max(2, L)</span>, and the transparent term of{" "}
+        <span className="mono">L</span> is measured in serialised <b>bytes</b> rather than in counts:{" "}
         <span className="mono">
-          L = max(t_in, t_out) + 2 &middot; nJoinSplit + max(nSpendsSapling, nOutputsSapling) + nActionsOrchard (+
-          nActionsIronwood)
+          L = max(ceil(inSize / 150), ceil(outSize / 34)) + 2 &middot; nJoinSplit + max(nSpendsSapling, nOutputsSapling) +
+          nActionsOrchard + nActionsIronwood
         </span>
-        . The transparent counts are public, so <span className="mono">L</span> bounds the shielded arity exactly - and a
-        non-conventional fee is itself a wallet fingerprint.
+        , where <span className="mono">inSize</span> and <span className="mono">outSize</span> are the summed serialised
+        sizes of the transparent inputs and of the transparent outputs, and 150 and 34 are the sizes ZIP 317 fixes for a
+        standard P2PKH input and output. The transparent side is public, so <span className="mono">L</span> bounds the
+        shielded arity exactly - and a non-conventional fee is itself a wallet fingerprint.{" "}
+        <b>The count form</b>,{" "}
+        <span className="mono">
+          L_p2pkh = max(t_in, t_out) + 2 &middot; nJoinSplit + max(nSpendsSapling, nOutputsSapling) + nActionsOrchard +
+          nActionsIronwood
+        </span>
+        , is that rule with its byte term replaced by counts. It agrees with the protocol while every transparent input
+        and output is a standard P2PKH, which is nearly every transaction on the chain, and diverges for anything larger:
+        the ZIP 271 lockbox is a 2-of-3 P2SH multisig whose inputs serialise at 297 bytes each, so two of them paying one
+        P2PKH output give the protocol <span className="mono">L = 4</span> and a 20,000 zat conventional fee where the
+        count form gives <span className="mono">L = 2</span> and 10,000.
       </>
     ),
     refuses: (
       <>
         It bounds arity, not identity: it says how many logical actions a transaction had, never whose. That a transaction
-        carries three shielded actions says nothing whatever about what is inside them.
+        carries three shielded actions says nothing whatever about what is inside them. And the count form decides
+        nothing: a page calling a lockbox disbursement non-conventional on its authority would be stating a falsehood
+        about the one address this site follows most closely, so whether a fee is conventional is settled by the byte
+        form or left unsettled.
       </>
     ),
-    lineage: [{ kind: "source", ref: "S-zcash-improvement-proposals-zip-0317" }],
+    lineage: [
+      { kind: "source", ref: "S-zcash-improvement-proposals-zip-0317" },
+      {
+        kind: "internal",
+        text: "packages/zec-types/src/zip317.ts - the rule as Zebra implements it, zip317.rs:160-173",
+      },
+    ],
   },
   {
     n: "3.6",

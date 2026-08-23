@@ -3,6 +3,8 @@ import {
   asHex,
   type Hex,
   type LeakReport,
+  type ShieldedPool,
+  type Zatoshi,
 } from "@zcashreveal/types";
 import { RoundTripIndex } from "../round-trip.js";
 
@@ -14,19 +16,58 @@ const h = (n: number) => asHex(n.toString(16).padStart(64, "0"));
  * inert defaults.
  *
  * RoundTripIndex reads: txid, seenAt, tipHeightAtSeen,
- *   bundle.{sapling,orchard}ValueBalanceZat,
+ *   valueFlow.perPoolZat,
  *   identity.sender.transparentAddresses[0],
  *   identity.recipient.transparentAddresses[0].
+ *
+ * THE PER-POOL LIST IS DERIVED HERE, NOT WRITTEN OUT ALONGSIDE THE BALANCES,
+ * and that is the whole repair. `ingest()` stopped reading
+ * `bundle.{sapling,orchard}ValueBalanceZat` by name in HANDOFF-06 and now loops
+ * over `valueFlow.perPoolZat`, so a fixture that set only the bundle balances
+ * would typecheck, run, and produce ZERO links - every assertion in this file
+ * would fail against code that is correct. Deriving both from one set of
+ * numbers means the fixture cannot describe a report the analyser could not
+ * build.
+ *
+ * Sprout and Ironwood are accepted as well as Sapling and Orchard, because the
+ * four-pool widening is what this suite now has to cover. Only Sprout, Sapling
+ * and Orchard have a named field on `ValueBalanceAnnotation`; Ironwood reaches
+ * the index solely through `perPoolZat`, which is exactly why that array exists
+ * rather than three fields plus a fourth to be added later.
  */
 function makeReport(opts: {
   txid: Hex;
   seenAt: number;
   tipHeightAtSeen?: number;
+  sproutValueBalanceZat?: bigint;
   saplingValueBalanceZat?: bigint;
   orchardValueBalanceZat?: bigint;
+  ironwoodValueBalanceZat?: bigint;
   senderAddress?: string;
   recipientAddress?: string;
 }): LeakReport {
+  const sproutValueBalanceZat = opts.sproutValueBalanceZat ?? 0n;
+  const saplingValueBalanceZat = opts.saplingValueBalanceZat ?? 0n;
+  const orchardValueBalanceZat = opts.orchardValueBalanceZat ?? 0n;
+  const ironwoodValueBalanceZat = opts.ironwoodValueBalanceZat ?? 0n;
+
+  // A pool that did not move does not appear, matching `classifyValueFlow`.
+  // Filtering on `!== 0n` rather than emitting four entries is not tidiness: a
+  // zero entry is neither a deposit nor a withdrawal to `ingest()`, but it
+  // would let a fixture assert a pool was "seen" when nothing moved in it.
+  const perPoolZat: ReadonlyArray<{ readonly pool: ShieldedPool; readonly deltaZat: Zatoshi }> = (
+    [
+      ["sprout", sproutValueBalanceZat],
+      ["sapling", saplingValueBalanceZat],
+      ["orchard", orchardValueBalanceZat],
+      ["ironwood", ironwoodValueBalanceZat],
+    ] as ReadonlyArray<readonly [ShieldedPool, Zatoshi]>
+  )
+    .filter(([, deltaZat]) => deltaZat !== 0n)
+    .map(([pool, deltaZat]) => ({ pool, deltaZat }));
+
+  const crossesPoolBoundary = perPoolZat.length > 0;
+
   return {
     txid: opts.txid,
     seenAt: opts.seenAt,
@@ -37,9 +78,9 @@ function makeReport(opts: {
     bundle: {
       saplingSpends: [],
       saplingOutputs: [],
-      saplingValueBalanceZat: opts.saplingValueBalanceZat ?? 0n,
+      saplingValueBalanceZat,
       orchardActions: [],
-      orchardValueBalanceZat: opts.orchardValueBalanceZat ?? 0n,
+      orchardValueBalanceZat,
       orchardAnchor: null,
       orchardFlags: null,
     },
@@ -61,19 +102,29 @@ function makeReport(opts: {
     spends: [],
     outputs: [],
     valueFlow: {
-      saplingValueBalanceZat: 0n,
-      orchardValueBalanceZat: 0n,
+      sproutValueBalanceZat,
+      saplingValueBalanceZat,
+      orchardValueBalanceZat,
+      perPoolZat,
       netTransparentInflowZat: 0n,
       isPureShielded: false,
-      crossesPoolBoundary: false,
-      direction: "NONE",
+      crossesPoolBoundary,
+      direction: !crossesPoolBoundary
+        ? "NONE"
+        : perPoolZat.some((p) => p.deltaZat < 0n)
+          ? "DEPOSIT"
+          : "WITHDRAWAL",
     },
     fingerprint: {
       outputCount: 0,
       spendCount: 0,
       outputPadded: false,
-      feeZat: 0n,
-      isZip317ConventionalFee: false,
+      // Null, not 0n. HANDOFF-06 made the fee nullable precisely because 0n was
+      // the value every transaction carried while the analyser read a field no
+      // node sends; a fixture that keeps writing 0n keeps that shape alive.
+      // `RoundTripIndex` reads neither field.
+      feeZat: null,
+      isZip317ConventionalFee: null,
       expiryDelta: null,
       hasMemo: false,
       likelyWallet: "UNKNOWN_BUT_STANDARD",
@@ -284,6 +335,53 @@ describe("RoundTripIndex — poolPath", () => {
     );
     expect(links).toHaveLength(1);
     expect(links[0]?.poolPath).toBe("sapling→orchard");
+  });
+
+  it("Sprout and Ironwood are matchable, which is what reading perPoolZat bought", () => {
+    // PASS STATE for the four-pool widening. Neither of these pools has a
+    // `valueBalance` field the old two-branch `ingest()` could have read -
+    // Sprout is a JoinSplit sum and Ironwood is a v6 bundle - so before
+    // HANDOFF-06 this pair produced no link, silently, with nothing logged.
+    const rti = new RoundTripIndex({ now: () => 0 });
+    rti.ingest(makeReport({ txid: h(1), seenAt: 0, sproutValueBalanceZat: -100n }));
+    const links = rti.ingest(
+      makeReport({ txid: h(2), seenAt: HOUR, ironwoodValueBalanceZat: 100n }),
+    );
+    expect(links).toHaveLength(1);
+    expect(links[0]?.poolPath).toBe("sprout→ironwood");
+    expect(links[0]?.amountZat).toBe(100n);
+  });
+
+  it("FAIL STATE: a report whose pools did not move produces no deposit and no link", () => {
+    // The discriminating half of the test above. If `makeReport` emitted a
+    // `perPoolZat` entry per pool regardless of movement, this deposit-shaped
+    // report with every balance at zero would register four deposits and the
+    // withdrawal below would match one of them at an amount of nothing.
+    const rti = new RoundTripIndex({ now: () => 0 });
+    rti.ingest(makeReport({ txid: h(1), seenAt: 0 }));
+    expect(rti.snapshot().depositCount).toBe(0);
+    const links = rti.ingest(
+      makeReport({ txid: h(2), seenAt: HOUR, ironwoodValueBalanceZat: 100n }),
+    );
+    expect(links).toEqual([]);
+  });
+
+  it("one transaction moving two pools yields a deposit and a withdrawal from a single report", () => {
+    // A migration is one transaction draining one pool into another, so both
+    // halves arrive on the same report. Reading a list rather than two named
+    // fields is what lets the index see both without a second ingest.
+    const rti = new RoundTripIndex({ now: () => 0 });
+    rti.ingest(
+      makeReport({
+        txid: h(1),
+        seenAt: 0,
+        orchardValueBalanceZat: 100n,
+        ironwoodValueBalanceZat: -100n,
+      }),
+    );
+    const snap = rti.snapshot();
+    expect(snap.depositCount).toBe(1);
+    expect(snap.withdrawalCount).toBe(1);
   });
 });
 

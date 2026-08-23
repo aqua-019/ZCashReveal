@@ -14,8 +14,20 @@ import type { Hex } from "./transactions.js";
 import type { ShieldedPool } from "./shielded.js";
 
 /**
- * The two shielded pools ZCashReveal reasons about. Aliased to
- * ShieldedPool so there is a single source of truth across the type graph.
+ * The shielded pools ZCashReveal reasons about, aliased to `ShieldedPool` so
+ * there is a single source of truth across the type graph.
+ *
+ * FOUR SINCE HANDOFF-06 - sprout, sapling, orchard, ironwood. It read "the two
+ * shielded pools" until then, and `views.ts` carried a docblock saying this
+ * alias was "still the v0.2 pair" and naming HANDOFF-06 as the owner of the
+ * widening. Both were true statements that this commit makes false, so both are
+ * corrected here rather than left for a reader to trip over.
+ *
+ * Widening this admits `"sprout"` and `"ironwood"` into every generic below -
+ * `Commitment<P>`, `Anchor<P>`, `SpentNullifier<P>`, `BoundaryDelta<P>`,
+ * `PoolStateSnapshot<P>`, `CandidateRange<P>`, `ClaimAssessment<P>` - with no
+ * accompanying runtime check. The two that now exist are the database CHECK
+ * that migration 003 widens, and `ValuePool`'s exit-only guard.
  */
 export type Pool = ShieldedPool;
 

@@ -3,6 +3,7 @@ export * from "./shielded.js";
 export * from "./leaks.js";
 export * from "./realtime.js";
 export * from "./redis-topology.js";
+export * from "./zip317.js";
 export * from "./analysis.js";
 export * from "./views.js";
 

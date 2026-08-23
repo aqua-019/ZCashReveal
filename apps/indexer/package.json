@@ -8,6 +8,7 @@
     "build": "tsc -b",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
+    "premigrate": "pnpm --filter \"@zcashreveal/indexer^...\" build",
     "migrate": "node --import tsx ./src/migrate.ts",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",

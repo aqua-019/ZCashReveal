@@ -18,11 +18,26 @@ export function createDb(url: string): Sql {
   });
 }
 
+/**
+ * Write one leak report.
+ *
+ * `fee_zat` IS WRITTEN AS NULL WHEN THE FEE IS UNKNOWN, which migration 003
+ * makes possible by dropping the column's `NOT NULL DEFAULT 0`. Until then
+ * every row in this table claimed a fee of zero, because the analyser read
+ * `tx.feeZat` and no node sends one - so the column recorded a measurement that
+ * had never been taken, in a shape indistinguishable from a transaction that
+ * genuinely paid nothing.
+ *
+ * `sprout_value_balance_zat` is new in the same migration. It comes off
+ * `valueFlow` rather than `bundle`, because Sprout is a JoinSplit sum and not a
+ * decoded bundle - see decoder/sprout.ts.
+ */
 export async function persistLeakReport(sql: Sql, r: LeakReport): Promise<void> {
   await sql`
     INSERT INTO leak_reports (
       txid, seen_at, tip_height_at_seen, tx_version,
       leak_class, overall_severity,
+      sprout_value_balance_zat,
       sapling_value_balance_zat, orchard_value_balance_zat,
       sapling_spend_count, sapling_output_count, orchard_action_count,
       net_transparent_inflow_zat, value_flow_direction,
@@ -35,6 +50,7 @@ export async function persistLeakReport(sql: Sql, r: LeakReport): Promise<void> 
       ${r.txVersion},
       ${r.leakClass},
       ${r.overallSeverity},
+      ${r.valueFlow.sproutValueBalanceZat.toString()},
       ${r.bundle.saplingValueBalanceZat.toString()},
       ${r.bundle.orchardValueBalanceZat.toString()},
       ${r.bundle.saplingSpends.length},
@@ -42,7 +58,7 @@ export async function persistLeakReport(sql: Sql, r: LeakReport): Promise<void> 
       ${r.bundle.orchardActions.length},
       ${r.valueFlow.netTransparentInflowZat.toString()},
       ${r.valueFlow.direction},
-      ${r.fingerprint.feeZat.toString()},
+      ${r.fingerprint.feeZat === null ? null : r.fingerprint.feeZat.toString()},
       ${r.fingerprint.expiryDelta},
       ${r.fingerprint.likelyWallet},
       ${sql.json(serializeReport(r) as Parameters<typeof sql.json>[0])}

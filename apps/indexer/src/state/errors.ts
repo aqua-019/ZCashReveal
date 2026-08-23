@@ -54,6 +54,28 @@ export class NegativeBalanceError extends ZCashRevealStateError {
   }
 }
 
+/**
+ * A boundary delta would move value INTO Orchard at or after NU6.3.
+ *
+ * ZIP 2006 makes Orchard exit-only from that height: no new value may enter it.
+ * Under this project's sign convention - positive means value LEFT the pool,
+ * negative means it entered - the rule is `deltaZat >= 0` for Orchard, and this
+ * error is what a negative one raises.
+ *
+ * THE THROW IS A STATEMENT ABOUT OUR DECODER, NEVER ABOUT THE CHAIN. A block
+ * that reached consensus satisfies the rule by construction; if our replay says
+ * otherwise, our replay is wrong. That is why this is a thrown error rather
+ * than a logged anomaly or a `Finding` on a report: an anomaly would invite the
+ * reader to conclude that Zcash accepted an invalid transaction, which is the
+ * most damaging false claim this project could publish.
+ */
+export class ExitOnlyViolation extends ZCashRevealStateError {
+  constructor(message: string) {
+    super(message);
+    this.name = "ExitOnlyViolation";
+  }
+}
+
 /** An anchor's maxPosition references a commitment position that has not yet been appended. */
 export class AnchorOutOfBoundsError extends ZCashRevealStateError {
   constructor(message: string) {

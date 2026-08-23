@@ -10,10 +10,11 @@
  *   value-pool.ts       → Bal^p_h    pool balance via turnstile deltas
  *   pool-state.ts       → S^p_h      composition + cross-index invariants
  *
- * Each index is pool-typed (`<P extends Pool>`) so Sapling and Orchard
- * state are distinct types at compile time. Inside an index, the
- * generic parameter is unused at runtime — it exists purely to make
- * cross-pool data corruption impossible to express.
+ * Each index is pool-typed (`<P extends Pool>`) so the four pools' state are
+ * distinct types at compile time. Inside an index, the generic parameter is
+ * mostly unused at runtime — it exists to make cross-pool data corruption
+ * impossible to express. `ValuePool` is the exception since HANDOFF-06: it
+ * reads its own pool at runtime to enforce Orchard's exit-only rule.
  *
  * PoolState owns only the cross-index invariant: an anchor's maxPosition
  * must reference a real commitment position (`< commitments.size()`).
@@ -21,6 +22,7 @@
  */
 
 import type { Anchor, Pool, PoolStateSnapshot } from "@zcashreveal/types";
+import type { Network } from "../decoder/activation-heights.js";
 import { CommitmentIndex } from "./commitment-index.js";
 import { AnchorIndex } from "./anchor-index.js";
 import { NullifierIndex } from "./nullifier-index.js";
@@ -33,11 +35,20 @@ export class PoolState<P extends Pool> {
   public readonly nullifiers: NullifierIndex<P>;
   public readonly value: ValuePool<P>;
 
-  constructor(public readonly pool: P) {
+  /**
+   * @param pool which pool this state machine tracks.
+   * @param network which network's activation heights the value invariants
+   *   use. Passed straight through to `ValuePool`, which is the only component
+   *   whose rules are height-dependent. Defaults to mainnet.
+   */
+  constructor(
+    public readonly pool: P,
+    public readonly network: Network = "mainnet",
+  ) {
     this.commitments = new CommitmentIndex<P>(pool);
     this.anchors = new AnchorIndex<P>(pool);
     this.nullifiers = new NullifierIndex<P>(pool);
-    this.value = new ValuePool<P>(pool);
+    this.value = new ValuePool<P>(pool, network);
   }
 
   /**

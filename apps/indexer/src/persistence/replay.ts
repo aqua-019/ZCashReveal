@@ -64,10 +64,16 @@ export async function replayInto<P extends Pool>(
 }
 
 /**
- * Rollback all four state-machine tables to height H across BOTH pools
+ * Rollback all four state-machine tables to height H across ALL FOUR POOLS
  * atomically. Deletes records with block_height > H (or the table's
  * analogous height column: pool_anchors.height_created,
  * pool_nullifiers.spent_height). Records at height H are retained.
+ *
+ * It said "both pools" until HANDOFF-06 widened the model, and the sentence was
+ * describing the pool count rather than the query: the DELETEs carry no
+ * `WHERE pool = ...` at all, so this function covered a fourth pool the moment
+ * one existed and needed no change. Only the description was wrong, which is
+ * the kind of stale statement that survives longest because nothing fails.
  *
  * Wraps the four DELETEs in a single transaction so a mid-rollback crash
  * leaves the tables consistent. Works whether `conn` is a top-level Sql

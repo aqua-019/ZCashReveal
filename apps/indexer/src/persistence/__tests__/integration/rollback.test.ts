@@ -16,15 +16,29 @@ describe.skipIf(!reachable)("rollbackAllToHeight (chain-level reorg primitive)",
   beforeEach(() => truncateAll(sql));
   afterAll(() => sql.end({ timeout: 5 }));
 
+  /**
+   * ALL FOUR POOLS, NOT TWO. This loop ran over sapling and orchard until
+   * HANDOFF-06, which was right when the model had two pools and became a
+   * silent gap when it gained Sprout and Ironwood: `rollbackAllToHeight` issues
+   * DELETEs with no `WHERE pool = ...`, so it covered the new pools the moment
+   * they existed - and nothing here would have noticed if it had not, because
+   * no row of theirs was ever written.
+   *
+   * The per-pool id offset is derived from the pool's index rather than from a
+   * `pool === "sapling" ? 1 : 100` ternary, which had no third answer to give.
+   */
+  const POOLS = ["sprout", "sapling", "orchard", "ironwood"] as const;
+
   async function seed() {
     // Seed three records per table per pool at heights 100, 200, 300.
-    for (const pool of ["sapling", "orchard"] as const) {
+    for (const pool of POOLS) {
+      const offset = POOLS.indexOf(pool) * 1_000;
       for (let i = 0; i < 3; i++) {
         const height = 100 * (i + 1);
         await writePoolCommitment(
           {
             pool,
-            cmId: h(i + (pool === "sapling" ? 1 : 100)),
+            cmId: h(i + offset + 1),
             position: BigInt(i),
             txid: h(i + 10),
             height,
@@ -34,7 +48,7 @@ describe.skipIf(!reachable)("rollbackAllToHeight (chain-level reorg primitive)",
         await writePoolAnchor(
           {
             pool,
-            root: h(i + (pool === "sapling" ? 1000 : 2000)),
+            root: h(i + offset + 10_000),
             heightCreated: height,
             maxPosition: BigInt(i),
           },
@@ -43,7 +57,7 @@ describe.skipIf(!reachable)("rollbackAllToHeight (chain-level reorg primitive)",
         await writePoolNullifier(
           {
             pool,
-            nfId: h(i + (pool === "sapling" ? 3000 : 4000)),
+            nfId: h(i + offset + 20_000),
             spentTxid: h(i + 5000),
             spentHeight: height,
           },
@@ -58,15 +72,15 @@ describe.skipIf(!reachable)("rollbackAllToHeight (chain-level reorg primitive)",
     }
   }
 
-  it("deletes rows with height > H across all four tables and both pools", async () => {
+  it("deletes rows with height > H across all four tables and all four pools", async () => {
     await seed();
     const counts = await rollbackAllToHeight(150, sql);
-    // For each table: 2 sapling rows + 2 orchard rows above 150 = 4 deleted
+    // Per table: 2 rows above 150 (at 200 and 300) in each of four pools = 8.
     expect(counts).toEqual({
-      commitments: 4,
-      anchors: 4,
-      nullifiers: 4,
-      boundaryFlows: 4,
+      commitments: 8,
+      anchors: 8,
+      nullifiers: 8,
+      boundaryFlows: 8,
     });
   });
 
@@ -77,7 +91,7 @@ describe.skipIf(!reachable)("rollbackAllToHeight (chain-level reorg primitive)",
       SELECT COUNT(*)::text AS count FROM pool_commitments
     `;
     expect(rows[0]).toBeDefined();
-    expect(Number(rows[0]!.count)).toBe(2); // 1 sapling + 1 orchard at height 100
+    expect(Number(rows[0]!.count)).toBe(4); // one per pool at height 100
   });
 
   it("at H above all records, deletes zero rows", async () => {

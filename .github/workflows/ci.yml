@@ -48,7 +48,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      # THE THREE STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose. None of
+      # THE FOUR STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose. None of
       # them needs node_modules or a build - they are bash, grep and dependency-free
       # node - and putting them after meant a PR whose build broke never got its
       # verdict on any of them. The Redis one in particular protects another
@@ -71,6 +71,15 @@ jobs:
       # the guard's allowlist: an executable file that can name one can run one.
       - name: Redis safety (shared managed store)
         run: node scripts/check-redis-safety.mjs
+
+      # HANDOFF-06 widened the pool model from two to four. A field still typed as
+      # the old sapling-or-orchard pair cannot hold a Sprout or Ironwood value, and
+      # it fails by silently dropping one rather than by refusing it, which is the
+      # kind of defect that reads as "that pool had no activity". The detector is
+      # self-tested in both directions on every run, so a clean scan is evidence
+      # rather than the absence of it. See A7.
+      - name: Pool union (no stale two-pool unions)
+        run: node scripts/check-pool-union.mjs
 
       - name: Install
         run: pnpm install --frozen-lockfile
