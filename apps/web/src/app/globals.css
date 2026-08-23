@@ -1582,6 +1582,750 @@ canvas[data-ui="fog"] {
   }
 }
 
+/* ============================================================================
+   The Record apparatus - HANDOFF-03
+   ----------------------------------------------------------------------------
+   Everything below serves one of the four things section 3 of HANDOFF-03 asks
+   the Record to carry on every claim: the claim id as a permalink target, the
+   confidence, the citation, and - for anything drawn rather than written - a
+   table twin. The rules follow the same three laws as the rest of this file:
+   one hover verb (dim), one curve, and nothing that animates.
+   ========================================================================== */
+
+/* ---------- the claim line ----------
+   A rule of small mono affordances that sits under a claim's own heading: the
+   id, the confidence, and the citation disclosure. It is deliberately quiet -
+   the claim is the content, and this is its apparatus - but it is never absent,
+   because a claim without visible provenance is the thing this site exists to
+   argue against. */
+.claim {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.claim > .anchor {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 2px 7px;
+  transition: color var(--t1) var(--ease), border-color var(--t1) var(--ease);
+}
+
+.claim > .anchor:hover {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.claim > .anchor::before {
+  content: "#";
+  color: var(--ink-faint);
+  margin-right: 3px;
+}
+
+/* The scroll target of a claim-id permalink. Without this the system bar,
+   which is fixed, covers the heading the fragment just jumped to. */
+[id] {
+  scroll-margin-top: 84px;
+}
+
+/* ---------- cite this ----------
+   A native disclosure, not an island: keyboard-operable, announced, and
+   dismissible with nothing loaded. `details` has no default animation, which is
+   what keeps A6 (zero registered animations on a Record page) true by
+   construction rather than by exclusion. */
+.cite {
+  font-family: var(--f-mono);
+  font-size: 10px;
+}
+
+.cite > summary {
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 2px 8px;
+  transition: color var(--t1) var(--ease), border-color var(--t1) var(--ease);
+}
+
+.cite > summary::-webkit-details-marker {
+  display: none;
+}
+
+.cite > summary:hover {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.cite[open] > summary {
+  color: var(--ink);
+  border-color: var(--gold-dim);
+}
+
+.cite .cite-id {
+  color: var(--ink-dim);
+}
+
+.cite .cite-verb::before {
+  content: "";
+  display: inline-block;
+  width: 1px;
+  height: 9px;
+  background: var(--line-strong);
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+
+.cite .cite-body {
+  margin-top: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--gold-dim);
+  border-radius: var(--radius);
+  background: var(--surface);
+  max-width: 72ch;
+}
+
+.cite .cite-body a {
+  color: var(--blue-fn);
+  word-break: break-word;
+}
+
+.cite .cite-sources {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--ink-dim);
+}
+
+.cite .cite-sources li::marker {
+  color: var(--ink-faint);
+}
+
+/* ---------- charts ----------
+   Every chart is a <figure data-chart> holding exactly one <svg> and exactly
+   one <table>, as siblings. Assertion A3 counts them, and the twin is the
+   accessible representation: the svg is aria-hidden, because a picture of a
+   table announced alongside the table is the same numbers read twice. */
+.chart {
+  margin: 0;
+}
+
+.chart-cap {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  padding-bottom: 10px;
+}
+
+.chart .plot {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.chart .legend {
+  margin-top: 12px;
+}
+
+.chart-note {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--ink-mute);
+  max-width: var(--measure);
+}
+
+/* Thin marks. A gridline that competes with the data is a gridline that has
+   misunderstood its job. */
+.plot .gridline {
+  stroke: var(--line-faint);
+  stroke-width: 1;
+}
+
+.plot .axisline {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+/* Text in ink tokens, never in a series colour. */
+.plot .tick {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  fill: var(--ink-mute);
+}
+
+.plot .tick-y {
+  text-anchor: end;
+  dominant-baseline: middle;
+}
+
+.plot .tick-x {
+  text-anchor: middle;
+}
+
+.plot .axis-label {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  fill: var(--ink-faint);
+}
+
+.plot .axis-label-x {
+  text-anchor: end;
+}
+
+.plot .axis-label-y {
+  text-anchor: start;
+}
+
+.plot .series {
+  fill: none;
+  stroke-width: 1.75;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.plot .point {
+  stroke: var(--bg);
+  stroke-width: 1;
+}
+
+/* Sparing direct labels, set in ink over a halo of the ground so a label that
+   crosses a mark stays readable without a box around it. */
+.plot .mark-label {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  fill: var(--ink-dim);
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 3.5;
+  stroke-linejoin: round;
+}
+
+.plot .band {
+  fill: var(--gold-wash);
+}
+
+.plot .band-edge {
+  stroke: var(--gold-dim);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+/* ---------- the two-windows diagram ----------
+   Ten years of chain life as one rule, with the two unsound windows marked on
+   it. The rule is the whole argument of /beware in one picture: the windows are
+   not incidents on a timeline, they are most of it. */
+.plot .lifeline {
+  stroke: var(--line-strong);
+  stroke-width: 2;
+}
+
+.plot .window {
+  stroke-width: 10;
+  stroke-linecap: butt;
+}
+
+.plot .window-sprout {
+  stroke: var(--p-sprout);
+}
+
+.plot .window-orchard {
+  stroke: var(--p-orchard);
+}
+
+.plot .era-tick {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+/* ---------- the network loop ----------
+   Nodes, edges, and label halos. The halo is what makes a label crossing an
+   edge legible without a filled box: the text is stroked in the ground colour
+   underneath itself. */
+.plot .node {
+  fill: var(--surface-3);
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.plot .node-label {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  fill: var(--ink);
+  text-anchor: middle;
+  dominant-baseline: middle;
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+
+.plot .edge {
+  stroke: var(--line-strong);
+  stroke-width: 1.25;
+  fill: none;
+}
+
+.plot .edge-label {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  fill: var(--ink-mute);
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 3.5;
+  stroke-linejoin: round;
+}
+
+/* ---------- the timeline ----------
+   Harvested verbatim from the mockup's `.tl` block, with two deliberate
+   changes, both recorded in the section 8 ledger:
+
+   1. The mockup filters with a `.hidden` CLASS. This uses the `hidden`
+      ATTRIBUTE instead, because that also removes the row from the
+      accessibility tree and from Playwright's visibility, which is what makes
+      assertion A7 ("renders only EXPLOIT rows") a count rather than a matter of
+      opinion. The rule below is not decoration: `.tl .ev` sets `display:grid`
+      at specificity 0,2,0, which DEFEATS the user-agent's `[hidden]` rule, so
+      without this line every "hidden" row renders.
+   2. The category chips are anchors rather than buttons, so the filter works
+      with no JavaScript and a filtered view can be opened in a new tab. The
+      pressed state moves from `aria-pressed` to `aria-current`, which is the
+      correct property for a link that represents the current view. */
+.tl-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 14px 0 8px;
+}
+
+.tl-filters .chip {
+  cursor: pointer;
+  text-decoration: none;
+  transition: color var(--t1) var(--ease), border-color var(--t1) var(--ease);
+}
+
+.tl-filters .chip[aria-current="true"] {
+  color: var(--gold-ink);
+  background: var(--gold);
+  border-color: var(--gold);
+}
+
+.tl-filters .chip .n {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.65;
+}
+
+.tl {
+  position: relative;
+  margin-top: 10px;
+  border-left: 1px solid var(--line-strong);
+  padding-left: 22px;
+}
+
+.tl .yr {
+  font-family: var(--f-numeral);
+  font-variation-settings: "opsz" 144;
+  font-weight: 300;
+  font-size: 44px;
+  color: var(--ink);
+  margin: 26px 0 8px;
+  line-height: 1;
+  position: relative;
+}
+
+/* A hollow gold dot punched through the rail. */
+.tl .yr::before {
+  content: "";
+  position: absolute;
+  left: -27px;
+  top: 16px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--gold);
+}
+
+.tl .ev {
+  display: grid;
+  grid-template-columns: 112px 86px 1fr;
+  gap: 14px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-faint);
+  align-items: start;
+  transition: opacity var(--t2) var(--ease);
+}
+
+/* See note 1 above. Without this, `hidden` does nothing here. */
+.tl .ev[hidden] {
+  display: none;
+}
+
+/* The one hover verb. */
+.tl:hover .ev:not(:hover) {
+  opacity: 0.6;
+}
+
+.tl .d {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--ink-mute);
+  letter-spacing: 0.04em;
+  padding-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A row the corpus dates only to a month, a year or a span says which, rather
+   than borrowing a day from the sort key. */
+.tl .d .approx {
+  display: block;
+  color: var(--ink-faint);
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+
+.tl .cat {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding-top: 4px;
+}
+
+.cat-LAUNCH {
+  color: var(--ink-dim);
+}
+
+.cat-FUND {
+  color: var(--gold);
+}
+
+.cat-GOV {
+  color: var(--p-ironwood);
+}
+
+.cat-LEAD {
+  color: var(--p-transparent);
+}
+
+.cat-EXPLOIT {
+  color: var(--danger);
+}
+
+.cat-TECH {
+  color: var(--p-sprout);
+}
+
+.cat-MARKET {
+  color: var(--p-sapling);
+}
+
+.cat-REG {
+  color: var(--ink-mute);
+}
+
+.cat-NET {
+  color: var(--p-orchard);
+}
+
+.tl .t {
+  font-size: 13.5px;
+  color: var(--ink-dim);
+  line-height: 1.5;
+}
+
+.tl .t b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.tl .t .src {
+  display: block;
+  margin-top: 3px;
+}
+
+/* The claim apparatus sits under the row text, not in its own column. */
+.tl .t .claim {
+  margin-top: 7px;
+}
+
+@media (max-width: 760px) {
+  .tl .ev {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .tl .yr {
+    font-size: 34px;
+  }
+}
+
+/* ---------- the contradictions grid ---------- */
+.contra {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 900px) {
+  .contra {
+    grid-template-columns: 1fr;
+  }
+}
+
+.contra .side {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.contra .said,
+.contra .shows {
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.contra .said {
+  border-left: 2px solid var(--line-strong);
+  color: var(--ink-dim);
+  font-family: var(--f-display);
+  font-size: 15px;
+}
+
+/* The chain's answer is the one that is allowed to be loud, and only here. */
+.contra .shows {
+  border-left: 2px solid var(--danger);
+  background: var(--danger-wash);
+  color: var(--ink);
+}
+
+.contra .lbl {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  display: block;
+  margin-bottom: 5px;
+}
+
+/* ---------- sources ----------
+   Two labelled groups, each with its own count: what the Record cites, and what
+   is in the corpus but uncited (LEDGER-02 Q2). A single undifferentiated list
+   of 328 would tell the reader nothing about which of them carries a claim. */
+.srcgroup {
+  margin-top: 26px;
+}
+
+.srclist {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+
+.srclist li {
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line-faint);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 18px;
+  align-items: baseline;
+}
+
+.srclist:hover li:not(:hover) {
+  color: var(--ink-mute);
+  transition: color var(--t2) var(--ease);
+}
+
+.srclist .t {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.srclist .t a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.srclist .t a:hover {
+  color: var(--blue-fn);
+  border-bottom-color: var(--blue-fn);
+}
+
+.srclist .meta {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink-mute);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.srclist .u {
+  grid-column: 1 / -1;
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  color: var(--ink-faint);
+  word-break: break-all;
+}
+
+/* Which claims cite this source. Present only in the cited group, by
+   definition. */
+.srclist .by {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.srclist .by a {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  color: var(--ink-mute);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1px 6px;
+}
+
+.srclist .by a:hover {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+/* ---------- the quarantine ----------
+   Unverified items are published as unverified, with the reason. Keeping them
+   off the site entirely would hide the fact that they were checked. */
+.quarantine {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.quarantine li {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--warn);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.quarantine .st {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--warn);
+}
+
+.quarantine .cl {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--ink-dim);
+}
+
+.quarantine .why {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: var(--ink-mute);
+}
+
+/* ---------- entity and phrase cards ---------- */
+.ent {
+  display: grid;
+  gap: 4px;
+}
+
+.ent .who {
+  font-family: var(--f-display);
+  font-size: 20px;
+  color: var(--ink);
+}
+
+.ent .kind {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+.ent .exposure {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.ent .none {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+/* ---------- estimator and method tables ---------- */
+.formula {
+  font-family: var(--f-mono);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.refuses {
+  font-size: 12.5px;
+  color: var(--danger);
+  margin-top: 8px;
+}
+
+.refuses b {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--danger);
+  display: block;
+  margin-bottom: 3px;
+}
+
 /* ---------- reduced motion ----------
    The belt to the architecture's braces. Components already refuse to build
    their loops (see components/ambience/*); this stops any transition declared
