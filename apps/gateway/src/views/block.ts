@@ -47,8 +47,9 @@ export function buildBlockView(block: BlockSource): BlockView {
       add("sapling", BigInt(tx.valueBalanceZat ?? 0));
     }
     if ((tx.orchard?.actions.length ?? 0) > 0) add("orchard", BigInt(tx.orchard?.valueBalanceZat ?? 0));
-    const ironwood = (tx as unknown as { ironwood?: { actions?: unknown[]; valueBalanceZat?: number } }).ironwood;
-    if ((ironwood?.actions?.length ?? 0) > 0) add("ironwood", BigInt(ironwood?.valueBalanceZat ?? 0));
+    if ((tx.ironwood?.actions.length ?? 0) > 0) {
+      add("ironwood", BigInt(tx.ironwood?.valueBalanceZat ?? 0));
+    }
     add("transparent", -boundary);
 
     rows.push({

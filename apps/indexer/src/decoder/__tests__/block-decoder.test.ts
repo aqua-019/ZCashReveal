@@ -137,43 +137,73 @@ const FIXTURES_DIR = join(
   "blocks",
 );
 
-function findMainnetFixture(): string | null {
-  if (!existsSync(FIXTURES_DIR)) return null;
-  const match = readdirSync(FIXTURES_DIR)
+/**
+ * EVERY capture in the directory, not the lexicographically first one.
+ *
+ * It was `.sort()[0]`, and heights sort as STRINGS: a pre-NU6.3
+ * `mainnet-1700512-*.json` sorts before a post-NU6.3 `mainnet-3428200-*.json`.
+ * So committing an Ironwood capture beside any other one would have dropped
+ * the Ironwood one silently, left the suite green, and let a report truthfully
+ * say "the real-fixture suite passes" about a file nobody opened. The README
+ * already promised the opposite - "the test discovers any file matching
+ * `mainnet-*.json`" - so the code was the half that was wrong.
+ *
+ * `synthetic-*.json` is deliberately outside this glob: a fixture a session
+ * wrote must never be mistaken for evidence a node produced.
+ */
+function findMainnetFixtures(): string[] {
+  if (!existsSync(FIXTURES_DIR)) return [];
+  return readdirSync(FIXTURES_DIR)
     .filter((f) => /^mainnet-.*\.json$/.test(f))
-    .sort()[0];
-  return match ? join(FIXTURES_DIR, match) : null;
+    .sort()
+    .map((f) => join(FIXTURES_DIR, f));
 }
 
-const fixturePath = findMainnetFixture();
+const fixturePaths = findMainnetFixtures();
 
-describe.skipIf(fixturePath === null)(
+describe.skipIf(fixturePaths.length === 0)(
   "decodeBlock — real mainnet fixture",
   () => {
     it("decodes a captured post-NU5 mainnet block end-to-end", () => {
-      // Guarded by skipIf above; assert non-null for the type checker since TS
-      // does not narrow `fixturePath` across the describe boundary.
-      const raw = JSON.parse(
-        readFileSync(fixturePath as string, "utf8"),
-      ) as RpcBlock;
-      const decoded = decodeBlock(raw);
+      // The title is pinned: `scripts/assert-no-skipped-integration.mjs` keys
+      // its one ALLOWED_SKIPS entry on this exact string, so renaming it turns
+      // the sanctioned skip into a CI failure. The loop is inside the `it` for
+      // that reason - every capture is asserted, under one title.
+      expect(fixturePaths.length).toBeGreaterThan(0);
 
-      expect(decoded.hash).toBe(raw.hash);
-      expect(decoded.height).toBe(raw.height);
-      expect(decoded.time).toBe(raw.time);
-      expect(decoded.txs).toHaveLength(raw.tx.length);
+      for (const path of fixturePaths) {
+        const raw = JSON.parse(readFileSync(path, "utf8")) as RpcBlock;
+        const decoded = decodeBlock(raw);
 
-      // §2 selection criteria guarantee both pools see activity in the capture.
-      const sawSapling = decoded.txs.some(
-        (t) => t.saplingSpends.length > 0 || t.saplingOutputs.length > 0,
-      );
-      const sawOrchard = decoded.txs.some((t) => t.orchardActions.length > 0);
-      expect(sawSapling).toBe(true);
-      expect(sawOrchard).toBe(true);
+        expect(decoded.hash, path).toBe(raw.hash);
+        expect(decoded.height, path).toBe(raw.height);
+        expect(decoded.time, path).toBe(raw.time);
+        expect(decoded.txs, path).toHaveLength(raw.tx.length);
 
-      // Both pools advanced → both block-level anchors mirror the header roots.
-      expect(decoded.saplingAnchor?.root).toBe(raw.finalsaplingroot);
-      expect(decoded.orchardAnchor?.root).toBe(raw.finalorchardroot);
+        // §2 selection criteria guarantee every pool sees activity in a
+        // capture. Ironwood joined them in HANDOFF-07, and with it the floor
+        // moved to post-NU6.3: a capture that satisfied the old post-NU5 floor
+        // can contain no Ironwood at all, and this suite would then report as
+        // coverage of a four-pool decoder while exercising three.
+        const sawSapling = decoded.txs.some(
+          (t) => t.saplingSpends.length > 0 || t.saplingOutputs.length > 0,
+        );
+        const sawOrchard = decoded.txs.some((t) => t.orchardActions.length > 0);
+        const sawIronwood = decoded.txs.some((t) => t.ironwoodActions.length > 0);
+        expect(sawSapling, path).toBe(true);
+        expect(sawOrchard, path).toBe(true);
+        expect(sawIronwood, path).toBe(true);
+
+        // Every pool that advanced → its block-level anchor mirrors the header
+        // root. The Ironwood one is the load-bearing assertion of this whole
+        // suite: `finalironwoodroot` is a name this project inferred and has
+        // never observed, so the first capture either confirms it or fails
+        // here, which is exactly the outcome wanted.
+        expect(decoded.saplingAnchor?.root, path).toBe(raw.finalsaplingroot);
+        expect(decoded.orchardAnchor?.root, path).toBe(raw.finalorchardroot);
+        expect(decoded.ironwoodRootUnobserved, `${path}: no Ironwood root under the inferred name`).toBe(false);
+        expect(decoded.ironwoodAnchor?.root, path).toBe(raw.finalironwoodroot);
+      }
     });
   },
 );

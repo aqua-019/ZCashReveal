@@ -95,9 +95,10 @@ jobs:
 
 
       # Must precede the tests. The integration suites probe for a reachable database,
-      # not for migrated tables: an unmigrated-but-reachable Postgres unskips all 56
+      # not for migrated tables: an unmigrated-but-reachable Postgres unskips all 60
       # and then fails on missing relations. (37 before HANDOFF-06, which added the
-      # A6 conservation property and the A2/A3 migration suite.)
+      # A6 conservation property and the A2/A3 migration suite; 56 before HANDOFF-07,
+      # which added the first suite this project has had over `leak_reports`.)
       - name: Migrate database
         run: pnpm --filter @zcashreveal/indexer migrate
 
@@ -107,7 +108,7 @@ jobs:
           vitest run --reporter=default --reporter=json --outputFile=../../indexer-results.json
 
       # vitest exits 0 when the integration suites skip themselves, so a broken
-      # DATABASE_URL would otherwise produce a green run with 56 fewer tests. See A5,
+      # DATABASE_URL would otherwise produce a green run with 60 fewer tests. See A5,
       # and A1 in HANDOFF-06, whose fail side is exactly this: vitest stays green and
       # rc=0 while this script goes rc=1 and names every skipped test.
       - name: Assert Postgres integration tests actually ran

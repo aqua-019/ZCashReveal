@@ -146,22 +146,26 @@ export async function resolveInputs(ctx: ReadContext, tx: RpcTransaction): Promi
  * itself uses for `valueBalance`: it is the value the shielded bundle
  * contributes to the transparent value pool.
  *
- * Sapling's balance and Orchard's are summed, Sprout's JoinSplit term comes
- * from the function directly below, and Ironwood's is included as soon as a
- * node sends it. The bundles are still read BY NAME, through a structural type, rather
- * than by walking the pool union - and the reason is no longer that the union
- * is short. HANDOFF-06 widened `Pool` to all four pools, so `ironwood` is a
- * member of it now; what has not happened is v6 decoding, which is HANDOFF-07's,
- * so this build has never checked an Ironwood bundle's serialised shape against
- * a node. A name that may not arrive yet resolves to `0` here, which is the
- * safe direction for a field that is money.
+ * All four pools are summed: Sapling's and Orchard's balances directly,
+ * Ironwood's since HANDOFF-07 declared the field, and Sprout's JoinSplit term
+ * from the function directly below.
+ *
+ * THE `as unknown as` CAST IS GONE. This read the Ironwood bundle through a
+ * structural type because `RpcTransaction` did not declare one - defensible
+ * while nothing had checked the serialised shape, and the same construct that
+ * made `expiryheight` invisible for three revolutions. `ironwood` is declared
+ * and validated at the RPC boundary now, so the shape is asserted in one place
+ * instead of two.
+ *
+ * The bundles are still read BY NAME rather than by walking the pool union,
+ * because Sprout is not a `valueBalance` field at all and a loop over the union
+ * would have to special-case it - at which point the loop is doing less work
+ * than the special case.
  */
 export function poolValueBalanceZat(tx: RpcTransaction): bigint {
   const sapling = BigInt(tx.valueBalanceZat ?? 0);
   const orchard = BigInt(tx.orchard?.valueBalanceZat ?? 0);
-  const ironwood = BigInt(
-    (tx as unknown as { ironwood?: { valueBalanceZat?: number } }).ironwood?.valueBalanceZat ?? 0,
-  );
+  const ironwood = BigInt(tx.ironwood?.valueBalanceZat ?? 0);
   return sapling + orchard + ironwood + sproutValueBalanceZat(tx);
 }
 
@@ -186,7 +190,11 @@ export function poolValueBalanceZat(tx: RpcTransaction): bigint {
  * are ZEC floats (types/transaction.rs, `JoinSplit`).
  */
 export function sproutValueBalanceZat(tx: RpcTransaction): bigint {
-  const joinsplits = (tx as unknown as { vjoinsplit?: { vpub_oldZat?: number; vpub_newZat?: number }[] }).vjoinsplit;
+  // Read through the DECLARED field. `RpcJoinSplit` has been on
+  // `RpcTransaction` since HANDOFF-06 and this cast outlived it; a cast agrees
+  // with whatever the author typed, which is the construct that made
+  // `expiryheight` invisible for three revolutions.
+  const joinsplits = tx.vjoinsplit;
   if (joinsplits === undefined) return 0n;
   return joinsplits.reduce<bigint>(
     (acc, js) => acc + BigInt(js.vpub_newZat ?? 0) - BigInt(js.vpub_oldZat ?? 0),
@@ -196,7 +204,7 @@ export function sproutValueBalanceZat(tx: RpcTransaction): bigint {
 
 /** How many shielded actions a transaction carries, across every pool. */
 export function shieldedActionCount(tx: RpcTransaction): number {
-  const ironwood = (tx as unknown as { ironwood?: { actions?: unknown[] } }).ironwood?.actions?.length ?? 0;
+  const ironwood = tx.ironwood?.actions.length ?? 0;
   return (
     (tx.vShieldedSpend?.length ?? 0) + (tx.vShieldedOutput?.length ?? 0) + (tx.orchard?.actions.length ?? 0) + ironwood
   );
@@ -232,10 +240,10 @@ export { zip317LogicalActions } from "@zcashreveal/types";
 export function lanesTouched(tx: RpcTransaction): ("transparent" | "sprout" | "sapling" | "orchard" | "ironwood")[] {
   const lanes: ("transparent" | "sprout" | "sapling" | "orchard" | "ironwood")[] = [];
   if (tx.vin.length > 0 || tx.vout.length > 0) lanes.push("transparent");
-  if (((tx as unknown as { vjoinsplit?: unknown[] }).vjoinsplit?.length ?? 0) > 0) lanes.push("sprout");
+  if ((tx.vjoinsplit?.length ?? 0) > 0) lanes.push("sprout");
   if ((tx.vShieldedSpend?.length ?? 0) + (tx.vShieldedOutput?.length ?? 0) > 0) lanes.push("sapling");
   if ((tx.orchard?.actions.length ?? 0) > 0) lanes.push("orchard");
-  if (((tx as unknown as { ironwood?: { actions?: unknown[] } }).ironwood?.actions?.length ?? 0) > 0) {
+  if ((tx.ironwood?.actions.length ?? 0) > 0) {
     lanes.push("ironwood");
   }
   return lanes;
