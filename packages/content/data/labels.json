@@ -1,0 +1,128 @@
+[
+  {
+    "id": "L-t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo",
+    "address": "t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo",
+    "network": "mainnet",
+    "label": "ZIP 271 lockbox disbursement multisig",
+    "labeller": "consensus",
+    "method": "ZIP 271 writes this address verbatim into the consensus rules and names the key-holders: a 2-of-3 P2SH multisig held by the Zcash Foundation, the Electric Coin Company and Shielded Labs. This is the only ZEC address whose owner is defined by consensus code rather than by a labelling vendor.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "sources": [
+      "S-zcash-improvement-proposals-zip-271-dev-fund-ext",
+      "S-mainnet-zcashexplorer-app-alternate-explorer-cro",
+      "S-blockchair-api-blockchair-zcash-api-address-dash"
+    ],
+    "balanceZec": "78183.4093",
+    "notes": "Received 93,496.64 ZEC lifetime, more than the 78,750 disbursement, because a 7,438.2295 return re-entered the same address. 99.28 percent is still unspent."
+  },
+  {
+    "id": "L-t2RnBRiqrN1nW4ecZs1Fj3WWjNdnSs4kiX8",
+    "address": "t2RnBRiqrN1nW4ecZs1Fj3WWjNdnSs4kiX8",
+    "network": "testnet",
+    "label": "ZIP 271 lockbox disbursement multisig (testnet)",
+    "labeller": "consensus",
+    "method": "The testnet counterpart, named in the same ZIP 271 consensus rules.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "sources": [
+      "S-zcash-improvement-proposals-zip-271-dev-fund-ext"
+    ],
+    "balanceZec": null
+  },
+  {
+    "id": "L-t1PKBiv7mtzD9bNafYaqyxaENeiNDbpKxxQ",
+    "address": "t1PKBiv7mtzD9bNafYaqyxaENeiNDbpKxxQ",
+    "network": "mainnet",
+    "label": "Exchange hot wallet, labelled \"Binance\" by Lookonchain",
+    "labeller": "analyst",
+    "method": "Lookonchain, via X posts relayed by blockchain.news, BeInCrypto and Yahoo; methodology undisclosed. Corroborated by two independent Lookonchain reports, a 25 Dec 2025 withdrawal from it and a 2 Jan 2026 deposit to it. That it is an exchange hot wallet is established by behaviour alone: 554,064,601 ZEC lifetime received across 407,365 outputs, continuous activity since 2021-12-27, textbook change-back-to-self withdrawals and many-to-one deposit sweeps. That it is Binance specifically rests entirely on Lookonchain, with no exchange confirmation and no Arkham or Blockchair tag.",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "sources": [
+      "S-blockchain-news-blockchain-news-30-000-zec-withd",
+      "S-blockchain-news-blockchain-news-74-002-zec-to-bi",
+      "S-blockchair-api-blockchair-zcash-api-address-dash"
+    ],
+    "balanceZec": "74881.26",
+    "notes": "Two claims of different strength share one address. Exchange hot wallet: high, from behaviour. Binance specifically: medium-high, from a single analyst. The site renders the weaker of the two."
+  },
+  {
+    "id": "L-t1gGCYpyURMo2FcYDSqeR8pgp2Kx9rnT72V",
+    "address": "t1gGCYpyURMo2FcYDSqeR8pgp2Kx9rnT72V",
+    "network": "mainnet",
+    "label": "Unattributed single-entity holding, destination of the 2 Jan 2026 unshielding",
+    "labeller": "behaviour",
+    "method": "No public labeller attributes this address. What the chain shows: it received 202,076.207 ZEC directly from the shielded pool on 2026-01-02 15:45, preceded by a 1.0 ZEC test deposit on 2025-12-24, and has never spent. EmberCN reportedly published a destination address for a 202,077 ZEC move, but the aggregator relaying it did not print the address.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "sources": [
+      "S-blockchain-news-blockchain-news-202-077-zec-clai",
+      "S-beincrypto-beincrypto-over-1-zec-unshielded-are",
+      "S-blockchair-api-blockchair-zcash-api-address-dash"
+    ],
+    "balanceZec": "202076.207",
+    "notes": "Unattributed. Do not name an owner. The only defensible statement is that a single entity moved this out of shielding and has held it transparently ever since."
+  },
+  {
+    "id": "L-t1Ym8XWvN2joxENB2Nc4TVg1M9PxKfWshc5",
+    "address": "t1Ym8XWvN2joxENB2Nc4TVg1M9PxKfWshc5",
+    "network": "mainnet",
+    "label": "Consolidation address behind the reported 74,002 ZEC exchange deposit",
+    "labeller": "analyst",
+    "method": "Lookonchain named the deposit; blockchain.news printed the address; the research pass verified independently against Blockchair that it received 74,001.932 ZEC, matching the reported figure to 0.07 ZEC. Single-day life, 2026-01-02 18:25 to 22:36, zero balance since. Address correctness is high; the owner is unknown.",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "sources": [
+      "S-blockchain-news-blockchain-news-74-002-zec-to-bi",
+      "S-blockchair-api-blockchair-zcash-api-address-dash"
+    ],
+    "balanceZec": "0"
+  },
+  {
+    "id": "L-t1XKfbZYsdxR5HSnP25ee5VaAxgCNUtFkFK",
+    "address": "t1XKfbZYsdxR5HSnP25ee5VaAxgCNUtFkFK",
+    "network": "mainnet",
+    "label": "Newly created wallet behind the reported 30,000 ZEC exchange withdrawal",
+    "labeller": "analyst",
+    "method": "Lookonchain named the withdrawal; blockchain.news printed the address; verified against Blockchair as real, receiving 50,000.96 ZEC in total rather than the 30,000 reported. Created 2025-12-24, shielded its entire balance on 2026-01-02, zero since. Address correctness is high; the owner is unknown.",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "sources": [
+      "S-blockchain-news-blockchain-news-30-000-zec-withd",
+      "S-blockchair-api-blockchair-zcash-api-address-dash"
+    ],
+    "balanceZec": "0"
+  },
+  {
+    "id": "L-t1dP1MJwfYr9z7EwWxSpefP6s2p7ewaKx9e",
+    "address": "t1dP1MJwfYr9z7EwWxSpefP6s2p7ewaKx9e",
+    "network": "mainnet",
+    "label": "Single-use unshielding destination, 2 Jan 2026 18:53 UTC",
+    "labeller": "behaviour",
+    "method": "Received 50,000.5541 ZEC from a transaction with zero transparent inputs at block 3,191,051, 52 minutes after 50,000.96 ZEC entered the pool from t1XKfb. No labeller attributes it. The 0.4059 ZEC difference is an alignment, not a link: the pool is designed so that an output cannot be tied to an input.",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "sources": [
+      "S-blockchair-api-blockchair-zcash-api-transaction",
+      "S-blockchair-api-blockchair-zcash-api-address-dash"
+    ],
+    "balanceZec": null,
+    "notes": "Cited only as one leg of the round-trip inference in case K-2026-01-02. Never as an identity."
+  },
+  {
+    "id": "L-t1U1NE8w5KRwnxCZAaxVidW6MchFky97m4V",
+    "address": "t1U1NE8w5KRwnxCZAaxVidW6MchFky97m4V",
+    "network": "mainnet",
+    "label": "Single-use unshielding destination, 2 Jan 2026 19:31 UTC",
+    "labeller": "behaviour",
+    "method": "Received 24,000.9781 ZEC from a transaction with zero transparent inputs at block 3,191,091. The origin inside the pool is unknown and unknowable. No labeller attributes it.",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "sources": [
+      "S-blockchair-api-blockchair-zcash-api-transaction",
+      "S-blockchair-api-blockchair-zcash-api-address-dash"
+    ],
+    "balanceZec": null
+  }
+]

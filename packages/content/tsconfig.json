@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "./dist",
+    "composite": true,
+    "types": ["node"]
+  },
+  "//": "data/**/*.json is spelled out: a bare **/* glob only picks up TypeScript.",
+  "include": ["src/**/*.ts", "data/**/*.json", "scripts/**/*.ts", "test/**/*.ts"]
+}
