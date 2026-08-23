@@ -35,6 +35,7 @@ Wire `apps/web` to the real API and WS with the snapshot as the baseline, so the
 - `docs/2.0/TRACKING-MATH.md`
 - `handoffs/LEDGER.md` (§8 entries from every shipped handoff — read before planning)
 - `apps/web/src/lib/api` (HttpApi), gateway routes (`docs/2.0/API.md`), `packages/zec-types` `SnapshotV1`, `docs/2.0/DEPLOY-2.0.md`, `docs/2.0/SNAPSHOT.md` (sinks + the two-Redis topology)
+- **A session cannot reach the VPS, the gateway or a preview host from inside its container.** Deployment Protection returns 302 to the SSO endpoint, and the session's own egress proxy refuses the CONNECT tunnel with 403 before that (HANDOFF-04 §7, LEDGER-04 Q3). Every live check in this handoff is either the operator's, taken and pasted into the ledger, or it is not taken. Plan the cutover checklist on that basis rather than discovering it at cutover.
 
 ## §3 CONTRACT
 

@@ -26,6 +26,8 @@ Every session, in this order:
 
 Status flips, the README table, LEDGER appends, LOG rows and the prompt archive are the only cross-handoff edits a session makes.
 
+**Lighthouse** (LEDGER-03 Q1, LEDGER-04 Q3): the container number, taken against `next start`, is the gate a session must clear and report. The deployed measurement is the operator's, taken in a browser and pasted into the ledger — never a handoff deliverable. A session cannot reach a preview host: Deployment Protection returns 302 to the SSO endpoint, and the session's own egress proxy refuses the CONNECT tunnel with 403 before that, so no operator toggle alone makes it reachable. The same wall stands between a session and the VPS or a live gateway.
+
 ## Stack
 pnpm + Turbo monorepo · packages/zec-types (shared types + DTOs) · packages/content (zod schemas + research data) · packages/zebra-rpc (typed Zebra client) · apps/indexer (Node 22, Zebra RPC/ZMQ, Postgres + Redis, analysis) · apps/gateway (Fastify REST + WS) · apps/publisher (snapshot.json → file + managed Redis) · apps/web (Next.js App Router, React 19, Tailwind v4) · legacy/dashboard (v0.2, read-only).
 
@@ -41,7 +43,7 @@ Two Redis instances, never confused: the VPS Redis (`REDIS_URL`) carries pub/sub
 - Env names: public `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL`, `NEXT_PUBLIC_SNAPSHOT_URL`, `NEXT_PUBLIC_DATA_MODE`; server-only `SNAPSHOT_REDIS_*`, `REDIS_URL`, `RATE_LIMIT_REDIS_URL`, `DATABASE_URL`, `ZEBRAD_*`. Secrets only via env; `.env.example` documents every variable with a one-line comment.
 
 ## Design system ("ZEC Forensic")
-bg #121110 · surface #1A1816 · ink #EDE6D8 · gold #F4B728 (accent budget — four licensed jobs, LEDGER-03 Q2: the primary action; the active state; value crossing a pool boundary; and the system-identity register, meaning the wordmark, the screen index, the entry letters and the clock dot. Any other gold mark is a finding) · functional blue #4C8DFF (focus/links, outside palette) · danger #E4553F (Beware severity only) · pools: transparent #3A8BD9, sprout #1F9E62, sapling #D9641E, orchard #C94F8F, ironwood #8B7FE6.
+bg #121110 · surface #1A1816 · ink #EDE6D8 · gold #F4B728 (accent budget — four licensed jobs, LEDGER-03 Q2: the primary action; the active state; value crossing a pool boundary; and the system-identity register, meaning the wordmark, the screen index, the entry letters and the clock dot. Any other gold mark is a finding. Gold marks a boundary crossing, never a magnitude. A large figure is not gold because it is large; a figure about unprovability is never gold, because size in the accent colour reads as an accusation this site does not make - LEDGER-04 Q1b) · functional blue #4C8DFF (focus/links, outside palette) · danger #E4553F (Beware severity only) · pools: transparent #3A8BD9, sprout #1F9E62, sapling #D9641E, orchard #C94F8F, ironwood #8B7FE6.
 Type: Instrument Serif (display), Fraunces (numerals), JetBrains Mono (data, tabular), Manrope (prose). One hover verb: dim. One curve: cubic-bezier(.32,.72,0,1). One ceremony per surface: block arrival. Ambience seeded by the tip hash (FNV-1a → mulberry32); Math.random is banned (eslint). Reduced motion: do not construct animation systems. SVG icons only. **No emoji anywhere** — code, copy, commits, PR bodies, transcripts.
 
 ## Workflow

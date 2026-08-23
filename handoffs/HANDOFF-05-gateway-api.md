@@ -1,7 +1,7 @@
 ---
 handoff: 05
 title: Gateway REST read API v2 + hardening (Zebra address-index RPCs with a cache)
-status: open
+status: in-progress
 branch: the session-designated branch (name it `feat/v2-05-gateway-api` if you may choose)
 track: Data
 depends_on: 00 (uses the DTOs from 04 if merged; otherwise defines them)
@@ -51,6 +51,7 @@ Extend the existing Fastify gateway with the read API the Tracking UI needs, bac
 3. Migration `003a`; cache module with TTL; unit tests with a mocked RPC; one Postgres-gated integration test.
 4. `docs/2.0/API.md` documenting every endpoint with example responses.
 5. Fix the stale reference at `apps/gateway/src/ws-broker.ts:8` — it still points at `apps/dashboard/src/lib/ws.ts`, which moved to `legacy/dashboard/` in HANDOFF-00 (LEDGER-00 NOTICED; A8 there forbade touching it).
+6. **(LEDGER-04 fold 5, Q4)** Make `Unverified.surface` nullable in `packages/content` and have `permalink()` return `null` rather than a dead anchor when it is absent; callers render plain text where they would have rendered a link. 24 of the 32 quarantined records render on no page, so a required `surface` had three quarters of the corpus asserting a surface it does not appear on. Record in §8 that a page for those 24 is owed to a later Web handoff.
 
 ## §5 ASSERTIONS — binary, machine-checkable, each needs a pass-state and a fail-state transcript
 
