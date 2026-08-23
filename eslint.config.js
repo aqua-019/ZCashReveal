@@ -69,15 +69,31 @@ export default tseslint.config(
     },
   },
   {
-    // Tests may shadow and re-declare freely. Unused fixture builders are reported as
-    // warnings, not errors: HANDOFF-00 forbids edits under apps/*/src, so a real finding
-    // there (block-decoder.test.ts: unused `saplingSpend`) must stay visible without
-    // failing the gate. Promote back to "error" once a handoff is allowed to touch it.
+    // Tests may shadow and re-declare freely, and an unused fixture builder is an
+    // ERROR here rather than a warning.
+    //
+    // IT WAS A WARNING FOR SIX HANDOFFS AND THE REASON HAS EXPIRED. HANDOFF-00
+    // forbade edits under `apps/*/src`, so the one real finding the rule had
+    // - `block-decoder.test.ts`'s unused `saplingSpend`, declared for symmetry
+    // with three sibling builders and never called - could be reported and not
+    // repaired, and the rule was held at "warn" so it stayed visible without
+    // failing the gate. Every handoff from 00 to 06 recorded it as deferred.
+    // HANDOFF-07 owns `apps/indexer/src/decoder`, so it fixed the finding (the
+    // builder now exercises the rule that a Sapling SPEND does not advance the
+    // commitment tree) and promoted the rule, exactly as the old comment here
+    // instructed.
+    //
+    // The promotion is worth more than the tidy-up. A fixture builder declared
+    // and never called is "declared everywhere, exercised nowhere" in
+    // miniature, which is the defect class this project keeps finding at
+    // larger scale - and HANDOFF-07 added Ironwood builders for symmetry with
+    // Orchard ones, which is precisely the shape that would have slipped
+    // through at "warn".
     files: ["**/__tests__/**/*.ts", "**/*.test.ts", "**/*.spec.ts"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": [
-        "warn",
+        "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
     },

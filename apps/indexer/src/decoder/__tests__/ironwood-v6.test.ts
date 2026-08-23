@@ -344,8 +344,17 @@ describe("A5 - ZIP 257's canonical Orchard proof length", () => {
   });
 
   it("below NU6.2 the rule did not exist, so a short proof is not a finding", () => {
-    // Measuring it there would be an anachronism rather than a finding: any
+    // Measuring it there would be an anachronism rather than a finding. Every
     // length was legal before NU6.2 replaced the verifying key.
+    //
+    // (The wording deliberately avoids a colon followed by the word A6's grep
+    // looks for. A6's literal check is a TEXT search over this directory, so a
+    // comment can trip it - and a comment did, in the first draft of this file.
+    // The assertion A6 is about is the TYPE, which eslint's no-explicit-any
+    // enforces as an error across apps/indexer/src; the grep is a second,
+    // cruder net, and it is kept satisfiable rather than argued with. Worth
+    // knowing that the eslint rule is switched OFF for test files, so in this
+    // directory the grep is the only net there is.)
     expect(
       orchardProofSizeViolation({
         proof: "ab".repeat(10),

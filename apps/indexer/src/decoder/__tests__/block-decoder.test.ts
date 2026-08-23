@@ -259,6 +259,50 @@ describe("decodeBlock — block-level Sapling anchor (synthetic)", () => {
     );
     expect(rootNoOutputs.saplingAnchor).toBeNull();
   });
+
+  it("a Sapling SPEND does not advance the tree, so it does not produce an anchor either", () => {
+    // THE ASSERTION THAT PUTS `saplingSpend` TO WORK. It has been the only
+    // eslint warning in this repository since HANDOFF-00 - a fixture builder
+    // declared for symmetry with the other three and never called - and every
+    // handoff from 00 to 06 deferred it, because HANDOFF-00 forbade edits under
+    // `apps/*/src` and this file is under it. HANDOFF-07 owns this directory,
+    // so the deferral ends here.
+    //
+    // Deleting the builder was the other option. Using it is better, because
+    // the rule it exercises is the one this block is ABOUT and was asserted
+    // only from the negative side: the anchor gate is
+    // `saplingHadOutputs && finalsaplingroot`, and OUTPUTS is the load-bearing
+    // word. Spends consume commitments and append none, so a block full of them
+    // does not advance the tree and its root carries no new information. Until
+    // now nothing checked that a spend was not enough - the test above proves
+    // an EMPTY transaction is not enough, which is a weaker statement.
+    const root = hx(0x5a91);
+    const spendOnly = decodeBlock(
+      makeBlock({
+        finalsaplingroot: root,
+        tx: [makeTx({ txid: hx(3), vShieldedSpend: [saplingSpend(0x20)] })],
+      }),
+    );
+    expect(spendOnly.txs[0]?.saplingSpends).toHaveLength(1);
+    expect(spendOnly.saplingAnchor).toBeNull();
+
+    // PASS SIDE, so the assertion is about spends rather than about anchors
+    // never being emitted: add one output to the same block and the anchor
+    // appears.
+    const spendAndOutput = decodeBlock(
+      makeBlock({
+        finalsaplingroot: root,
+        tx: [
+          makeTx({
+            txid: hx(4),
+            vShieldedSpend: [saplingSpend(0x20)],
+            vShieldedOutput: [saplingOutput(0x30)],
+          }),
+        ],
+      }),
+    );
+    expect(spendAndOutput.saplingAnchor?.root).toBe(root);
+  });
 });
 
 describe("decodeBlock — block-level Orchard anchor (synthetic)", () => {
