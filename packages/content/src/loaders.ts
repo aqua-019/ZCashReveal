@@ -42,6 +42,7 @@ import {
   type TimelineCategory,
   type TimelineEvent,
   type Unverified,
+  type UnverifiedSurface,
 } from "./schema.js";
 
 /** Parse once, on first read, and keep the result. */
@@ -169,15 +170,32 @@ const ROUTES: ReadonlyArray<readonly [RegExp, string]> = [
   [/^P-/, "/network"],
   [/^L-/, "/flows"],
   [/^K-/, "/flows"],
-  // Corrected by the HANDOFF-03 session: this said "/sources". The quarantine
-  // renders on /flows - HANDOFF-03 deliverable 8 lists the unverified list
-  // there, next to the allegations it refuses - so a U- permalink pointed at a
-  // page the claim is not on. A permalink that resolves to the wrong surface is
-  // worse than none: it tells a reader the claim was not found. Recorded in the
-  // section 8 ledger.
-  [/^U-/, "/flows"],
+  // U- is deliberately ABSENT from this table. The quarantine is the one family
+  // whose surface is a property of the record rather than of its prefix, and
+  // `permalink()` reads `surface` off the seed for it - see below. HANDOFF-03
+  // had this pointing at "/sources", which rendered no U- id at all, so every
+  // quarantine citation dead-ended; the fix then was to point it at "/flows".
+  // LEDGER-03 Q4 gives the true partition and rules that the seed should say
+  // it: four records anchor on /flows, four on /network, and the remaining 24
+  // render nowhere at all. So the blanket "/flows" was right for at most five
+  // (the four plus U-arkham-174m-position-post, anchored in the allegations
+  // table) - a gate round corrected an earlier version of this comment, which
+  // claimed it was right for 28 of the 32. The `surface` field records where a
+  // record IS anchored; it does not make an unrendered record render, and a
+  // citation to one still resolves to a page rather than to an element.
   [/^S-/, "/sources"],
 ];
+
+/**
+ * The quarantine's surfaces, indexed by id, read once from the seed.
+ *
+ * `permalink()` has to stay synchronous and total, and it is called from render
+ * paths that already hold the loaded corpus, so this memoises the lookup rather
+ * than re-parsing 32 records per citation.
+ */
+const quarantineSurface = once<ReadonlyMap<string, string>>(() =>
+  new Map(getUnverified().map((u) => [u.id, u.surface] as const)),
+);
 
 /**
  * The canonical location of a claim: `permalink("B2")` is `/beware#B2`.
@@ -186,9 +204,26 @@ const ROUTES: ReadonlyArray<readonly [RegExp, string]> = [
  * result is site-relative, which is what an anchor tag wants.
  */
 export function permalink(id: string, options: { base?: string } = {}): string {
-  const route = ROUTES.find(([pattern]) => pattern.test(id))?.[1];
+  // A quarantined record says where it renders; every other family is a prefix
+  // rule. An unknown U- id falls through to the throw below rather than
+  // guessing a surface, which is the honest answer: a citation to a claim that
+  // is not in the quarantine is a broken citation, not a claim on /flows.
+  const route = id.startsWith("U-") ? quarantineSurface().get(id) : ROUTES.find(([pattern]) => pattern.test(id))?.[1];
   if (route === undefined) throw new Error(`permalink: unrecognised claim id "${id}"`);
   const path = `${route}#${id}`;
   const { base } = options;
   return base === undefined ? path : `${base.replace(/\/+$/, "")}${path}`;
+}
+
+/**
+ * The quarantined records a given surface is responsible for rendering.
+ *
+ * This replaces `quarantineFor()` in `apps/web/src/lib/quarantine.ts`, which
+ * held a hand-maintained list of four ids that a unit test existed to keep in
+ * step with a second copy in `app/network/page.tsx`. Both are retired: the
+ * partition is now derived from the same field `permalink()` reads, so the two
+ * cannot disagree (LEDGER-03 Q4).
+ */
+export function getUnverifiedFor(surface: UnverifiedSurface): readonly Unverified[] {
+  return getUnverified().filter((u) => u.surface === surface);
 }

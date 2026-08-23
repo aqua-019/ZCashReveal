@@ -6,7 +6,8 @@ import {
   getPhrases,
   getStats,
   getTimeline,
-  getUnverified,
+  getUnverifiedFor,
+  permalink,
   resolveSources,
   type NetworkEdge,
   type SourceRef,
@@ -27,7 +28,6 @@ import { KV } from "@/components/ui/KV";
 import { Quote } from "@/components/ui/Quote";
 import { ZEC_PRICE } from "@/lib/series";
 import { screenByHref } from "@/lib/nav";
-import { quarantineHref } from "@/lib/quarantine";
 
 
 const S = screenByHref("/network");
@@ -178,21 +178,6 @@ const GRANT_EDGE_IDS: readonly string[] = [
 ];
 
 /**
- * The four claims the research checked and dropped, by id.
- *
- * They are published as dropped rather than deleted, because deleting them
- * hides the fact that they were checked. `getUnverified()` holds thirty-two
- * items; these four are the ones this page's own subject matter would otherwise
- * have carried.
- */
-const DROPPED_IDS: readonly string[] = [
-  "U-korean-exchange-dominance",
-  "U-21shares-zec-etp",
-  "U-bot-networks-pumping-zec",
-  "U-ecc-zf-layoffs-2023-24",
-];
-
-/**
  * The move between two closes on the plotted series, in words.
  *
  * Arithmetic on two figures the corpus states, and nothing more. The mockup
@@ -220,7 +205,6 @@ export default function NetworkPage() {
   const entityAt = new Map(entities.map((e) => [e.id, e]));
   const edgeAt = new Map(edges.map((e) => [e.id, e]));
   const phrases = getPhrases();
-  const unverified = getUnverified();
   const stats = getStats();
   const marks = priceMarks();
 
@@ -245,10 +229,14 @@ export default function NetworkPage() {
     return e === undefined ? [] : [e];
   });
 
-  const dropped = DROPPED_IDS.flatMap((id) => {
-    const u = unverified.find((x) => x.id === id);
-    return u === undefined ? [] : [u];
-  });
+  // The claims the research checked and dropped, asked for by surface rather
+  // than by a list of ids kept here. They are published as dropped rather than
+  // deleted, because deleting them hides the fact that they were checked.
+  // HANDOFF-03 held these four ids in TWO places - here and in a module in
+  // src/lib - with a unit test to stop them drifting apart; HANDOFF-04
+  // deliverable 9 moved the fact onto the record itself (LEDGER-03 Q4), so this
+  // page and `permalink()` now read the same field and cannot disagree.
+  const dropped = getUnverifiedFor("/network");
 
   /** A party's display name: the diagram's short form where it has one, the record's title otherwise. */
   const name = (id: string): string => LOOP_NAMES.get(id) ?? entityAt.get(id)?.title ?? id;
@@ -710,15 +698,15 @@ export default function NetworkPage() {
             <ul className="quarantine">
               {dropped.map((u) => (
                 // `id` is what makes the permalink resolve: this page is where
-                // these four records render, and `quarantineHref` is the one
-                // place that knows it. They pointed at /sources before, which
-                // renders no U- id at all, so every citation dead-ended.
+                // these records render, and each one's own `surface` field is
+                // what says so. They pointed at /sources before, which renders
+                // no U- id at all, so every citation dead-ended.
                 <li key={u.id} id={u.id}>
                   <span className="st">{u.status}</span>
                   <p className="cl">{u.claim}</p>
                   <p className="why">{u.why}</p>
                   <span className="claim">
-                    <a className="anchor" href={quarantineHref(u.id)}>
+                    <a className="anchor" href={permalink(u.id)}>
                       {u.id}
                     </a>
                     <Conf level="low" />

@@ -6,16 +6,21 @@
 > Cloudflare tunnel that terminates `wss://`. Until HANDOFF-10 lands, treat everything about the
 > origin server as unspecified here.
 >
-> The v0.2 document [`DEPLOY.md`](../../DEPLOY.md) at the repo root still governs the parked
-> Vite dashboard (`legacy/dashboard`, project `z-cash-reveal-dashboard2`). It is superseded for
-> 2.0, not deleted: that project must keep building until the HANDOFF-11 cutover.
+> `zecreveal` is now the ONLY Vercel project on the account. The operator deleted both v0.2
+> projects on 23 August 2026 - `z-cash-reveal-dashboard` (the orphan pointing at a path that no
+> longer existed) and `z-cash-reveal-dashboard2` (the parked Vite dashboard). `legacy/dashboard`
+> still exists in the tree and still builds locally; it simply has no deployment any more, and
+> HANDOFF-11 retires the directory itself.
 
 ---
 
 ## 0. State at HANDOFF-01 — read this before hunting for a preview URL
 
-**The `zecreveal` project does not exist yet.** HANDOFF-01 opens a PR; the operator creates the
-project after that PR is open, using the click list below. Therefore:
+**Historical note, kept because it explains the shape of this document.** When HANDOFF-01 wrote
+this section the `zecreveal` project did not exist yet, and the absence of a preview on that PR
+was expected rather than a failure. The project has existed since 23 August 2026
+(`prj_rNTLvGWnz92w5qcvROBchPUfdhIR`) and a preview is now expected on every PR. What follows
+described the gap:
 
 - The absence of a Vercel preview deployment on the HANDOFF-01 PR is **expected**, not a failure.
 - No agent creates the project, and no agent can. Project creation, environment variables and
@@ -131,22 +136,14 @@ but leaving the legacy dashboard's build command stored on the new project is a 
 next edits that file. Set Framework Preset to `Next.js` and turn the Build Command, Install Command
 and Output Directory overrides OFF.
 
-**Operator click, two — move these into the `z-cash-reveal-dashboard2` project settings** so the
-legacy dashboard keeps building until the HANDOFF-11 cutover. These are the deleted file's exact
-values:
-
-| Setting | Value |
-|---|---|
-| Framework Preset | `Other` |
-| Install Command | `pnpm install --frozen-lockfile` |
-| Build Command | `pnpm --filter=@zcashreveal/types build && pnpm --filter=@zcashreveal/dashboard build` |
-| Output Directory | `legacy/dashboard/dist` |
-| Root Directory | `./` |
-| Environment Variable | `VITE_MOCK_MODE=true` (all three scopes) |
-
-Until that click happens, `z-cash-reveal-dashboard2` will fail to build. That is the accepted
-trade: the dashboard is legacy and retired at the cutover, and a red check on it is not a reason to
-keep the new project broken.
+**Operator click, two — done, and no longer needed.** HANDOFF-02 deleted the root `vercel.json`
+and this document carried its six settings so the operator could move them into the
+`z-cash-reveal-dashboard2` project and keep the legacy dashboard building. That project was
+deleted on 23 August 2026 instead, which settles the question: there is nothing to move the
+settings into, `legacy/dashboard` has no deployment, and the red check it used to produce on
+every PR is gone with it. The values are not reproduced here any more, because a table of
+settings for a project that does not exist is a trap rather than a record; HANDOFF-02's own
+ledger block in `handoffs/LEDGER.md` holds them if they are ever wanted.
 
 The root `.vercelignore` stays. It is a v0.2 artefact (it excludes `apps/indexer`, `apps/gateway`,
 `infra`) and does no work for `zecreveal`, but unlike `vercel.json` it does no harm either.
@@ -276,34 +273,34 @@ exact settings change in prose. It stops there.
 
 ---
 
-## 7. Project inventory and the orphan
+## 7. Project inventory
 
 | Project | Root Directory | Status |
 | --- | --- | --- |
-| `zecreveal` | `apps/web` | To be created by the operator after the HANDOFF-01 PR opens. |
-| `z-cash-reveal-dashboard2` | `./` | Live v0.2 dashboard in mock mode. **Keep** until the HANDOFF-11 cutover, then delete. |
-| `z-cash-reveal-dashboard` | `apps/dashboard` | **Orphan. Delete.** |
+| `zecreveal` | `apps/web` | The only project on the account. `prj_rNTLvGWnz92w5qcvROBchPUfdhIR`, created 23 Aug 2026. |
 
-`z-cash-reveal-dashboard` (singular, no `2`) points its Root Directory at `apps/dashboard`, a
-path that no longer exists — HANDOFF-00 moved that app to `legacy/dashboard`. The project is
-still subscribed to the GitHub repo, so it starts a build on every push and that build fails
-immediately. **This is the red check on every PR, including the HANDOFF-01 PR.** It is not a
-signal about the branch under review.
+There is one project and there are no others. Both v0.2 projects were deleted by the operator on
+23 August 2026: `z-cash-reveal-dashboard`, the orphan whose Root Directory pointed at
+`apps/dashboard` after HANDOFF-00 moved that app to `legacy/dashboard`, and
+`z-cash-reveal-dashboard2`, the parked Vite dashboard.
 
-Deleting it is an operator click and it is safe: nothing links to it, and the live v0.2 site is
-`z-cash-reveal-dashboard2`.
+Two consequences worth stating, because three handoffs of ledger reasoned around them:
+
+- **The red check on every PR is gone.** It was the orphan project failing to build, on every
+  push, for reasons that had nothing to do with the branch under review. A red Vercel check on a
+  PR from here on is about that PR.
+- **`legacy/dashboard` has no deployment.** The directory still exists and still builds locally,
+  and HANDOFF-11 retires it. Nothing needs to keep it deployable in the meantime.
 
 ---
 
 ## 8. Operator click list, in order
 
-1. Delete the orphan project `z-cash-reveal-dashboard`.
+1. ~~Delete the orphan project `z-cash-reveal-dashboard`.~~ **Done, 23 Aug 2026.**
 2. Create project `zecreveal` in team `aquatic-17b9f112` with the section 1 settings.
    **Done** as of 23 Aug 2026: `prj_rNTLvGWnz92w5qcvROBchPUfdhIR`.
-3. **Move the deleted root `vercel.json`'s settings into `z-cash-reveal-dashboard2`** — the table
-   in section 1. HANDOFF-02 deleted that file because it was breaking `zecreveal`'s build, so
-   until this click happens the legacy dashboard project fails to build. Do this one first if a
-   red check on the dashboard matters to you.
+3. ~~Move the deleted root `vercel.json`'s settings into `z-cash-reveal-dashboard2`.~~ **Moot:
+   that project was deleted on 23 Aug 2026 rather than repaired.**
 4. Set the four `NEXT_PUBLIC_*` variables from section 2, with `NEXT_PUBLIC_DATA_MODE=snapshot`
    in Production and Preview.
 5. Leave every variable in section 3 unset for now; they arrive with HANDOFF-09/11.

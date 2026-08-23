@@ -147,9 +147,35 @@ describe("the quarantine needs no sources", () => {
       status: "unlocatable",
       why: "Searched the publisher, the archive and the citing article; nothing exists.",
       sources: [],
+      surface: "/flows",
       lastVerified: "2026-08-22",
     });
     expect(result.success).toBe(true);
+  });
+
+  it("still demands a surface, because a record that does not say where it renders cannot be linked to", () => {
+    const result = unverifiedSchema.safeParse({
+      id: "U-example",
+      claim: "An artefact that was searched for and never found anywhere.",
+      status: "unlocatable",
+      why: "Searched the publisher, the archive and the citing article; nothing exists.",
+      sources: [],
+      lastVerified: "2026-08-22",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("refuses a surface no page owns", () => {
+    const result = unverifiedSchema.safeParse({
+      id: "U-example",
+      claim: "An artefact that was searched for and never found anywhere.",
+      status: "unlocatable",
+      why: "Searched the publisher, the archive and the citing article; nothing exists.",
+      sources: [],
+      surface: "/sources",
+      lastVerified: "2026-08-22",
+    });
+    expect(result.success).toBe(false);
   });
 });
 

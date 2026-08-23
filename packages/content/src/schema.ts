@@ -362,6 +362,25 @@ export const unverifiedStatusSchema = z.enum([
   "unlocatable",
 ]);
 
+/**
+ * Where a quarantined record renders.
+ *
+ * The quarantine is the one id family whose route is a property of the SUBJECT
+ * rather than of the prefix: an unverified claim is shown beside the finding it
+ * qualifies, so the promotion-network ones belong on `/network` and the rest on
+ * `/flows`. `permalink()` maps a prefix to a route and cannot express that, so
+ * HANDOFF-03 had to keep the split in a module inside `apps/web` - which meant
+ * two files had to agree about a fact neither of them owned, and a unit test
+ * existed only to keep them agreeing.
+ *
+ * LEDGER-03 Q4 rules that the seed should say where it renders. This is that
+ * field. `permalink()` reads it, the module in `apps/web` is retired, and a new
+ * quarantined record now carries its own route instead of needing an edit in a
+ * second package.
+ */
+export const unverifiedSurfaceSchema = z.enum(["/flows", "/network"]);
+export type UnverifiedSurface = z.infer<typeof unverifiedSurfaceSchema>;
+
 export const unverifiedSchema = z
   .object({
     id: z.string().regex(/^U-[a-z0-9-]+$/, "unverified ids are U-<slug>"),
@@ -370,6 +389,8 @@ export const unverifiedSchema = z
     why: z.string().min(1),
     /** May be empty: an unlocatable claim has nothing to cite. */
     sources: z.array(sourceRefSchema),
+    /** Which surface renders this record. See `unverifiedSurfaceSchema`. */
+    surface: unverifiedSurfaceSchema,
     lastVerified: isoDateSchema,
   })
   .strict();

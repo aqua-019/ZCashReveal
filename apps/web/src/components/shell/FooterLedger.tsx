@@ -21,7 +21,7 @@ const LINES: readonly string[] = [
 export function FooterLedger({ tip }: { readonly tip: ChainTip }) {
   return (
     <footer className="ledgerfoot" data-ui="footer-ledger">
-      <div className="code">
+      <div className="lines">
         {LINES.map((text, i) => (
           <p className="line" key={text.slice(0, 24)}>
             <span className="n" aria-hidden="true">

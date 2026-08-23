@@ -8,14 +8,13 @@ this directory is part of the 2.0 build.
 
 Two reasons, both temporary:
 
-1. **It is still the live deployment.** The Vercel project `z-cash-reveal-dashboard2` builds
-   from this path and stays up in mock mode until the 2.0 cutover in
-   [handoffs/HANDOFF-11-live-wiring.md](../../handoffs/HANDOFF-11-live-wiring.md). It used to be
-   driven by the root `vercel.json`; HANDOFF-02 deleted that file, because Vercel applied it to
-   every project in the repository and broke `apps/web`'s first production build. The build
-   command and output directory now have to be set in that project's own UI settings, and the
-   exact values are in [docs/2.0/DEPLOY-2.0.md](../../docs/2.0/DEPLOY-2.0.md) section 1. Until an
-   operator types them in, this project fails to build.
+1. **It was the live deployment, and it is not any more.** The Vercel project
+   `z-cash-reveal-dashboard2` built from this path until the operator deleted it on 23 August
+   2026, along with the orphaned `z-cash-reveal-dashboard`. `zecreveal` (Root Directory
+   `apps/web`) is now the only project on the account. This directory still builds locally and
+   `pnpm --filter @zcashreveal/dashboard build` still works; it simply has nowhere to deploy to,
+   and [handoffs/HANDOFF-11-live-wiring.md](../../handoffs/HANDOFF-11-live-wiring.md) retires the
+   directory itself.
 2. **It is a harvest source.** `docs/2.0/ZECREVEAL-2.0-PLAN.md` §2 marks this app
    **REBUILD (harvest)**: `src/lib/tokens.ts`, `formatters.ts`, `parsers.ts`,
    `components/icons.tsx` and the panel logic (`CandidatesPanel` inference chain,

@@ -12,7 +12,6 @@ import {
   type SourceRef,
 } from "@zcashreveal/content";
 
-import { quarantineHref } from "@/lib/quarantine";
 
 /**
  * The citation graph: which claim cites which source.
@@ -84,11 +83,14 @@ export function citationIndex(): CitationIndex {
   for (const k of getCases()) add(k.sources, { id: k.id, href: hrefFor(k.id, "/flows"), collection: "cases" });
   // The quarantine is rendered too: an unverified item is published AS
   // unverified, with the reason, and a source cited in support of a refusal is
-  // still a source the Record uses. It does NOT go through `permalink`: the
-  // quarantine is split across /flows and /network by subject, and
-  // `quarantineHref` is the single place that knows which. Routing these
-  // through the id prefix sent four of them to a page they do not render on.
-  for (const u of getUnverified()) add(u.sources, { id: u.id, href: quarantineHref(u.id), collection: "unverified" });
+  // still a source the Record uses. It goes through `permalink` like everything
+  // else now: HANDOFF-04 deliverable 9 put a `surface` field on the record, so
+  // the seed says which page renders it and `permalink` reads that instead of
+  // applying a prefix rule (LEDGER-03 Q4). Before the field existed this line
+  // called into a module in apps/web that held the split by hand, and a unit
+  // test existed only to keep that module agreeing with a second copy of the
+  // same four ids in app/network/page.tsx.
+  for (const u of getUnverified()) add(u.sources, { id: u.id, href: permalink(u.id), collection: "unverified" });
   add(getStats().sources, { id: "stats", href: "/#pools", collection: "stats" });
 
   cache = index;

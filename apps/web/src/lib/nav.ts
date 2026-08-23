@@ -103,10 +103,31 @@ export function screenByHref(href: string): Screen | undefined {
 }
 
 /**
- * Active-state matcher. `/` is exact; everything else matches its own subtree
- * so `/address/t1...` will light `/track` when HANDOFF-04 adds those routes.
+ * The Tracking suite's routes.
+ *
+ * They are top-level rather than nested under `/track` because HANDOFF-04's
+ * section 5 names them that way in four separate machine-checkable assertions -
+ * `/address/t3ev37Q2...`, `/tx/7ae8...`, `/pools`, `/reveal?addr=u1...` - and
+ * three handoffs of ledger say that a spec which only passes under a charitable
+ * reading is a spec nobody can run. The cost is that subtree matching no longer
+ * lights the right screen for them, which is what `TRACK_FAMILY` below fixes.
+ *
+ * They are NOT in `SCREENS`. The system bar is a seven-item screen index and
+ * these are six sub-views of one of those seven; putting them in the bar would
+ * make the top-level index thirteen items and would say that /pools is a peer
+ * of the whole Record.
+ */
+export const TRACK_FAMILY: readonly string[] = ["/track", "/address", "/tx", "/block", "/pools", "/reveal"];
+
+/**
+ * Active-state matcher. `/` is exact; everything else matches its own subtree,
+ * and `/track` additionally matches its family, so `/address/t3ev37Q2...` and
+ * `/pools` light the Track item in the system bar rather than nothing at all.
  */
 export function isActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
+  if (href === "/track") {
+    return TRACK_FAMILY.some((base) => pathname === base || pathname.startsWith(`${base}/`));
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }

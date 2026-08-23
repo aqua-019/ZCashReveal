@@ -190,6 +190,29 @@ p {
   text-decoration-color: currentColor;
 }
 
+/* Inline links in prose.
+   HANDOFF-03 hit this on `.src a` and its own comment said the rule belongs to
+   every inline link in the register, not just the one that was caught. This is
+   that generalisation. --blue-fn on --ink-dim prose is 1.38:1 against its
+   surroundings, well under the 3:1 that WCAG 1.4.1 asks of colour used as the
+   only distinguisher, so the link is underlined and the colour is a second
+   signal rather than the only one. */
+.note a,
+.dek a,
+.measure a,
+.tk-gap a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--line-strong);
+}
+
+.note a:hover,
+.dek a:hover,
+.measure a:hover,
+.tk-gap a:hover {
+  text-decoration-color: currentColor;
+}
+
 /* ---------- eyebrow ---------- */
 .eyebrow {
   font-family: var(--f-mono);
@@ -428,7 +451,7 @@ p {
 }
 
 .card {
-  padding: 18px 20px;
+  padding: var(--inset-5);
 }
 
 .hair {
@@ -511,6 +534,15 @@ p {
 .chip.danger {
   color: var(--danger);
   border-color: rgba(228, 85, 63, 0.5);
+}
+
+/* The middle rung of the claim ladder. Added when a gate round took gold off
+   `small heuristic set`: a claim level is not one of gold's four licensed
+   jobs, and the level needed a colour of its own rather than borrowing the
+   accent. 7.30:1 on the lightest of the three grounds. */
+.chip.warn {
+  color: var(--warn);
+  border-color: rgba(217, 164, 65, 0.5);
 }
 
 .chip.ok {
@@ -648,7 +680,7 @@ p {
 
 /* ---------- metric ---------- */
 .metric {
-  padding: 16px 18px;
+  padding: var(--inset-4);
   border-left: 1px solid var(--line);
 }
 
@@ -700,6 +732,36 @@ p {
 
 .metrics .metric {
   flex: 1 1 180px;
+}
+
+/* ---------- the compact cell register (mockup `.cp`) ----------
+   Table cells across this site carry sentences, not values: what a transfer
+   proves, who applied a label and by what method, what a pool-side estimate did
+   and did not establish. They are set in mono at the mockup's 11px so the prose
+   reads as apparatus rather than as body copy, in --ink-dim rather than
+   --ink-mute because at 11px --ink-mute is the floor of AA and this is real
+   reading.
+
+   ONE register. HANDOFF-03 shipped two - `.fl-cp` on /flows and `.mt-lineage`
+   on /method - identical but for one declaration each, and both said in their
+   own comments that they were the mockup's `.cp`. This is that rule, under the
+   mockup's own name, in the shared layer where the tracking tables can reach
+   it. `.mt-lineage` survives as a width modifier only. */
+.cp {
+  display: block;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+}
+
+.cp b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.cp + .cp {
+  margin-top: 6px;
 }
 
 /* ---------- key/value ---------- */
@@ -1302,7 +1364,9 @@ canvas[data-ui="fog"] {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 20px 22px 18px;
+  /* Was 20px 22px 18px - a sixth rung above the ladder, used by nothing
+     else. Step 5, like every other card. */
+  padding: var(--inset-5);
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink);
@@ -1429,7 +1493,8 @@ canvas[data-ui="fog"] {
      already has. */
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 22px 24px;
+  /* Was 22px 24px - a seventh rung, used by nothing else. Step 5. */
+  padding: var(--inset-5);
   background: var(--bg-deep);
   display: flex;
   flex-direction: column;
@@ -1465,7 +1530,7 @@ canvas[data-ui="fog"] {
   background: rgba(26, 24, 22, 0.4);
 }
 
-.ledgerfoot .code {
+.ledgerfoot .lines {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1533,7 +1598,7 @@ canvas[data-ui="fog"] {
 }
 
 .cango .c {
-  padding: 14px 16px;
+  padding: var(--inset-3);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -1567,7 +1632,7 @@ canvas[data-ui="fog"] {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 16px 18px;
+  padding: var(--inset-4);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -1716,7 +1781,7 @@ canvas[data-ui="fog"] {
 
 .cite .cite-body {
   margin-top: 8px;
-  padding: 12px 14px;
+  padding: var(--inset-2);
   border: 1px solid var(--line);
   border-left: 2px solid var(--gold-dim);
   border-radius: var(--radius);
@@ -2140,7 +2205,7 @@ canvas[data-ui="fog"] {
 
 .contra .said,
 .contra .shows {
-  padding: 10px 12px;
+  padding: var(--inset-1);
   border-radius: var(--radius);
   border: 1px solid var(--line);
   font-size: 13px;
@@ -2283,7 +2348,7 @@ canvas[data-ui="fog"] {
 }
 
 .quarantine li {
-  padding: 12px 14px;
+  padding: var(--inset-2);
   border: 1px solid var(--line);
   border-left: 2px solid var(--warn);
   border-radius: var(--radius);
@@ -2344,18 +2409,45 @@ canvas[data-ui="fog"] {
   font-style: italic;
 }
 
-/* ---------- estimator and method tables ---------- */
-.formula {
-  font-family: var(--f-mono);
-  font-size: 13px;
-  color: var(--ink);
-  background: var(--surface-2);
+/* ---------- the preformatted block (mockup `pre.code`) ----------
+   ONE treatment for every block of preformatted monospace on this site: the
+   /beware unified diff, the /flows reconstruction ledger and the /method
+   posterior formula. HANDOFF-03 shipped three - `.formula`, `.bw-code` and
+   `.fl-code` - because four route stylesheets were written in parallel and
+   folded together afterwards; LEDGER-03 Q5 assigns the collapse to this
+   handoff, ahead of the tracking CSS, and A9 is what holds it.
+
+   The surviving declarations are the mockup's `pre.code` rule verbatim, which
+   is also `.bw-code`'s block unchanged - so /beware renders pixel-identically
+   by construction rather than by luck.
+
+   /method IS THE CONSUMER THAT MOVES, and a gate round is right that nothing
+   said so. `.formula` was 13px `--ink` on `--surface-2` with a 10px 12px
+   inset; the surviving `.code` is 12px `--ink-dim` on `--bg-deep` at
+   `--inset-3`. So the posterior formula is a point smaller, a rung dimmer and
+   on a darker ground than it was, which is the price of one treatment instead
+   of three and is accepted deliberately. `--ink-dim` on `--bg-deep` measures
+   8.46:1, so nothing is lost accessibly, and A9's baselines cover /beware and
+   /flows - the two that must not move - rather than this one, which must. `white-space` is not declared: every
+   consumer is a `<pre>`, where it is the user-agent default, and declaring it
+   was what made the three rules look less alike than they were.
+
+   Exactly one modifier survives beside it, `.fl-code`, and it carries one
+   declaration. See the note there. */
+.code {
+  margin: 0;
+  padding: var(--inset-3);
+  background: var(--bg-deep);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 10px 12px;
   overflow-x: auto;
-  white-space: pre;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-dim);
 }
+
+/* ---------- estimator and method tables ---------- */
 
 .refuses {
   font-size: 12.5px;
@@ -2385,8 +2477,11 @@ canvas[data-ui="fog"] {
    Every class below is namespaced by its route, so nothing here can collide
    with the shared layer above or with another route. The duplication the design
    review found between these blocks - three preformatted-mono treatments, two
-   compact-cell registers, seven card insets - is now visible in one file, which
-   is where it has to be before it can be collapsed. Recorded in section 8.
+   compact-cell registers, seven card insets - was collapsed by HANDOFF-04
+   deliverable 1 (LEDGER-03 Q5): the block is `.code`, the register is `.cp`,
+   and every panel inset is a rung of `--inset-1` .. `--inset-5`. A route layer
+   may still carry a modifier, but never a second copy of a shared pattern;
+   assertion A9 holds that, from both ends.
    ========================================================================== */
 
 /* ============================================================================
@@ -2474,33 +2569,21 @@ canvas[data-ui="fog"] {
 
 /* The unified diff, read as a two-colour diagram: what was there, what
    replaced it, and the framing comments that say why it mattered. It scrolls
-   inside itself - the page body never scrolls sideways. */
-.bw-code {
-  font-family: var(--f-mono);
-  font-size: 12px;
-  line-height: 1.6;
-  background: var(--bg-deep);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-  overflow-x: auto;
-  color: var(--ink-dim);
-  margin: 0;
-}
-
+   inside itself - the page body never scrolls sideways. The block itself is
+   the shared `.code` treatment; only the three diff colours are local. */
 /* The mockup sets the comment lines in #4F4840. That token is --ink-faint,
    which HANDOFF-03 section 3 (LEDGER-01 Q1, fold 4) reserves for non-text:
    3.05:1 on --bg-deep is below AA for 12px text. --ink-mute is the same ramp
    and clears it, and where the mockup and AA disagree, AA wins. */
-.bw-code .bw-c {
+.code .bw-c {
   color: var(--ink-mute);
 }
 
-.bw-code .bw-del {
+.code .bw-del {
   color: var(--danger);
 }
 
-.bw-code .bw-add {
+.code .bw-add {
   color: var(--ok);
 }
 
@@ -2601,8 +2684,11 @@ canvas[data-ui="fog"] {
    Every class below is namespaced by its route, so nothing here can collide
    with the shared layer above or with another route. The duplication the design
    review found between these blocks - three preformatted-mono treatments, two
-   compact-cell registers, seven card insets - is now visible in one file, which
-   is where it has to be before it can be collapsed. Recorded in section 8.
+   compact-cell registers, seven card insets - was collapsed by HANDOFF-04
+   deliverable 1 (LEDGER-03 Q5): the block is `.code`, the register is `.cp`,
+   and every panel inset is a rung of `--inset-1` .. `--inset-5`. A route layer
+   may still carry a modifier, but never a second copy of a shared pattern;
+   assertion A9 holds that, from both ends.
    ========================================================================== */
 
 /* ============================================================================
@@ -2693,7 +2779,7 @@ canvas[data-ui="fog"] {
   display: block;
   flex: 1 1 300px;
   max-width: 520px;
-  padding: 12px 14px;
+  padding: var(--inset-2);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -2748,7 +2834,7 @@ canvas[data-ui="fog"] {
 }
 
 .nw-ent-card {
-  padding: 14px 16px;
+  padding: var(--inset-3);
 }
 
 .nw-ent-card .ent .nw-role {
@@ -2825,8 +2911,11 @@ canvas[data-ui="fog"] {
    Every class below is namespaced by its route, so nothing here can collide
    with the shared layer above or with another route. The duplication the design
    review found between these blocks - three preformatted-mono treatments, two
-   compact-cell registers, seven card insets - is now visible in one file, which
-   is where it has to be before it can be collapsed. Recorded in section 8.
+   compact-cell registers, seven card insets - was collapsed by HANDOFF-04
+   deliverable 1 (LEDGER-03 Q5): the block is `.code`, the register is `.cp`,
+   and every panel inset is a rung of `--inset-1` .. `--inset-5`. A route layer
+   may still carry a modifier, but never a second copy of a shared pattern;
+   assertion A9 holds that, from both ends.
    ========================================================================== */
 
 /* ============================================================================
@@ -2919,7 +3008,7 @@ canvas[data-ui="fog"] {
   flex: 1 1 180px;
   display: grid;
   gap: 2px;
-  padding: 10px 12px;
+  padding: var(--inset-1);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -2941,7 +3030,8 @@ canvas[data-ui="fog"] {
 /* ---------- the estimator table ----------
    Two cells that carry more than a phrase: the statement, which pairs what an
    estimator computes with what it refuses to compute, and the lineage, which
-   is the mockup's `.cp` register - mono, dim, with the emphasised run in ink. */
+   is the mockup's `.cp` register - mono, dim, with the emphasised run in ink,
+   and is now that shared rule rather than a second copy of it. */
 .mt-statement {
   display: block;
   max-width: 54ch;
@@ -2962,17 +3052,9 @@ canvas[data-ui="fog"] {
   margin-top: 8px;
 }
 
+/* The register is `.cp`; the measure is this column's own. */
 .mt-lineage {
-  font-family: var(--f-mono);
-  font-size: 11px;
-  color: var(--ink-dim);
-  line-height: 1.55;
   max-width: 34ch;
-}
-
-.mt-lineage b {
-  color: var(--ink);
-  font-weight: 500;
 }
 
 /* An internal reference - a v0.2 module, a section of RESEARCH.md - is not a
@@ -2990,13 +3072,6 @@ canvas[data-ui="fog"] {
   display: block;
   max-width: 44ch;
   line-height: 1.7;
-}
-
-/* ---------- the posterior ----------
-   .formula already sets the mono block; a <pre> only needs its default margin
-   removed so the card's own inset governs the spacing. */
-.mt-posterior {
-  margin: 0;
 }
 
 /* ---------- the viewing-key ceremony ----------
@@ -3023,7 +3098,7 @@ canvas[data-ui="fog"] {
 }
 
 .mt-cell {
-  padding: 14px 16px;
+  padding: var(--inset-3);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -3069,8 +3144,11 @@ canvas[data-ui="fog"] {
    Every class below is namespaced by its route, so nothing here can collide
    with the shared layer above or with another route. The duplication the design
    review found between these blocks - three preformatted-mono treatments, two
-   compact-cell registers, seven card insets - is now visible in one file, which
-   is where it has to be before it can be collapsed. Recorded in section 8.
+   compact-cell registers, seven card insets - was collapsed by HANDOFF-04
+   deliverable 1 (LEDGER-03 Q5): the block is `.code`, the register is `.cp`,
+   and every panel inset is a rung of `--inset-1` .. `--inset-5`. A route layer
+   may still carry a modifier, but never a second copy of a shared pattern;
+   assertion A9 holds that, from both ends.
    ========================================================================== */
 
 /* ============================================================================
@@ -3090,29 +3168,6 @@ canvas[data-ui="fog"] {
    No `animation:` appears below, and no rule declares a transition. Assertion
    A6 measures `document.getAnimations().length === 0` on this page.
    ========================================================================== */
-
-/* ---------- the compact cell register (mockup `.cp`) ----------
-   Table cells on this page carry sentences, not values: what a transfer proves,
-   who applied a label and by what method, what a claim did and did not
-   establish. They are set in mono at the mockup's 11px so the prose reads as
-   apparatus rather than as body copy, in --ink-dim rather than --ink-mute
-   because at 11px --ink-mute is the floor of AA and this is real reading. */
-.fl-cp {
-  display: block;
-  font-family: var(--f-mono);
-  font-size: 11px;
-  line-height: 1.55;
-  color: var(--ink-dim);
-}
-
-.fl-cp b {
-  color: var(--ink);
-  font-weight: 500;
-}
-
-.fl-cp + .fl-cp {
-  margin-top: 6px;
-}
 
 /* The attribution line that sits under every rendered label: who applied it and
    at what precedence. Quieter than .fl-cp, and never absent - a label whose
@@ -3141,21 +3196,16 @@ canvas[data-ui="fog"] {
    A diagram made of monospace text: ten lines, column-aligned by spaces, with a
    hand-drawn rule marking the subtotal. It is preformatted text and stays
    preformatted text - reflowing it or converting it to a table destroys the
-   only thing it is for, which is that the arithmetic is visible. */
+   only thing it is for, which is that the arithmetic is visible.
+
+   The block is `.code`; this is the one declaration that is genuinely this
+   ledger's own. Ten lines at 12px, and A9 pins /flows to the pre-pass render,
+   so the 0.1 of leading is not something the collapse may quietly spend. Two
+   of the old rule's declarations were provably inert and are gone with it:
+   `white-space: pre` (the element is a `<pre>`) and `tab-size: 2`
+   (`buildLedger` aligns with spaces and emits no tab). */
 .fl-code {
-  margin: 0;
-  padding: 14px 16px;
-  background: var(--bg-deep);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  overflow-x: auto;
-  font-family: var(--f-mono);
-  font-size: 12px;
   line-height: 1.7;
-  color: var(--ink-dim);
-  font-variant-numeric: tabular-nums lining-nums;
-  white-space: pre;
-  tab-size: 2;
 }
 
 /* ---------- the false-inference warning (mockup `.warnbox`) ----------
@@ -3169,7 +3219,7 @@ canvas[data-ui="fog"] {
   border: 1px solid rgba(228, 85, 63, 0.45);
   background: var(--danger-wash);
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: var(--inset-3);
 }
 
 .fl-warn .eyebrow b {
@@ -3270,6 +3320,971 @@ canvas[data-ui="fog"] {
   .fl-legend {
     grid-template-columns: 1fr;
   }
+}
+
+/* ============================================================================
+   Route layer: the Tracking suite - HANDOFF-04
+   ----------------------------------------------------------------------------
+   Six sub-views of mockup screen 04, plus the pools instrument. Every class is
+   namespaced `tk-` so nothing here can collide with the shared layer or with a
+   Record route, and the shared patterns are used rather than re-declared: the
+   preformatted block is `.code`, the compact cell register is `.cp`, panel
+   insets are rungs of --inset-1 .. --inset-5, and the key/value grid, the
+   inference chain, the reasoning rail, the metric row and the pills are all the
+   primitives HANDOFF-01 shipped.
+
+   Where the mockup declares a value this file uses that value. Two exceptions,
+   both recorded in the section 8 ledger: the mockup's `.mp tbody:hover` dim and
+   its `.examples:hover` dim are the shared hover verb and are written with the
+   shared timing tokens rather than their own, and the tracking tables' cell
+   inset is the ladder's step 1 rather than the mockup's ad-hoc 9px/10px.
+   ========================================================================== */
+
+/* ---------- the query field's examples ---------- */
+.tk-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.tk-examples a {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+  transition:
+    border-color var(--t1) var(--ease),
+    opacity var(--t2) var(--ease);
+}
+
+.tk-examples a:hover {
+  border-color: var(--gold-dim);
+  text-decoration: none;
+}
+
+/* The one hover verb: dim everything that is not the thing under the pointer. */
+.tk-examples:hover a:not(:hover) {
+  opacity: 0.55;
+}
+
+.tk-examples .a {
+  font-family: var(--f-mono);
+  font-size: 11px;
+}
+
+.tk-examples .b {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  color: var(--ink-mute);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* ---------- severity register ----------
+   Four steps, and only one of them is --danger. CLAUDE.md reserves that colour
+   for Beware severity; here HIGH means "this transaction published enough to
+   narrow a candidate set to something small", which is the same register of
+   warning about the same kind of harm, so it is the same colour. INFO, LOW and
+   MED are not warnings and do not get it. */
+.tk-sev {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.tk-sev.INFO {
+  color: var(--ink-mute);
+  border-color: var(--line-strong);
+}
+
+.tk-sev.LOW {
+  color: var(--ok);
+  border-color: rgba(63, 167, 118, 0.5);
+}
+
+.tk-sev.MED {
+  color: var(--warn);
+  border-color: rgba(217, 164, 65, 0.5);
+}
+
+.tk-sev.HIGH {
+  color: var(--danger);
+  border-color: rgba(228, 85, 63, 0.5);
+}
+
+/* ---------- the address header ---------- */
+.tk-head {
+  display: grid;
+  grid-template-columns: 1.3fr 0.7fr;
+  gap: 18px;
+  margin-top: 22px;
+  align-items: start;
+}
+
+@media (max-width: 1000px) {
+  .tk-head {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tk-addr {
+  font-family: var(--f-mono);
+  font-size: clamp(14px, 1.6vw, 20px);
+  color: var(--ink);
+  word-break: break-all;
+  letter-spacing: 0.02em;
+  margin-top: 8px;
+}
+
+/* The label chip. INK, at every precedence.
+
+   A gate round removed gold from the consensus tier. The argument for it was
+   that a consensus label is the system speaking about itself, and so the
+   system-identity register - gold's fourth licensed job. It is not: CLAUDE.md
+   closes that register to the wordmark, the screen index, the entry letters
+   and the clock dot, and an attribution of an address to the Zcash Foundation,
+   ECC and Shielded Labs is a data attribute of third parties. The distinction
+   the colour was standing in for is already carried in words: every chip
+   prints its labeller and its precedence rank, which CLAUDE.md requires
+   anyway, and the strongest tier is the one that says `consensus`. */
+.tk-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: var(--ink-dim);
+}
+
+.tk-label.consensus {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.tk-label .prov {
+  color: var(--ink-mute);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 9.5px;
+}
+
+/* The balance row: metrics on a rule, wrapping to the width they get. */
+.tk-balrow {
+  display: flex;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  margin-top: 16px;
+}
+
+.tk-balrow .metric {
+  flex: 1 1 150px;
+}
+
+/* ---------- the transactions table ---------- */
+.tk-txt {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tk-txt td {
+  font-size: 12px;
+  padding: var(--inset-1);
+  vertical-align: top;
+}
+
+.tk-dir {
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border: 1px solid;
+  border-radius: 2px;
+  white-space: nowrap;
+  display: inline-block;
+}
+
+.tk-dir.in {
+  color: var(--ok);
+  border-color: rgba(63, 167, 118, 0.5);
+}
+
+.tk-dir.shield {
+  /* The text tint, not the pool hue: at 9.5px the fill value measures 4.49:1
+     and AA wants 4.5. See --p-orchard-text in tokens.css. The border keeps the
+     pool's own colour, because a 1px rule is not text. */
+  color: var(--p-orchard-text);
+  border-color: rgba(201, 79, 143, 0.6);
+}
+
+.tk-dir.flat {
+  color: var(--ink-dim);
+  border-color: var(--line-strong);
+}
+
+.tk-amt {
+  font-family: var(--f-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tk-amt.pos {
+  color: var(--ok);
+}
+
+.tk-amt.neg {
+  color: var(--ink);
+}
+
+.tk-amt small {
+  color: var(--ink-mute);
+  display: block;
+  font-size: 10px;
+  white-space: normal;
+}
+
+/* ---------- the mempool ---------- */
+.tk-mp-grid {
+  display: grid;
+  grid-template-columns: 1.65fr 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .tk-mp-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The table scrolls inside its own card, on both axes.
+   Ten columns of dense data do not fit the 1.5fr half of this grid at any
+   viewport the site targets, and the design system's rule is that wide content
+   scrolls inside an overflow container rather than crushing its columns or
+   pushing the page sideways. Without the min-width the columns collapsed to a
+   few characters each, the last two were clipped by the card entirely, and the
+   findings column set a five-line row height for the whole table. */
+.tk-mp-scroll {
+  max-height: 560px;
+  overflow: auto;
+}
+
+.tk-mp {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+}
+
+/* The two prose columns are bounded rather than free: unbounded, the findings
+   column set the row height for the whole table. */
+.tk-mp td.cp {
+  max-width: 16ch;
+  font-size: 10.5px;
+}
+
+.tk-mp th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+
+.tk-mp td {
+  font-size: 12px;
+  /* Top, not the default middle. Two of the ten columns carry wrapping prose
+     and eight carry one line, so middle-aligning left a row's short cells
+     floating in the space the long ones needed and the eye lost the row. */
+  vertical-align: top;
+  /* The mockup's own cell inset, and NOT a rung of the card ladder: this is a
+     table cell rather than a panel, the ladder starts at 10px vertical, and a
+     ten-column table at this density is the one place on the site where two
+     pixels of vertical padding decide whether the last column is readable. */
+  padding: 9px 10px;
+}
+
+.tk-mp tr {
+  transition:
+    opacity var(--t2) var(--ease),
+    background var(--t1) var(--ease);
+}
+
+.tk-mp tbody tr[aria-selected="true"] {
+  background: var(--gold-wash);
+  box-shadow: inset 2px 0 0 var(--gold);
+}
+
+/* One hover verb. The row under the pointer keeps its ink; the rest dim. */
+.tk-mp tbody:hover tr:not(:hover):not([aria-selected="true"]) {
+  opacity: 0.55;
+}
+
+.tk-mp tbody button {
+  display: contents;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.tk-mp .id {
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.tk-mp .fl {
+  font-family: var(--f-display);
+  font-style: italic;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.tk-lanes {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.tk-lanes i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.tk-vb {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* The mempool detail panel's header. */
+.tk-ph {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+}
+
+.tk-ph h3 {
+  font-family: var(--f-mono);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink);
+  word-break: break-all;
+}
+
+.tk-ph .r {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  color: var(--ink-mute);
+  white-space: nowrap;
+}
+
+/* The live/stale badge on the mempool panel. */
+.tk-conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  border: 1px solid var(--line-strong);
+  padding: 5px 9px;
+  border-radius: 2px;
+}
+
+.tk-conn .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+}
+
+.tk-conn[data-state="connecting"] .dot {
+  background: var(--warn);
+}
+
+.tk-conn[data-state="closed"] .dot {
+  background: var(--ink-mute);
+}
+
+/* ---------- charts ---------- */
+.tk-svg svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.tk-svg .grid line {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.tk-svg .axis {
+  fill: var(--ink-mute);
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+}
+
+.tk-svg .mark {
+  fill: var(--ink);
+  font-family: var(--f-mono);
+  font-size: 10px;
+}
+
+/* The interaction graph. */
+.tk-ig .n rect {
+  fill: var(--surface);
+  stroke: var(--line-strong);
+}
+
+.tk-ig .n text {
+  fill: var(--ink);
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+}
+
+.tk-ig .n .s {
+  fill: var(--ink-mute);
+  font-size: 9px;
+}
+
+/* The base stroke is the transparent pool hue, not gold. Every edge the
+   component emits carries `.cb` or `.pool`, so the base was unreachable - but
+   it still declared an unlicensed gold mark in the stylesheet, and it is the
+   colour a transparent-to-transparent edge would take if one were ever
+   emitted, which is the hue that belongs here. Found in a gate round. */
+.tk-ig .e {
+  fill: none;
+  stroke: var(--p-transparent);
+  stroke-linecap: round;
+}
+
+.tk-ig .e.pool {
+  stroke: var(--p-orchard);
+}
+
+.tk-ig .e.cb {
+  stroke: var(--p-sprout);
+}
+
+.tk-ig .el {
+  fill: var(--ink-dim);
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 6px;
+  stroke-linejoin: round;
+}
+
+/* The Sankey. */
+.tk-sankey .node rect {
+  stroke: none;
+}
+
+.tk-sankey .node text {
+  fill: var(--ink);
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+}
+
+.tk-sankey .node .v {
+  fill: var(--ink-mute);
+  font-size: 9.5px;
+}
+
+.tk-sankey .flow {
+  fill-opacity: 0.55;
+  stroke: none;
+  transition: fill-opacity var(--t2) var(--ease);
+}
+
+/* ONE HOVER VERB: dim the rest. The mockup also lifts the hovered band from
+   0.55 to 0.85, which is a second verb - a brighten - and a gate round caught
+   the file's own comment claiming the hover was only the dim while the CSS did
+   both. The dim alone carries the same reading: everything else recedes, so
+   the band under the cursor is the one left. */
+.tk-sankey:hover .flow:not(:hover) {
+  fill-opacity: 0.18;
+}
+
+/* The unsound-window bands on the pool history. */
+.tk-band rect {
+  fill: var(--danger);
+  fill-opacity: 0.07;
+}
+
+.tk-band text {
+  fill: var(--danger);
+  font-family: var(--f-mono);
+  font-size: 9.5px;
+}
+
+/* The migration histogram. */
+.tk-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 96px;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.tk-bars .b {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 100%;
+}
+
+.tk-bars .b i {
+  background: var(--p-ironwood);
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+  display: block;
+}
+
+.tk-barlabels {
+  display: flex;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.tk-barlabels span {
+  flex: 1;
+  text-align: center;
+  font-family: var(--f-mono);
+  font-size: 8.5px;
+  color: var(--ink-mute);
+}
+
+/* The claim-level distribution. */
+.tk-neff {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tk-neff .r {
+  display: grid;
+  grid-template-columns: 190px 1fr 40px;
+  gap: 8px;
+  align-items: center;
+  font-family: var(--f-mono);
+  font-size: 10px;
+}
+
+@media (max-width: 700px) {
+  .tk-neff .r {
+    grid-template-columns: 1fr 34px;
+  }
+
+  .tk-neff .r .track {
+    grid-column: 1 / -1;
+  }
+}
+
+.tk-neff .r .k {
+  color: var(--ink-dim);
+  letter-spacing: 0.06em;
+}
+
+.tk-neff .r .track {
+  height: 12px;
+  background: var(--surface-2);
+}
+
+.tk-neff .r .track i {
+  height: 100%;
+  display: block;
+  border-radius: 0 3px 3px 0;
+}
+
+.tk-neff .r .n {
+  text-align: right;
+  color: var(--ink);
+}
+
+/* The residual figure - the biggest number on the site after the splash. */
+.tk-residual {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 10px;
+}
+
+/* INK, not gold. The mockup sets this figure in gold, and it predates the
+   accent budget: a share of supply whose soundness cannot be proven is not a
+   primary action, an active state, value crossing a pool boundary, or the
+   system-identity register. The 54px carries the emphasis on its own, which is
+   what the page's own header comment says it wants - "the residual tile says
+   it in its own words rather than leaving a big gold number to be read as an
+   accusation". A gate round pointed out the tile was exactly that. */
+.tk-residual .v {
+  font-family: var(--f-numeral);
+  font-variation-settings:
+    "opsz" 144,
+    "SOFT" 40;
+  font-weight: 300;
+  font-size: 54px;
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+}
+
+.tk-residual .l {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+}
+
+/* The pool balances table. */
+.tk-pooltbl td {
+  font-family: var(--f-mono);
+  font-size: 11.5px;
+}
+
+/* ---------- the round-trip ledger ---------- */
+.tk-ledger {
+  display: grid;
+  grid-template-columns: 160px 1fr 130px;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line-faint);
+  font-family: var(--f-mono);
+  font-size: 11px;
+  align-items: baseline;
+}
+
+@media (max-width: 700px) {
+  .tk-ledger {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+}
+
+.tk-ledger .t {
+  color: var(--ink-mute);
+}
+
+.tk-ledger .d {
+  color: var(--ink-dim);
+}
+
+.tk-ledger .d b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.tk-ledger .a {
+  color: var(--ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 700px) {
+  .tk-ledger .a {
+    text-align: left;
+  }
+}
+
+/* The opaque interval. Its endpoints are public and its middle is not, and the
+   row says so by carrying no amount at all rather than a zero or a guess. */
+.tk-ledger.sh .d b {
+  color: var(--p-orchard-text);
+}
+
+.tk-ledger.sh .a {
+  color: var(--ink-mute);
+}
+
+/* ---------- the estimate ---------- */
+.tk-est-top {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+
+.tk-est-top .p {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.tk-assume-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-family: var(--f-display);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--ink-dim);
+  line-height: 1.5;
+}
+
+.tk-assume-list li + li {
+  margin-top: 6px;
+}
+
+/* The audit trail inside a table cell, behind a disclosure.
+
+   A gate round put the filter chain and the assumptions back into
+   `EstimateCell`, which had rendered a count and a chip and nothing else. The
+   column is two inches wide, so they are collapsed by default - closed is a
+   rendering, and a link to a page the fixture corpus cannot serve was not. The
+   summary is the one hover verb (dim) and the marker is the browser's, because
+   a custom one would be a second affordance vocabulary for no gain. */
+.tk-est-more {
+  margin-top: 6px;
+}
+
+.tk-est-more > summary {
+  cursor: pointer;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  color: var(--ink-mute);
+  transition: color var(--t2) var(--ease);
+}
+
+.tk-est-more > summary:hover {
+  color: var(--ink-dim);
+}
+
+.tk-est-more > summary:focus-visible {
+  outline: 2px solid var(--blue-fn);
+  outline-offset: 2px;
+}
+
+.tk-est-more .tk-assume-list {
+  font-size: 12.5px;
+}
+
+/* ---------- /reveal: the two modes ---------- */
+.tk-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 18px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .tk-modes {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tk-pane {
+  padding: var(--inset-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  position: relative;
+  overflow: hidden;
+}
+
+/* The fog: the resting state of a shielded address, drawn rather than stated.
+   It is a static gradient, not an animation - the Record is zero-motion and so
+   is this - and it thins on hover, which is the one hover verb again.
+
+   IT TINTS THE GROUND, NEVER THE GLYPHS. A gate round measured the first
+   version: an `inset: 0` pseudo-element on a positioned pane paints ABOVE
+   normal-flow inline content, so the veil at its 0.75 and 0.92 stops put real
+   reading text - the unified address, the sentence about receivers, the whole
+   pool-context list - at 1.99:1 and 1.18:1 against WCAG's 4.5:1 floor. The
+   pane now isolates a stacking context and the veil takes `z-index: -1`, which
+   paints it after the pane's own background and before every in-flow
+   descendant. The effect survives; the text is read at full contrast on the
+   darkened ground instead of through the dark. */
+.tk-pane.fogged {
+  isolation: isolate;
+}
+
+.tk-pane.fogged::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, rgba(18, 17, 16, 0), rgba(18, 17, 16, 0.75) 45%, rgba(18, 17, 16, 0.92));
+  pointer-events: none;
+  transition: opacity var(--t3) var(--ease);
+}
+
+.tk-pane.fogged:hover::before,
+.tk-pane.fogged:focus-within::before {
+  opacity: 0.15;
+}
+
+.tk-keyin {
+  display: flex;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+  background: var(--bg-deep);
+  margin-top: 10px;
+}
+
+.tk-keyin:focus-within {
+  border-color: var(--blue-fn);
+}
+
+.tk-keyin input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  color: var(--ink);
+  font-family: var(--f-mono);
+  font-size: 12px;
+  /* The mockup's 10px 12px, which is the ladder's first rung exactly. */
+  padding: var(--inset-1);
+  outline: none;
+}
+
+.tk-keyin input::placeholder {
+  color: var(--ink-mute);
+}
+
+.tk-keyin button {
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 0 14px;
+  color: var(--gold);
+  border-left: 1px solid var(--line);
+  background: none;
+}
+
+.tk-keyin button[disabled] {
+  color: var(--ink-mute);
+  cursor: not-allowed;
+}
+
+.tk-reveals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+@media (max-width: 700px) {
+  .tk-reveals {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tk-reveals .rv {
+  padding: var(--inset-1);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  font-size: 12px;
+  color: var(--ink-dim);
+  line-height: 1.5;
+}
+
+.tk-reveals .rv b {
+  display: block;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.tk-reveals .rv.yes b {
+  color: var(--ok);
+}
+
+.tk-reveals .rv.no b {
+  color: var(--danger);
+}
+
+/* What the key parser says back. Never the key, never a fragment of it.
+   The register is the shared `.cp`; these are the two declarations that are
+   this element's own. Written as a modifier because A9's structural half
+   catches a second copy of the register the moment one is written, which is
+   what it caught when this rule was first drafted in full. */
+.tk-keystate {
+  margin-top: 10px;
+}
+
+.tk-keystate.bad b {
+  color: var(--danger);
+}
+
+/* ---------- the tracking flows summary ---------- */
+.tk-case {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 18px;
+}
+
+@media (max-width: 1000px) {
+  .tk-case {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tk-warn {
+  border: 1px solid rgba(228, 85, 63, 0.45);
+  background: var(--danger-wash);
+  padding: var(--inset-3);
+  border-radius: var(--radius);
+}
+
+.tk-warn .eyebrow b {
+  color: var(--danger);
+}
+
+/* ---------- the stated-gap page ----------
+   /address, /tx and /block answer for one identifier each in fixture mode.
+   Anything else gets this rather than a 404: the route exists, the chain has
+   the answer, and this build does not. Saying which is more useful than a
+   generic not-found, and it is also the honest description of the state. */
+.tk-gap {
+  padding: var(--inset-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-deep);
+  margin-top: 22px;
+}
+
+.tk-gap .q {
+  font-family: var(--f-mono);
+  font-size: 13px;
+  color: var(--ink);
+  word-break: break-all;
+  margin: 8px 0 12px;
 }
 
 /* ---------- reduced motion ----------

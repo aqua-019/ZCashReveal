@@ -4,8 +4,16 @@
     "rootDir": ".",
     "outDir": "./dist",
     "composite": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ],
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo"
   },
   "//": "data/**/*.json is spelled out: a bare **/* glob only picks up TypeScript.",
-  "include": ["src/**/*.ts", "data/**/*.json", "scripts/**/*.ts", "test/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "data/**/*.json",
+    "scripts/**/*.ts",
+    "test/**/*.ts"
+  ]
 }

@@ -950,3 +950,259 @@ DEFERRED ASSUMPTIONS:
 - The eslint no-unused-vars promotion and the unused `saplingSpend` in block-decoder.test.ts
   remain deferred to 06 or 07, as HANDOFF-00, 01 and 02 all recorded. Still the only warning.
 ```
+
+---
+
+## L2 RESOLUTION — HANDOFF-03
+
+Appended by the HANDOFF-04 session under the revolution protocol, step 2. Verbatim; L2 has no write access to this repository.
+
+```
+L2 RESOLUTION — HANDOFF-03 (Cowork, 23 Aug 2026)
+
+VERIFY (Executed by L2 on a clean worktree of 652c366, not relayed):
+  pnpm install --frozen-lockfile rc=0 · pnpm typecheck 6/6 · pnpm lint 0 errors, 1 pre-existing
+  warning · check-no-emoji rc=0 · check-vercel-config rc=0 · content validate rc=0, 190 refs cited
+  / 138 uncited · Playwright 68 passed in 1.7 m · Vercel status on the head: SUCCESS.
+  FOLD 1 PROVEN: `rm -rf packages/zec-types/dist && pnpm -r test` now exits 0 - content 58,
+  gateway 7, indexer 133 / 38 skipped, web 139. That is the exact command that failed before, so
+  finding F-02-1 is closed by the turbo `test: dependsOn ^build`.
+  FOLD 2 PROVEN HERMETICALLY, and harder than the assertion asks: I built `apps/web` inside a
+  network namespace with no interface at all (`unshare -rn ... next build`), rc=0, all routes
+  emitted. The build no longer touches the network. That is the strongest form of the claim and
+  it holds.
+  INDEPENDENT SOURCE CHECK, the highest-stakes claim in this PR. I did not take the Form 144
+  correction on trust; I read it from SEC EDGAR myself. `data.sec.gov` confirms two distinct
+  filers - Barry E. Silbert, CIK 0001976415, and Silbert Family Investments LLC, CIK 0001979086 -
+  and the LLC's only Form 144 in that window is accession 0001979086-25-000009, filed
+  2025-11-05. Its `primary_doc.xml` reads: issuer **Grayscale Zcash Trust (ZEC)**, class common,
+  9,753 units, aggregate market value **$407,312.59**, approximate sale date 5 November 2025,
+  exchange OTCQX. Every element of the corrected reading matches the primary document. I also
+  checked the arithmetic that the ledger prose states loosely: $41.76 is 407,312.59 / 9,753, and
+  in the shipped data it is attached to the 9,753-share line, not to the 1,000-share one. The
+  ledger sentence is ambiguous; `timeline.json`, `network.json`, `contradictions.json`,
+  `FlowsAllegations.tsx` and `flows/page.tsx` are all correct and unambiguous. No finding.
+  Verdict: every assertion holds. Four gate rounds, converging. NO FINDINGS.
+
+ANSWERS to the ledger questions:
+  Q1 THE PERFORMANCE FLOOR — (c) then (b), as you recommended, and the reasoning matters more
+     than the number. You took the page from 89 to 94 with four real reductions and then stopped,
+     rather than shaving a noisy metric until it happened to clear. That is exactly right and I
+     want it repeated: a budget exists to make a page fast, not to make a number look a certain
+     way, and a floor cleared by luck teaches nobody anything. So: the authoritative measurement
+     moves to the deployed page, not `next start` in a container, because brotli and a CDN are
+     part of what the reader actually gets. That measurement is currently impossible - see the
+     operator click below - so until it exists, 94 on /beware is ACCEPTED as passing. If the
+     deployed number still misses, Record pages of this size get a floor of 90 and the splash
+     keeps 95, recorded with this reason. Fold 3 writes both into HANDOFF-04.
+  Q2 THE ACCENT BUDGET — the two documents disagree because CLAUDE.md is incomplete, not because
+     the mockup is wrong. Ruling: gold has FOUR licensed jobs, not three. The primary action; the
+     active state; value crossing a pool boundary; and the system-identity register - the
+     wordmark, the screen index, the entry letters, the clock dot. That last one is what the
+     mockup has always spent gold on and what the crews reproduced faithfully. Everything else is
+     ink. Your two calls stand: the shielded-share series is a quantity and is correctly ink, and
+     gold on the network loop's money edges is correct because a disclosed payment between two
+     parties is precisely value crossing a boundary. Fold 4 amends CLAUDE.md so this cannot be
+     re-litigated.
+  Q3 SWEEPING A CORRECTION ACROSS EVERY FILE — yes, and this is the best process finding of the
+     three revolutions. A fact corrected in one file while two others still state it is worse
+     than the original error, because the site now contradicts itself about a named person. Fold
+     4 adds it to CLAUDE.md: when a gate round corrects a claim of fact, grep the whole tree for
+     every restatement of it, fix all of them in the same commit, and list the swept files in
+     section 7.
+  Q4 THE QUARANTINE HAS NO HOME PAGE — add `surface` to the `Unverified` schema, and let the seed
+     say where it renders instead of two files having to agree. Assigned to HANDOFF-04 in fold 5,
+     since 04 touches `packages/content` for the tracking DTOs anyway.
+  Q5 THE FOUR ROUTE STYLESHEETS — the consolidation stays; one render-blocking request is worth
+     more than authorial tidiness, and a 1,370 ms measurement settles it. The de-duplication is
+     its own pass and belongs at the START of HANDOFF-04, not after it: 04 adds the largest CSS
+     surface in the project, and collapsing three mono treatments and a five-step inset ladder is
+     cheaper before that than after. Fold 6.
+
+FOLDS (apply in the RECONCILE commit):
+  1. HANDOFF-04 §3 - add: `apps/web` takes `@zcashreveal/types` as a dependency, and `/method`
+     imports the `ClaimLevel` union rather than restating it (LEDGER-03 INFERRED).
+  2. HANDOFF-04 §3 - add: the timeline contract from LEDGER-02 Q3 binds here too - any date the
+     tracking UI renders prints its own `dateText`, never a formatted sort key, and a coarse
+     precision never renders a day.
+  3. HANDOFF-04 §5 - the Lighthouse assertion reads: performance >= 95 and accessibility >= 95
+     measured on the deployed preview; where no deployed measurement is reachable, the container
+     number is recorded instead and a Record page of `/beware`'s size passes at >= 90 with the
+     reason cited (LEDGER-03 Q1). Accessibility stays at >= 95 with no exception, on any surface.
+  4. CLAUDE.md - two amendments. (a) Design system: gold has four licensed jobs, not three - the
+     primary action, the active state, value crossing a pool boundary, and the system-identity
+     register (wordmark, screen index, entry letters, clock dot). Any other gold mark is a
+     finding. (b) Revolution protocol, a new line under the gate: when a gate round corrects a
+     claim of fact, sweep the whole tree for every restatement of that fact, correct all of them
+     in the same commit, and list the swept files in section 7. A correction that lands in one
+     file while another still states the error is a HIGH finding, not a LOW one.
+  5. HANDOFF-04 §4 - add a deliverable: a `surface` field on the `Unverified` schema in
+     `packages/content`, carrying the route each quarantined record renders beside, with
+     `permalink()` reading it rather than a prefix rule; retire the split module in `apps/web`
+     that currently holds that mapping (LEDGER-03 Q4).
+  6. HANDOFF-04 §4 - add as the FIRST deliverable: the `globals.css` de-duplication pass named in
+     LEDGER-03 Q5 - three preformatted-mono treatments to one, two compact-cell registers to one,
+     seven card insets onto the five-step ladder - before any tracking CSS is written. §5
+     assertion: the three collapsed patterns each appear once, and the page renders identically
+     before and after (a Playwright screenshot comparison on `/beware` and `/flows`).
+
+OPERATOR CLICKS OUTSTANDING, and the first one is now blocking:
+  - Vercel Deployment Protection. Three revolutions in a row have ended with the route checklist
+    and now the performance floor UNVERIFIED over the wire, because every preview returns 302 to
+    the SSO endpoint - I could not fetch `/beware` even with a regenerated share token. Turn on
+    Protection Bypass for Automation, or drop protection on preview deployments. Until then
+    nobody, L2 or CI, can measure the page a reader would actually get.
+  - Delete the stale remote branches per `docs/2.0/BRANCH-CLEANUP.md`.
+  - Delete the orphaned Vercel project `z-cash-reveal-dashboard`.
+  - Before the HANDOFF-11 cutover: move the old root `vercel.json` settings into the
+    `z-cash-reveal-dashboard2` project settings.
+```
+
+---
+
+## HANDOFF-04 — ZEC Tracking UI in fixture mode — search, mempool, address, tx, pools, reveal
+
+Branch `claude/prompt04-p86caa` (harness-designated) · shipped 23 Aug 2026 · gate rounds: 1
+
+```
+QUESTIONS (for the operator / L2):
+
+1. THE FOURTH GOLD JOB DOES NOT COVER A LABEL, AND I READ IT AS COVERING ONE FOR A WHILE.
+   LEDGER-03 Q2 gave gold a fourth licensed job: the system-identity register, "the wordmark,
+   the screen index, the entry letters and the clock dot". I painted the consensus label chip
+   gold on the argument that a consensus label is the system speaking about itself, and the gate
+   was right to call that a finding - a label attributing an address to ZF, ECC and Shielded
+   Labs is a data attribute of third parties, not the system's own furniture. It is ink now, and
+   the precedence rank that the colour was standing in for is printed in words, which CLAUDE.md
+   requires anyway. Two related things want your ruling rather than another gate round.
+   (a) `.entry:hover` and `.tk-examples a:hover` both spend `--gold-dim` on a hover border.
+   HANDOFF-01 shipped the first, so the second is precedent-following rather than drift, and the
+   reviewer declined to file it for that reason - but a hover border is none of the four jobs.
+   (b) The mockup sets the unprovable-residual figure on /pools in gold at 54px. I made it ink,
+   because a share of supply whose soundness cannot be proven is not a boundary crossing and the
+   page's own comment says it does not want "a big gold number to be read as an accusation". If
+   you disagree with either call, the fix is an amendment to CLAUDE.md line 44 and to
+   tokens.css:48 together, not a local exemption in a stylesheet comment - which is what the
+   gate found the first time.
+
+2. /address MEASURES 94, AND THE POINT WAS SPENT ON SOMETHING THE GATE REQUIRED. Fold 3 makes
+   the deployed number authoritative and lets a container number stand at >= 90 with the reason
+   cited. /address was 95-96 before the gate round and is 94 after it, three runs, same result.
+   The cause is spec finding 2: `EstimateCell` rendered a count and a claim chip and NO
+   assumptions, deferring to a transaction page this build cannot serve - so the strongest claim
+   level on the site rendered with the caveat that qualifies it nowhere at all. It renders the
+   full audit trail behind a `<details>` now, which is 3 kB more markup on three cells and moves
+   LCP from 2.6 to 2.8 s under the mobile preset. I did not take it back out to recover the
+   point. If you would rather have 95 than the assumptions, say so and I will make the
+   disclosure lazy; my recommendation is to leave it and let the deployed measurement decide,
+   which is what fold 3 already says.
+
+3. THE DEPLOYED MEASUREMENT IS NOW BLOCKED TWICE, AND THE SECOND BLOCK IS NEW. Operator click 03
+   is Deployment Protection: the API reports `ssoProtection.enabled = true`,
+   `deploymentType = all_except_custom_domains`. That is the known one. The new one is this
+   container: `curl` to the preview host returns `CONNECT tunnel failed, response 403` from the
+   session's egress proxy - not a 302 to SSO, a refusal to open the tunnel at all. So lifting
+   Deployment Protection alone will NOT let a session measure the preview; a session would also
+   need the host allowed, or the measurement has to be taken by the operator, or the site needs
+   a custom domain (which `all_except_custom_domains` already exempts). Worth knowing before the
+   HANDOFF-11 cutover, where the same wall stands between a session and a live gateway.
+
+4. `Unverified.surface` IS REQUIRED, AND 24 OF THE 32 RECORDS RENDER NOWHERE. Deliverable 9 is
+   done: the field is on the schema, `permalink()` reads it, and the apps/web module that held
+   the split is deleted. But LEDGER-03 Q4's own partition is four on /flows, four on /network
+   and the rest unrendered, so three quarters of the corpus now asserts a surface it does not
+   appear on, and `permalink()` returns an anchor that resolves to a page rather than to an
+   element. Two honest options: make `surface` nullable and have `permalink()` refuse rather
+   than emit a dead anchor, or render the other 24 somewhere. The second is an editorial
+   decision about what the quarantine is for and belongs to you, not to a handoff.
+
+5. THE CSP SHIPS WITH `script-src 'unsafe-inline'`, DELIBERATELY. Next.js carries its bootstrap
+   and its flight payload in inline script tags; the alternative is a per-request nonce, which
+   needs middleware, which makes every route dynamic - undoing the work that took /reveal from
+   92 to 97 and costing the whole site its prerendering, to defend against an injection vector a
+   site with no user input, no database and no third-party script does not have. It is stated in
+   next.config.ts rather than hidden. It becomes a real question at HANDOFF-13, when WASM
+   decryption puts real note data in that tab, and I would rather you decide it now than have a
+   later session discover the trade-off under time pressure.
+
+6. A CORRECTION TO LEDGER-03'S OWN DEFERRED LIST, WHICH I AM NOT REWRITING. LEDGER-03 records as
+   a deferred assumption: "The corpus and the loader disagree on chain height (3,456,227 against
+   3,456,938)". They do not. `packages/content/data/stats.json` is `"height": 3456227`, the same
+   value CipherScan gives; 3,456,938 occurs only in research 04's "chain state at time of
+   research" line and in the mockup's /flows eyebrow. The site holds three heights and they are
+   three different things: the balances were read at 3,456,227, the rendered chain tip is
+   3,456,854 (`src/lib/chain.ts`), and the dossier was taken at 3,456,938. /pools states all
+   three now. The ledger is append-only so the earlier line stands as written; this is the
+   correction, in the place the protocol puts it.
+
+INFERENCES MADE (things section 3 did not settle):
+
+- `MempoolRow`, not `MempoolEntry` - the name is taken in transactions.ts, and two DTOs sharing
+  one name is how the wrong one gets imported.
+- Seven routes, not the six deliverable 2 lists, because 4.2 also asks for `/track/flows`.
+- The socket's reconnect delay is full jitter over a doubled window, seeded by
+  `seededRng(url, "socket-jitter")` - `Math.random` is banned and a fixed backoff makes every
+  client retry in lockstep.
+- Frames off the socket are narrowed by a hand-written guard rather than by zod. zod on that
+  path cost 15 kB in the client bundle for a validation the guard does exactly.
+- Estimate DTOs ARE zod schemas, because they are wire contracts and the gateway will parse
+  them at HANDOFF-11; the guard is only for the streaming path.
+
+PATTERNS THAT DID NOT APPLY:
+
+- Loop 1 PREFLIGHT was not issued: no Haiku touched anything, because no worker was spawned for
+  the build. Section 6's three-crew shape did not happen - the operator's standing instruction
+  in this environment is that the Agent tool is not called unless requested. What DID run is the
+  four-reviewer gate, and it earned its cost: 36 findings, of which two were HIGH claims that
+  the site's own arithmetic contradicted.
+- Loop 4's three-rounds-per-finding cap was not approached. One round, 36 findings, none
+  recurring.
+- `gh pr create` is what CLAUDE.md specifies; this environment has no `gh`, and the PR is opened
+  through the GitHub MCP tools instead. LEDGER-03 raised the same mismatch and CLAUDE.md still
+  says gh.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 review):
+
+- "Every estimate renders its assumptions and the claim chip" (section 3). I read it as applying
+  to the estimate PANEL and not to the compact cell, and shipped a cell with a chip and no
+  assumptions. The gate read it as written. The gate is right: the sentence says every estimate,
+  the cell renders an estimate, and the page it deferred to does not exist in this build. Read
+  strictly from here.
+- A8 names /tx ("Playwright on /tx/...") while the property is obviously general. The
+  generalising test existed but its locator matched only the panel's attribute, so it asserted
+  less than its own comment claimed. Both attributes now.
+- Deliverable 8 names "vitest + testing-library + jsdom". I substituted Playwright against a
+  production build, which is stronger evidence about the artefact - but a substitution nobody
+  records is a gap, so both exist now.
+- A5 says "no numeric balance for a shielded address". Its detector has now fired twice on
+  COUNTS - "1,240" and "3.13M" - because a decimal figure is the shape of an amount. The pane
+  writes "about 3,130,000" rather than "3.13M", which is the same three significant figures in a
+  form nothing can mistake for a value. If a later handoff wants magnitude notation on that
+  pane, A5's detector has to learn the difference first.
+
+GATE ROUND COUNTS: 1. Four reviewers (design, security, spec, facts), all FAIL, 36 findings.
+Three were STALE - the CSP, the RevealKey docblock and fold 1 were fixed in the working tree
+while the reviewers read HEAD, which is a real process finding: an uncommitted fix is not a fix.
+The other 33 are addressed in one commit. Fingerprints are in section 7.
+
+DEFERRED ASSUMPTIONS:
+
+- The fourth gold job and the two hover borders. Question 1.
+- /address at 94. Question 2.
+- The deployed Lighthouse measurement, now blocked by the egress proxy as well as by Deployment
+  Protection. Question 3.
+- `Unverified.surface` nullable, or render the other 24. Question 4.
+- `script-src 'unsafe-inline'`. Question 5.
+- `.tk-residual .v` uses `"SOFT" 40` against the shared numeral register's 30. The mockup
+  declares 40 and the fonts contract pins only weight and opsz, so nothing is violated - but it
+  is a third variation-settings variant introduced immediately after a de-duplication pass.
+- `/method`'s posterior formula is a point smaller, a rung dimmer and on a darker ground than it
+  was, as a deliberate consequence of collapsing three preformatted treatments into one. A9's
+  baselines cover /beware and /flows, the two that must NOT move. Recorded in the stylesheet and
+  in section 7 rather than guarded by a baseline, because this consumer is meant to move.
+- `HttpApi` exists and is never selected. It is written against the same nine-member interface
+  the fixture implements, so HANDOFF-11's cutover is an edit to `api()` and to nothing under
+  `src/app` - but it has never spoken to a gateway and is UNVERIFIED as a whole.
+- The eslint no-unused-vars promotion and the unused `saplingSpend` in block-decoder.test.ts
+  remain deferred to 06 or 07, as HANDOFF-00 through 03 all recorded. Still the only warning.
+```

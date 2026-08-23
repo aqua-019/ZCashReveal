@@ -45,8 +45,13 @@
   --ink-faint: #6a6157;
 
   /* -- accent: a budget, not a decoration ----------------------------------
-     ZEC gold is spent on exactly three things: the primary action, the active
-     state, and value crossing a pool boundary. Anything else uses ink. */
+     ZEC gold is spent on exactly four things, per CLAUDE.md: the primary
+     action, the active state, value crossing a pool boundary, and the
+     system-identity register - the wordmark, the screen index, the entry
+     letters and the clock dot. Anything else uses ink, and any other gold mark
+     is a finding. LEDGER-03 Q2 added the fourth job; a gate round found this
+     comment still saying three while a stylesheet elsewhere cited the fourth,
+     so the token file denied a rule its consumers were citing. */
   --gold: #f4b728;
   --gold-ink: #1a1405;
   --gold-dim: rgba(244, 183, 40, 0.55);
@@ -68,6 +73,22 @@
   --p-orchard: #c94f8f;
   --p-ironwood: #8b7fe6;
 
+  /* Orchard, lifted for TEXT.
+     #c94f8f is the validated pool hue and stays the pool hue - it is a fill on
+     every chart and a swatch in every legend, where contrast is not the test.
+     As 9.5px text on --bg it measures 4.49:1, one hundredth under AA, which axe
+     flags serious. LEDGER-01 Q1 ruled that where a mockup value and AA for
+     normal text disagree, AA wins and the divergence is recorded; this is the
+     same ruling applied to a pool hue rather than to an ink. Same hue, same
+     saturation, value lifted until it clears with margin: 5.05:1 on --bg and
+     4.74:1 on --surface, which are the two grounds it is actually painted on
+     (.tk-dir.shield sits on the page ground, .tk-ledger.sh .d b inside a
+     Glass). It is NOT cleared for --surface-2, where it measures 4.39:1, and
+     is not used there - a gate round corrected an earlier version of this
+     comment which claimed 4.74:1 on --surface-2 and called that token the
+     darkest of the three grounds, when it is the lightest. */
+  --p-orchard-text: #d75499;
+
   /* -- ambience ------------------------------------------------------------ */
   --fog: rgba(237, 230, 216, 0.045);
 
@@ -85,6 +106,26 @@
   --t1: 180ms;
   --t2: 320ms;
   --t3: 500ms;
+
+  /* -- card insets ---------------------------------------------------------
+     The five-step inset ladder, named. Every step is `vertical / vertical+2px`
+     and the vertical steps by 2px: 10, 12, 14, 16, 18. Panels get an inset from
+     this ladder and from nowhere else.
+
+     HANDOFF-03's design review counted SEVEN distinct card insets, which is
+     what happens when a ladder exists only as a literal repeated in
+     seventeen rules and nothing names it. LEDGER-03 Q5 assigns the collapse to
+     HANDOFF-04 deliverable 1; these names are what stops it drifting back.
+     `.entry` (20px 22px 18px) and `.pending` (22px 24px) were the two rungs
+     above the top of the ladder and are now step 5.
+
+     Deliberately NOT in the `@theme inline` bridge below: Tailwind's theme
+     namespaces take single values, and these are shorthand pairs. */
+  --inset-1: 10px 12px;
+  --inset-2: 12px 14px;
+  --inset-3: 14px 16px;
+  --inset-4: 16px 18px;
+  --inset-5: 18px 20px;
 
   /* -- measure ------------------------------------------------------------- */
   --measure: 64ch;

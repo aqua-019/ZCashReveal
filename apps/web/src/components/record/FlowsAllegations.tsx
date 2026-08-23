@@ -211,7 +211,7 @@ export function FlowsAllegations() {
               head: "Who and when",
               cell: (r: Allegation) => (
                 <>
-                  <span className="fl-cp">{r.who}</span>
+                  <span className="cp">{r.who}</span>
                   <span className="fl-attrib">{r.when}</span>
                 </>
               ),
@@ -219,14 +219,14 @@ export function FlowsAllegations() {
             {
               key: "evidence",
               head: "Evidence actually offered",
-              cell: (r: Allegation) => <span className="fl-cp">{r.evidence}</span>,
+              cell: (r: Allegation) => <span className="cp">{r.evidence}</span>,
             },
             {
               key: "assessment",
               head: "Assessment",
               cell: (r: Allegation) => (
                 <span {...(r.anchorHere === true ? { id: r.id } : {})}>
-                  <span className="fl-cp">{r.assessment}</span>
+                  <span className="cp">{r.assessment}</span>
                   <FlowsClaim
                     id={r.id}
                     {...(r.also === undefined ? {} : { also: r.also })}

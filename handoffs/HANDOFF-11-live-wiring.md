@@ -15,6 +15,15 @@ stack: Aqua Stack v4.1
 
 ## §1 SCOPE
 
+> **Scope correction from HANDOFF-04 (23 Aug 2026).** The cutover this handoff was written to
+> perform - moving the public site from the v0.2 Vite dashboard to `apps/web` - is smaller than
+> it was. The operator deleted both v0.2 Vercel projects (`z-cash-reveal-dashboard` and
+> `z-cash-reveal-dashboard2`) on 23 August 2026, so `zecreveal` with Root Directory `apps/web` is
+> the only project on the account and has been serving previews since. What is left of the
+> cutover is pointing a domain at `zecreveal` and promoting to Production - both operator clicks.
+> `legacy/dashboard` still exists in the tree with no deployment; retiring the directory is still
+> this handoff's, and is now a `git rm` rather than a migration.
+
 Wire `apps/web` to the real API and WS with the snapshot as the baseline, so the public site can never render empty; add Playwright smoke tests and CI jobs; write the cutover checklist.
 
 **Out of scope:** No production promotion, no Vercel env changes by agents — the checklist tells the operator what to click.

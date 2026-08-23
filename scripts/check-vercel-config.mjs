@@ -59,15 +59,47 @@ if (!existsSync(webConfigPath)) {
     const required = {
       framework: "nextjs",
       installCommand: "pnpm install --frozen-lockfile",
-      // apps/web depends on the @zcashreveal/content workspace package from
-      // HANDOFF-03 onward, and its package exports resolve to dist/. The bare
-      // `next build` the Next.js preset would run does not build a workspace
-      // dependency, so the command names it. DEPLOY-2.0.md section 1 offers
-      // transpilePackages as the alternative; it does not work here, because
-      // resolution still goes through the package's own exports map.
-      buildCommand: "pnpm --filter @zcashreveal/content build && next build",
+      // THE BUILD COMMAND MUST GO THROUGH TURBO, and must not name any
+      // individual workspace dependency.
+      //
+      // apps/web depends on workspace packages whose exports resolve to dist/,
+      // so the bare `next build` the Next.js preset would run does not build
+      // them. HANDOFF-03 solved that by naming @zcashreveal/content in the
+      // command. HANDOFF-04 added @zcashreveal/types as a second dependency
+      // (LEDGER-03 fold 1) and the pinned string did not grow with it: the
+      // preview failed with "Module not found: Can't resolve
+      // '@zcashreveal/types'", and it passed locally only because `pnpm build`
+      // goes through turbo, whose build task carries dependsOn ["^build"],
+      // while Vercel runs the literal string.
+      //
+      // A hand-maintained list of dependencies in a config file is a list that
+      // will drift again on the next handoff that adds one. `turbo run build
+      // --filter=@zcashreveal/web` asks the dependency graph instead, so the
+      // command is correct for whatever apps/web depends on next and nobody has
+      // to remember to edit it. This check pins that FORM: a command naming a
+      // package by hand is rejected even if it happens to be complete today.
+      buildCommand: "pnpm turbo run build --filter=@zcashreveal/web",
       outputDirectory: ".next",
     };
+    // The form, not just the value: a future edit that reverts to naming
+    // packages by hand fails here with the reason rather than on Vercel.
+    const build = typeof webConfig.buildCommand === "string" ? webConfig.buildCommand : "";
+    if (build !== "" && /--filter[= ]@zcashreveal\/(content|types)\b/.test(build)) {
+      failures.push(
+        `apps/web/vercel.json buildCommand names a workspace dependency by hand: ${JSON.stringify(build)}. ` +
+          "That list drifts every time apps/web gains a dependency - it did between HANDOFF-03 and HANDOFF-04, " +
+          "and the preview failed with Module not found: Can't resolve '@zcashreveal/types'. " +
+          "Use `pnpm turbo run build --filter=@zcashreveal/web` and let the dependency graph answer.",
+      );
+    }
+    if (build !== "" && !build.includes("turbo run build")) {
+      failures.push(
+        `apps/web/vercel.json buildCommand does not go through turbo: ${JSON.stringify(build)}. ` +
+          "Vercel runs the literal string and bypasses the turbo task graph, so `dependsOn: [\"^build\"]` " +
+          "does not apply and workspace dependencies are not built.",
+      );
+    }
+
     for (const [key, expected] of Object.entries(required)) {
       if (webConfig[key] !== expected) {
         failures.push(

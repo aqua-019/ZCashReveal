@@ -374,12 +374,12 @@ export default function FlowsPage() {
                 {
                   key: "series",
                   head: "ZEC exchange-reserve series?",
-                  cell: (r: { readonly series: string }) => <span className="fl-cp">{r.series}</span>,
+                  cell: (r: { readonly series: string }) => <span className="cp">{r.series}</span>,
                 },
                 {
                   key: "verified",
                   head: "What could be verified",
-                  cell: (r: { readonly verified: string }) => <span className="fl-cp">{r.verified}</span>,
+                  cell: (r: { readonly verified: string }) => <span className="cp">{r.verified}</span>,
                 },
               ]}
               rows={[
@@ -645,7 +645,7 @@ export default function FlowsPage() {
                 {
                   key: "event",
                   head: "Event",
-                  cell: (r: { readonly event: string }) => <span className="fl-cp">{r.event}</span>,
+                  cell: (r: { readonly event: string }) => <span className="cp">{r.event}</span>,
                 },
               ]}
               rows={[

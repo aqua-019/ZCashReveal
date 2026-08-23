@@ -8,7 +8,7 @@ import type { ReactNode } from "react";
  *   blue   - functional, outside the palette: a link or a focus affordance
  * Omitting the tone gives the neutral ink chip, which is the default answer.
  */
-export type ChipTone = "gold" | "danger" | "ok" | "blue";
+export type ChipTone = "gold" | "danger" | "warn" | "ok" | "blue";
 
 export function Chip({
   tone,
