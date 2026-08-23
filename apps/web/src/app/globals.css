@@ -536,6 +536,15 @@ p {
   border-color: rgba(228, 85, 63, 0.5);
 }
 
+/* The middle rung of the claim ladder. Added when a gate round took gold off
+   `small heuristic set`: a claim level is not one of gold's four licensed
+   jobs, and the level needed a colour of its own rather than borrowing the
+   accent. 7.30:1 on the lightest of the three grounds. */
+.chip.warn {
+  color: var(--warn);
+  border-color: rgba(217, 164, 65, 0.5);
+}
+
 .chip.ok {
   color: var(--ok);
   border-color: rgba(63, 167, 118, 0.5);
@@ -2410,7 +2419,16 @@ canvas[data-ui="fog"] {
 
    The surviving declarations are the mockup's `pre.code` rule verbatim, which
    is also `.bw-code`'s block unchanged - so /beware renders pixel-identically
-   by construction rather than by luck. `white-space` is not declared: every
+   by construction rather than by luck.
+
+   /method IS THE CONSUMER THAT MOVES, and a gate round is right that nothing
+   said so. `.formula` was 13px `--ink` on `--surface-2` with a 10px 12px
+   inset; the surviving `.code` is 12px `--ink-dim` on `--bg-deep` at
+   `--inset-3`. So the posterior formula is a point smaller, a rung dimmer and
+   on a darker ground than it was, which is the price of one treatment instead
+   of three and is accepted deliberately. `--ink-dim` on `--bg-deep` measures
+   8.46:1, so nothing is lost accessibly, and A9's baselines cover /beware and
+   /flows - the two that must not move - rather than this one, which must. `white-space` is not declared: every
    consumer is a `<pre>`, where it is the user-agent default, and declaring it
    was what made the three rules look less alike than they were.
 
@@ -3428,9 +3446,17 @@ canvas[data-ui="fog"] {
   margin-top: 8px;
 }
 
-/* The label chip. Gold because a consensus label is the system speaking about
-   itself - the system-identity register, gold's fourth licensed job. A label
-   from any other labeller is ink; `.tk-label.consensus` is the only gold one. */
+/* The label chip. INK, at every precedence.
+
+   A gate round removed gold from the consensus tier. The argument for it was
+   that a consensus label is the system speaking about itself, and so the
+   system-identity register - gold's fourth licensed job. It is not: CLAUDE.md
+   closes that register to the wordmark, the screen index, the entry letters
+   and the clock dot, and an attribution of an address to the Zcash Foundation,
+   ECC and Shielded Labs is a data attribute of third parties. The distinction
+   the colour was standing in for is already carried in words: every chip
+   prints its labeller and its precedence rank, which CLAUDE.md requires
+   anyway, and the strongest tier is the one that says `consensus`. */
 .tk-label {
   display: inline-flex;
   align-items: center;
@@ -3447,8 +3473,8 @@ canvas[data-ui="fog"] {
 }
 
 .tk-label.consensus {
-  border-color: var(--gold-dim);
-  color: var(--gold);
+  border-color: var(--line-strong);
+  color: var(--ink);
 }
 
 .tk-label .prov {
@@ -3745,9 +3771,14 @@ canvas[data-ui="fog"] {
   font-size: 9px;
 }
 
+/* The base stroke is the transparent pool hue, not gold. Every edge the
+   component emits carries `.cb` or `.pool`, so the base was unreachable - but
+   it still declared an unlicensed gold mark in the stylesheet, and it is the
+   colour a transparent-to-transparent edge would take if one were ever
+   emitted, which is the hue that belongs here. Found in a gate round. */
 .tk-ig .e {
   fill: none;
-  stroke: var(--gold);
+  stroke: var(--p-transparent);
   stroke-linecap: round;
 }
 
@@ -3791,12 +3822,13 @@ canvas[data-ui="fog"] {
   transition: fill-opacity var(--t2) var(--ease);
 }
 
+/* ONE HOVER VERB: dim the rest. The mockup also lifts the hovered band from
+   0.55 to 0.85, which is a second verb - a brighten - and a gate round caught
+   the file's own comment claiming the hover was only the dim while the CSS did
+   both. The dim alone carries the same reading: everything else recedes, so
+   the band under the cursor is the one left. */
 .tk-sankey:hover .flow:not(:hover) {
   fill-opacity: 0.18;
-}
-
-.tk-sankey .flow:hover {
-  fill-opacity: 0.85;
 }
 
 /* The unsound-window bands on the pool history. */
@@ -3904,6 +3936,13 @@ canvas[data-ui="fog"] {
   padding-top: 10px;
 }
 
+/* INK, not gold. The mockup sets this figure in gold, and it predates the
+   accent budget: a share of supply whose soundness cannot be proven is not a
+   primary action, an active state, value crossing a pool boundary, or the
+   system-identity register. The 54px carries the emphasis on its own, which is
+   what the page's own header comment says it wants - "the residual tile says
+   it in its own words rather than leaving a big gold number to be read as an
+   accusation". A gate round pointed out the tile was exactly that. */
 .tk-residual .v {
   font-family: var(--f-numeral);
   font-variation-settings:
@@ -3912,7 +3951,7 @@ canvas[data-ui="fog"] {
   font-weight: 300;
   font-size: 54px;
   line-height: 1;
-  color: var(--gold);
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
 }
@@ -4015,6 +4054,41 @@ canvas[data-ui="fog"] {
   margin-top: 6px;
 }
 
+/* The audit trail inside a table cell, behind a disclosure.
+
+   A gate round put the filter chain and the assumptions back into
+   `EstimateCell`, which had rendered a count and a chip and nothing else. The
+   column is two inches wide, so they are collapsed by default - closed is a
+   rendering, and a link to a page the fixture corpus cannot serve was not. The
+   summary is the one hover verb (dim) and the marker is the browser's, because
+   a custom one would be a second affordance vocabulary for no gain. */
+.tk-est-more {
+  margin-top: 6px;
+}
+
+.tk-est-more > summary {
+  cursor: pointer;
+  font-family: var(--f-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  color: var(--ink-mute);
+  transition: color var(--t2) var(--ease);
+}
+
+.tk-est-more > summary:hover {
+  color: var(--ink-dim);
+}
+
+.tk-est-more > summary:focus-visible {
+  outline: 2px solid var(--blue-fn);
+  outline-offset: 2px;
+}
+
+.tk-est-more .tk-assume-list {
+  font-size: 12.5px;
+}
+
 /* ---------- /reveal: the two modes ---------- */
 .tk-modes {
   display: grid;
@@ -4041,11 +4115,26 @@ canvas[data-ui="fog"] {
 
 /* The fog: the resting state of a shielded address, drawn rather than stated.
    It is a static gradient, not an animation - the Record is zero-motion and so
-   is this - and it thins on hover, which is the one hover verb again. */
+   is this - and it thins on hover, which is the one hover verb again.
+
+   IT TINTS THE GROUND, NEVER THE GLYPHS. A gate round measured the first
+   version: an `inset: 0` pseudo-element on a positioned pane paints ABOVE
+   normal-flow inline content, so the veil at its 0.75 and 0.92 stops put real
+   reading text - the unified address, the sentence about receivers, the whole
+   pool-context list - at 1.99:1 and 1.18:1 against WCAG's 4.5:1 floor. The
+   pane now isolates a stacking context and the veil takes `z-index: -1`, which
+   paints it after the pane's own background and before every in-flow
+   descendant. The effect survives; the text is read at full contrast on the
+   darkened ground instead of through the dark. */
+.tk-pane.fogged {
+  isolation: isolate;
+}
+
 .tk-pane.fogged::before {
   content: "";
   position: absolute;
   inset: 0;
+  z-index: -1;
   background: linear-gradient(90deg, rgba(18, 17, 16, 0), rgba(18, 17, 16, 0.75) 45%, rgba(18, 17, 16, 0.92));
   pointer-events: none;
   transition: opacity var(--t3) var(--ease);

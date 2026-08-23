@@ -1,11 +1,14 @@
 "use client";
 
+import type { ClaimLevel } from "@zcashreveal/types";
+
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 import { Pill } from "@/components/ui/Pill";
 import { KV } from "@/components/ui/KV";
 import { searchKind } from "@/lib/api/kind";
+import { CLAIM_TEXT } from "@/lib/claim";
 
 /**
  * The address half of Mode B, read from the URL in the browser.
@@ -34,7 +37,12 @@ import { searchKind } from "@/lib/api/kind";
 export function RevealAddress({
   context,
 }: {
-  readonly context: { readonly pool: string; readonly noteCount: string; readonly medianNEff: string };
+  readonly context: {
+    readonly pool: string;
+    readonly noteCountText: string;
+    readonly medianNEff: string;
+    readonly claim: ClaimLevel;
+  };
 }) {
   const params = useSearchParams();
   const addr = (params.get("addr") ?? "").trim();
@@ -88,11 +96,38 @@ export function RevealAddress({
                 // anywhere in this pane, which is what assertion A5 checks from
                 // outside.
                 k: "pool context",
-                v: `${context.pool} tree: ${context.noteCount} notes - median N_eff for a spend now ${context.medianNEff} - claim level broad`,
+                // The claim level comes through `CLAIM_TEXT`, the same lookup
+                // the estimate chips use, and the level itself is computed by
+                // `claimLevelFor` in the fixture. A gate round found the word
+                // "broad" written here by hand while the median N_eff of 1,240
+                // is above 1,000, which is `aggregate only` - an over-claim in
+                // the unsafe direction on the one page arguing that a shielded
+                // spend is not resolvable.
+                v: `${context.pool} tree: ${context.noteCountText} notes - median N_eff for a spend now ${context.medianNEff} - claim level ${CLAIM_TEXT[context.claim]}`,
               },
-              { k: "trace from a transaction", v: "paste a txid you know - public fields, then bounds" },
+              // The last two rows are LINKS, and that is not decoration. The
+              // fog over this pane thins on `:hover` and `:focus-within`, and
+              // a gate round found the shielded branch contained no focusable
+              // descendant at all - so `:focus-within` could never fire and a
+              // keyboard-only or touch reader had no way to lift it. These are
+              // the two routes the pane is telling the reader to take anyway.
+              {
+                k: "trace from a transaction",
+                v: (
+                  <>
+                    <Link href="/track">paste a txid you know</Link> - public fields, then bounds
+                  </>
+                ),
+              },
               { k: "trace from a transparent counterparty", v: "paste a t-address - its boundary events are exact" },
-              { k: "exact answer", v: "paste the viewing key into mode A - decrypted here, never uploaded" },
+              {
+                k: "exact answer",
+                v: (
+                  <>
+                    <a href="#mode-a">paste the viewing key into mode A</a> - decrypted here, never uploaded
+                  </>
+                ),
+              },
             ]}
           />
           <p className="note" style={{ marginTop: 12, fontSize: 12 }}>

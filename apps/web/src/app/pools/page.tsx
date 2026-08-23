@@ -121,7 +121,8 @@ export default async function PoolsPage() {
         <Glass>
           <p className="note measure">
             The unprovable residual is a statement about verification, not about behaviour. Sprout&apos;s soundness rested on
-            the 2016 Powers of Tau parameters and Orchard&apos;s on the circuit that carried the 2026 counterfeiting bug;
+            the BCTV14 construction, whose key generation emitted the bypass elements found in 2018 (CVE-2019-7167), and
+            Orchard&apos;s on the circuit that carried the 2026 counterfeiting bug;
             neither balance can be proven free of counterfeit value, and neither is claimed to contain any. Nobody has shown
             that a single counterfeit note exists in either. The number is here because the honest answer to &quot;is the
             supply sound&quot; is &quot;95.67 percent of it is provably so&quot;, and rounding that to yes would be the same

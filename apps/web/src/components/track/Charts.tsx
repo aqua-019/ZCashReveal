@@ -13,7 +13,7 @@
  * functions of the data; the only interaction is the Sankey's hover, which is
  * the site's one hover verb (dim the rest) expressed in CSS and nowhere else.
  */
-import type { PoolsView } from "@zcashreveal/types";
+import type { BalancePoint, PoolsView } from "@zcashreveal/types";
 
 import { Chart, ChartTable } from "@/components/record/Chart";
 import { POOL_SW, type PoolKey } from "@/lib/chain";
@@ -47,7 +47,10 @@ const zecOf = (zat: bigint): number => Number(zat) / 1e8;
  * slope between them would assert a continuum that does not exist. The mockup
  * draws it as a step for the same reason.
  */
-export function BalanceStep({ points }: { readonly points: PoolsView extends never ? never : readonly { readonly height: number; readonly stamp: { readonly text: string }; readonly balanceZat: bigint; readonly event: string | null }[] }) {
+// The DTO's own type, not a structural restatement of it. A gate round added
+// `crossing` to `BalancePoint` and the restatement did not have it, which is
+// the failure mode a restated type has and an imported one does not.
+export function BalanceStep({ points }: { readonly points: readonly BalancePoint[] }) {
   const W = 560;
   const H = 190;
   const pl = 58;
@@ -101,8 +104,13 @@ export function BalanceStep({ points }: { readonly points: PoolsView extends nev
             </g>
           ))}
         </g>
-        <path d={`${d} L${X(points.length - 1)},${Y(0n)} L${X(0)},${Y(0n)} Z`} fill="var(--gold)" opacity="0.08" />
-        <path d={d} fill="none" stroke="var(--gold)" strokeWidth="2" strokeLinejoin="round" />
+        {/* The series is a TRANSPARENT address's balance, so it is drawn in the
+            transparent pool hue. The mockup draws it in gold; a gate round
+            pointed out that a balance history is none of gold's four licensed
+            jobs, and that spending the accent on the whole line leaves nothing
+            to mark the two points on it that ARE a licensed job. */}
+        <path d={`${d} L${X(points.length - 1)},${Y(0n)} L${X(0)},${Y(0n)} Z`} fill="var(--p-transparent)" opacity="0.08" />
+        <path d={d} fill="none" stroke="var(--p-transparent)" strokeWidth="2" strokeLinejoin="round" />
         {points.map((p, i) =>
           p.event === null ? null : (
             <circle
@@ -110,7 +118,10 @@ export function BalanceStep({ points }: { readonly points: PoolsView extends nev
               cx={X(i)}
               cy={Y(p.balanceZat)}
               r="4"
-              fill={p.balanceZat > (points[i - 1]?.balanceZat ?? 0n) ? "var(--gold)" : "var(--p-orchard)"}
+              // Gold marks a pool crossing and nothing else - the third
+              // licensed job, read off the DTO rather than inferred from the
+              // direction of the line. Every other event is ink.
+              fill={p.crossing ? "var(--gold)" : "var(--ink-dim)"}
               stroke="var(--surface)"
               strokeWidth="2"
             />
@@ -140,6 +151,26 @@ export function BalanceStep({ points }: { readonly points: PoolsView extends nev
  * proportional to the square root of the value, which is the mockup's own rule
  * and the standard way to keep a large value from swamping a small one.
  */
+/**
+ * The colour key, restored after a gate round.
+ *
+ * The mockup's caption for this figure carries one - "gold = transparent,
+ * magenta = pool boundary, green = coinbase" - and the first draft dropped it,
+ * which left the two hues the graph actually uses unlabelled on the page. Gold
+ * is gone from the key with the base stroke it named, so the key is the two
+ * that remain.
+ */
+const LEGEND = [
+  <li key="cb">
+    <i className="sw sp" />
+    coinbase
+  </li>,
+  <li key="pool">
+    <i className="sw o" />
+    pool boundary
+  </li>,
+];
+
 export function InteractionGraph({
   interactions,
   note,
@@ -157,6 +188,7 @@ export function InteractionGraph({
           <b>interactions</b> - edge width proportional to the square root of value
         </>
       }
+      legend={LEGEND}
       note={note}
       table={
         <ChartTable
@@ -403,6 +435,16 @@ export function PoolHistory({ view }: { readonly view: PoolsView }) {
 
   const shieldedNow = keys.reduce((a, k) => a + zecOf(view.history[view.history.length - 1]?.[k] ?? 0n), 0);
 
+  /**
+   * The shielded share, restored after a gate round. The mockup annotates this
+   * point "4.39M shielded - 26%" and the first draft kept only the first half,
+   * which drops the one figure that makes 4.39M mean anything. Computed from
+   * the balances table on the same page rather than written down: the four
+   * shielded lanes over all five.
+   */
+  const supplyNow = view.balances.reduce((a, b) => a + zecOf(b.zat), 0);
+  const shieldedShare = supplyNow === 0 ? 0 : (shieldedNow / supplyNow) * 100;
+
   return (
     <Chart
       id="tk-poolhist"
@@ -456,7 +498,7 @@ export function PoolHistory({ view }: { readonly view: PoolsView }) {
           </text>
         ))}
         <text x={X(2026.64) - 6} y={Y(shieldedNow) - 8} textAnchor="end" className="mark">
-          {`${(shieldedNow / 1e6).toFixed(2)}M shielded`}
+          {`${(shieldedNow / 1e6).toFixed(2)}M shielded - ${shieldedShare.toFixed(0)} percent`}
         </text>
       </svg>
     </Chart>
@@ -562,10 +604,21 @@ export function MigrationLens({ view }: { readonly view: PoolsView }) {
 }
 
 export function ClaimDistribution({ view }: { readonly view: PoolsView }) {
+  /**
+   * THE SAME VOCABULARY THE CHIPS USE, and a gate round is why.
+   *
+   * The mockup's bars are gold at `broad` and amber at `small heuristic`,
+   * while `EstimatePanel` gives `broad` no colour at all and reserved the
+   * accent for the rung above it - so /pools and /tx read the same word two
+   * opposite ways, one link apart. Neither gold use was licensed: a claim
+   * level is not a primary action, an active state, value crossing a pool
+   * boundary or the system-identity register. The ladder now runs ok ->
+   * neutral -> warn -> danger on both surfaces, bottom rung to top.
+   */
   const TONE: Readonly<Record<string, string>> = {
     requires_disclosure: "var(--danger)",
     small_heuristic_set: "var(--warn)",
-    broad_candidate_set: "var(--gold)",
+    broad_candidate_set: "var(--ink-dim)",
     aggregate_only: "var(--ok)",
   };
   return (

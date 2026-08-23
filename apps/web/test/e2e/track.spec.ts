@@ -357,11 +357,18 @@ test.describe("A8 pass state - the audit trail is on the page", () => {
 
   test("every estimate on every route obeys the same rule", async ({ page }) => {
     // The assertion names /tx; the property is meant to hold everywhere, so it
-    // is checked everywhere an estimate appears.
+    // is checked everywhere an estimate appears - BOTH ATTRIBUTES.
+    //
+    // A gate round found this locator reading `[data-estimate]` alone while
+    // the compact form emits `data-estimate-cell`, so the three estimates on
+    // /address were never visited and the sentence above was not what the test
+    // did. Widening it is what turned "the panel renders its assumptions" into
+    // a property the suite actually holds the cell to; the cell did not render
+    // them at all, and now does.
     let seen = 0;
     for (const route of ROUTES) {
       await page.goto(route);
-      const estimates = page.locator("[data-estimate]");
+      const estimates = page.locator("[data-estimate], [data-estimate-cell]");
       const count = await estimates.count();
       for (let i = 0; i < count; i += 1) {
         seen += 1;
@@ -376,8 +383,8 @@ test.describe("A8 pass state - the audit trail is on the page", () => {
 
   test("a filter that removed nothing says so rather than printing a zero cost", async ({ page }) => {
     await page.goto(`/address/${LOCKBOX}`);
-    // The 3 Feb deshield's amount echo is outside tolerance by three orders of
-    // magnitude and removes no candidates. That is a finding, and it reads like
+    // The 3 Feb deshield's amount echo is about 555 times outside the relative
+    // tolerance and removes no candidates. That is a finding, and it reads like
     // one on the transaction page it links to.
     await expect(page.locator("[data-estimate-cell]").first()).toBeAttached();
   });

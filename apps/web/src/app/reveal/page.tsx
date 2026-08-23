@@ -30,8 +30,13 @@ export const metadata: Metadata = {
  * ASSERTION A5 lives here: no route outside the Mode A pane renders a numeric
  * balance for a shielded address, and the Mode B pane below contains no ZEC
  * amount of any kind. That is not a rule this page follows carefully; it is a
- * rule it cannot break, because there is no field in `AddressView` for a
- * shielded balance and no code path from an address to one. The pool context
+ * rule it cannot break, because `addressViewSchema.script` has no `shielded`
+ * member: an `AddressView` for a shielded address is unrepresentable, so a
+ * gateway response claiming to be one fails validation at the boundary rather
+ * than reaching a render. A gate round is why that sentence is true - the enum
+ * admitted `shielded` while this paragraph already claimed it did not, and
+ * `balanceZat` is required, so such a view would have rendered a balance tile.
+ * The pool context
  * printed on the right is a property of the POOL - its note count, the median
  * claim level of a spend in it - and never of the address in the URL.
  *
@@ -92,8 +97,10 @@ export default async function RevealPage() {
             <RevealAddress
               context={{
                 pool: pools.context.pool,
-                noteCount: fmtInt(pools.context.noteCount),
+                noteCountText: pools.context.noteCountText,
                 medianNEff: fmtInt(pools.context.medianNEff),
+                // The level the fixture COMPUTED, never a word chosen here.
+                claim: pools.context.claim,
               }}
             />
           </Suspense>

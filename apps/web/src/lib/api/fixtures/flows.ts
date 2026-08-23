@@ -59,7 +59,14 @@ export const FLOWS_VIEW: FlowsView = {
   outcome: [
     { k: "reached the exchange wallet", v: `74,001.93 ZEC - ${pct(REACHED, TOTAL_UNSHIELDED)} of the day` },
     { k: "still parked, unmoved", v: `202,076.21 ZEC - ${pct(PARKED, TOTAL_UNSHIELDED)} - one address, never spent since` },
-    { k: "net new inflow after the round trip", v: "at most about 24,001 ZEC - the 50,000 leg went out and came back" },
+    // The verdict rendered a few lines below this on the same page says the
+    // shield and the unshield cannot be PROVEN to be the same coins, and /tx
+    // grades the link MEDIUM. A gate round caught this line asserting the link
+    // flatly; it now carries the same hedge the corpus does.
+    {
+      k: "net new inflow after the round trip",
+      v: "at most about 24,001 ZEC, if the 50,000 that left the same wallet eight days earlier is what came back - a MEDIUM link, not a proven one",
+    },
     { k: "press said", v: "\"over 200,000 in the first week\", and \"74,002 to Binance on 3 to 5 January\"" },
   ],
   institutions: [
@@ -70,6 +77,12 @@ export const FLOWS_VIEW: FlowsView = {
     { k: "Silbert and DCG", v: "148 Form 144s, all of them ZCSH shares on OTCQX - zero ZEC on chain" },
     { k: "Arthur Hayes", v: "exit self-disclosed - venue, size and on-chain footprint all unknown" },
   ],
+  // Every negative here is a SEARCH THAT RETURNED NOTHING, and it says so. The
+  // Record's own closing line on /flows is that a negative result has no
+  // source, it has a date and a method - so the method travels with the
+  // finding. A gate round caught the first draft stating three of these as
+  // proofs of absence ("does not index", "no report exists"), which is the
+  // move the Record page exists to argue against.
   notSupported:
-    "No public Arkham label exists for Coinbase Prime, Coinbase Custody, Grayscale, Cypherpunk or DCG on any ZEC address. No report of ZEC moving to Coinbase Prime exists. Whale Alert does not index Zcash, and no usable exchange-reserve series exists for it. The rich list's third entry, 386,846 ZEC, is close to Grayscale's 388,674 and its fourth, 341,937, is close to Cypherpunk's 323,394 - both custodians run omnibus wallets, and proximity is not identification. The insider-selling allegations in circulation cite no addresses, no transactions and no supply audit.",
+    "No Arkham ZEC entity label was found for Coinbase Prime, Coinbase Custody, Grayscale, Cypherpunk or DCG on any ZEC address. No report of ZEC moving to Coinbase Prime was found across Whale Alert, Lookonchain, Arkham, Spot On Chain, EmberCN and PeckShield. Zcash is absent from Whale Alert's published supported-chain list, and no usable exchange-reserve series was found for it. The rich list's third entry, 386,846 ZEC, is close to Grayscale's 388,674 and its fourth, 341,937, is close to Cypherpunk's 323,394 - both custodians run omnibus wallets, and proximity is not identification. The insider-selling allegations in circulation cite no addresses, no transactions and no supply audit.",
 };

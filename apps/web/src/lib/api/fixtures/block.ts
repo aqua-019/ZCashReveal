@@ -8,11 +8,20 @@
  * bounded", "bounded", and "undefined by construction", and partly because
  * /tx has to link somewhere when a reader asks what else was in that block.
  *
- * The coinbase split is ZIP 1015 as it stands after NU6: 60 percent to miners
- * and 40 percent to the deferred lockbox pool, with no direct ECC, ZF or ZCG
- * stream any more - the lockbox is the recipient, and ZIP 271 is what later
- * disburses it. That is the same lockbox the address fixture describes, which
- * is the connection between the two pages.
+ * The coinbase split is the corpus's, not a remembered one. This block is at
+ * height 3,191,051, which is above NU6.1's activation at 3,146,400, so the
+ * governing allocation is ZIP 1016's: 80 percent to miners, 12 percent
+ * coinholder-controlled and deferred, 8 percent to Zcash Community Grants
+ * (packages/content/data/timeline.json:1390, and :1183 for the same 12/8 split
+ * introduced at NU6). ECC's and ZF's DIRECT streams ended at NU6; ZCG's did
+ * not, which is why the muted line names the two that ended and not the third.
+ * ZIP 271's 78,750 ZEC was a one-time disbursement out of the lockbox, not a
+ * per-block stream - it is the same 78,750 the address fixture describes, and
+ * 1.5625 x 12 percent x (3,146,400 - 2,726,400) reproduces it exactly, which
+ * is the arithmetic connecting the two pages.
+ *
+ * A gate round corrected this: the first draft said 60/40 and named ZCG among
+ * the ended streams, both of which the corpus contradicts.
  */
 import type { BlockView } from "@zcashreveal/types";
 
@@ -21,10 +30,15 @@ import { ROUND_TRIP_TXID } from "./tx";
 
 export const ROUND_TRIP_HEIGHT = 3_191_051;
 
-/** ZIP 1015 after NU6: 60 percent miner, 40 percent deferred to the lockbox. */
+/** ZIP 1016, in force at this height: 80 percent miner, 12 percent deferred, 8 percent ZCG. */
 const BLOCK_SUBSIDY = zec("1.5625");
-const MINER_SHARE = (BLOCK_SUBSIDY * 60n) / 100n;
-const LOCKBOX_SHARE = BLOCK_SUBSIDY - MINER_SHARE;
+const DEFERRED_SHARE = (BLOCK_SUBSIDY * 12n) / 100n;
+const ZCG_SHARE = (BLOCK_SUBSIDY * 8n) / 100n;
+const MINER_SHARE = BLOCK_SUBSIDY - DEFERRED_SHARE - ZCG_SHARE;
+
+/** A share as the page prints it, four places, from the zatoshi rather than from prose. */
+const share = (zat: bigint): string => (Number(zat) / 1e8).toFixed(4);
+const pct = (zat: bigint): string => `${((Number(zat) / Number(BLOCK_SUBSIDY)) * 100).toFixed(0)} percent`;
 
 export const ROUND_TRIP_BLOCK: BlockView = {
   height: ROUND_TRIP_HEIGHT,
@@ -42,9 +56,10 @@ export const ROUND_TRIP_BLOCK: BlockView = {
     totalZat: BLOCK_SUBSIDY,
     lines: [
       { k: "block subsidy", v: "1.5625 ZEC", muted: false },
-      { k: "miner", v: `${(Number(MINER_SHARE) / 1e8).toFixed(4)} ZEC - 60 percent`, muted: false },
-      { k: "deferred lockbox", v: `${(Number(LOCKBOX_SHARE) / 1e8).toFixed(4)} ZEC - 40 percent, ZIP 1015`, muted: false },
-      { k: "direct dev streams", v: "none after NU6 - ZIP 271 disburses the lockbox instead", muted: true },
+      { k: "miner", v: `${share(MINER_SHARE)} ZEC - ${pct(MINER_SHARE)}`, muted: false },
+      { k: "deferred lockbox", v: `${share(DEFERRED_SHARE)} ZEC - ${pct(DEFERRED_SHARE)}, ZIP 1016`, muted: false },
+      { k: "Zcash Community Grants", v: `${share(ZCG_SHARE)} ZEC - ${pct(ZCG_SHARE)}, ZIP 1016`, muted: false },
+      { k: "direct dev streams", v: "ECC's and ZF's ended at NU6; ZCG's 8 percent did not. ZIP 271 disbursed the lockbox once, at NU6.1", muted: true },
       { k: "shielded coinbase", v: "ZIP 213 - the miner output is a shielded output", muted: false },
     ],
   },

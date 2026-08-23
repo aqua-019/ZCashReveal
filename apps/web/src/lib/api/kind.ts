@@ -32,8 +32,17 @@ import type { SearchKind } from "@zcashreveal/types";
  */
 const BASE58 = "[1-9A-HJ-NP-Za-km-z]";
 
-/** `t1` P2PKH and `t3` P2SH, mainnet. `t2` is the testnet script hash. */
-const TRANSPARENT = new RegExp(`^t[123]${BASE58}{33}$`);
+/**
+ * `t1` P2PKH and `t3` P2SH, mainnet - section 3's rule, and only it.
+ *
+ * `t2` is the TESTNET script hash and is deliberately not accepted: a gate
+ * round found the class written `t[123]`, one character wider than the rule
+ * the header comment calls verbatim, and wider than the comment on this line
+ * describing it. A mainnet explorer that silently classifies a testnet address
+ * as transparent sends the reader to an address page for a chain it does not
+ * read.
+ */
+const TRANSPARENT = new RegExp(`^t[13]${BASE58}{33}$`);
 
 /**
  * TEX addresses (ZIP 320) are bech32m and transparent-source-only - an

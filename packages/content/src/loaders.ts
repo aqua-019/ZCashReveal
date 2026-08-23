@@ -174,9 +174,15 @@ const ROUTES: ReadonlyArray<readonly [RegExp, string]> = [
   // whose surface is a property of the record rather than of its prefix, and
   // `permalink()` reads `surface` off the seed for it - see below. HANDOFF-03
   // had this pointing at "/sources", which rendered no U- id at all, so every
-  // quarantine citation dead-ended; the fix then was to point it at "/flows",
-  // which was right for 28 of the 32 and wrong for the four the promotion
-  // network qualifies. LEDGER-03 Q4 rules that the seed should say.
+  // quarantine citation dead-ended; the fix then was to point it at "/flows".
+  // LEDGER-03 Q4 gives the true partition and rules that the seed should say
+  // it: four records anchor on /flows, four on /network, and the remaining 24
+  // render nowhere at all. So the blanket "/flows" was right for at most five
+  // (the four plus U-arkham-174m-position-post, anchored in the allegations
+  // table) - a gate round corrected an earlier version of this comment, which
+  // claimed it was right for 28 of the 32. The `surface` field records where a
+  // record IS anchored; it does not make an unrendered record render, and a
+  // citation to one still resolves to a page rather than to an element.
   [/^S-/, "/sources"],
 ];
 

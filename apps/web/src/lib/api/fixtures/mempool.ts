@@ -64,6 +64,14 @@ interface Row {
   readonly version: "v4" | "v5" | "v6";
   readonly flow: string;
   readonly lanes: MempoolRow["lanes"];
+  /**
+   * The pool deltas as the column prints them. A SIGNED figure keeps its sign
+   * as a character: the separator here is " / ", never a bare hyphen, because
+   * a gate round found "+500.0000 O - 499.9950 I" - the mockup's U+2212 minus
+   * transliterated to ASCII - reading as a separator rather than as value
+   * ENTERING Ironwood, on the page whose argument is that pool crossings are
+   * public and exact.
+   */
   readonly valueBalanceText: string;
   readonly feeZat: bigint;
   readonly logicalActions: number;
@@ -82,7 +90,7 @@ const ROWS: readonly Row[] = [
     version: "v6",
     flow: "O to I",
     lanes: ["orchard", "ironwood"],
-    valueBalanceText: "+500.0000 O - 499.9950 I",
+    valueBalanceText: "+500.0000 O / -499.9950 I",
     feeZat: 10_000n,
     logicalActions: 2,
     walletGuess: "Zodl 3.8",
@@ -141,7 +149,7 @@ const ROWS: readonly Row[] = [
     version: "v6",
     flow: "mixed",
     lanes: ["transparent", "orchard", "ironwood"],
-    valueBalanceText: "+2.8000 O - 2.7950 I",
+    valueBalanceText: "+2.8000 O / -2.7950 I",
     feeZat: 20_000n,
     logicalActions: 4,
     walletGuess: "Cake 6.4",
@@ -249,7 +257,7 @@ const ROWS: readonly Row[] = [
     feeZat: 10_000n,
     logicalActions: 2,
     walletGuess: "exchange sweep shape",
-    finding: "many-to-one into t1PKBiv7... - the hot wallet Lookonchain labels Binance",
+    finding: "many-to-one into t1PKBiv7... - the hot wallet Lookonchain labels Binance (analyst, precedence 4 of 5)",
     severity: "LOW",
     cls: "transparent",
   },
@@ -315,6 +323,10 @@ export const MEMPOOL_VIEW: MempoolView = {
     conventionalFeeZat: 10_000n,
     conventionalCount: conventional,
     findingsHigh,
+    // The mockup's sub-line for this tile is "amount echo - recent anchor"
+    // (mockups v2, line 748). Corrected: the two HIGH rows here are 1d9c8b7a
+    // ("amount echo - fee-tolerant") and 3e9af0c2 ("echo candidates 3"), both
+    // echoes; "recent anchor - depth 1" belongs to a3f8c421, which is LOW.
     findingsNote: "both of them amount echoes",
     feeWeather: "calm",
   },

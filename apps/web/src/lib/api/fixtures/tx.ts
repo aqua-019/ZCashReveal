@@ -37,10 +37,24 @@ const DELTA = SHIELDED_IN - UNSHIELDED_OUT;
  * The relative residual, as a string, computed rather than transcribed.
  *
  * Computed in zatoshi and only then divided, so the ratio is taken between two
- * exact integers. The result is about 8.12e-6, comfortably inside the 1e-4
- * tolerance and about twelve times outside the v0.2 absolute one.
+ * exact integers. The result is about 8.12e-6: about twelve times INSIDE the
+ * 1e-4 relative tolerance, and about 254 times OUTSIDE the v0.2 absolute one.
+ * Both factors are computed below rather than written as words, because a gate
+ * round found the twelve attached to the wrong clause here and in the rendered
+ * assumption - reading as though 0.4059 ZEC were twelve times 0.0016, which is
+ * 254 times it. /method renders both figures for this same golden case, so a
+ * reader crossing between the two pages saw 254 on one and twelve on the other.
  */
 export const RELATIVE_DELTA = Number(DELTA) / Number(SHIELDED_IN);
+
+/** The v0.2 absolute tolerance, 160,000 zat, as /method's golden-case row states it. */
+const V02_TOLERANCE_ZAT = 160_000n;
+
+/** How far outside the v0.2 absolute tolerance the residual sits. Computed, as /method computes it. */
+export const OVER_V02_TOLERANCE = Number(DELTA) / Number(V02_TOLERANCE_ZAT);
+
+/** How far inside the 1e-4 relative tolerance it sits. */
+export const INSIDE_EPSILON = 1e-4 / RELATIVE_DELTA;
 
 /** The four steps of the chain, as counts. The cost of each is the difference. */
 const CHAIN = [
@@ -69,7 +83,7 @@ const ROUND_TRIP_ESTIMATE: Estimate = {
   assumptions: [
     "A single-note spend. The fee of 10,000 zatoshi is ZIP 317 conventional at two logical actions, which bounds the shielded arity at two - one real spend and one likely dummy.",
     "Receipt within about twelve hours of the anchor, which is the 576-block window the time filter applies.",
-    `That the 50,000.96 ZEC shield 52 minutes earlier (tx a7934713...) is the origin. The residual is ${(Number(DELTA) / 1e8).toFixed(4)} ZEC, a relative error of ${RELATIVE_DELTA.toExponential(1)} - inside the 1e-4 tolerance, and about twelve times outside the v0.2 absolute one of 0.0016 ZEC, which would have missed this link entirely.`,
+    `That the 50,000.96 ZEC shield 52 minutes earlier (tx a7934713...) is the origin. The residual is ${(Number(DELTA) / 1e8).toFixed(4)} ZEC, a relative error of ${RELATIVE_DELTA.toExponential(1)} - about ${INSIDE_EPSILON.toFixed(0)} times inside the 1e-4 relative tolerance, and about ${OVER_V02_TOLERANCE.toFixed(0)} times outside the v0.2 absolute one of 0.0016 ZEC, which would have missed this link entirely.`,
     "One external signal would confirm or refute this. The chain alone cannot, and the link is graded MEDIUM rather than HIGH for exactly that reason.",
   ],
 };
@@ -119,7 +133,12 @@ const ROUND_TRIP: readonly LedgerLine[] = [
   {
     stamp: at({ y: 2026, mo: 1, d: 2, h: 20, mi: 35, s: 38 }),
     height: 3_191_134,
-    description: "t1Ym8XWv... consolidates into t1PKBiv7... - the hot wallet Lookonchain labels Binance",
+    // The rank travels with the attribution. CLAUDE.md requires the labeller
+    // to be displayed, and /address already prints "analyst - precedence 4 of
+    // 5" beside the same address; a gate round found these two prose surfaces
+    // naming the exchange without it, which is the qualification the rule
+    // exists for on a med-confidence rank-4 claim about a named company.
+    description: "t1Ym8XWv... consolidates into t1PKBiv7... - the hot wallet Lookonchain labels Binance (analyst, precedence 4 of 5, confidence med)",
     amountZat: zec("74001.9317"),
     shielded: false,
     txid: "ba0783815529f9825d3d3a8c2d7f3dafe63468e4b5b60dcec61f7d54d1dee84c",

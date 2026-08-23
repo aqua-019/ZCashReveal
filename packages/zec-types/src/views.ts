@@ -369,7 +369,18 @@ export const balancePointSchema = z.object({
   balanceZat: zatSchema,
   /** The event that moved it, or null for the opening and closing points. */
   event: z.string().min(1).nullable(),
+  /**
+   * Whether that event moved value ACROSS A POOL BOUNDARY.
+   *
+   * A field rather than an inference, because the balance chart marks the
+   * crossings in gold and gold's third licensed job is exactly this. A gate
+   * round found the chart keying the colour off whether the balance went up,
+   * which painted the NU6.1 activation coinbase - protocol issuance, crossing
+   * nothing - in the accent, and left a genuine crossing in a pool hue.
+   */
+  crossing: z.boolean(),
 });
+export type BalancePoint = z.infer<typeof balancePointSchema>;
 
 /** One edge of the interaction graph. */
 export const interactionSchema = z.object({
@@ -383,8 +394,23 @@ export const interactionSchema = z.object({
 export const addressViewSchema = z.object({
   address: z.string().min(1),
   network: z.enum(["mainnet", "testnet"]),
-  /** P2PKH, P2SH, TEX, or a shielded receiver that is not on chain at all. */
-  script: z.enum(["p2pkh", "p2sh", "tex", "shielded"]),
+  /**
+   * P2PKH, P2SH or TEX. THERE IS NO SHIELDED MEMBER, and that is assertion A5
+   * expressed in the type rather than in care.
+   *
+   * `balanceZat` below is required and not nullable, so any `AddressView` is
+   * obliged to carry a numeric balance and `/address` renders one for every
+   * view it is given. If `shielded` were an accepted script, a gateway
+   * returning `{script: "shielded", balanceZat: "..."}` would validate cleanly
+   * at the HANDOFF-11 cutover and the address page would render a balance tile
+   * for a shielded address. Dropping the member makes that unrepresentable:
+   * such a response now fails `addressViewSchema` at the boundary and the page
+   * renders the stated gap instead.
+   *
+   * A gate round caught the earlier form, where the enum admitted `shielded`
+   * while /reveal's docblock claimed no such view could exist.
+   */
+  script: z.enum(["p2pkh", "p2sh", "tex"]),
   scriptText: z.string().min(1),
   label: labelViewSchema.nullable(),
   balanceZat: zatSchema,
@@ -570,10 +596,25 @@ export const poolsViewSchema = z.object({
    */
   context: z.object({
     pool: poolNameSchema,
-    /** Notes in the commitment tree. A count, so `number`. */
-    noteCount: countSchema,
+    /**
+     * The commitment tree's size, AT THE PRECISION THE CORPUS STATES IT.
+     *
+     * Text rather than a count, because the only sourced figure is the
+     * mockup's "3.13M" - three significant figures - and a `number` here
+     * invites four more digits that nothing supports. Text also lets the pane
+     * write the rounding out in a form that carries no decimal point, which
+     * A5's amount detector reads as the shape of a ZEC figure. A gate round caught exactly that: the first draft
+     * carried 3,129,287, which is the Ironwood pool's ZEC BALANCE reused as a
+     * note count - two unrelated quantities that happened to be typed once.
+     */
+    noteCountText: z.string().min(1),
     /** Median N_eff for a spend in this pool now. */
     medianNEff: countSchema,
+    /**
+     * The claim level for `medianNEff`, and never a word written by hand.
+     * `/reveal` renders this through the same lookup the estimate chips use,
+     * so the pane cannot drift from `claimLevelFor` the way it once did.
+     */
     claim: claimLevelSchema,
   }),
 });

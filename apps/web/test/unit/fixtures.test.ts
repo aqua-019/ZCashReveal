@@ -29,6 +29,7 @@ import {
   poolsViewSchema,
   txViewSchema,
 } from "@zcashreveal/types";
+import { claimLevelFor } from "@zcashreveal/types";
 
 import { LOCKBOX_VIEW } from "@/lib/api/fixtures/address";
 import { ROUND_TRIP_BLOCK } from "@/lib/api/fixtures/block";
@@ -322,5 +323,81 @@ describe("dates print their own text", () => {
 
   it("no stamp's text is a formatted sort key", () => {
     for (const s of stamps) expect(s.text).not.toBe(String(s.sortMs));
+  });
+});
+
+/* ========================================================================== */
+
+/**
+ * The claim ladder, held to itself.
+ *
+ * A gate round found two estimates whose `claim` had been typed by hand and did
+ * not match what `claimLevelFor` returns for their own `nEff` - one of them on
+ * /reveal, where the level had been written into a rendered SENTENCE as the
+ * word "broad" beside a median N_eff of 1,240, which is above the
+ * aggregate-only threshold. Both were over-claims in the unsafe direction: they
+ * told a reader the candidate set was narrower than the site's own arithmetic
+ * says it is.
+ *
+ * The ladder is CLAUDE.md's, and it is not a matter of editorial judgement, so
+ * nothing in the corpus is allowed to disagree with it. This walks every
+ * estimate the fixtures carry and every claim level rendered beside a count.
+ */
+describe("every claim level is the one the ladder computes", () => {
+  const estimates: readonly { readonly where: string; readonly nEff: number; readonly claim: string }[] = [
+    ...LOCKBOX_VIEW.transactions.flatMap((t, i) =>
+      t.estimate === null ? [] : [{ where: `address tx ${i}`, nEff: t.estimate.nEff, claim: t.estimate.claim }],
+    ),
+    ...(ROUND_TRIP_VIEW.estimate === null
+      ? []
+      : [{ where: "tx round trip", nEff: ROUND_TRIP_VIEW.estimate.nEff, claim: ROUND_TRIP_VIEW.estimate.claim }]),
+    { where: "pools mode-B context", nEff: POOLS_VIEW.context.medianNEff, claim: POOLS_VIEW.context.claim },
+  ];
+
+  it("finds estimates to check, so the walk is not vacuous", () => {
+    expect(estimates.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("agrees with claimLevelFor at every one of them", () => {
+    for (const e of estimates) {
+      expect(e.claim, `${e.where}: N_eff ${e.nEff} is ${claimLevelFor(e.nEff)}, not ${e.claim}`).toBe(claimLevelFor(e.nEff));
+    }
+  });
+
+  it("the ladder's own thresholds are CLAUDE.md's", () => {
+    expect(claimLevelFor(1_001)).toBe("aggregate_only");
+    expect(claimLevelFor(1_000)).toBe("broad_candidate_set");
+    expect(claimLevelFor(101)).toBe("broad_candidate_set");
+    expect(claimLevelFor(100)).toBe("small_heuristic_set");
+    expect(claimLevelFor(11)).toBe("small_heuristic_set");
+    expect(claimLevelFor(10)).toBe("requires_disclosure");
+    expect(claimLevelFor(0)).toBe("requires_disclosure");
+  });
+});
+
+/* ========================================================================== */
+
+/**
+ * The Mode B line on /reveal carries no ZEC amount and no borrowed figure.
+ *
+ * A gate round found the note count set to 3,129,287, which is the Ironwood
+ * pool's ZEC BALANCE - two unrelated quantities that happened to be typed once.
+ * The corpus states "3.13M notes" and nothing more precise, so the field is
+ * text at that precision and this holds it there.
+ */
+describe("the Mode B pool context", () => {
+  it("states the note count at the precision the corpus states it", () => {
+    // Three significant figures - the mockup's "3.13M" - and no decimal point,
+    // because A5's amount detector reads one as the shape of a ZEC figure and
+    // this pane may contain no amount at all.
+    expect(POOLS_VIEW.context.noteCountText).toBe("about 3,130,000");
+    expect(POOLS_VIEW.context.noteCountText).not.toMatch(/\d\.\d/);
+  });
+
+  it("does not restate any pool balance", () => {
+    const balances = POOLS_VIEW.balances.map((b) => b.zat.toString());
+    for (const b of balances) {
+      expect(POOLS_VIEW.context.noteCountText.replace(/[^0-9]/g, "")).not.toBe(b);
+    }
   });
 });

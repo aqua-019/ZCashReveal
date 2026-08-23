@@ -31,15 +31,9 @@
 import type { Estimate } from "@zcashreveal/types";
 
 import { Chip, type ChipTone } from "@/components/ui/Chip";
+import { CLAIM_TEXT } from "@/lib/claim";
 import { fmtCount } from "@/lib/format";
 
-/** The claim level in the words the site uses on /method, not the enum's spelling. */
-const CLAIM_TEXT: Readonly<Record<Estimate["claim"], string>> = {
-  aggregate_only: "aggregate only",
-  broad_candidate_set: "broad candidate set",
-  small_heuristic_set: "small heuristic set",
-  requires_disclosure: "requires disclosure",
-};
 
 /**
  * A claim level's tone. Only `requires_disclosure` is danger: it is the level at
@@ -53,7 +47,12 @@ const CLAIM_TONE: Readonly<Record<Estimate["claim"], ChipTone | "neutral">> = {
   // all. Spending one on it would leave nothing to say with a colour when the
   // set narrows, which is the accent budget's whole argument.
   broad_candidate_set: "neutral",
-  small_heuristic_set: "gold",
+  // Warn, not gold. A claim level is not a primary action, an active state,
+  // value crossing a pool boundary or the system-identity register, so gold
+  // was unlicensed here - and /pools spent gold on the level one rung UP the
+  // same ladder, so the two surfaces gave a reader opposite readings of the
+  // same word. One vocabulary now: ok, neutral, warn, danger, bottom to top.
+  small_heuristic_set: "warn",
   requires_disclosure: "danger",
 };
 
@@ -126,18 +125,70 @@ export function EstimatePanel({ estimate, label = "inference chain" }: { readonl
 }
 
 /**
- * The compact form used inside a table cell: the surviving count, the claim
- * chip, and nothing else. The full chain lives on the transaction's own page,
- * and this links there rather than repeating it in a column two inches wide.
+ * The compact form used inside a table cell: the surviving count and the claim
+ * chip in the line, the audit trail behind a disclosure.
+ *
+ * A GATE ROUND PUT THE AUDIT TRAIL BACK. The first draft rendered the count and
+ * the chip and nothing else, on the reasoning that the full chain lives on the
+ * transaction's own page and a column two inches wide cannot hold it. Both
+ * halves of that were wrong. The contract says every estimate renders its
+ * assumptions and its claim chip, with no exemption for a narrow column; and
+ * the page it deferred to is not reachable in this build - the three lockbox
+ * txids these cells link to resolve to the stated-gap branch, because the
+ * fixture corpus holds one transaction. What a reader lost was load-bearing:
+ * the strongest claim level on the site renders here, and the assumption that
+ * qualifies it - that the single surviving candidate came from the weakest
+ * filter in the toolkit - was on no page at all.
+ *
+ * `<details>` rather than always-open, so the column still reads at a glance
+ * and the ninety words are one keypress away rather than absent. Closed is a
+ * rendering; hidden behind a link to a page that does not exist is not.
  */
 export function EstimateCell({ estimate, note }: { readonly estimate: Estimate | null; readonly note: string }) {
   if (estimate === null) return <span className="cp">{note}</span>;
   return (
-    <span className="cp" data-estimate-cell>
+    <div className="cp" data-estimate-cell>
       {`${count(estimate.candidates)} ${estimate.candidates === 1n ? "candidate" : "candidates"} after ${estimate.filters.length} ${estimate.filters.length === 1 ? "filter" : "filters"}. `}
       <Chip {...toneProps(estimate.claim)}>{CLAIM_TEXT[estimate.claim]}</Chip>
       {estimate.grade === null ? null : <> {estimate.grade}</>}
+      <details className="tk-est-more">
+        <summary>{`how this was bounded - ${estimate.filters.length} ${estimate.filters.length === 1 ? "filter" : "filters"}, ${estimate.assumptions.length} ${estimate.assumptions.length === 1 ? "assumption" : "assumptions"}`}</summary>
+        <ol className="chain" style={{ listStyle: "none", padding: "0 0 0 14px", marginTop: 8 }} data-chain>
+          {estimate.filters.map((f) => {
+            const removed = f.countIn - f.countOut;
+            return (
+              <li
+                className="st"
+                key={`${f.filter}-${f.label}`}
+                data-filter={f.filter}
+                data-count-in={f.countIn.toString()}
+                data-count-out={f.countOut.toString()}
+              >
+                <span className="n">{count(f.countOut)}</span>
+                <span className="w">
+                  <b>{f.label}</b>
+                </span>
+                <span className="cost">{removed === 0n ? "no candidates removed" : `-${count(removed)}`}</span>
+              </li>
+            );
+          })}
+          <li className="st" data-filter="neff">
+            <span className="n">{estimate.nEff.toLocaleString("en-US")}</span>
+            <span className="w">
+              <b>N_eff</b> {` - H = ${estimate.entropyBits.toFixed(2)} bits`}
+            </span>
+            <span className="cost" style={{ color: "inherit" }}>
+              <Chip {...toneProps(estimate.claim)}>{CLAIM_TEXT[estimate.claim]}</Chip>
+            </span>
+          </li>
+        </ol>
+        <ul className="tk-assume-list" data-assumptions aria-label="Assumptions behind this estimate">
+          {estimate.assumptions.map((a) => (
+            <li key={a}>{a}</li>
+          ))}
+        </ul>
+      </details>
       <span style={{ display: "block", marginTop: 4 }}>{note}</span>
-    </span>
+    </div>
   );
 }

@@ -45,8 +45,13 @@
   --ink-faint: #6a6157;
 
   /* -- accent: a budget, not a decoration ----------------------------------
-     ZEC gold is spent on exactly three things: the primary action, the active
-     state, and value crossing a pool boundary. Anything else uses ink. */
+     ZEC gold is spent on exactly four things, per CLAUDE.md: the primary
+     action, the active state, value crossing a pool boundary, and the
+     system-identity register - the wordmark, the screen index, the entry
+     letters and the clock dot. Anything else uses ink, and any other gold mark
+     is a finding. LEDGER-03 Q2 added the fourth job; a gate round found this
+     comment still saying three while a stylesheet elsewhere cited the fourth,
+     so the token file denied a rule its consumers were citing. */
   --gold: #f4b728;
   --gold-ink: #1a1405;
   --gold-dim: rgba(244, 183, 40, 0.55);
@@ -76,7 +81,12 @@
      normal text disagree, AA wins and the divergence is recorded; this is the
      same ruling applied to a pool hue rather than to an ink. Same hue, same
      saturation, value lifted until it clears with margin: 5.05:1 on --bg and
-     4.74:1 on --surface-2, the darkest ground it is painted on. */
+     4.74:1 on --surface, which are the two grounds it is actually painted on
+     (.tk-dir.shield sits on the page ground, .tk-ledger.sh .d b inside a
+     Glass). It is NOT cleared for --surface-2, where it measures 4.39:1, and
+     is not used there - a gate round corrected an earlier version of this
+     comment which claimed 4.74:1 on --surface-2 and called that token the
+     darkest of the three grounds, when it is the lightest. */
   --p-orchard-text: #d75499;
 
   /* -- ambience ------------------------------------------------------------ */

@@ -21,7 +21,7 @@
  * as literals and they happen to be right; a fixture that states an aggregate
  * its own rows contradict is the defect this site exists to point at.
  */
-import type { AddressTx, AddressView, Estimate } from "@zcashreveal/types";
+import { claimLevelFor, type AddressTx, type AddressView, type Estimate } from "@zcashreveal/types";
 
 import { labelFor } from "./labels";
 import { at, zec } from "./units";
@@ -40,8 +40,9 @@ const NETWORK = "mainnet" as const;
  * minutes later.
  *
  * This is TRACKING-MATH section 6's second golden case, and its point is that
- * it must grade LOW. The delta is 436.7705 ZEC, which is 5.5 percent - three
- * orders of magnitude outside the relative tolerance of 1e-4 - so the amount
+ * it must grade LOW. The delta is 436.7705 ZEC, which is 5.5 percent - about
+ * 555 times outside the relative tolerance of 1e-4, which is the figure
+ * /method renders for the same case - so the amount
  * echo does NOT fire, and what is left is a coincidence of timing and address.
  * The chain is shown with the filter that failed, because a filter that removed
  * nothing is exactly as much a part of the audit trail as one that removed four
@@ -86,7 +87,7 @@ const PARTIAL_ECHO: Estimate = {
         relativeDelta: "5.5e-2",
         epsilon: "1e-4",
         deltaZec: "436.7705",
-        outcome: "outside tolerance by three orders of magnitude",
+        outcome: `outside tolerance by a factor of ${(0.055463 / 1e-4).toFixed(0)}`,
       },
       countIn: 1_204n,
       countOut: 1_204n,
@@ -94,7 +95,7 @@ const PARTIAL_ECHO: Estimate = {
   ],
   nEff: 1_204,
   entropyBits: 10.23,
-  claim: "aggregate_only",
+  claim: claimLevelFor(1_204),
   grade: "LOW",
   assumptions: [
     "A single-note spend. Two notes of 3,719.11 each would look identical from outside and are not excluded.",
@@ -125,11 +126,21 @@ const NO_EXIT: Estimate = {
   ],
   nEff: 0,
   entropyBits: 0,
-  claim: "aggregate_only",
+  /**
+   * COMPUTED, not chosen. A gate round found `aggregate_only` written here by
+   * hand beside an N_eff of 0, which is the ladder's top rung under its bottom
+   * reading: `claimLevelFor(0)` is `requires_disclosure`, because the ladder is
+   * a safety ladder and nEff <= 10 is its strictest rung. An empty set is an
+   * odd thing to call a requires-disclosure claim, and the last assumption
+   * below says so rather than softening the level - erring strict costs a
+   * reader nothing, and erring loose is the failure this site is about.
+   */
+  claim: claimLevelFor(0),
   grade: null,
   assumptions: [
     "No deshield in the window matches 129.8202 ZEC to within 0.01 percent, or exactly.",
     "The value is therefore still inside the pool as far as public data can tell, and the honest answer is that the origin is unresolved rather than unknown-but-guessable.",
+    "The claim chip reads requires-disclosure because the ladder is computed from N_eff and 0 is below its strictest threshold. Nothing survived here, so there is nothing to disclose either; the level is left strict rather than relabelled, because a ladder that softens when the answer is empty is a ladder that can be argued down when it is not.",
   ],
 };
 
@@ -161,7 +172,7 @@ const SHIELD_WATCH: Estimate = {
   ],
   nEff: 1,
   entropyBits: 0,
-  claim: "requires_disclosure",
+  claim: claimLevelFor(1),
   grade: "LOW",
   assumptions: [
     "One candidate survives, and it survives on timing and address reuse rather than on the amount: 436.7705 ZEC of the 7,875 did not come back and is unresolved in the pool.",
@@ -279,32 +290,37 @@ export const LOCKBOX_VIEW: AddressView = {
   sentNote: `${debits} debits, both into shielded outputs`,
   netToPoolNote: "0.72 percent of the disbursement - untraceable after this hop",
   balances: [
-    { height: 3_146_399, stamp: at({ y: 2025, mo: 11, d: 24, h: 19, mi: 56, s: 41 }), balanceZat: 0n, event: null },
+    { height: 3_146_399, stamp: at({ y: 2025, mo: 11, d: 24, h: 19, mi: 56, s: 41 }), balanceZat: 0n, event: null, crossing: false },
     {
       height: 3_146_400,
       stamp: at({ y: 2025, mo: 11, d: 24, h: 19, mi: 56, s: 42 }),
       balanceZat: zec("78750.0000"),
       event: "78,750 minted - NU6.1 activation coinbase",
+      // Protocol issuance into a transparent address. It crosses no pool boundary.
+      crossing: false,
     },
     {
       height: 3_227_947,
       stamp: at({ y: 2026, mo: 2, d: 3, h: 23, mi: 9, s: 40 }),
       balanceZat: zec("70875.0000"),
       event: "7,875 into the pool",
+      crossing: true,
     },
     {
       height: 3_227_959,
       stamp: at({ y: 2026, mo: 2, d: 3, h: 23, mi: 29, s: 23 }),
       balanceZat: zec("78313.2295"),
       event: "7,438.2295 back, 20 minutes later",
+      crossing: true,
     },
     {
       height: 3_308_125,
       stamp: at({ y: 2026, mo: 4, d: 14, h: 21, mi: 24, s: 25 }),
       balanceZat: zec("78183.4093"),
       event: "129.8202 into the pool",
+      crossing: true,
     },
-    { height: 3_456_854, stamp: at({ y: 2026, mo: 8, d: 22, h: 14, mi: 58, s: 0 }), balanceZat: zec("78183.4093"), event: null },
+    { height: 3_456_854, stamp: at({ y: 2026, mo: 8, d: 22, h: 14, mi: 58, s: 0 }), balanceZat: zec("78183.4093"), event: null, crossing: false },
   ],
   interactions: [
     { kind: "coinbase", from: "NU6.1 coinbase", to: "lockbox", label: "coinbase 78,750", valueZat: zec("78750.0000") },

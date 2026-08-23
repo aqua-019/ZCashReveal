@@ -35,6 +35,15 @@ describe("A4: the ten cases the assertion names", () => {
     expect(searchKind(T3)).toBe("transparent");
   });
 
+  it("2b. a t2 address is NOT transparent - t2 is testnet", () => {
+    // Section 3's rule is t1 and t3. A gate round found the classifier written
+    // `t[123]`, one character wider than the rule it calls verbatim and wider
+    // than its own comment, so a testnet script hash classified as a mainnet
+    // transparent address and `hrefFor` sent the reader to an address page for
+    // a chain this site does not read.
+    expect(searchKind(`t2${T1.slice(2)}`)).toBe("unknown");
+  });
+
   it("3. zs1... is shielded", () => {
     expect(searchKind(ZS1)).toBe("shielded");
   });

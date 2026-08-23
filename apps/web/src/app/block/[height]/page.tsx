@@ -76,7 +76,7 @@ export default async function BlockPage({ params }: { params: Promise<{ height: 
                   sub="positive leaves the pools"
                   accent
                 />
-                <Metric label="coinbase" value={zatToZecGrouped(view.coinbase.totalZat, 4)} sub="block subsidy, ZIP 1015" />
+                <Metric label="coinbase" value={zatToZecGrouped(view.coinbase.totalZat, 4)} sub="block subsidy, ZIP 1016" />
               </div>
             </div>
 

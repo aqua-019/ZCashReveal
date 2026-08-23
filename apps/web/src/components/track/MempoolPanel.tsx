@@ -208,9 +208,18 @@ export function MempoolPanel({ initial }: { readonly initial: MempoolView }) {
                 </li>
               ))}
             </ol>
+            {/* A gate round corrected the second sentence. The first draft said
+                nothing here names a sender or a recipient "because none of the
+                three is in what a transaction publishes" - which the findings
+                column two cells away disproves, and which contradicts the whole
+                site's thesis that the transparent side is returned exactly. A
+                transparent transaction publishes its addresses; what it does
+                not publish is who holds them. */}
             <p className="assume">
-              Assumptions are printed with every estimate, and a finding is never an identity. Nothing in this panel names a
-              sender, a recipient or an owner, because none of the three is in what a transaction publishes.
+              Assumptions are printed with every estimate, and a finding is never an identity. A transparent transaction
+              publishes the addresses on both sides of it, and the findings above name them. What no transaction publishes is
+              an OWNER - who holds an address is not on the chain, and where a label appears here it is an attribution by a
+              named labeller, carried with its precedence, not a fact the chain states.
             </p>
           </>
         )}

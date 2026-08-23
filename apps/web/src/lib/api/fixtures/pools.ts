@@ -3,9 +3,14 @@
  * windows in which a pool's soundness rested on a broken proof system.
  *
  * Deliverable 5. Balances are CipherScan's at height 3,456,227, which is the
- * figure the mockup carries and the one `packages/content`'s stats seed
- * disagrees with by a few hundred blocks - a disagreement /flows already
- * surfaces rather than hides, and which this page states as its source line.
+ * figure the mockup carries and the height `packages/content`'s stats seed
+ * also carries (stats.json `"height": 3456227`). The three heights this site
+ * holds are not all the same, and the source line says which is which rather
+ * than picking one: the balances are at 3,456,227, the rendered chain tip is
+ * 3,456,854 (src/lib/chain.ts), and the research dossier was taken at
+ * 3,456,938. A gate round caught the first draft claiming the stats seed
+ * disagreed with CipherScan, which it does not, and that /flows carried both
+ * heights, which it does not either - it prints `stats.height` twice.
  *
  * EVERY AGGREGATE ON THIS PAGE IS DERIVED FROM ITS OWN COMPONENTS. Shares are
  * computed from the balances, the residual from the two unprovable pools, the
@@ -33,13 +38,27 @@ const BALANCES = [
 const SUPPLY = BALANCES.reduce((a, b) => a + zec(b.zec), 0n);
 
 /**
+ * The median N_eff for an Ironwood spend now - the mockup's figure, and the
+ * only one on the Mode B line that the corpus states exactly.
+ */
+const MEDIAN_NEFF = 1_240;
+
+/**
  * The unprovable residual: Sprout and Orchard.
  *
- * Sprout's soundness rested on the 2016 Powers of Tau parameters, and Orchard's
- * on the Halo 2 circuit that carried the 2026 counterfeiting bug. Neither pool's
- * balance can be proven not to include counterfeit value, which is a different
- * statement from saying it does - and the number is given as a share of supply
- * because that is the only honest scale for it.
+ * Sprout's soundness rested on the BCTV14 construction, whose key generation
+ * emitted extra polynomial-evaluation elements that let a cheating prover
+ * bypass a consistency check - the flaw Ariel Gabizon found in 2018,
+ * CVE-2019-7167, fixed silently by Sapling at block 419,200
+ * (docs/2.0/research/01-contemporary-zcash.md, section 3.4). Orchard's rested
+ * on the Halo 2 circuit that carried the 2026 counterfeiting bug. Neither
+ * pool's balance can be proven not to include counterfeit value, which is a
+ * different statement from saying it does - and the number is given as a share
+ * of supply because that is the only honest scale for it.
+ *
+ * A gate round caught the first draft attributing Sprout's flaw to "the 2016
+ * Powers of Tau parameters", a phrase the corpus never uses about Sprout: the
+ * Powers of Tau ceremony is Sapling's, and Sprout's unsoundness was in BCTV14.
  */
 const RESIDUAL = zec("22621") + zec("708841");
 
@@ -158,7 +177,8 @@ const HISTORY: readonly [number, string, string, string, string, string][] = [
 
 export const POOLS_VIEW: PoolsView = {
   atHeight: 3_456_227,
-  source: "CipherScan at 3,456,227. The loader's own stats seed reads 3,456,938; /flows carries both rather than choosing.",
+  source:
+    "CipherScan at 3,456,227, which is also the height the content stats seed carries. The site's rendered chain tip is 3,456,854 and the research dossier was taken at 3,456,938; a balance is quoted at the height it was read.",
   balances: BALANCES.map((b) => ({
     pool: b.pool,
     label: b.label,
@@ -174,7 +194,7 @@ export const POOLS_VIEW: PoolsView = {
     zat: RESIDUAL,
     share: Number(RESIDUAL) / Number(SUPPLY),
     verifiedShare: 1 - Number(RESIDUAL) / Number(SUPPLY),
-    note: "Sprout rests on the 2016 Powers of Tau parameters and Orchard on the circuit that carried the 2026 counterfeiting bug. Neither balance can be proven free of counterfeit value. That is not a claim that either contains any.",
+    note: "Sprout rests on the BCTV14 construction whose key generation emitted the bypass elements found in 2018 (CVE-2019-7167), and Orchard on the circuit that carried the 2026 counterfeiting bug. Neither balance can be proven free of counterfeit value. That is not a claim that either contains any.",
   },
   history: HISTORY.map(([t, when, sprout, sapling, orchard, ironwood]) => ({
     t,
@@ -208,17 +228,32 @@ export const POOLS_VIEW: PoolsView = {
   /**
    * The context /reveal's Mode B pane shows beside a shielded address.
    *
-   * The tree size is the Ironwood commitment count; the median N_eff of 1,240
-   * is the mockup's figure and sits inside the broad-candidate-set band, which
-   * is what `claimLevelFor` returns for it. Both are counts, so the pane can
-   * carry them without rendering a ZEC amount - which is A5's requirement and
-   * the reason they are counts rather than a balance.
+   * Neither figure is a value, which is A5's requirement: the tree size is a
+   * count of commitments and the median N_eff is a count of candidates, so the
+   * pane carries them without rendering a ZEC amount.
+   *
+   * TWO GATE CORRECTIONS LIVE HERE. The tree size was 3,129,287, which is the
+   * Ironwood pool's ZEC BALANCE (see BALANCES above, and stats.json) reused as
+   * a note count; the mockup states only "3.13M notes", so that is what is
+   * carried, at that precision. And the claim level was the word "broad",
+   * written into the rendered sentence by hand, while 1,240 is above 1,000 and
+   * `claimLevelFor` therefore returns `aggregate_only`. The level is now
+   * computed here and rendered through the same lookup the estimate chips use,
+   * so the two cannot disagree again - which, on the page whose argument is
+   * that a shielded spend is NOT resolvable, was an over-claim in the unsafe
+   * direction.
    */
   context: {
     pool: "ironwood",
-    noteCount: 3_129_287,
-    medianNEff: 1_240,
-    claim: claimLevelFor(1_240),
+    // Three significant figures, which is all the mockup states ("3.13M
+    // notes"), written out rather than as "3.13M" - A5 forbids a ZEC amount
+    // anywhere in this pane and its detector reads a decimal point as the
+    // shape of one. A count that has to share a pane with that rule is better
+    // rendered in a form nothing can mistake for a value; "about" carries the
+    // rounding that the decimal was carrying.
+    noteCountText: "about 3,130,000",
+    medianNEff: MEDIAN_NEFF,
+    claim: claimLevelFor(MEDIAN_NEFF),
   },
   neff: {
     rows: [
