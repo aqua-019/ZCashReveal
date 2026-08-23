@@ -622,7 +622,8 @@ Every variable, with its default. Secrets only via the environment; the root
 | `GATEWAY_MAX_FUNDING_LOOKUPS` | `256` | Beyond it, a `413` naming the bound rather than a fee computed from a subset |
 
 `SNAPSHOT_REDIS_*` is **not** here and must never be. It addresses the
-Vercel-managed Marketplace store, which holds `zecreveal:snapshot:*` only, is
+Vercel-managed Marketplace store, which is SHARED with an unrelated production
+project and in which this repository owns only the `zecreveal:` namespace. It is
 written by the publisher and read by `apps/web`. Putting it on the gateway's hot
 path would send per-transaction traffic off the VPS.
 

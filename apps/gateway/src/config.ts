@@ -1,3 +1,4 @@
+import { assertNotManagedStore } from "@zcashreveal/types";
 import { z } from "zod";
 
 /**
@@ -7,9 +8,16 @@ import { z } from "zod";
  * `REDIS_URL` is the VPS-local instance: pub/sub, `zcashreveal:mempool:live`
  * and the anchor registry, and it never leaves the box. `RATE_LIMIT_REDIS_URL`
  * is optional and shares a limiter across gateway processes. The Vercel-managed
- * Marketplace Redis (`SNAPSHOT_REDIS_*`) is NOT here and must never be: it holds
- * `zecreveal:snapshot:*` only, it is written by the publisher, and putting it on
- * the gateway's hot path would send per-transaction traffic off the VPS.
+ * Marketplace Redis (`SNAPSHOT_REDIS_*`) is NOT here and must never be: this
+ * project keeps `zecreveal:snapshot:*` there and nothing else, it is written by
+ * the publisher, and putting it on the gateway's hot path would send
+ * per-transaction traffic off the VPS.
+ *
+ * AND THAT STORE IS SHARED WITH AN UNRELATED PRODUCTION PROJECT (docs/2.0/SNAPSHOT.md),
+ * so "off the VPS" understates it: per-request traffic there spends an allowance
+ * someone else is also drawing on, and a key outside `zecreveal:` lands in their
+ * keyspace. `RATE_LIMIT_REDIS_URL` below is the one variable here that could point
+ * at it by accident, and it is guarded for exactly that reason.
  */
 const Schema = z.object({
   GATEWAY_HOST: z.string().default("0.0.0.0"),
@@ -120,8 +128,34 @@ const Schema = z.object({
 
 export type GatewayConfig = z.infer<typeof Schema>;
 
+/**
+ * Refuse to start if any Redis URL this process would dial is the managed store.
+ *
+ * The rule, the host list and the two checks live in `packages/zec-types`
+ * (`redis-topology.ts`) because the indexer needs exactly the same guard on exactly
+ * the same variable name, and a rule about not confusing two servers is the last
+ * place to keep two copies. What is local here is only WHICH variables this
+ * process dials.
+ *
+ * `RATE_LIMIT_REDIS_URL` is the dangerous one: an operator-set string handed
+ * straight to `new Redis(...)`, feeding a limiter that writes a key PER REQUEST
+ * under `@fastify/rate-limit`'s own prefix - outside `zecreveal:`, into a database
+ * holding an unrelated production project's live data. See docs/2.0/SNAPSHOT.md.
+ */
+export function assertGatewayRedisIsLocal(cfg: GatewayConfig, env: NodeJS.ProcessEnv): void {
+  assertNotManagedStore(
+    [
+      ["REDIS_URL", cfg.REDIS_URL],
+      ["RATE_LIMIT_REDIS_URL", cfg.RATE_LIMIT_REDIS_URL],
+    ],
+    env,
+  );
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig {
-  return Schema.parse(env);
+  const cfg = Schema.parse(env);
+  assertGatewayRedisIsLocal(cfg, env);
+  return cfg;
 }
 
 /**

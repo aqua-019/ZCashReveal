@@ -4,6 +4,7 @@ import type { WebSocket } from "ws";
 
 import { harness, LOCKBOX, type RpcHandler } from "./harness.js";
 import { WS_CLOSE_TRY_AGAIN_LATER, WsBroker } from "../ws-broker.js";
+import { loadConfig } from "../config.js";
 
 /**
  * A4 and A5 - the rate limiter, the Redis connection count, and the WS cap.
@@ -175,12 +176,74 @@ describe("A4 - the gateway opens exactly two Redis connections, and a third only
   it("neither url is the Vercel-managed snapshot store, which must never be on this path", async () => {
     // CLAUDE.md's two-Redis rule, asserted rather than trusted: no
     // per-transaction traffic leaves the VPS.
-    const h = await harness({ handle: node, withRedis: true, env: { SNAPSHOT_REDIS_URL: "rediss://managed.upstash.io:6379" } });
+    // The names are the ones Vercel's integration actually injects under the
+    // SNAPSHOT_REDIS prefix (docs/2.0/SNAPSHOT.md section 3), not the names this
+    // repository used to state - a test that set a variable nothing injects would
+    // prove the gateway ignores a variable that never arrives.
+    const h = await harness({
+      handle: node,
+      withRedis: true,
+      env: {
+        SNAPSHOT_REDIS_KV_URL: "rediss://managed.upstash.io:6379",
+        SNAPSHOT_REDIS_REDIS_URL: "rediss://managed.upstash.io:6379",
+        SNAPSHOT_REDIS_KV_REST_API_URL: "https://managed.upstash.io",
+      },
+    });
     for (const url of h.redisUrls()) {
       expect(url).not.toContain("upstash");
       expect(url).not.toContain("rediss://");
     }
     await h.close();
+  });
+});
+
+describe("the managed store cannot be dialled from this process", () => {
+  /**
+   * The Vercel-managed Redis holds an unrelated production project's live data on
+   * a shared command allowance (docs/2.0/SNAPSHOT.md). The neighbouring test above
+   * asserts the gateway does not USE it; these assert it cannot be MADE to, which
+   * is the part an operator's env line could otherwise decide.
+   */
+  const base = { ZEBRAD_RPC_URL: "http://127.0.0.1:8232" };
+
+  it("PASS STATE: a normal VPS url starts fine", () => {
+    expect(() => loadConfig({ ...base, RATE_LIMIT_REDIS_URL: "redis://10.0.0.5:6379" })).not.toThrow();
+  });
+
+  it("FAIL STATE: a managed-store HOST on the rate limiter refuses to start", () => {
+    expect(() => loadConfig({ ...base, RATE_LIMIT_REDIS_URL: "rediss://blue-garden-12345.upstash.io:6379" })).toThrow(
+      /SHARED with an unrelated production project/,
+    );
+  });
+
+  it("FAIL STATE: the same value as a SNAPSHOT_REDIS_* variable refuses, whatever the host", () => {
+    // The copy-paste case: an operator moves the snapshot URL into the wrong line
+    // of the VPS .env. The hostname check would miss a self-hosted managed store;
+    // the value comparison does not.
+    const url = "redis://private-host.internal:6379";
+    expect(() =>
+      loadConfig({ ...base, SNAPSHOT_REDIS_KV_URL: url, RATE_LIMIT_REDIS_URL: url }),
+    ).toThrow(/SNAPSHOT_REDIS_KV_URL/);
+  });
+
+  it("FAIL STATE: the hot-path REDIS_URL is guarded too, not just the limiter", () => {
+    expect(() => loadConfig({ ...base, REDIS_URL: "rediss://blue-garden-12345.upstash.io:6379" })).toThrow(
+      /REDIS_URL points at/,
+    );
+  });
+
+  it("the guard does not fire on a SNAPSHOT_REDIS_* variable merely being present", () => {
+    // apps/publisher and the gateway can share a VPS .env file. Refusing to start
+    // because the snapshot variables exist would make the guard unusable, which is
+    // how a guard ends up deleted.
+    expect(() =>
+      loadConfig({
+        ...base,
+        SNAPSHOT_REDIS_KV_URL: "rediss://blue-garden-12345.upstash.io:6379",
+        SNAPSHOT_REDIS_KV_REST_API_READ_ONLY_TOKEN: "token",
+        REDIS_URL: "redis://localhost:6379",
+      }),
+    ).not.toThrow();
   });
 });
 

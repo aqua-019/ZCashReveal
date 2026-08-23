@@ -142,6 +142,38 @@ FILES
     apps/indexer/src/zebrad-rpc.ts ... deliverable 1; the indexer imports the
       package now, and `grep -rn "zebrad-rpc" apps/indexer/src` is empty
 
+  added after the PR opened, applying the L2 NOTE on the shared managed Redis
+  (archived at handoffs/prompts/PROMPT-05.md section 4; the note's own instruction
+  is to apply it in the next commit when a session is mid-flight, and this one was)
+
+    created
+      docs/2.0/SNAPSHOT.md ............... the topology, the `zecreveal:` namespace
+        rule, the seven forbidden-command rules, the shared budget, the exit condition
+      scripts/check-redis-safety.mjs ..... 20 detectors, self-tested both polarities
+      packages/zec-types/src/redis-topology.ts .. both key prefixes as constants, the
+        snapshot key builders, and `assertNotManagedStore`
+
+    swept - the corrected fact is "the managed store holds only this project's data",
+    which was false in seven places, and "the injected variable names are
+    SNAPSHOT_REDIS_URL / _REST_URL / _REST_TOKEN", which was false in thirteen
+      CLAUDE.md (both the stack section and the Don'ts), README.md,
+      handoffs/README.md (the index paragraph and the operator click list),
+      docs/2.0/{API.md, DEPLOY-2.0.md, SNAPSHOT.md}, apps/web/README.md,
+      apps/gateway/src/config.ts, .env.example, apps/web/.env.example,
+      handoffs/{HANDOFF-01, HANDOFF-09, HANDOFF-10, HANDOFF-11}
+    HANDOFF-01 is closed, so its sentence is left standing with the correction
+    APPENDED rather than substituted: the text is the record of what was specified
+    at the time, and rewriting it would hide that the names ever entered here.
+
+    also modified
+      apps/gateway/src/config.ts, apps/indexer/src/config.ts .. refuse to start if a
+        Redis URL they would dial is the managed store, by host and by exact value
+      apps/gateway/src/__tests__/hardening.test.ts ... five tests for that guard
+      apps/web/playwright.config.ts .. blanks all five variables for the build it starts
+      .github/workflows/ci.yml ....... the three static guards move ABOVE install
+      package.json ................... `pnpm check`
+      .gitignore ..................... `.env*` with the examples excepted
+
 EVIDENCE (Executed unless labelled otherwise. Every §5 assertion has its fail
 state as a NAMED TEST in the suite rather than as a one-off manual mutation, so
 one green run is a two-polarity transcript: a fail-state test that stopped
@@ -321,6 +353,43 @@ ASSUMPTIONS
     A fixture carrying the real lowercase RPC shape is now committed and the
     casing is linted; see §8 for which wallet tells the fix actually revives.
 
+  CORRECTED  The managed Redis. The L2 NOTE established two things and only one of
+    them was a constraint. The constraint: the store is SHARED with an unrelated
+    production project, so a mistake there is an outage or a disclosure for someone
+    who never agreed to run alongside us. The correction: the five variable names
+    Vercel injects under the `SNAPSHOT_REDIS` prefix are not the three this
+    repository stated. HANDOFF-11 keyed its entire SnapshotStore resolution order on
+    two of the dead names, so code built to that spec would have read `undefined`,
+    fallen through to the gateway or the bundled fixture, and rendered a stale site
+    reporting no fault - the quiet failure, not the loud one. Both are swept above.
+
+  CORRECTED  My own first pass at the guard, by an adversarial sweep (37 agents, four
+    lenses plus a completeness critic) that I ran against the tree afterwards rather
+    than trusting the work. Five real holes, each a class and not a typo, all now
+    closed and enumerated in SNAPSHOT.md section 4: the delete rule named only one of
+    the two commands that delete, so a one-word substitution defeated it; the
+    enumeration rules matched command names while the flag forms - the ones a runbook
+    actually uses - spelled no command name at all and passed; every rule was
+    key-scoped, so the commands that report on the other tenant WITHOUT naming a key
+    fell outside all of them (rule 7 now, because sharing a database is a
+    confidentiality problem in both directions); a self-test fixture passed by
+    matching its own explanatory comment rather than the call it claimed to certify,
+    which is precisely the failure a self-test exists to make impossible; and the
+    walker allowlisted extensions, so Dockerfiles - a HANDOFF-10 deliverable - were
+    never opened. It is a denylist now.
+
+    THIS FILE IS NOT ON THE GUARD'S ALLOWLIST, and the paragraph above was rewritten
+    because the guard failed CI on the first draft of it. That is the right outcome:
+    only the documents whose subject IS the prohibition may spell the commands, and a
+    handoff report is not one of them. It is also the second time in this handoff the
+    guard has bitten its own author - the first was the comment wiring it into
+    ci.yml - which is the evidence that it is not vacuous.
+
+  CORRECTED  The budget arithmetic in the note counts only what the publisher WRITES.
+    `apps/web`'s reads are commands too and are the unbounded half. `SNAPSHOT.md` §5
+    says so and declines to publish a combined figure nobody has measured; HANDOFF-11
+    gains the two rules that bound it and an assertion that counts them.
+
   DEFERRED  `apps/indexer/src/decoder/fingerprint.ts` computes ZIP 317's logical
     actions a different way again (it sums transparent inputs and outputs, and
     sums Sapling spends and outputs). Correcting it is analysis and belongs to
@@ -345,6 +414,13 @@ NOTICED (outside scope, not acted on)
     A9 closes. cloudflared and everything else in front of this gateway log full
     URLs by default and nothing in this process can reach that. HANDOFF-10's
     runbook. In §8.
+  - `docker-compose.yml` publishes the VPS Redis on every interface with no
+    password, while this repository states as fact that that instance never leaves
+    the box. HANDOFF-10 owns compose and the runbook, and the fix is a bind address
+    plus a password in the same edit, so it is recorded rather than made here.
+  - `apps/web/README.md` still describes the gold accent as "exactly three things".
+    LEDGER-03 Q2 licensed a fourth. Unrelated to anything in this handoff and not
+    swept with it.
   - `apps/web`'s /track page renders `summary.bytes`, which the gateway first
     emitted as a hardcoded 0 - "0.0 kB" beside a table of transactions. Fixed
     here from `getrawmempool` verbose, but the class of defect (a DTO field a

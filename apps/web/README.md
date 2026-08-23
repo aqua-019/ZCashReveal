@@ -23,6 +23,16 @@ hermetic. `src/components/record/` is that layer; `src/app/*/page.tsx` composes 
 `src/lib/env.ts` are reserved and read by nothing; the first live read is HANDOFF-11. Every
 number visible today comes from a committed seed.
 
+**When that first live read arrives, it is READ-ONLY and it is against a shared database.** The
+Vercel-managed Redis this application will read holds an unrelated production project's live data
+alongside our `zecreveal:snapshot:*` keys. `apps/web` uses
+`SNAPSHOT_REDIS_KV_REST_API_READ_ONLY_TOKEN` and never the read-write token; it never writes,
+never enumerates, and never rate-limits against that store; and its reads count against a shared
+monthly command allowance, so the snapshot is fetched once per render at module scope rather than
+per component or per request. `playwright.config.ts` blanks all five variables for the build it
+starts, so no test run can reach it. The rules are in
+[`docs/2.0/SNAPSHOT.md`](../../docs/2.0/SNAPSHOT.md) and CI enforces the command list.
+
 ## Commands
 
 Run from anywhere in the repo.
@@ -48,7 +58,7 @@ Repo-wide gates (all of these must pass before a PR opens):
 
 ```bash
 pnpm -r test && pnpm typecheck && pnpm lint
-./scripts/check-no-emoji.sh
+pnpm check    # no emoji, Vercel config, shared-Redis safety
 ```
 
 `pnpm --filter @zcashreveal/content validate` and `check:provenance` join that list from

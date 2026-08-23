@@ -1,3 +1,4 @@
+import { assertNotManagedStore } from "@zcashreveal/types";
 import { z } from "zod";
 
 const ConfigSchema = z.object({
@@ -28,6 +29,17 @@ const ConfigSchema = z.object({
 
 export type Config = z.infer<typeof ConfigSchema>;
 
-export function loadConfig(): Config {
-  return ConfigSchema.parse(process.env);
+export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+  const cfg = ConfigSchema.parse(env);
+  /**
+   * The indexer is the highest-volume writer in the project, and the managed store
+   * injects a variable name one token away from this one (`SNAPSHOT_REDIS_REDIS_URL`
+   * against `REDIS_URL`). That store is SHARED with an unrelated production project
+   * on a 500,000-command monthly allowance; per-transaction traffic there would
+   * exhaust it in days and would write keys outside the `zecreveal:` namespace into
+   * someone else's database. The guard is in `packages/zec-types` so the gateway
+   * enforces the same rule from the same code. See docs/2.0/SNAPSHOT.md.
+   */
+  assertNotManagedStore([["REDIS_URL", cfg.REDIS_URL]], env);
+  return cfg;
 }

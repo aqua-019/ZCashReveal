@@ -60,3 +60,76 @@ Add to this handoff:
 - A §5 assertion, both polarities: issue a request whose path and query contain a well-formed viewing key, capture the pino output stream in-process, and assert no fragment of the key appears in any emitted log line, nor in the response body, nor in the response headers. Fail side: restore the default serializer and watch the same assertion fail. The A11 suite in apps/web proves the key never leaves the browser; this is the same promise on the other side of the wire, and right now nothing tests it.
 - Note in §8 that reverse-proxy access logs are the third copy of this exposure. cloudflared and anything in front of the gateway log full URLs by default, and that belongs to HANDOFF-10's runbook rather than here.
 ```
+## 4. L2 NOTE - the managed Redis is connected, and it is SHARED (23 Aug 2026, arrived as a file after PR #36 was opened, applied to this branch under the note's own instruction)
+
+Delivered as an uploaded file rather than as a prompt. It is the answer to the question
+HANDOFF-10 section 3 told a future session to go and ask - "read the variable names the
+integration injected and record the result as an ASSUMPTION" - and the answer contradicts the
+names this repository states in thirteen places. It also adds a constraint nothing in the tree
+anticipated: the store is shared with an unrelated production project. Its own instruction is
+"apply this in your next commit if you are mid-session", and this session was, so it is applied
+here rather than carried to HANDOFF-09.
+
+```
+L2 NOTE — the managed Redis is connected, and it is SHARED. Read before writing any Redis code.
+
+Apply this in your next commit if you are mid-session; otherwise carry it into the handoff that
+first touches the managed store. It changes no scope. It adds constraints that are not optional.
+
+WHAT IS TRUE NOW (Executed by L2 in the Vercel UI, 23 Aug 2026)
+The Upstash-for-Redis store `upstash-kv-blue-garden` (Upstash ID
+230ab52f-21d9-4a63-950e-ad265cc75902, Free plan) is connected to the `zecreveal` project,
+Production and Preview, with the custom variable prefix `SNAPSHOT_REDIS`. The injected names are:
+  SNAPSHOT_REDIS_KV_REST_API_URL
+  SNAPSHOT_REDIS_KV_REST_API_TOKEN
+  SNAPSHOT_REDIS_KV_REST_API_READ_ONLY_TOKEN
+  SNAPSHOT_REDIS_KV_URL
+  SNAPSHOT_REDIS_REDIS_URL
+The prefix is deliberate: an unprefixed connect injects a bare `REDIS_URL`, which is the name this
+repository already uses for the VPS Redis. Those are two different servers and must never be
+conflated. `REDIS_URL` = the VPS Redis, hot path, pub/sub, mempool:live, anchors. `SNAPSHOT_REDIS_*`
+= the managed store, snapshots only.
+
+THE CONSTRAINT THAT IS NEW AND NON-NEGOTIABLE
+**This store is not ours alone. It also holds the live data of an unrelated production project.**
+The operator has accepted that trade deliberately, on the free tier, until the 500K commands per
+month allowance is reached. Every rule below exists because a mistake here damages someone else's
+project, not ours.
+
+1. EVERY key this project writes, reads or deletes begins `zecreveal:`. No exceptions, no
+   convenience keys, no scratch keys, no health-check key outside the namespace.
+2. `FLUSHDB`, `FLUSHALL`, `SWAPDB` and `SCRIPT FLUSH` are FORBIDDEN in code, in tests, in fixtures,
+   in scripts, in docs as suggested commands, and in any runbook step. There is no circumstance in
+   this project where they are correct against this store.
+3. `KEYS` is forbidden outright. `SCAN` is permitted only with `MATCH zecreveal:*`. A bare scan
+   enumerates the other project's keyspace.
+4. No `DEL` by pattern. Delete only keys this project wrote, by exact key.
+5. Tests and local development NEVER point at this store. Integration tests use a local Redis or a
+   fake. If a test needs the managed store it does not run in CI.
+6. The publisher is the only writer. `apps/web` reads with
+   `SNAPSHOT_REDIS_KV_REST_API_READ_ONLY_TOKEN` and never the read-write token.
+
+THE BUDGET IS NOW A SHARED BUDGET
+500K commands per month, per database, shared with the other project. The snapshot design is 3
+commands per new tip (`MULTI`: `SET zecreveal:snapshot:latest`, `SET zecreveal:snapshot:<height>`
+with a 24 h TTL, `SET zecreveal:snapshot:height`). At roughly 1,150 blocks a day that is about
+3.5K/day, about 105K/month, about 21% of the allowance before the other project's usage is counted.
+Therefore:
+  - A §5 assertion, wherever the publisher lands: one tip produces exactly 3 managed-store commands.
+    Fail side: a change that adds a fourth is caught by the count, not by review.
+  - The publisher logs a monthly running command count and refuses to start if a configured ceiling
+    (`SNAPSHOT_REDIS_MONTHLY_BUDGET`, default 150000) would be exceeded, so this project can never be
+    the reason the other one gets rate limited.
+  - Per-mempool-transaction data NEVER goes to the managed store. That stays on the VPS Redis. The
+    whole reason 3-per-block fits is that it is 3 per block.
+
+WRITE IT DOWN
+Record the two-server topology, the `zecreveal:` namespace rule, the forbidden-command list and the
+shared-budget ceiling in `docs/2.0/SNAPSHOT.md` and in `CLAUDE.md` under the stack section, so a
+later session cannot rediscover this by breaking it. Note in §8 that the operator's stated exit
+condition is the 500K/month allowance: when the shared total approaches it, ZECReveal moves to its
+own database (the Upstash free plan allows up to 10 databases per account, each with its own 256MB
+and 500K commands, so the move costs nothing).
+
+NOTHING ELSE CHANGES. Do not touch the other project, its keys, its variables or its connection.
+```

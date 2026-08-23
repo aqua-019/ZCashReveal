@@ -1,6 +1,6 @@
 # Claude workflows for ZCashReveal (2.0)
 
-Read docs/2.0/ZECREVEAL-2.0-PLAN.md, docs/2.0/TRACKING-MATH.md and docs/2.0/RESEARCH-2026-08-DOSSIER.md before changing anything. Owner: Aqua. Claude halts before merge; Aqua merges.
+Read docs/2.0/ZECREVEAL-2.0-PLAN.md, docs/2.0/TRACKING-MATH.md and docs/2.0/RESEARCH-2026-08-DOSSIER.md before changing anything — and **docs/2.0/SNAPSHOT.md before any change that touches Redis, a Vercel variable or the publisher**, because the managed store holds an unrelated production project's live data and its rules are not a handoff's to weaken. Owner: Aqua. Claude halts before merge; Aqua merges.
 
 ## Operating model — Aqua Stack v4.1 (docs/2.0/AQUA-STACK-v4.1.png)
 - L2 (Cowork) writes a handoff in `handoffs/` (§1 SCOPE · §2 READING · §3 CONTRACT · §4 DELIVERABLES · §5 binary ASSERTIONS · §6 DISPATCH HINTS). L3 (this session: lead → director-build / director-quality → crews) executes the lowest-numbered `status: open` handoff, unless the prompt names a file — and the prompt names one whenever more than one track is open (LEDGER-02 Q1). L4 (GitHub → Vercel): production promotion is always a human click.
@@ -31,7 +31,11 @@ Status flips, the README table, LEDGER appends, LOG rows and the prompt archive 
 ## Stack
 pnpm + Turbo monorepo · packages/zec-types (shared types + DTOs) · packages/content (zod schemas + research data) · packages/zebra-rpc (typed Zebra client) · apps/indexer (Node 22, Zebra RPC/ZMQ, Postgres + Redis, analysis) · apps/gateway (Fastify REST + WS) · apps/publisher (snapshot.json → file + managed Redis) · apps/web (Next.js App Router, React 19, Tailwind v4) · legacy/dashboard (v0.2, read-only).
 
-Two Redis instances, never confused: the VPS Redis (`REDIS_URL`) carries pub/sub, `zcashreveal:mempool:live` and the anchor registry and never leaves the box; the Vercel-managed Marketplace Redis holds only `zecreveal:snapshot:*` (`SNAPSHOT_REDIS_URL` for the publisher, `SNAPSHOT_REDIS_REST_URL` + `SNAPSHOT_REDIS_REST_TOKEN` server-only in apps/web) so the public site renders even when the VPS or tunnel is down.
+Two Redis instances, never confused, and the second one is **shared with an unrelated production project** — full rules in `docs/2.0/SNAPSHOT.md`, which no later handoff may weaken.
+
+- **VPS Redis** (`REDIS_URL`) carries pub/sub, `zcashreveal:mempool:live` and the anchor registry, and never leaves the box.
+- **Vercel-managed Redis** is **shared with an unrelated production project**. This project owns one namespace in it, `zecreveal:snapshot:*`, and touches nothing else — three writes per block, so the public site renders even when the VPS or tunnel is down. The store `upstash-kv-blue-garden` is connected to the `zecreveal` project (Production + Preview) with variable prefix `SNAPSHOT_REDIS`, and the names it injects are `SNAPSHOT_REDIS_KV_REST_API_URL`, `SNAPSHOT_REDIS_KV_REST_API_READ_ONLY_TOKEN` (what apps/web reads — never the read-write `SNAPSHOT_REDIS_KV_REST_API_TOKEN`), `SNAPSHOT_REDIS_KV_URL` and `SNAPSHOT_REDIS_REDIS_URL` (either TCP URL for the publisher). Those are the canonical names; the older `SNAPSHOT_REDIS_URL` / `SNAPSHOT_REDIS_REST_URL` / `SNAPSHOT_REDIS_REST_TOKEN` this repo used to state are injected by nothing and were corrected in HANDOFF-05.
+- Because it is shared, a mistake there is an outage for a project that never agreed to run alongside us: **every** key begins `zecreveal:` (no scratch keys, no health-check key outside it); `FLUSHDB`, `FLUSHALL`, `SWAPDB` and `SCRIPT FLUSH` are forbidden everywhere including tests, fixtures, scripts and runbooks; `KEYS` is forbidden outright and `SCAN` only with `MATCH zecreveal:*`; no `DEL` by pattern; tests and local dev never point at it; the publisher is the only writer. `scripts/check-redis-safety.mjs` enforces the command rules in CI. Budget is 500K commands/month **shared** — `SNAPSHOT_REDIS_MONTHLY_BUDGET` (default 150000) stops the publisher before this project can rate-limit the other one. Exit condition: its own database when the shared total approaches the allowance.
 
 ## Conventions
 - TypeScript strict (tsconfig.base.json); ESM; `bigint` for zatoshi; heights/counts `number`; lowercase hex, no 0x; `Hex` is branded and validated at the RPC boundary.
@@ -47,10 +51,10 @@ bg #121110 · surface #1A1816 · ink #EDE6D8 · gold #F4B728 (accent budget — 
 Type: Instrument Serif (display), Fraunces (numerals), JetBrains Mono (data, tabular), Manrope (prose). One hover verb: dim. One curve: cubic-bezier(.32,.72,0,1). One ceremony per surface: block arrival. Ambience seeded by the tip hash (FNV-1a → mulberry32); Math.random is banned (eslint). Reduced motion: do not construct animation systems. SVG icons only. **No emoji anywhere** — code, copy, commits, PR bodies, transcripts.
 
 ## Workflow
-Branch `feat/v2-<NN>-<name>` (NN = the handoff number); small commits; `gh pr create` with a heredoc body that links the handoff; STOP before merge. Tests must pass: `pnpm -r test`, `pnpm typecheck`, `pnpm lint`, `pnpm --filter @zcashreveal/content validate`.
+Branch `feat/v2-<NN>-<name>` (NN = the handoff number); small commits; `gh pr create` with a heredoc body that links the handoff; STOP before merge. Tests must pass: `pnpm -r test`, `pnpm typecheck`, `pnpm lint`, `pnpm --filter @zcashreveal/content validate`, and **`pnpm check`** — the three static guards (no emoji, Vercel config, shared-Redis safety) that CI also runs. They were absent from this list, so a session could satisfy the contract exactly and never run the guard that protects another project's database.
 
 ## Handoffs directory
 `handoffs/README.md` (index + kickoff line + the operator's click list) · `handoffs/HANDOFF-NN-<slug>.md` (status: open | queued | in-progress | shipped | closed) · `handoffs/LEDGER.md` (§8, append-only) · `handoffs/LOG.md` (one line per revolution). Web track 01→04, Data 05→09, Infra 10, Integration 11–12, 13 plan-only.
 
 ## Don'ts
-No deterministic deanonymisation claims · no emoji · no Tailwind soup outside the token layer · no secrets in git · no destructive git/docker commands without Aqua's explicit go · no per-transaction traffic to the managed Redis · no agent sets a Vercel environment variable.
+No deterministic deanonymisation claims · no emoji · no Tailwind soup outside the token layer · no secrets in git · no destructive git/docker commands without Aqua's explicit go · no per-transaction traffic to the managed Redis · no `FLUSHDB`/`FLUSHALL`/`SWAPDB`/`SCRIPT FLUSH`/`KEYS` anywhere, and no key outside `zecreveal:` — the managed store is shared with someone else's production · no agent sets a Vercel environment variable.

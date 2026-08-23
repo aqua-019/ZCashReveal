@@ -1422,3 +1422,150 @@ DEFERRED ASSUMPTIONS:
 - The eslint no-unused-vars promotion and the unused `saplingSpend` in block-decoder.test.ts
   remain deferred, as HANDOFF-00 through 04 all recorded. Still the only warning.
 ```
+---
+
+## HANDOFF-05 §8 ADDENDUM — the managed Redis is connected, and it is SHARED
+
+Appended after PR #36 opened, under the L2 NOTE's own instruction ("apply this in your next commit
+if you are mid-session"). The note is archived verbatim at `handoffs/prompts/PROMPT-05.md` §4.
+
+```
+WHAT THE NOTE ESTABLISHED, AND WHY IT IS MORE THAN A CONSTRAINT:
+
+The Upstash store `upstash-kv-blue-garden` (ID 230ab52f-21d9-4a63-950e-ad265cc75902, Free plan)
+is connected to the `zecreveal` project, Production and Preview, with the custom variable prefix
+`SNAPSHOT_REDIS`. IT ALSO HOLDS THE LIVE DATA OF AN UNRELATED PRODUCTION PROJECT. That is a
+different class of fact from anything else in this ledger: every other rule here protects the
+accuracy of what this site says, and this one protects a third party's database from us. A wrong
+figure on a page is a wrong figure; a `FLUSHDB` there is an outage for someone who never agreed
+to run alongside us. The full rule set is `docs/2.0/SNAPSHOT.md`, which no later handoff may
+weaken, and it is now on the required reading in CLAUDE.md line 3 for any change touching Redis,
+a Vercel variable or the publisher.
+
+THE OPERATOR'S EXIT CONDITION, recorded as the note asks: the 500K commands/month allowance. When
+the shared total approaches it, ZECReveal moves to its own database - the Upstash free plan
+allows 10 per account, each with its own 256 MB and 500K commands, so the move costs nothing but
+a reconnect and a variable change. Until then the sharing is a deliberate accepted trade, not an
+accident to tidy up, and not a licence to treat the store as ours.
+
+THE NOTE ALSO CORRECTED THE REPOSITORY, WHICH IT DID NOT SET OUT TO DO. HANDOFF-10 §3 told a
+future session to read the injected variable names out of the Vercel UI and "record the result as
+an ASSUMPTION -> ACCEPTED/CORRECTED". The operator did exactly that, and the answer contradicts
+what this repository stated in thirteen places. The injected names are
+`SNAPSHOT_REDIS_KV_REST_API_URL`, `SNAPSHOT_REDIS_KV_REST_API_TOKEN`,
+`SNAPSHOT_REDIS_KV_REST_API_READ_ONLY_TOKEN`, `SNAPSHOT_REDIS_KV_URL` and
+`SNAPSHOT_REDIS_REDIS_URL`. The names the tree carried - `SNAPSHOT_REDIS_URL`,
+`SNAPSHOT_REDIS_REST_URL`, `SNAPSHOT_REDIS_REST_TOKEN` - are injected by NOTHING. The failure
+mode is the quiet kind: HANDOFF-11's SnapshotStore resolution order keys `redis-rest` on two of
+those names, so code built to that spec would have read `undefined`, fallen through to the
+gateway or the bundled fixture, rendered a stale site and reported no fault. `DEPLOY-2.0.md`'s
+instruction to "map them onto the three names above rather than teaching the code a second
+spelling" is withdrawn: on Vercel, mapping means hand-copying secrets the integration rotates and
+the copies do not.
+
+QUESTIONS (for the operator / L2):
+
+7. WHO OWNS THE READ SIDE OF THE BUDGET, AND WHAT IS IT?
+   The note's arithmetic - 3 commands per tip, ~105K/month, ~21% of the shared allowance - counts
+   only what the PUBLISHER WRITES. `apps/web` reads are commands too, and they are the unbounded
+   half: they scale with traffic, with the number of Vercel regions serving a page, and with the
+   revalidation interval, none of which the publisher controls. One `GET` per 60-second
+   revalidation across three regions is already ~4,300/day, MORE than the publisher's entire
+   budget. I have written the two rules that follow into HANDOFF-11 §3 (fetch once per render at
+   module scope, prefer a cached value inside its staleness window) and added assertion A10 to
+   measure it, and `SNAPSHOT.md` §5 now says plainly that the combined share is unknown and
+   larger than 21% rather than carrying a number nobody measured. What I cannot do from here is
+   see the OTHER project's consumption. The ceiling protects our share; it cannot tell us how
+   much of the allowance is already spent, and only you can read that in the Upstash console. If
+   the other project is already heavy, 150000 may be the wrong default.
+
+8. `@upstash/ratelimit` WAS SPECIFIED ON THAT STORE, AND I HAVE WITHDRAWN IT. RULE, PLEASE.
+   HANDOFF-11 §3 said: "if any proxy route exists it uses `@upstash/ratelimit` on the REST
+   credentials". That is a PER-REQUEST WRITER, using the READ-WRITE token, writing keys under its
+   own prefix - outside `zecreveal:` - into a database holding another company's production data.
+   It breaks four of the note's rules at once and would have looked like a sensible reuse of
+   credentials that were already there. I struck it and pointed the requirement at the gateway's
+   own per-IP limiter, which HANDOFF-05 shipped with a trusted-proxy list and which runs on the
+   VPS. Confirm that is the disposition you want; the alternative is an in-memory or edge limiter
+   in `apps/web`, and either is fine, but it must not be that store.
+
+9. THE STORE IS CONNECTED TO PREVIEW AS WELL AS PRODUCTION. IS THAT WHAT YOU WANT?
+   Every preview deployment can therefore read the shared store, and its reads land in the shared
+   budget. I have closed the one hole I could reach - `apps/web`'s Playwright config now blanks
+   all five variables for the build it starts, so no test run can resolve past the bundled
+   fixture - but a Vercel PREVIEW build is not something a session can configure. The choice is
+   yours: leave Preview connected and accept its reads in the budget, or disconnect Preview and
+   let previews render from the fixture. My recommendation is to disconnect Preview once
+   HANDOFF-11 lands, because a preview that reads production snapshots is also a preview whose
+   failure mode is indistinguishable from production's.
+
+10. THE NAMES ARE NOW CANONICAL IN CODE. CONFIRM YOU DO NOT WANT THE ALIASES.
+    I have taken the injected names as the ones the code reads, everywhere, and withdrawn the
+    "map them onto the repo names" instruction. The cost is that the repository's variable names
+    are now chosen by an integration rather than by us, and if you ever reconnect the store with
+    a different prefix - or move to a provider with different name shapes - the code changes with
+    it. The benefit is that nothing is hand-copied and nothing desynchronises on a rotation. If
+    you would rather own the names, the honest way is a single mapping module read at startup,
+    not three hand-created Vercel variables.
+
+INFERRED (non-empty inferences made applying the note):
+
+- The note says "record the two-server topology ... in `docs/2.0/SNAPSHOT.md`". That file did not
+  exist; HANDOFF-09 deliverable 1 commissions it. I created it carrying the SAFETY half only, and
+  marked the schema half as owed, rather than either waiting for 09 or writing 09's content. The
+  inference is that "record it in SNAPSHOT.md" means "create SNAPSHOT.md now" when the store is
+  already connected and the rules are already binding.
+- The note forbids specific commands. I inferred that the list is a class and not an enumeration,
+  which the adversarial review then confirmed twice over: `UNLINK` is `DEL` under another name and
+  defeated rule 4 by one word, and `redis-cli --scan / --bigkeys / --hotkeys / --memkeys / --rdb`
+  enumerate or dump the whole keyspace without ever spelling `KEYS` or `SCAN` - and those flags
+  are the form a runbook actually uses. Both are in the rules and in the guard.
+- I inferred a seventh rule the note does not state: never issue a command whose RESULT is not
+  scoped to a `zecreveal:` key. Rules 1-6 are all about keys, so `MONITOR`, `RANDOMKEY`, `DBSIZE`
+  and `INFO keyspace` - which name no key and report on the other tenant anyway - fell outside all
+  of them. Sharing a database is a confidentiality problem in BOTH directions, and nothing about
+  the arrangement entitles us to look at their data. If you consider that overreach, it is one
+  rule and one detector to remove.
+
+NOT-MATCHED:
+
+- The note says "otherwise carry it into the handoff that first touches the managed store". Not
+  applicable: this session was mid-flight, so the first branch applied and the whole note is
+  in this commit.
+- The note asks for the §5 assertion "wherever the publisher lands". The publisher does not land
+  in this handoff, so the assertion is written into HANDOFF-09 §5 as A10 (exactly three commands
+  per tip, counted by a spy rather than read off the code), A11 (every key begins `zecreveal:`)
+  and A12 (refuses to start over the ceiling) rather than executed here.
+
+WHAT WAS DONE, beyond writing the rules down:
+
+- `scripts/check-redis-safety.mjs`, run in CI and by `pnpm check`. Twenty detectors, self-tested
+  in both polarities on every run, exiting 2 rather than 0 if either direction breaks - so it
+  cannot decay into a scan that reports a clean tree having detected nothing. It caught its own
+  wiring comment in `ci.yml` on the first run, which is the evidence it is not vacuous.
+- `packages/zec-types/src/redis-topology.ts`: the two prefixes as constants, the snapshot key
+  builders, and `assertNotManagedStore`. The `zecreveal:` namespace existed only as hand-typed
+  literals in prose, waiting to be retyped by two more apps, one letter away from the VPS one.
+- The gateway and the indexer now REFUSE TO START if a Redis URL they would dial is the managed
+  store - by host, and by exact value match against any `SNAPSHOT_REDIS_*` variable in the
+  environment, which catches the copy-paste case whatever the host. `RATE_LIMIT_REDIS_URL` was an
+  unvalidated string handed straight to `new Redis(...)`, feeding a limiter that writes a key per
+  request: one pasted URL and it would have worked, quietly.
+- `.gitignore` widened from `.env` and `.env.local` to `.env*` with the examples excepted. The
+  read-write token would live in one of the variants that were committable.
+- The three static guards moved ABOVE install and build in CI. None needs either, and a PR whose
+  build broke never got its verdict on the guard that protects another project's database.
+
+DEFERRED / NOTICED:
+
+- `docker-compose.yml` publishes the VPS Redis on every interface with no password, while this
+  repository states as fact that that instance never leaves the box. HANDOFF-10 owns compose and
+  the runbook; it is recorded here rather than fixed, because the file is that handoff's
+  deliverable and the fix is a bind address plus a password in the same edit.
+- Rule 1 - the `zecreveal:` key namespace - is not mechanically enforced, because no code speaks
+  to the managed store yet. It lands with HANDOFF-09's A11. Rule 6, the read-only token, lands
+  with HANDOFF-11's A8. Both gaps are stated in `SNAPSHOT.md` §7 rather than left to be found.
+- `apps/web/README.md` still describes the gold accent as "exactly three things". LEDGER-03 Q2
+  licensed a fourth (the system-identity register). Unrelated to this note and not swept with it;
+  a one-line fix for whoever next touches that file.
+```
