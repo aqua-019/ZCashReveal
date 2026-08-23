@@ -77,8 +77,8 @@ STATUS: DONE-WITH-ASSUMPTIONS
 
 BRANCH / PR: claude/gateway-api-handoff-05-12ogr3 (the harness names the branch;
   the PR title carries HANDOFF-05, which is what LOG.md and LEDGER.md key on).
-  PR opened as a draft and stopped there - link recorded in the commit that
-  follows this report.
+  PR #36, opened as a draft and stopped there:
+  https://github.com/aqua-019/ZCashReveal/pull/36
 
 SPAWN MODE (proven by tool attempt, reported first): BOTH tools answer in this
   session, and both were used.
