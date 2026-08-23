@@ -1,112 +1,124 @@
 import type { Metadata } from "next";
 
+import { MempoolPanel } from "@/components/track/MempoolPanel";
+import { TrackExamples, TrackSearch } from "@/components/track/TrackSearch";
+import { TrackHead, TrackNav } from "@/components/track/TrackShell";
 import { Block } from "@/components/ui/Block";
-import { Glass } from "@/components/ui/Glass";
-import { Pill } from "@/components/ui/Pill";
-import { SearchBar } from "@/components/ui/SearchBar";
-import { SubNav } from "@/components/ui/SubNav";
-import { Pending } from "@/components/shell/Pending";
-import { RecordHead } from "@/components/shell/RecordHead";
-import { screenByHref } from "@/lib/nav";
-
-const S = screenByHref("/track");
+import { Metric, MetricRow } from "@/components/ui/Metric";
+import { api, IS_FIXTURE } from "@/lib/api";
+import { fmtInt, zatToZecGrouped } from "@/lib/format";
 
 export const metadata: Metadata = {
   title: "Track",
-  description: S?.dek ?? "",
+  description: "Search the chain. Transparent activity resolves exactly; shielded activity resolves to a bound with its reasoning attached.",
 };
 
 /**
- * 05 TRACK - the explorer's front door.
+ * 04 TRACKING - search and mempool.
  *
- * HANDOFF-01 ships the search affordance and the promise; HANDOFF-04 ships the
- * views behind it (/address/:addr, /tx/:txid, /pools, /reveal) in fixture mode,
- * and HANDOFF-11 puts them on live data.
+ * The front door of the Instrument. HANDOFF-01 shipped this route as a search
+ * affordance over a stated gap; this is the page behind it.
  *
- * The SubNav points at /track for every view for now, because a nav item that
- * 404s is worse than one that does not move yet.
+ * The mempool is fetched on the server and passed to the client panel as its
+ * initial state, so the table is twelve real rows in the HTML before any script
+ * runs. The subscription upgrades that; it does not create it.
  */
-export default function TrackPage() {
+export default async function TrackPage() {
+  const zec = api();
+  const mempool = await zec.getMempool();
+  const s = mempool.summary;
+
   return (
     <>
-      <RecordHead
-        idx="05"
-        kicker="the explorer"
-        title="Track"
+      <TrackHead
+        title="Follow the"
+        accent="value"
         dek={
           <>
-            Search the chain and get back what the chain actually says. Transparent activity resolves <b>exactly</b>. Shielded
-            activity resolves to a <b>bound</b> on a candidate set, with the reasoning that produced it attached. Neither ever
-            resolves to a person.
+            Paste an address, a transaction or a block. The transparent side of Zcash is as public as Bitcoin and is returned{" "}
+            <b>exactly</b>. The shielded side is returned as <b>bounds with the reasoning printed</b> - or exactly, if you hold
+            the viewing key and decrypt in your own browser. Nothing here names a person.
           </>
         }
       />
 
-      <SubNav
-        label="Tracking views"
-        path="/track"
-        items={[
-          { href: "/track", label: "Search - mempool" },
-          { href: "/flows", label: "Flows" },
-        ]}
-      />
+      <TrackNav path="/track" />
 
-      <SearchBar />
+      <TrackSearch />
+      <TrackExamples />
 
-      <Block idx="01" title="What you can and cannot get" right="stated before you search, not after">
-        <div className="cango">
-          <div className="c">
-            <p>
-              <Pill kind="exact" />
-            </p>
-            <h3 className="h">Transparent</h3>
-            <p>
-              Balance, full history, counterparties, exact amounts, exact times. Every t-address that ever shielded or unshielded
-              is a public endpoint, and both sides of that crossing are in the clear.
-            </p>
+      <div className="cango">
+        <div className="c">
+          <div className="h">
+            Transparent - <em>exact</em>
           </div>
-          <div className="c">
-            <p>
-              <Pill kind="bounded" />
-            </p>
-            <h3 className="h">Shielded</h3>
-            <p>
-              Existence, nullifiers, anchor, action counts, fees and every boundary amount, plus an upper bound on the candidate
-              set for a spend. Note values and endpoints inside a z-to-z transfer stay hidden, and this site does not guess at
-              them.
-            </p>
-          </div>
-          <div className="c">
-            <p>
-              <Pill kind="undefined" />
-            </p>
-            <h3 className="h">
-              <em>Identity</em>
-            </h3>
-            <p>
-              Never. Not from clustering, not from timing, not from amount matching. A label is displayed only with its
-              provenance rank, and a behavioural guess is displayed as a heuristic, not as a name.
-            </p>
-          </div>
-        </div>
-      </Block>
-
-      <Block idx="02" title="Your own keys, in your own browser" right="Mode A - 2.1">
-        <Glass>
-          <p className="note">
-            A viewing key you hold decrypts your own notes. When that ships, the decryption runs entirely in the browser: the key
-            is never transmitted, never logged and never stored server-side, and no shielded balance is rendered without one.
-            Until then /reveal is the ceremony UI with the gate closed.
+          <p>
+            UTXOs, spends, counterparties, fees and clusters: common-input ownership, change detection, exchange shapes.
+            Boundary events - this address shielding, or being paid from a pool - carry a pool-side estimate beside them.
           </p>
-        </Glass>
-      </Block>
+        </div>
+        <div className="c">
+          <div className="h">
+            Shielded - <em>bounded</em>
+          </div>
+          <p>
+            An address is never written to the chain. Without a key we show what the pool publishes around a transaction:
+            anchor-bounded candidate sets, spent-count subtraction, time and amount echoes, fee-derived action counts and
+            wallet fingerprints - each with its assumption and its cost.
+          </p>
+        </div>
+        <div className="c">
+          <div className="h">
+            Viewing key - <em>exact, yours</em>
+          </div>
+          <p>
+            Trial-decrypt every output with your incoming key, derive nullifiers with your full key, read your own outgoing
+            ciphertexts. In the browser, never uploaded. The only way a shielded balance appears on this site.
+          </p>
+        </div>
+      </div>
 
-      <Block idx="03" title="The views" right="scheduled">
-        <Pending handoff="HANDOFF-04 / 05 / 11" title="Address, transaction, pools, flows and reveal">
-          The high-fidelity mempool table, the address view with its balance step chart and interaction graph, the transaction
-          view with its inference chain, the four-pool Sankey and the migration lens all arrive in fixture mode with HANDOFF-04,
-          served by the REST API from HANDOFF-05, and go live at the HANDOFF-11 cutover.
-        </Pending>
+      <Block
+        idx="A"
+        title="Mempool"
+        right={`${fmtInt(s.unconfirmed)} unconfirmed - ${fmtInt(s.shielded)} shielded - ${fmtInt(s.migrations)} migrations - ${fmtInt(s.transparent)} transparent - fee weather: ${s.feeWeather}`}
+      >
+        <MetricRow>
+          <Metric
+            label="unconfirmed"
+            value={fmtInt(s.unconfirmed)}
+            sub={`${(s.bytes / 1000).toFixed(1)} kB - next block in about ${s.nextBlockSeconds} s`}
+          />
+          <Metric
+            label="shielded share"
+            value={`${Math.round((s.shielded / s.unconfirmed) * 100)}%`}
+            sub={`by count - ${fmtInt(s.shielded)} of ${fmtInt(s.unconfirmed)}`}
+          />
+          <Metric
+            label="value crossing boundaries"
+            value={zatToZecGrouped(s.crossingZat, 1)}
+            sub={s.crossingSplit}
+            // Value crossing a pool boundary: gold's third licensed job.
+            accent
+          />
+          <Metric
+            label="conventional fee"
+            value={fmtInt(Number(s.conventionalFeeZat))}
+            sub={`zat - ZIP 317 at 2 logical actions - ${fmtInt(s.conventionalCount)} of ${fmtInt(s.unconfirmed)} conventional`}
+          />
+          <Metric label="findings at high" value={fmtInt(s.findingsHigh)} sub={s.findingsNote} />
+        </MetricRow>
+
+        <MempoolPanel initial={mempool} />
+
+        {IS_FIXTURE ? (
+          <p className="note" style={{ marginTop: 12, maxWidth: "72ch" }} data-ui="fixture-note">
+            <b>These are committed values, not a live mempool.</b> The feed is a replay of twelve transcribed transactions and
+            it closes and reopens on a cycle, which is why the badge above spends part of its time reconnecting - the
+            reconnect path running in ordinary operation rather than only under fault. The gateway arrives at HANDOFF-05 and
+            the live socket at the HANDOFF-11 cutover; nothing in this panel changes when they do.
+          </p>
+        ) : null}
       </Block>
     </>
   );

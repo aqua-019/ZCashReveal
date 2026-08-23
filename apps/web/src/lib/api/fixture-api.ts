@@ -26,7 +26,6 @@ import type {
   TxView,
   ZecFrame,
 } from "@zcashreveal/types";
-import { zecFrameSchema } from "@zcashreveal/types";
 
 import { ADDRESS_VIEWS } from "./fixtures/address";
 import { BLOCK_VIEWS } from "./fixtures/block";
@@ -36,89 +35,9 @@ import { MEMPOOL_VIEW } from "./fixtures/mempool";
 import { POOLS_VIEW } from "./fixtures/pools";
 import { TX_VIEWS } from "./fixtures/tx";
 import { searchKind } from "./kind";
-import { ZecSocket, type SocketLike } from "./socket";
+import type { SocketLike } from "./socket";
+import { subscribeFrames } from "./stream";
 import type { ZecApi } from "./zec-api";
-
-/**
- * A committed stream that behaves like a socket.
- *
- * It emits the mempool snapshot on open, then one arrival every `tickMs`,
- * cycling through the twelve committed rows with their ages advanced, and
- * closes itself after a full cycle so the client's reconnect path runs in
- * normal operation rather than only under fault.
- */
-class FixtureStream {
-  readonly #handlers = new Map<string, Set<(ev?: unknown) => void>>();
-  #timers: number[] = [];
-  #closed = false;
-
-  constructor(private readonly tickMs: number) {
-    // Open on the next turn of the loop, so a caller that attaches its
-    // listeners synchronously after construction still sees the open event.
-    this.#later(() => { this.#emit("open"); this.#pump(); }, 0);
-  }
-
-  // Typed loosely on purpose: `SocketLike`'s overloads exist so `ZecSocket`'s
-  // call sites are checked, and a stream that satisfies them structurally is
-  // what the cast at the construction site asserts.
-  addEventListener(type: string, handler: (ev?: unknown) => void): void {
-    let set = this.#handlers.get(type);
-    if (set === undefined) {
-      set = new Set();
-      this.#handlers.set(type, set);
-    }
-    set.add(handler as (ev?: unknown) => void);
-  }
-
-  send(): void {
-    // A ping. There is nothing on the other end to answer it, and the client's
-    // idle timer is reset by the frames below, so this is deliberately inert.
-  }
-
-  close(): void {
-    if (this.#closed) return;
-    this.#closed = true;
-    for (const t of this.#timers) globalThis.clearTimeout(t);
-    this.#timers = [];
-    this.#emit("close");
-  }
-
-  #later(fn: () => void, ms: number): void {
-    this.#timers.push(globalThis.setTimeout(fn, ms) as unknown as number);
-  }
-
-  #emit(type: string, data?: unknown): void {
-    for (const h of this.#handlers.get(type) ?? []) h(data as never);
-  }
-
-  #frame(frame: ZecFrame): void {
-    if (this.#closed) return;
-    this.#emit("message", { data: JSON.stringify(frame, jsonReplacer) });
-  }
-
-  #pump(): void {
-    this.#frame({ type: "hello", tipHeight: MEMPOOL_VIEW.tipHeight });
-    this.#frame({ type: "snapshot", view: MEMPOOL_VIEW });
-
-    MEMPOOL_VIEW.entries.forEach((entry, i) => {
-      this.#later(() => {
-        // A fresh arrival: the same committed row, at the front of the queue
-        // with its age reset. Nothing here is generated - the corpus is fixed
-        // and the stream is a replay of it.
-        this.#frame({ type: "tx_added", entry: { ...entry, ageSeconds: 0 } });
-      }, this.tickMs * (i + 1));
-    });
-
-    // One full cycle, then drop the connection. The panel reconnects, the
-    // snapshot replays, and the reconnect path is exercised by ordinary use.
-    this.#later(() => { this.close(); }, this.tickMs * (MEMPOOL_VIEW.entries.length + 2));
-  }
-}
-
-/** JSON cannot carry a bigint; the wire format is a decimal string, per `zatSchema`. */
-function jsonReplacer(_key: string, value: unknown): unknown {
-  return typeof value === "bigint" ? value.toString() : value;
-}
 
 export interface FixtureApiOptions {
   /** Milliseconds between simulated arrivals. */
@@ -129,11 +48,11 @@ export interface FixtureApiOptions {
 
 export class FixtureApi implements ZecApi {
   readonly #tickMs: number;
-  readonly #open: (url: string) => SocketLike;
+  readonly #open: ((url: string) => SocketLike) | undefined;
 
   constructor(options: FixtureApiOptions = {}) {
     this.#tickMs = options.tickMs ?? 4_000;
-    this.#open = options.open ?? (() => new FixtureStream(this.#tickMs) as unknown as SocketLike);
+    this.#open = options.open;
   }
 
   searchKind(q: string): SearchKind {
@@ -169,26 +88,11 @@ export class FixtureApi implements ZecApi {
   }
 
   subscribe(onFrame: (frame: ZecFrame) => void): () => void {
-    const socket = new ZecSocket("fixture://mempool", {
-      open: this.#open,
-      onFrame: (raw) => {
-        // Validated on the way in even though this end wrote it. The fixture
-        // stream and the gateway are the same code path to the consumer, and a
-        // consumer that trusts one and validates the other is a consumer that
-        // has two code paths again.
-        const parsed = zecFrameSchema.safeParse(raw);
-        if (parsed.success) onFrame(parsed.data);
-      },
-      // The committed stream closes after each cycle by design, so the retry
-      // has to be brisk enough that the panel does not visibly stall between
-      // cycles, and jittered so it is not a metronome.
-      baseDelayMs: 400,
-      maxDelayMs: 2_000,
-      // No heartbeat against a stream that has no other end to answer one.
-      idleTimeoutMs: 0,
-      pingIntervalMs: 0,
-    });
-    socket.connect();
-    return () => { socket.close(); };
+    // Delegated so the client panel can import the subscription WITHOUT
+    // importing this class - see the note at the head of stream.ts. Reaching
+    // for `api().subscribe` from a client component pulled the whole fixture
+    // corpus and the content seeds into the browser bundle and took /track to
+    // 217 kB of first-load JavaScript.
+    return subscribeFrames(onFrame, { tickMs: this.#tickMs, ...(this.#open === undefined ? {} : { open: this.#open }) });
   }
 }

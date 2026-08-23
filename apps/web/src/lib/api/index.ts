@@ -43,4 +43,5 @@ export { FixtureApi } from "./fixture-api";
 export { HttpApi } from "./http-api";
 export { searchKind, hrefFor, KIND_TEXT } from "./kind";
 export { ZecSocket, parseFrame, type SocketLike, type SocketState } from "./socket";
+export { subscribeFrames } from "./stream";
 export type { ZecApi } from "./zec-api";

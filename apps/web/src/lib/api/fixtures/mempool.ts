@@ -84,7 +84,7 @@ const ROWS: readonly Row[] = [
     crossing: { kind: "o-to-i", zec: "500.0" },
   },
   {
-    txid: "a3f8c4211d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d67f3a1c",
+    txid: "a3f8c4211d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d67f3a1",
     ageSeconds: 31,
     version: "v6",
     flow: "z to z",

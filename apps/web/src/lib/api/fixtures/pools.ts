@@ -17,7 +17,7 @@
  * bars disagree with is the exact failure this site was built to point at, and
  * the fixture does not get an exemption.
  */
-import type { PoolsView } from "@zcashreveal/types";
+import { claimLevelFor, type PoolsView } from "@zcashreveal/types";
 
 import { zec } from "./units";
 
@@ -204,6 +204,21 @@ export const POOLS_VIEW: PoolsView = {
     crossings: CROSSINGS,
     zat: MIGRATED_ZAT,
     strandedNote: "Under 0.01 ZEC per note, across roughly 3,120 notes, is stranded below the migration's dust floor.",
+  },
+  /**
+   * The context /reveal's Mode B pane shows beside a shielded address.
+   *
+   * The tree size is the Ironwood commitment count; the median N_eff of 1,240
+   * is the mockup's figure and sits inside the broad-candidate-set band, which
+   * is what `claimLevelFor` returns for it. Both are counts, so the pane can
+   * carry them without rendering a ZEC amount - which is A5's requirement and
+   * the reason they are counts rather than a balance.
+   */
+  context: {
+    pool: "ironwood",
+    noteCount: 3_129_287,
+    medianNEff: 1_240,
+    claim: claimLevelFor(1_240),
   },
   neff: {
     rows: [

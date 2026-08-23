@@ -556,6 +556,26 @@ export const poolsViewSchema = z.object({
     rows: z.array(z.object({ claim: claimLevelSchema, label: z.string().min(1), pct: z.number().min(0).max(100) })).min(1),
     note: z.string().min(1),
   }),
+  /**
+   * Pool context for a shielded address that has no answer of its own.
+   *
+   * Deliberately COUNTS and never a value. `/reveal`'s Mode B pane is the one
+   * surface that renders something beside a shielded address, and assertion A5
+   * requires that pane to contain no ZEC amount at all - so what it is given is
+   * the size of the commitment tree and the median claim level of a spend in
+   * it, both of which are properties of the POOL and would read identically for
+   * every other shielded address on the chain. That is what makes them
+   * publishable, and what makes them not an answer about the address in the
+   * URL.
+   */
+  context: z.object({
+    pool: poolNameSchema,
+    /** Notes in the commitment tree. A count, so `number`. */
+    noteCount: countSchema,
+    /** Median N_eff for a spend in this pool now. */
+    medianNEff: countSchema,
+    claim: claimLevelSchema,
+  }),
 });
 export type PoolsView = z.infer<typeof poolsViewSchema>;
 
