@@ -63,8 +63,8 @@ Consolidated from the ZIP texts. The heights themselves are scattered across §1
 
 | Upgrade | Mainnet height | Testnet height | ZIP | ZIP status |
 |---|---|---|---|---|
-| Sapling (NU1) | 419,200 | 280,000 | — | — |
-| NU5 (Orchard) | 1,687,104 | 1,842,420 | — | — |
+| Sapling (NU1) | 419,200 | 280,000 *(uncorroborated)* | — | — |
+| NU5 (Orchard) | 1,687,104 | 1,842,420 *(uncorroborated)* | — | — |
 | NU6 | 2,726,400 | **2,976,000** | [ZIP 253](https://zips.z.cash/zip-0253) | Final |
 | NU6.1 | 3,146,400 | 3,536,500 | [ZIP 255](https://zips.z.cash/zip-0255) | Final |
 | Orchard mitigation soft fork | 3,363,426 | 4,048,500 | [ZIP 257](https://zips.z.cash/zip-0257) | Final |
@@ -75,7 +75,8 @@ Notes on this table, because two of its cells are not like the others:
 
 - **Testnet NU6, 2,976,000, is new to this corpus and appears in no other line of it.** ZIP 253 (Final) states it; L2 read the ZIP and relayed the height in the HANDOFF-06 resolution. Until then the repository had no testnet NU6 height at all, and `activation-heights.ts` deliberately carried a comment explaining its absence rather than a plausible number. `high`.
 - **ZIP 258 is Draft, and was Draft when NU6.3 activated** (§2.1). Both Ironwood heights, and with them `poolsActiveAt`, `orchardExitOnlyFrom` and every Orchard-exit-only gate in this project, rest on a document that may still be edited. Tracked as a standing deferred entry in `handoffs/LEDGER.md`. `high`.
-- The four pre-NU6 heights carry no ZIP citation here because none was located in this corpus; they come from the Zcash protocol specification and `zcashd` chainparams, and `activation-heights.ts` says so at each constant rather than letting them pass as corroborated.
+- **The four pre-NU6 heights are NOT "consolidated from the ZIP texts", despite the sentence above this table.** No ZIP was located for any of them in this corpus. The two MAINNET ones are corroborated elsewhere in this repository (419,200 and 1,687,104 both appear across the research files). The two TESTNET ones are marked *(uncorroborated)* because this table is their **only** appearance outside `apps/indexer/src/decoder/activation-heights.ts` and its test — so a later session must not read them here and cite this line as corroboration for the constant that is this line's only origin. They come from the Zcash protocol specification and `zcashd` chainparams, which are not in this repository, and `activation-heights.ts` states that at each of the two testnet constants. It does not state it at the two mainnet ones, which are corroborated by the corpus instead.
+- A row's ZIP column is empty when this corpus locates no ZIP for that height. An empty column is not a claim that no ZIP states it; it is a claim that nobody here has read one.
 
 ---
 

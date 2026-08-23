@@ -114,19 +114,34 @@ export function guessWallet(i: FingerprintInputs): WalletGuess {
 
   // ZODL BEFORE YWALLET, BECAUSE THEIR BANDS OVERLAP AND ONLY ONE THING
   // SEPARATES THEM. `docs/2.0/TRACKING-MATH.md` §3.6 gives Zashi/Zodl an expiry
-  // delta of 40, which sits inside Ywallet's sourced 35-50 band, so on the
-  // delta alone the two are indistinguishable. The corpus supplies the
-  // tiebreaker: Zodl 3.8.0 has Ironwood support and Ywallet's final release
-  // 1.15.3 "will not be updated for Ironwood" (§2.6, `med`). An Ironwood bundle
-  // therefore rules Ywallet out, and it is the only evidence here that does.
+  // delta of 40, which falls inside the 35-50 window the YWALLET rule below
+  // tests, so on the delta alone the two are indistinguishable. The corpus
+  // supplies the tiebreaker: Zodl 3.8.0 has Ironwood support and Ywallet's
+  // final release 1.15.3 "will not be updated for Ironwood"
+  // (docs/2.0/research/01-contemporary-zcash.md §2.6, `med`). An Ironwood
+  // bundle therefore rules Ywallet out, and it is the only evidence here that
+  // does.
+  //
+  // YWALLET'S 35-50 IS NOT SOURCED, AND AN EARLIER VERSION OF THIS COMMENT SAID
+  // IT WAS. A gate round caught it. §3.6 is the only line in this repository
+  // that gives any expiry delta at all - "(zcashd 20, Zashi/Zodl 40, others
+  // vary)" - and "others vary" is the corpus declining to state one for
+  // Ywallet. The 35-50 literals below are hardcoded and have carried no
+  // citation since HANDOFF-00. So the one delta this project can source is
+  // Zodl's, and the comment that stood here inverted that, telling the next
+  // reader the competing band was the sourced one - in the same file that
+  // refuses, forty lines above, to invent bands for four other wallets because
+  // an invented band is indistinguishable from a sourced one. Recorded as a
+  // deferred item rather than fixed, because narrowing or widening an
+  // uncited band would be inventing a different number, not correcting one.
   //
   // WHAT THIS RULE DOES NOT CLAIM: that a delta of 40 without an Ironwood
   // bundle is Ywallet rather than Zodl. Zodl sends ordinary Orchard
-  // transactions too, and in that overlap this build cannot tell them apart -
-  // the answer below is Ywallet because its 35-50 is sourced as a BAND while
-  // Zodl's 40 is sourced as a point, not because the evidence separates them.
-  // Stated rather than hidden in the ordering, per TRACKING-MATH §3.6's rule
-  // that the output is a likelihood and never an identity.
+  // transactions too, and in that overlap this build cannot tell them apart.
+  // The answer below is Ywallet only because that is the behaviour this file
+  // already had and this handoff is not the one that re-sources it. Stated
+  // rather than hidden in the ordering, per TRACKING-MATH §3.6's rule that the
+  // output is a likelihood and never an identity.
   if (i.hasIronwoodBundle && i.expiryDelta === 40) {
     return "ZODL";
   }

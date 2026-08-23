@@ -436,9 +436,31 @@ export type FindingCode =
   | "PROOF_SIZE_NONCANONICAL"
   /**
    * The transaction's version or bundle shape is one this decoder does not
-   * model, so nothing was measured. Accompanies `leakClass: "UNSUPPORTED_TX"`.
+   * model, so nothing was measured. Accompanies `leakClass: "UNSUPPORTED_TX"`,
+   * and ONLY that - see `IRONWOOD_FIELD_ABSENT` for the case that looks similar
+   * and is not.
    */
   | "UNSUPPORTED_TX_SHAPE"
+  /**
+   * A v6 transaction arrived carrying no `ironwood` key at all.
+   *
+   * A FACT ABOUT THE RESPONSE, ON A REPORT THAT WAS FULLY DECODED. Its class is
+   * whatever the transaction's other pools made it, and its numbers ARE
+   * measurements - which is why this cannot share `UNSUPPORTED_TX_SHAPE`, whose
+   * contract is that nothing on the report was measured. One code carrying two
+   * mutually exclusive facts makes neither countable, and a consumer using it
+   * as the "read the flag, not the zeros" signal would read a measured report
+   * as unmeasured.
+   *
+   * What it means depends on something this build cannot check: the `ironwood`
+   * field name is inferred rather than observed. Zebra emits pool bundles
+   * unconditionally on the versions that have them, so under that belief this
+   * fires on almost nothing; if the belief is wrong it fires on every v6
+   * transaction, and every Ironwood balance the project has published is a
+   * false zero. It is an all-or-nothing alarm, which is why both polarities
+   * are pinned by tests.
+   */
+  | "IRONWOOD_FIELD_ABSENT"
   /**
    * A ZIP 318 crossing whose amount is not a canonical denomination, or is
    * outside the band the corpus describes. An observation about an amount and

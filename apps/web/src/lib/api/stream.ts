@@ -232,7 +232,20 @@ function asNullableZat(v: unknown): bigint | null | undefined {
 const LANES = new Set(["transparent", "sprout", "sapling", "orchard", "ironwood"]);
 const VERSIONS = new Set(["v4", "v5", "v6"]);
 const SEVERITIES = new Set(["INFO", "LOW", "MED", "HIGH"]);
-const CLASSES = new Set(["shield", "deshield", "shielded", "migration", "transparent"]);
+// `undecoded` IS A VALID CLASS SINCE HANDOFF-07 AND LEAVING IT OUT DROPPED THE
+// WHOLE SNAPSHOT. `asRow` returns null for an unknown class and `asView`
+// returns null for the whole view when any row is null, so one undecodable
+// transaction removed every other transaction from /track too - the exact
+// outcome the comment below says the relaxed `lanes` test exists to prevent.
+// The two checks were three lines apart and only one of them was widened.
+const CLASSES = new Set([
+  "shield",
+  "deshield",
+  "shielded",
+  "migration",
+  "transparent",
+  "undecoded",
+]);
 
 function asRow(v: unknown): MempoolRow | null {
   if (typeof v !== "object" || v === null) return null;

@@ -298,6 +298,37 @@ const ROWS: readonly Row[] = [
     severity: "LOW",
     cls: "transparent",
   },
+  {
+    /**
+     * THE ONE ROW NOBODY COULD DECODE, and it is here for the same reason the
+     * unpriced row above it is: a branch nothing renders is a branch nobody has
+     * seen. The `undecoded` class was added to the DTO and to the gateway in
+     * HANDOFF-07 and the fixture corpus had no row carrying it, so the cheap
+     * frame guard in `stream.ts` could reject the class while
+     * `frame-guard.test.ts` - which iterates exactly these rows - stayed green.
+     * It did reject it, and a gate round found it: `asView` returns null for
+     * the whole view when any row is null, so one undecodable transaction
+     * removed the entire mempool from /track.
+     *
+     * Every field says an absence rather than a value, because that is what the
+     * class means: the decoder declined to read the transaction's shape, so its
+     * pools, its fee and its flow are unknown and not zero. `lanes` is empty -
+     * a swatch would claim the transaction touched that lane - and this is the
+     * only row in the corpus with no lane at all.
+     */
+    txid: "7e6d5c4b3a2f1e0d9c8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d",
+    ageSeconds: 61,
+    version: "v6",
+    flow: "not decoded",
+    lanes: [],
+    valueBalanceText: "not measured",
+    feeZat: null,
+    logicalActions: 0,
+    walletGuess: "UNKNOWN_UNPRICED",
+    finding: "transaction version 7 is outside the range this decoder models (1 to 6)",
+    severity: "INFO",
+    cls: "undecoded",
+  },
 ];
 
 /** ZIP 317: the conventional fee is 5,000 zatoshi times max(2, L). */

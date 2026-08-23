@@ -202,12 +202,30 @@ describe("A2 - the v6 fixture yields Ironwood commitments with contiguous positi
 });
 
 describe("A3 - an unmodelled version becomes UNSUPPORTED_TX and never a throw", () => {
-  /** A v7 built from the fixture's own migration, so only the version differs. */
-  function versionSeven(): RpcTransaction {
+  /** The fixture's 500 ZEC migration, straight out of the file. */
+  function orchardToIronwoodFixtureTx(): RpcTransaction {
     const block = loadFixture();
-    const migration = block.tx.find((t) => t.version === 6);
-    if (migration === undefined) throw new Error("fixture has no v6 transaction");
-    return { ...migration, version: 7 };
+    const migration = block.tx.find(
+      (t) => t.version === 6 && BigInt(t.orchard?.valueBalanceZat ?? 0) === 500n * ZEC,
+    );
+    if (migration === undefined) throw new Error("fixture has no 500 ZEC migration");
+    return migration;
+  }
+
+  /** The same transaction with only the version changed, so nothing else differs. */
+  function versionSeven(): RpcTransaction {
+    return { ...orchardToIronwoodFixtureTx(), version: 7 };
+  }
+
+  /** A bare transaction at a chosen version, with no bundles at all. */
+  function txn(version: number): RpcTransaction {
+    return {
+      txid: asHex("cd".repeat(32)),
+      version,
+      locktime: 0,
+      vin: [],
+      vout: [],
+    };
   }
 
   it("PASS: version 7 classifies UNSUPPORTED_TX, measures nothing, and does not throw", async () => {
@@ -231,29 +249,131 @@ describe("A3 - an unmodelled version becomes UNSUPPORTED_TX and never a throw", 
     expect(report.overallSeverity).toBe("INFO");
   });
 
-  it("FAIL SIDE: with the guard removed, the same transaction throws", async () => {
-    // A FAIL-SIDE PROBE HAS TO ACTUALLY FAIL, and this one does - but only for
-    // a v7 whose bundle this build cannot read, which is the case the guard
-    // exists for. A plain v7 with no bundles would decode to zeros without
-    // throwing, and reporting that as the fail side would be a probe that does
-    // not discriminate.
+  it("FAIL SIDE: the SAME BYTES read as v6 produce the confident answer the guard withholds", async () => {
+    // THIS ASSERTION REPLACES ONE THAT DID NOT DISCRIMINATE, AND THE
+    // REPLACEMENT IS THE INTERESTING PART. The first version asserted that
+    // `decodeIronwoodBundle({ valueBalanceZat: undefined })` throws, and
+    // justified it as "what the analyser would do with the guard gone". That
+    // was false: with the guard gone the analyser would read the FIXTURE's
+    // well-formed bundle, not a malformed one, so the assertion proved only
+    // that `BigInt(undefined)` throws - a property of BigInt. A fail-side probe
+    // that cannot fail for the reason it names is a finding in this project
+    // (LEDGER-05 fold 7), and a gate round raised it as one.
     //
-    // The guard is simulated rather than deleted: `dispatchByVersion` is what
-    // `analyze()` consults, so calling the decoder directly on the same bundle
-    // is what the analyser would do with the guard gone. The bundle here is
-    // malformed in the way an unknown format's would be - a value balance this
-    // build cannot convert - and `BigInt(undefined)` throws.
+    // What removing the guard actually produces is worse than a throw and is
+    // what the guard exists for: a CONFIDENT FABRICATED MEASUREMENT. A test
+    // cannot delete production code, so the same fabrication is shown the only
+    // honest way - by feeding the identical transaction in under a version the
+    // decoder DOES model. Every number below is what an unguarded v7 would have
+    // published about bytes nobody here understands.
+    const asV6 = await analyze(orchardToIronwoodFixtureTx(), context());
+    expect(asV6.leakClass).toBe("MIGRATION_O2I");
+    expect(asV6.valueFlow.orchardValueBalanceZat).toBe(500n * ZEC);
+    expect(asV6.valueFlow.ironwoodValueBalanceZat).toBe(-(500n * ZEC - FEE));
+    expect(asV6.fingerprint.feeZat).not.toBeNull();
+    expect(asV6.overallSeverity).not.toBe("INFO");
+
+    // The identical transaction at version 7: every one of those measurements
+    // is withheld, and the report says why rather than saying zero.
+    const asV7 = await analyze(versionSeven(), context());
+    expect(asV7.leakClass).toBe("UNSUPPORTED_TX");
+    expect(asV7.valueFlow.orchardValueBalanceZat).toBe(0n);
+    expect(asV7.valueFlow.ironwoodValueBalanceZat).toBe(0n);
+    expect(asV7.fingerprint.feeZat).toBeNull();
+    expect(asV7.unsupported).toBeDefined();
+
+    // AND THE GUARD IS WHAT SEPARATES THEM, not the transaction's contents.
+    // `dispatchByVersion` is the only thing that differs between the two calls.
+    expect(dispatchByVersion(orchardToIronwoodFixtureTx()).kind).toBe("SUPPORTED");
+    expect(dispatchByVersion(versionSeven()).kind).toBe("UNSUPPORTED");
+  });
+
+  it("the guard runs BEFORE any field is interpreted, so an unreadable bundle cannot throw", async () => {
+    // The second half of what the guard buys, and the half a throw does
+    // demonstrate. `decodeIronwoodBundle` on a bundle whose value balance
+    // cannot be converted throws - that is real, and it is what an unmodelled
+    // format's bundle could look like.
     const malformed = { actions: [], valueBalanceZat: undefined as unknown as number };
     expect(() => decodeIronwoodBundle(malformed)).toThrow(TypeError);
 
-    // With the guard in place the same transaction is refused before any field
-    // of it is interpreted, so the throw is never reached.
-    const tx: RpcTransaction = { ...versionSeven(), ironwood: malformed };
-    const dispatch = dispatchByVersion(tx);
-    expect(dispatch.kind).toBe("UNSUPPORTED");
-    await expect(analyze(tx, context())).resolves.toMatchObject({
-      leakClass: "UNSUPPORTED_TX",
-    });
+    // On a v6 the guard does not apply, because v6 IS modelled - so the same
+    // malformed bundle reaches the decoder and `analyze()` itself throws. This
+    // is the analyser throwing through the real path, which the old assertion
+    // claimed and did not show.
+    await expect(
+      analyze({ ...orchardToIronwoodFixtureTx(), ironwood: malformed }, context()),
+    ).rejects.toThrow(TypeError);
+
+    // On a v7 the same bundle is refused before it is read, and nothing throws.
+    await expect(
+      analyze({ ...versionSeven(), ironwood: malformed }, context()),
+    ).resolves.toMatchObject({ leakClass: "UNSUPPORTED_TX" });
+  });
+
+  it("a v5 or v6 carrying JoinSplits is refused, which is the third of the three rules", async () => {
+    // v6.ts presents three refusals and two of them were covered; deleting this
+    // one changed no test. JoinSplits were removed by the v5 format (ZIP 225)
+    // and v6 did not bring them back, so a v5 or v6 carrying one contradicts
+    // its own format and cannot be classified.
+    for (const version of [5, 6]) {
+      const tx: RpcTransaction = {
+        ...txn(version),
+        vjoinsplit: [{ vpub_oldZat: 0, vpub_newZat: 100_000 }],
+      };
+      const dispatch = dispatchByVersion(tx);
+      expect(dispatch.kind, `v${String(version)}`).toBe("UNSUPPORTED");
+      const report = await analyze(tx, context());
+      expect(report.leakClass).toBe("UNSUPPORTED_TX");
+      expect(report.unsupported?.reason).toContain("JoinSplits");
+    }
+
+    // FAIL SIDE: the same JoinSplit on a v4 is ordinary Sprout traffic and is
+    // classified normally, so the rule is about the VERSION and not about
+    // JoinSplits being unwelcome.
+    const v4 = await analyze(
+      { ...txn(4), vjoinsplit: [{ vpub_oldZat: 0, vpub_newZat: 100_000 }] },
+      context(),
+    );
+    expect(v4.leakClass).not.toBe("UNSUPPORTED_TX");
+    expect(v4.valueFlow.sproutValueBalanceZat).toBe(100_000n);
+  });
+
+  it("IRONWOOD_FIELD_ABSENT fires on a v6 with no ironwood key, and on nothing else", async () => {
+    // THE ONE ALARM THE WHOLE IRONWOOD DECODER RESTS ON, AND IT HAD NO TEST.
+    // Three docblocks - here, in `schemas.ts` and in `fee.ts` - argue that a
+    // wrong guess at the `ironwood` field name would be caught because this
+    // finding would start firing on every v6 transaction. Nothing pinned it, so
+    // it could have been deleted in any later edit with the suite green, and
+    // the argument those three docblocks make would have quietly become false.
+    //
+    // It is an all-or-nothing alarm by design: under the belief about the wire
+    // it fires on almost nothing, and if the belief is wrong it fires on
+    // everything. Both polarities are therefore the test.
+    const withoutKey = await analyze(txn(6), context());
+    expect(withoutKey.findings.map((f) => f.code)).toContain("IRONWOOD_FIELD_ABSENT");
+    // It is a fact about the RESPONSE on a report that WAS decoded, so it must
+    // not be confused with the abstention path: the class is a real class and
+    // there is no `unsupported` object.
+    expect(withoutKey.leakClass).not.toBe("UNSUPPORTED_TX");
+    expect(withoutKey.unsupported).toBeUndefined();
+    expect(withoutKey.findings.map((f) => f.code)).not.toContain("UNSUPPORTED_TX_SHAPE");
+    expect(withoutKey.findings.find((f) => f.code === "IRONWOOD_FIELD_ABSENT")?.message).toContain(
+      "false zero",
+    );
+
+    // FAIL SIDE 1: a v6 that DOES carry the key, even an empty bundle, is
+    // silent. If it were not, the alarm would fire on every v6 on the chain and
+    // mean nothing.
+    const withEmptyKey = await analyze(
+      { ...txn(6), ironwood: { actions: [], valueBalanceZat: 0 } },
+      context(),
+    );
+    expect(withEmptyKey.findings.map((f) => f.code)).not.toContain("IRONWOOD_FIELD_ABSENT");
+
+    // FAIL SIDE 2: a v5 without the key is silent too, because v5 cannot carry
+    // an Ironwood bundle and its absence there says nothing about the wire.
+    const v5 = await analyze(txn(5), context());
+    expect(v5.findings.map((f) => f.code)).not.toContain("IRONWOOD_FIELD_ABSENT");
   });
 
   it("a v4 carrying Ironwood actions is refused too, and names the contradiction", async () => {

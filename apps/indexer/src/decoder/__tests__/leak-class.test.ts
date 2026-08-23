@@ -31,10 +31,27 @@ import { analyze, type AnalyzeContext } from "../leak-analyzer.js";
  * the MIGRATION_O2I rule unreachable through this entry point by any
  * transaction of any shape - so the rule was implemented, documented as tested,
  * and had never executed. A gate round against this handoff found it and the
- * fix was a seam rather than a workaround: `AnalyzeContext` now carries an
- * optional `ironwoodValueBalanceZat`, which a caller holding a decoded bundle
- * supplies and the live path leaves unset. Both halves are covered below, and
- * HANDOFF-07 fills the seam rather than reopening the module.
+ * fix was a seam rather than a workaround: `AnalyzeContext` gained an optional
+ * `ironwoodValueBalanceZat`, which a caller holding a decoded bundle supplied
+ * and the live path left unset.
+ *
+ * THAT SENTENCE DESCRIBED HANDOFF-06 AND IS NO LONGER TRUE. HANDOFF-07 decodes
+ * the bundle inside `analyze()`, so the live path reaches this branch with no
+ * help from a caller and the context field is an OVERRIDE with three states:
+ * omitted means use the decoded value, `null` means withhold it, a number means
+ * substitute one. Leaving the old wording here would have told a reviewer the
+ * classification is still unreachable in production - which is exactly the
+ * claim HANDOFF-06 was punished for making.
+ *
+ * A DIVERGENCE FROM THE HANDOFF'S WORDING, STATED RATHER THAN SLIPPED IN.
+ * Deliverable 2 says to fill the field "at its call site", meaning
+ * `apps/indexer/src/index.ts`; nothing is filled there. The analyser holds the
+ * transaction and can decode the bundle itself, and routing the value through
+ * the caller would leave production depending on one call site remembering to
+ * pass it - which is the failure the deliverable exists to prevent, relocated.
+ * The deliverable's PURPOSE, that MIGRATION_O2I fires on the live path, is met
+ * and is what A8 asserts. The `null` state is what keeps A8's fail side able
+ * to fail.
  */
 
 const h = (n: number) => asHex(n.toString(16).padStart(64, "0"));
@@ -388,6 +405,116 @@ describe("A4 — the ZIP 318 denomination, in both units and both polarities", (
     // 318's phase 1 quantised, so the fee does not make the crossing look
     // unquantised.
     expect(report.migration?.canonical).toBe(true);
+  });
+
+  it("FAIL SIDE: a crossing funded from a transparent INPUT is not a ZIP 318 migration", async () => {
+    // THE MIRROR OF THE OUTPUT CASE, AND THE DIRECTION THAT HIDES RATHER THAN
+    // MERELY OMITS. A transaction that drains Orchard into Ironwood while ALSO
+    // taking a transparent input has a public funding address standing in it;
+    // publishing that as a pure pool-to-pool crossing says the value came from
+    // Orchard alone. The guard has two clauses and only the outputs clause had
+    // a probe, so the inputs clause could have been deleted with the suite
+    // green - which is how a two-clause guard quietly becomes a one-clause one.
+    const funded = {
+      ...txn({
+        version: 6,
+        vin: [transparentInput()],
+        orchard: { actions: [orchardAction()], valueBalanceZat: 700_000 },
+      }),
+      ironwood: { actions: [ironwoodAction()], valueBalanceZat: -700_000 },
+    };
+    const report = await analyze(funded, context());
+
+    expect(report.leakClass).not.toBe("MIGRATION_O2I");
+    expect(report.migration).toBeUndefined();
+  });
+
+  it("FAIL SIDE: a crossing that ALSO drains Sapling is not a ZIP 318 migration", async () => {
+    // THE FINDING A GATE ROUND FOUND, AND WHAT IT PUBLISHED WAS AN
+    // IMPOSSIBILITY. The predicate used to read only "Orchard positive and
+    // Ironwood negative", which a transaction spending BOTH a Sapling note and
+    // an Orchard note into one Ironwood output satisfies. `migrationRecord`
+    // then took the Orchard leg as the amount that left and the whole Ironwood
+    // leg as the amount that arrived, so the finding a reader saw reported MORE
+    // value arriving than left: a pool crossing that created ZEC. ZIP 318
+    // spends exactly one Orchard note into exactly one Ironwood output;
+    // anything else is not it.
+    const twoSources = {
+      ...txn({
+        version: 6,
+        vShieldedSpend: [saplingSpend()],
+        valueBalanceZat: 200_000,
+        orchard: { actions: [orchardAction()], valueBalanceZat: 500_000 },
+      }),
+      ironwood: { actions: [ironwoodAction()], valueBalanceZat: -700_000 },
+    };
+    const report = await analyze(twoSources, context());
+
+    expect(report.leakClass).not.toBe("MIGRATION_O2I");
+    expect(report.migration).toBeUndefined();
+    // The pools it moved are all still on the report; only the CLASS declines
+    // to name a crossing it cannot characterise.
+    expect([...report.valueFlow.perPoolZat.map((p) => p.pool)].sort()).toEqual([
+      "ironwood",
+      "orchard",
+      "sapling",
+    ]);
+  });
+
+  it("MIGRATION_DENOMINATION fires on an over-cap crossing, canonical or not", async () => {
+    // 20,000 ZEC is `2 x 10^4` - structurally canonical and twice DENOM_CAP on
+    // the flat reading TRACKING-MATH 3.9 gives. Until this assertion existed
+    // the over-cap arm had never run: the only end-to-end probe used a
+    // NON-canonical amount and entered through the other arm, so the two `why`
+    // strings quoting the corpus were dead code with the suite green.
+    const twentyThousandZec = 20_000 * 100_000_000;
+    const report = await analyze(
+      orchardToIronwood({ orchardZat: twentyThousandZec, ironwoodZat: -twentyThousandZec }),
+      context(),
+    );
+
+    expect(report.leakClass).toBe("MIGRATION_O2I");
+    expect(report.migration?.canonical).toBe(true);
+    expect(report.migration?.overDenomCap).toBe(true);
+    expect(report.findings.map((f) => f.code)).toContain("MIGRATION_DENOMINATION");
+    expect(report.findings.find((f) => f.code === "MIGRATION_DENOMINATION")?.message).toContain(
+      "DENOM_CAP",
+    );
+  });
+
+  it("MIGRATION_DENOMINATION fires below MAX_RESIDUAL_VALUE, and says which fact fired", async () => {
+    // 0.005 ZEC is `5 x 10^5` zat - structurally canonical, and below the
+    // 0.01 ZEC ZIP 318 says is stranded in Orchard permanently. Both facts are
+    // reported, because a crossing can be canonical in FORM and off the ladder
+    // in SIZE, and a histogram showing only the first would draw a rung the
+    // ladder does not have.
+    const report = await analyze(
+      orchardToIronwood({ orchardZat: 500_000, ironwoodZat: -500_000 }),
+      context(),
+    );
+
+    expect(report.migration?.canonical).toBe(true);
+    expect(report.migration?.belowMaxResidual).toBe(true);
+    expect(report.migration?.overDenomCap).toBe(false);
+    const message = report.findings.find((f) => f.code === "MIGRATION_DENOMINATION")?.message;
+    expect(message).toContain("MAX_RESIDUAL_VALUE");
+    expect(message).not.toContain("DENOM_CAP");
+  });
+
+  it("FAIL SIDE: an in-range canonical crossing raises no denomination finding at all", async () => {
+    // The discriminating half for the three assertions above: 500 ZEC is on the
+    // ladder, above the residual and under the cap, so none of the three arms
+    // fires. Without this the finding could be unconditional and every
+    // assertion above would still pass.
+    const report = await analyze(
+      orchardToIronwood({ orchardZat: FIVE_HUNDRED_ZEC, ironwoodZat: -FIVE_HUNDRED_ZEC }),
+      context(),
+    );
+
+    expect(report.migration?.canonical).toBe(true);
+    expect(report.migration?.overDenomCap).toBe(false);
+    expect(report.migration?.belowMaxResidual).toBe(false);
+    expect(report.findings.map((f) => f.code)).not.toContain("MIGRATION_DENOMINATION");
   });
 
   it("no migration record at all on a transaction that is not one", async () => {

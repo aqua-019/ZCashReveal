@@ -97,7 +97,7 @@ export const NU6_1_ACTIVATION_MAINNET = 3_146_400;
 /**
  * The Orchard mitigation soft fork.
  *
- * ZIP 257, quoted verbatim in docs/2.0/research/01-contemporary-zcash.md:167 (§1.4):
+ * ZIP 257, quoted verbatim in docs/2.0/research/01-contemporary-zcash.md:168 (§1.4):
  * "From block height 3363426 (Mainnet) or 4048500 (Testnet) onward, until the
  * activation of NU6.2 on each network, v5 and later transactions MUST NOT
  * contain any Orchard Action descriptions".
@@ -111,13 +111,13 @@ export const NU6_1_ACTIVATION_MAINNET = 3_146_400;
  */
 export const ORCHARD_MITIGATION_MAINNET = 3_363_426;
 
-/** NU6.2, 1,174 blocks after the mitigation. ZIP 257; 01-contemporary-zcash.md:171 (§1.4), `high`. */
+/** NU6.2, 1,174 blocks after the mitigation. ZIP 257; 01-contemporary-zcash.md:172 (§1.4), `high`. */
 export const NU6_2_ACTIVATION_MAINNET = 3_364_600;
 
 /**
  * NU6.3 "Ironwood", 28 July 2026, ~13:00 UTC.
  *
- * ZIP 258; docs/2.0/research/01-contemporary-zcash.md:239 (§2.1), `high`, and the
+ * ZIP 258; docs/2.0/research/01-contemporary-zcash.md:240 (§2.1), `high`, and the
  * consolidated activation table at :60.
  *
  * ZIP 258 IS DRAFT, NOT FINAL - see {@link IRONWOOD_HEIGHTS_REST_ON_A_DRAFT_ZIP}
@@ -164,7 +164,7 @@ export const NU5_ACTIVATION_TESTNET = 1_842_420;
  * ZIP 255 (Final) STATES BOTH HEIGHTS UNDER NU6.1's OWN HEADING - "Testnet:
  * 3536500" and "Mainnet: 3146400" - which L2 confirmed against the ZIP in the
  * HANDOFF-06 resolution. The corpus agrees at
- * docs/2.0/research/01-contemporary-zcash.md:652 (§7.2), `high`, which gives the pair
+ * docs/2.0/research/01-contemporary-zcash.md:653 (§7.2), `high`, which gives the pair
  * in one sentence.
  *
  * NOT ONE OF THE THREE TESTNET NUMBERS HANDOFF-06 SUPPLIED. The contract listed
@@ -196,7 +196,7 @@ export const ORCHARD_MITIGATION_TESTNET = 4_048_500;
  * IT WAS CARRIED HERE AS ORDERING-DERIVED UNTIL THE HANDOFF-06 RESOLUTION, and
  * the correction is worth keeping visible because the constant did not change:
  * only its provenance did, from weak to strong. HANDOFF-06 read
- * docs/2.0/research/01-contemporary-zcash.md:171 (§1.4), which compressed two
+ * docs/2.0/research/01-contemporary-zcash.md:172 (§1.4), which compressed two
  * separately-labelled ZIP 257 heights into one ordered clause, and correctly
  * refused to claim more than the corpus supported. L2 went to the ZIP. That
  * corpus line is corrected in the same commit as this docblock, so the
@@ -205,7 +205,7 @@ export const ORCHARD_MITIGATION_TESTNET = 4_048_500;
 export const NU6_2_ACTIVATION_TESTNET = 4_052_000;
 
 /**
- * NU6.3 "Ironwood" on testnet. ZIP 258; 01-contemporary-zcash.md:240 (§2.1), `high`.
+ * NU6.3 "Ironwood" on testnet. ZIP 258; 01-contemporary-zcash.md:241 (§2.1), `high`.
  *
  * ZIP 258 IS DRAFT - see {@link IRONWOOD_HEIGHTS_REST_ON_A_DRAFT_ZIP}.
  */
@@ -246,7 +246,7 @@ export const NU6_ACTIVATION_TESTNET = 2_976_000;
  * ZIP 258 ("Deployment of the NU6.3 Network Upgrade") is status **DRAFT**, not
  * Final, and it was Draft when NU6.3 activated - which the research corpus
  * notes as a governance-hygiene observation
- * (docs/2.0/research/01-contemporary-zcash.md:241, §2.1). Draft means the document
+ * (docs/2.0/research/01-contemporary-zcash.md:243, §2.1). Draft means the document
  * may be edited: a height in it is not frozen the way ZIP 253's, 255's and
  * 257's are.
  *

@@ -81,6 +81,16 @@ jobs:
       - name: Pool union (no stale two-pool unions)
         run: node scripts/check-pool-union.mjs
 
+      # A constant in activation-heights.ts is a chain parameter whose provenance
+      # is a line number in the research corpus, and a line number decays the
+      # moment anyone inserts a paragraph above it. HANDOFF-07 decayed one inside
+      # the commit that wrote it - it added a table to the corpus and re-pinned
+      # eight citations by arithmetic instead of by reading - and a gate round
+      # found it pointing at a blank line. Nothing else would have: a wrong line
+      # number compiles and the suite stays green.
+      - name: Corpus citations (no citation points at nothing)
+        run: node scripts/check-corpus-citations.mjs
+
       - name: Install
         run: pnpm install --frozen-lockfile
 

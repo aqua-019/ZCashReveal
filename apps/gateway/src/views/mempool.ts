@@ -348,7 +348,18 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
         ? "shield"
         : r.valueFlow.direction === "WITHDRAWAL" && r.transparent.vout.length > 0
           ? "deshield"
-          : hasSprout || hasSapling || hasOrchard
+          : // IRONWOOD BELONGS IN THIS TEST TOO, AND IT WAS ADDED TO THE LANE
+            // LIST ABOVE AND NOT HERE. An ordinary z-to-z transfer inside
+            // Ironwood - which is what most shielded traffic becomes after
+            // NU6.3 - has no transparent side, no Sapling, no Orchard and a
+            // zero Ironwood balance, so it fell past every test and landed on
+            // "transparent". The row then printed flow "t to t" beside its own
+            // Ironwood lane swatch, counted into `summary.transparent`, and
+            // contradicted /tx, whose classifier calls the same transaction
+            // PURE_SHIELDED. On a site whose thesis is that a transparent
+            // transaction publishes its addresses, that is a false statement
+            // about the transaction and not a missing one.
+            hasSprout || hasSapling || hasOrchard || hasIronwood
             ? "shielded"
             : "transparent";
 

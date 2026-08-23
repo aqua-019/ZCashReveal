@@ -232,10 +232,14 @@ export async function analyze(
     sproutValueBalanceZat: sproutBalanceZat,
     saplingValueBalanceZat,
     orchardValueBalanceZat,
-    // Supplied only by a caller that has decoded the bundle; an Ironwood bundle
-    // is a v6 field and HANDOFF-07 owns v6, so the live path leaves it unset.
-    // `null` means "not known", which is what keeps MIGRATION_O2I from firing
-    // on a guess. See classifyLeak.
+    // DECODED FROM THE TRANSACTION, unless the caller overrode it above. This
+    // comment used to say the opposite - "the live path leaves it unset" - and
+    // it was true until this handoff decoded the bundle. A correction that
+    // lands in the code and leaves a restatement of the old fact standing
+    // beside it is the sweep-the-corrected-fact defect inside a single file,
+    // and a reader who trusted this sentence would conclude MIGRATION_O2I is
+    // still unreachable in production, which is precisely the claim HANDOFF-06
+    // was punished for making. See the three-state contract on `AnalyzeContext`.
     ironwoodValueBalanceZat,
     ironwoodActionCount: ironwood.actions.length,
     hasTransparentInputs: tx.vin.some((v) => !v.coinbase),
@@ -322,7 +326,11 @@ export async function analyze(
           : NU6_2_ACTIVATION_TESTNET,
     }),
     // A v6 transaction with no `ironwood` key at all is how a wrong guess at
-    // the wire field name would look. See `ironwoodKeyMissingOnV6`.
+    // the wire field name would look. Its own finding code, not
+    // UNSUPPORTED_TX_SHAPE: this report is fully decoded and its class is not
+    // UNSUPPORTED_TX, so sharing a code with the abstention path would give one
+    // machine-readable signal two mutually exclusive meanings and make neither
+    // countable.
     ironwoodKeyMissingOnV6:
       tx.version >= IRONWOOD_MIN_TX_VERSION && tx.ironwood === undefined
         ? topLevelFieldNames(tx)
@@ -717,18 +725,41 @@ function classifyLeak(input: {
   // Orchard drains, Ironwood fills: ZIP 318. Checked before Sapling-to-Orchard
   // because a transaction can carry both bundles and the newer crossing is the
   // more specific fact about it.
+  // ZIP 318 IS ONE POOL DRAINING INTO ONE OTHER POOL AND NOTHING ELSE, so the
+  // rule is stated as a shape rather than as a pile of conjuncts about two
+  // pools. The first version read only "Orchard positive and Ironwood
+  // negative", which is satisfied by a transaction that ALSO drains Sapling
+  // into the same Ironwood output - and a gate round showed what that
+  // published: `amountZat` took the Orchard leg alone while `arrivedZat` took
+  // the whole Ironwood leg, so the finding a reader saw said 500 ZEC left
+  // Orchard and 700 ZEC entered Ironwood. A pool crossing that created 200 ZEC.
+  //
+  // The shape is: exactly one pool lost value and it is Orchard; exactly one
+  // pool gained value and it is Ironwood; nothing transparent is involved.
+  // ZIP 318 spends exactly one Orchard note into exactly one Ironwood output
+  // (docs/2.0/research/01-contemporary-zcash.md §2.7), so anything else in the
+  // transaction means it is not the crossing this class names.
+  //
+  // THE TRANSPARENT CLAUSES ARE BOTH LOAD-BEARING AND IN OPPOSITE DIRECTIONS. A
+  // crossing that also pays a transparent OUTPUT would be published as a pure
+  // pool crossing while a public recipient stood in the same transaction; one
+  // funded from a transparent INPUT would hide a public funding address the
+  // same way. Both are the opposite of what this site exists to notice, and
+  // both are tested.
+  const drained = valueFlow.perPoolZat.filter((p) => p.deltaZat > 0n);
+  const filled = valueFlow.perPoolZat.filter((p) => p.deltaZat < 0n);
   if (
     hasOrchard &&
+    drained.length === 1 &&
+    drained[0]?.pool === "orchard" &&
+    filled.length === 1 &&
+    filled[0]?.pool === "ironwood" &&
     orchardValueBalanceZat > 0n &&
+    // Still read from the CLASSIFIER's input rather than from `perPoolZat`,
+    // because a caller may withhold it (`null`) to test that this branch is
+    // reachable only with the balance - which is A8's fail side.
     ironwoodValueBalanceZat !== null &&
     ironwoodValueBalanceZat < 0n &&
-    // §3: "with no transparent components". A crossing that also pays a
-    // transparent output, or funds itself from a transparent input, is not the
-    // ZIP 318 shape - ZIP 318 spends exactly one Orchard note into exactly one
-    // Ironwood output. Without this guard, a transaction that drained Orchard
-    // into BOTH Ironwood and a transparent address would be published as a pure
-    // pool crossing while a public recipient was standing in the same
-    // transaction, which is the opposite of what this site exists to notice.
     !hasTransparentInputs &&
     !hasTransparentOutputs
   ) {
@@ -892,7 +923,7 @@ function collectFindings(input: {
   // build has published is a false zero.
   if (input.ironwoodKeyMissingOnV6 !== null) {
     out.push({
-      code: "UNSUPPORTED_TX_SHAPE",
+      code: "IRONWOOD_FIELD_ABSENT",
       severity: "LOW",
       message:
         "v6 transaction carried no `ironwood` key. Either the node omits an empty bundle, or " +

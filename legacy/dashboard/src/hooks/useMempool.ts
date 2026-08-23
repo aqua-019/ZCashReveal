@@ -10,7 +10,7 @@ import type { PoolStateSummary } from "../components/PoolStatePanel";
  * ClaimAssessment but with the bigint fields stringified.
  */
 export type RawAssessment = {
-  pool: "sapling" | "orchard";
+  pool: LegacyPool;
   anchorRoot: string;
   rawCount: string;
   effectiveSetSize: string;
@@ -43,6 +43,39 @@ export type RawAssessment = {
   >;
 };
 
+/**
+ * The four pools, as the wire sends them - written out here because this app
+ * parses no schema.
+ *
+ * legacy/dashboard is v0.2, parked read-only and retired at the HANDOFF-11
+ * cutover, and it consumes the WS payload through a `JSON.parse` cast rather
+ * than through `packages/zec-types`. So every shape below is a hand-written
+ * mirror with no tripwire: when the producer widened from two pools to four,
+ * `Record<LeakClass, string>` in `lib/tokens.ts` broke the build and these
+ * unions did not, because a narrow union in a cast is not a type error - it is
+ * a silently dropped field.
+ *
+ * Seven `pool` fields declared `"sapling" | "orchard"` while the indexer had
+ * been emitting `pool: "sprout"` since HANDOFF-06 and started emitting
+ * `pool: "ironwood"` in HANDOFF-07, and `poolPath` declared the four members of
+ * a two-pool cross-product while `poolPath()` now returns sixteen. A gate round
+ * found them.
+ *
+ * `scripts/check-pool-union.mjs` scans `packages` and `apps` and not `legacy`,
+ * which is why it did not. Widening the scan is a decision about a retired app
+ * and belongs to whoever retires it; correcting these eight unions costs
+ * nothing and stops the app from silently discarding a pool it does render.
+ *
+ * WHAT IS DELIBERATELY NOT FIXED HERE. `RawReport.bundle` still declares no
+ * Ironwood fields, so `NullifierFeed` and `ValueBalanceMonitor` show no
+ * Ironwood activity. That is an omission rather than a false statement, and
+ * closing it properly means rendering the pool, not declaring it: a field this
+ * app parses and never draws would be "declared everywhere, exercised nowhere"
+ * in the one place this project has already retired. The panels are switched
+ * off at the HANDOFF-11 cutover.
+ */
+type LegacyPool = "sprout" | "sapling" | "orchard" | "ironwood";
+
 interface RawReport {
   txid: string;
   seenAt: number;
@@ -66,17 +99,17 @@ interface RawReport {
   identity: {
     sender: {
       transparentAddresses: string[];
-      nullifiers: Array<{ pool: "sapling" | "orchard"; value: string }>;
-      commitments: Array<{ pool: "sapling" | "orchard"; value: string }>;
+      nullifiers: Array<{ pool: LegacyPool; value: string }>;
+      commitments: Array<{ pool: LegacyPool; value: string }>;
     };
     recipient: {
       transparentAddresses: string[];
-      nullifiers: Array<{ pool: "sapling" | "orchard"; value: string }>;
-      commitments: Array<{ pool: "sapling" | "orchard"; value: string }>;
+      nullifiers: Array<{ pool: LegacyPool; value: string }>;
+      commitments: Array<{ pool: LegacyPool; value: string }>;
     };
   };
   spends: Array<{
-    pool: "sapling" | "orchard";
+    pool: LegacyPool;
     index: number;
     nullifier: string;
     anchor: string;
@@ -86,7 +119,7 @@ interface RawReport {
     severity: string;
     assessment?: RawAssessment;
   }>;
-  outputs: Array<{ pool: "sapling" | "orchard"; index: number; commitment: string }>;
+  outputs: Array<{ pool: LegacyPool; index: number; commitment: string }>;
   valueFlow: {
     saplingValueBalanceZat: string;
     orchardValueBalanceZat: string;
@@ -114,7 +147,7 @@ interface RawReport {
     amountZat: string;
     timeDeltaMs: number;
     matchKind: "EXACT" | "FEE_TOLERANT";
-    poolPath: "sapling" | "orchard" | "sapling→orchard" | "orchard→sapling";
+    poolPath: LegacyPool | `${LegacyPool}→${LegacyPool}`;
     confidence: "HIGH" | "MEDIUM" | "LOW";
     assessment?: RawAssessment;
   }>;

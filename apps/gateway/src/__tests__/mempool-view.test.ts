@@ -359,6 +359,69 @@ describe("the flow label follows the SIGN of each delta, not the order of the li
   });
 });
 
+describe("the four-pool row, and the two places Ironwood was half-added", () => {
+  it("an intra-Ironwood transfer is class shielded, not transparent", () => {
+    // A GATE FINDING, AND IT IS THE SPROUT DEFECT ONE POOL LATER. `hasIronwood`
+    // was added to the lane list and not to the class ternary below it, so an
+    // ordinary z-to-z transfer inside Ironwood - which is most shielded traffic
+    // after NU6.3 - fell past every test and landed on "transparent". The row
+    // then printed flow "t to t" beside its own Ironwood lane swatch, counted
+    // into `summary.transparent`, and contradicted /tx, whose classifier calls
+    // the same transaction PURE_SHIELDED.
+    const built = view(report({ txid: "e5", ironwoodActions: 2 }));
+
+    expect(built.entries[0]?.class).toBe("shielded");
+    expect(built.entries[0]?.class).not.toBe("transparent");
+    expect(built.entries[0]?.flow).not.toBe("t to t");
+    expect(built.entries[0]?.lanes).toContain("ironwood");
+    expect(built.summary.shielded).toBe(1);
+    expect(built.summary.transparent).toBe(0);
+  });
+
+  it("FAIL SIDE: a genuinely transparent transaction is still class transparent", () => {
+    // The discriminating half. The fix must not be "never say transparent": a
+    // transaction with a transparent input and output and no shielded component
+    // is exactly what that class is for.
+    const built = view(report({ txid: "e6", vin: 1, vout: 1 }));
+    expect(built.entries[0]?.class).toBe("transparent");
+    expect(built.summary.transparent).toBe(1);
+  });
+
+  it("an undecodable transaction gets a row that claims nothing, and it parses as a DTO", () => {
+    // The `UNSUPPORTED_TX` path had no test at all, and every field on the row
+    // is recomputed from a value flow that such a report leaves empty - so
+    // without the early return it would have published class "transparent",
+    // flow "t to t", "no net crossing" and "Nothing this transaction publishes
+    // distinguishes it from any other of its shape". Four confident statements
+    // about a transaction nobody could decode.
+    const undecodable: LeakReport = {
+      ...report({ txid: "e7" }),
+      leakClass: "UNSUPPORTED_TX",
+      unsupported: {
+        version: 7,
+        reason: "transaction version 7 is outside the range this decoder models (1 to 6)",
+        rawFieldNames: ["orchard", "txid", "version"],
+      },
+    };
+    const built = view(undecodable);
+
+    expect(built.entries[0]?.class).toBe("undecoded");
+    expect(built.entries[0]?.flow).toBe("not decoded");
+    expect(built.entries[0]?.valueBalanceText).toBe("not measured");
+    expect(built.entries[0]?.feeZat).toBeNull();
+    // No lane is claimed. A swatch is a claim that the transaction touched that
+    // lane, and nothing here can make one.
+    expect(built.entries[0]?.lanes).toEqual([]);
+    expect(built.entries[0]?.reasoning.join(" ")).toContain("version 7");
+
+    // AND IT SURVIVES THE DTO. `lanes` was `.min(1)` and `class` had five
+    // members before this handoff, so the row this branch produces would have
+    // failed validation at the wire boundary - which no test would have caught,
+    // because nothing validated an unsupported row.
+    expect(() => mempoolViewSchema.parse(built)).not.toThrow();
+  });
+});
+
 describe("the crossing tile and its own caption count the same set", () => {
   it("a mempool of migrations reports the AMOUNT that crossed, not the fee the crossing left behind", () => {
     const built = view(saplingIntoOrchard, orchardIntoSapling);

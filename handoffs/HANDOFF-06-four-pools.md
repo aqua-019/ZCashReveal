@@ -290,10 +290,25 @@ ASSUMPTIONS (each: ACCEPTED / CORRECTED / DEFERRED - reason):
 2. ACCEPTED - 4,052,000 is CORROBORATED BY ORDERING, NOT BY STATEMENT. The corpus gives
    "testnet 4,048,500 and 4,052,000" in the same order as the mainnet pair it follows and
    never writes "testnet NU6.2 =" in a sentence of its own. Labelled as such in the file.
+   **CLOSED BY THE L2 RESOLUTION FOR HANDOFF-06, applied in HANDOFF-07.** ZIP 257 (Final)
+   prints "Testnet: 4052000" under NU6.2's own heading, so the height is STATED. The
+   constant never changed; only its provenance did, from weak to strong. The
+   "CORROBORATED BY ORDERING" label was deleted from `activation-heights.ts` and the
+   corpus line that compressed the two heights into one ordered clause was corrected, so
+   both clauses above are now false about the tree. Left standing with this correction
+   rather than rewritten, because a shipped handoff is a record of what was believed when
+   it shipped - but an uncorrected record that the next session reads as current is the
+   cross-file contradiction CLAUDE.md rates HIGH, which is why the correction is here and
+   not only in the ledger.
 3. ACCEPTED - THERE IS NO `NU6_ACTIVATION_TESTNET`, deliberately. No line in this
    repository gives one. A plausible number here would be indistinguishable from a
    sourced one to every later reader, and nothing needs it: poolsActiveAt turns on
    Sapling, NU5 and NU6.3 only, because NU6 and NU6.1 introduce no pool.
+   **ALSO CLOSED, on the same terms.** ZIP 253 (Final) states "Testnet: 2976000"; L2 read
+   the ZIP and relayed it. `NU6_ACTIVATION_TESTNET = 2_976_000` exists in
+   `activation-heights.ts` and the height is in the corpus's activation table. The
+   reasoning above was right for its moment and is the reason the constant could be
+   added later with a citation instead of guessed earlier without one.
 4. ACCEPTED - `denom_k` IS AN EXPONENT IN ZATOSHI, so it is non-negative. The corpus
    gives ZIP 318's denominations in ZEC (0.5, 1, 2, 5...), which would need a negative
    exponent; CLAUDE.md mandates integer zatoshi. 0.5 ZEC is 5 x 10^7 zat.
