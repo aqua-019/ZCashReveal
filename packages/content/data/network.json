@@ -1,0 +1,1236 @@
+{
+  "entities": [
+    {
+      "id": "N-cypherpunk-technologies",
+      "kind": "company",
+      "title": "Cypherpunk Technologies Inc. (Nasdaq: CYPH)",
+      "role": "Public-company ZEC treasury vehicle, formerly Leap Therapeutics; rebranded 12 Nov 2025; the largest disclosed corporate ZEC holder and, since Aug 2026, a Zcash miner.",
+      "exposure": "323,394.38 ZEC, $110.5M total cost, $341.83 avg cost (30 Jun 2026 10-Q); ~1.92% of supply; stated target 5% of network",
+      "summary": "Nasdaq-listed digital asset treasury company seeded by Winklevoss Capital to accumulate ZEC; the hub of the disclosed Winklevoss/Cypherpunk/ZODL/Shielded Labs/Gemini lattice.",
+      "body": "Rebranded from Leap Therapeutics 12 Nov 2025 on a $58.888M private placement led by Winklevoss Capital as sole institutional investor. Purchase ledger: 12 Nov 2025 203,775.27 ZEC @ $245.37; 18-19 Nov 29,869 @ ~$603; 30 Dec 56,418.09 @ $514.02; 12 Mar 2026 ~4,680 @ ~$428; 15 Apr 9,163.32 @ $234.63; Apr-Jun ~19,488 undisclosed, reaching 323,394.38 ZEC. Stopped press-releasing individual purchases 15 Apr 2026. Shares outstanding grew +223% YoY (83.9M to 107.76M) against 80.77M pre-funded warrants and a $200M Cantor ATM. CEO Douglas E. Onsi and CIO Will McEvoy (a Winklevoss Capital principal) each received 1,000,000 RSUs (2 Jul 2026). On 18 Aug 2026 it bought a Zcash mining fleet (4.2 GSol/s, ~18% of network hashrate) for $33.33M in equity from Winklevoss Capital affiliates -- the same entity that seeded the company. Correction to the standard DAT critique: CYPH trades at a discount on basic shares (~0.6x mNAV at $790 ZEC), not a premium -- the story is dilution into a discount.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "treasury-company",
+        "cypherpunk",
+        "winklevoss",
+        "zec-holder"
+      ],
+      "sources": [
+        "S-pr-newswire-news-releases-leap-therapeutics-rebr",
+        "S-the-block-378582-winklevoss-backed-cypherpunk-ta",
+        "S-stocktitan-cyph-10-q-cypherpunk-technologies-inc",
+        "S-crypto-news-cypherpunk-becomes-largest-zcash-min"
+      ]
+    },
+    {
+      "id": "N-zooko-wilcox",
+      "kind": "person",
+      "title": "Zooko Wilcox-O'Hearn",
+      "role": "Zcash co-founder; ECC CEO 2015 to 18 Dec 2023; Bootstrap executive director until 5 Jul 2024; Chief Product Officer at Shielded Labs (Dec 2025-); paid strategic advisor to Cypherpunk Technologies (Dec 2025-); Founders' Reward recipient.",
+      "exposure": "Founders' Reward 0.9% of total supply, paid at 2,033 ZEC/month (2016-2020); reported ~$5M/yr 2016-2020 (Forbes); also a paid Cypherpunk strategic advisor",
+      "summary": "Zcash's co-founder is simultaneously a paid advisor to the treasury company holding ~1.9% of supply and Chief Product Officer of the non-profit lab that Cypherpunk's seed investor also funds directly.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "founder",
+        "shielded-labs",
+        "paid-advisor",
+        "founders-reward"
+      ],
+      "sources": [
+        "S-coindesk-01-what-does-crypto-care-if-zooko-is-a",
+        "S-pr-newswire-news-releases-cypherpunk-taps-zcash",
+        "S-bankless-podcast-zcash-founder-on-privacy-ai-and"
+      ]
+    },
+    {
+      "id": "N-winklevoss-capital",
+      "kind": "fund",
+      "title": "Winklevoss Capital",
+      "role": "Venture fund led by Tyler and Cameron Winklevoss; sole institutional investor and lead of Cypherpunk's $58.888M seed placement; investor in ZODL; counterparty selling a mining fleet to Cypherpunk for equity; its principal Will McEvoy sits as Cypherpunk CIO.",
+      "exposure": null,
+      "summary": "The Winklevoss family investment vehicle that seeded, staffs and sells assets into the same public company it created.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "winklevoss",
+        "seed-investor",
+        "related-party"
+      ],
+      "sources": [
+        "S-pr-newswire-news-releases-leap-therapeutics-rebr",
+        "S-the-block-business-2026-08-18-cypherpunk-technol",
+        "S-dl-news-markets-winklevoss-twins-bet-on-zcash-wi"
+      ]
+    },
+    {
+      "id": "N-gemini",
+      "kind": "exchange",
+      "title": "Gemini",
+      "role": "Crypto exchange founded by Tyler and Cameron Winklevoss; lists ZEC; first regulated exchange to support shielded ZEC withdrawals; issues a ZEC-denominated rewards credit card.",
+      "exposure": null,
+      "summary": "The Winklevoss exchange whose ZEC products and advocacy predate the 2025-26 rally by five years -- a joint Gemini blog interview with Cameron, Tyler and Zooko dates to 7 Oct 2020.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "exchange",
+        "winklevoss",
+        "shielded-withdrawals"
+      ],
+      "sources": [
+        "S-gemini-com-a-conversation-on-zcash-with-cameron",
+        "S-crypto-briefing-zcash-surges-gemini-zec-credit-c",
+        "S-electric-coin-company-gemini-sets-the-standard-f"
+      ]
+    },
+    {
+      "id": "N-zodl",
+      "kind": "company",
+      "title": "Zcash Open Development Lab (ZODL)",
+      "role": "For-profit Zcash development company founded by ex-ECC staff after the Jan 2026 walkout; led by Josh Swihart as CEO; employs former ECC core engineers on remediation work; policy office held by Paul Brigner, who also sits on the ZCG grant committee.",
+      "exposure": "$25M seed round (Mar 2026), including $5M from Cypherpunk",
+      "summary": "The developer organization Cypherpunk funds directly, whose CEO is simultaneously a paid Cypherpunk advisor.",
+      "body": "Founded Jan/Feb 2026 by the team that left Electric Coin Company after a governance dispute with the Bootstrap Project board. Raised a $25M seed (announced 9 Mar 2026) with participation from Cypherpunk ($5M SAFE), Winklevoss Capital, a16z, Paradigm, Coinbase Ventures and Balaji Srinivasan. Daira-Emma Hopwood, Jack Grigg and Kris Nuttycombe -- all former ECC core engineers -- are credited as remediation developers on the Orchard soundness bug (CVE-2026-54496) while at ZODL. Josh Swihart is CEO and a paid Cypherpunk strategic advisor at the same time; Paul Brigner is ZODL's Chief Policy & Regulatory Officer while also sitting on the Zcash Community Grants committee.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "developer-org",
+        "zodl",
+        "cypherpunk-funded"
+      ],
+      "sources": [
+        "S-coindesk-09-josh-swihart-s-zcash-open-developmen",
+        "S-barchart-com-641883-cypherpunk-makes-5m-investme",
+        "S-the-block-384737-zcash-developers-form-new-compa"
+      ]
+    },
+    {
+      "id": "N-shielded-labs",
+      "kind": "foundation",
+      "title": "Shielded Labs",
+      "role": "Non-profit Swiss Association founded Dec 2022 by Jason McGee; employs Zooko Wilcox as Chief Product Officer; funded the halo2 audit that later found the Orchard soundness bug; recipient of Winklevoss and Vitalik Buterin personal donations; co-authored the Jun 2026 Orchard disclosure.",
+      "exposure": "3,221 ZEC (~$1.2M) donation from the Winklevoss twins, 21 Jan 2026 (second donation, first in 2023)",
+      "summary": "Swiss non-profit dev org whose Chief Product Officer simultaneously advises the Nasdaq treasury company that the same donors seeded.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "shielded-labs",
+        "nonprofit",
+        "donation-recipient"
+      ],
+      "sources": [
+        "S-zcash-community-forum-shielded-labs-an-independe",
+        "S-dl-news-people-culture-zcash-developer-shielded",
+        "S-shielded-labs-zcash-vulnerability-successfully-r"
+      ]
+    },
+    {
+      "id": "N-electric-coin-company",
+      "kind": "company",
+      "title": "Electric Coin Company (ECC)",
+      "role": "For-profit developer of the original Zcash software, wholly owned subsidiary of the Bootstrap Project since 2020; hollowed out after the Jan 2026 walkout when most engineers left to found ZODL.",
+      "exposure": "~112,000 ZEC + ~$806K (Q3 2024) declining to ~83,000 ZEC + ~$1.0M (12 Mar 2025); carries a $3.4M liability to Electric Notes, LLC",
+      "summary": "Zcash's founding developer company; its former CEO and most engineers are now at ZODL, a company Cypherpunk funds directly.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "developer-org",
+        "ecc",
+        "bootstrap-subsidiary"
+      ],
+      "sources": [
+        "S-electric-coin-company-04-transparency-report-mar",
+        "S-the-block-268219-zcash-founder-zooko-wilcox-step",
+        "S-the-block-384737-zcash-developers-form-new-compa"
+      ]
+    },
+    {
+      "id": "N-zcash-foundation",
+      "kind": "foundation",
+      "title": "Zcash Foundation (ZF)",
+      "role": "Delaware 501(c)(3) non-profit (inc. 14 Feb 2017) holding the Zcash trademark; treasury holder; co-controls the NU6 lockbox multisig; Naval Ravikant and Taylor Hornby have both sat on its board.",
+      "exposure": "85,412 ZEC ($21.2M of $36.69M liquid assets), Q1 2026",
+      "summary": "The non-profit steward of the Zcash trademark and a disclosed treasury holder, with board seats held by both an early investor (Naval) and the researcher who found the Orchard bug (Hornby).",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "foundation",
+        "nonprofit",
+        "treasury-holder"
+      ],
+      "sources": [
+        "S-zcash-foundation-05-zcash-foundation-q1-2026",
+        "S-zcash-foundation-about",
+        "S-zcash-foundation-first-announcement-from-the-zca"
+      ]
+    },
+    {
+      "id": "N-grayscale",
+      "kind": "company",
+      "title": "Grayscale",
+      "role": "Digital-asset manager owned by DCG; sponsors the Grayscale Zcash Trust and its proposed conversion to a spot ETF (ZCSH); publishes ZEC research.",
+      "exposure": null,
+      "summary": "The DCG-owned asset manager converting its Zcash Trust into an ETF that custodies ZEC transparently at Coinbase.",
+      "body": "Sponsors the Grayscale Zcash Trust (OTC: ZCSH), filing to convert it into a spot ETF: initial S-3 filed 12 May 2026, Amendment No. 4 on 18 Aug 2026, and a fifth amendment on 22 Aug 2026 naming NYSE Arca, a 2.5% sponsor fee, BNY Mellon as transfer agent and Coinbase Custody as custodian. Grayscale research (Michael Zhao, ~30 Mar 2026) frames ZEC upside on 'a repricing of financial privacy in an AI-driven world' without disclosing that Grayscale itself is the ETF sponsor and Trust holder. The structural contradiction: an ETF built on a privacy coin that holds its ZEC in fully transparent custody.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "asset-manager",
+        "dcg-subsidiary",
+        "etf-sponsor"
+      ],
+      "sources": [
+        "S-the-block-regulation-2026-08-21-grayscale-moves",
+        "S-research-grayscale-com-reports-zcash-financial-p",
+        "S-cryptoslate-grayscales-zcash-etf-regulated-priva"
+      ]
+    },
+    {
+      "id": "N-dcg",
+      "kind": "company",
+      "title": "Digital Currency Group (DCG)",
+      "role": "Holding company founded/led by Barry Silbert; 2015/2016 seed investor in Zerocoin Electric Coin Company; owns Grayscale; in non-binding discussions to contribute ZEC to the Grayscale ETF.",
+      "exposure": "~200,000 ZEC (~$110M) contemplated in-kind ETF contribution -- non-binding discussions only, Aug 2026",
+      "summary": "Barry Silbert's holding company: an original ECC investor, Grayscale's parent, and a prospective direct contributor of ZEC to the ETF it sponsors.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "holding-company",
+        "dcg",
+        "grayscale-parent"
+      ],
+      "sources": [
+        "S-the-block-regulation-2026-08-21-grayscale-moves",
+        "S-electric-coin-company-continued-funding-and-tran"
+      ]
+    },
+    {
+      "id": "N-naval-ravikant",
+      "kind": "person",
+      "title": "Naval Ravikant",
+      "role": "AngelList founder; 2015 co-investor in Zerocoin Electric Coin Company; founding Zcash Foundation board member; public ZEC advocate.",
+      "exposure": "$715,000 collective 2015 investment (with Barry Silbert and Roger Ver) into Zerocoin Electric Coin Company; current ZEC holdings undisclosed",
+      "summary": "An early ECC investor and founding ZF board member who publicly called ZEC 'insurance against Bitcoin' without disclosing the dual role.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "early-investor",
+        "zf-board",
+        "advocate"
+      ],
+      "sources": [
+        "S-protos-zcash-vs-bitcoin-debate-exposes-naval-rav",
+        "S-wikipedia-wiki-zcash",
+        "S-zcash-foundation-first-announcement-from-the-zca"
+      ]
+    },
+    {
+      "id": "N-barry-silbert",
+      "kind": "person",
+      "title": "Barry Silbert",
+      "role": "DCG founder; Grayscale chairman; 2015/2016 seed co-investor in Zerocoin Electric Coin Company; sold Grayscale Zcash Trust shares during the 2025 rally.",
+      "exposure": "Sold 9,753 shares of Grayscale Zcash Trust (6 Nov 2025, ZEC ~$544); prior sale of 1,897 shares on 25 Jul 2025",
+      "summary": "Founder of the holding company that owns the ETF sponsor, and an original ECC investor who sold Trust shares into the rally he was publicly promoting as a possible '500x'.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "dcg",
+        "grayscale",
+        "early-investor",
+        "share-sale"
+      ],
+      "sources": [
+        "S-thecoinrepublic-com-06-breaking-barry-silbert-se",
+        "S-the-block-389472-dcg-barry-silbert-bitcoin-priva",
+        "S-electric-coin-company-continued-funding-and-tran"
+      ]
+    },
+    {
+      "id": "N-arthur-hayes",
+      "kind": "person",
+      "title": "Arthur Hayes",
+      "role": "BitMEX co-founder; Maelstrom CIO; built a large ZEC position through Maelstrom, publicly called a $10,000 ZEC price target, then liquidated the entire position after the Orchard bug disclosure and disclosed the exit.",
+      "exposure": "Maelstrom ZEC position, size never disclosed; research 03 records it as the family office's second-largest holding after Bitcoin. Exited entirely 4-5 Jun 2026, self-disclosed.",
+      "summary": "The most prominent ZEC promoter to exit publicly and explain why, which cuts against a simple coordinated-pump reading of the network.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "maelstrom",
+        "exited-holder",
+        "price-call"
+      ],
+      "sources": [
+        "S-yahoo-finance-arthur-hayes-10-000-zec-161819159",
+        "S-coindesk-05-arthur-hayes-dumps-zcash-holdings-af",
+        "S-cryptopolitan-com-zachxbt-hayes-face-off-over-ex"
+      ],
+      "body": "The reported $174M ZEC position that Arkham described losing over half its value on 5 June 2026 is NOT this one. Research 04 section 2 records it as an unnamed holder, a party distinct from Hayes, at low confidence, and section 7 records the underlying Arkham post as unlocatable. The corpus contradicts itself here: research 03's holders table attaches the $174M figure to Maelstrom, while research 04, the pass that examined this figure directly, separates them. The quarantine entry U-arkham-174m-position-post holds the unattributed claim; this record states only what Hayes disclosed himself, which is that he liquidated the entire position because exploitation could not be cryptographically proven impossible."
+    },
+    {
+      "id": "N-josh-swihart",
+      "kind": "person",
+      "title": "Josh Swihart",
+      "role": "ECC SVP Growth, then ECC CEO (18 Dec 2023 - Jan 2026); led the Jan 2026 walkout; founder/CEO of ZODL; paid strategic advisor to Cypherpunk Technologies; author of ZIP 1016 and the original 2020 'privacy is normal' ECC post.",
+      "exposure": "Paid Cypherpunk strategic advisor (Dec 2025-); ZODL raised $25M including $5M from Cypherpunk",
+      "summary": "The developer executive at the center of the loop: he led Zcash's core dev team, then founded the company Cypherpunk funds, while also being paid by Cypherpunk directly.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "zodl",
+        "paid-advisor",
+        "ecc",
+        "zip-author"
+      ],
+      "sources": [
+        "S-investing-com-company-news-zcash-developer-eccs",
+        "S-coindesk-09-josh-swihart-s-zcash-open-developmen",
+        "S-electric-coin-company-privacy-is-normal-safe-and"
+      ]
+    },
+    {
+      "id": "N-tyler-winklevoss",
+      "kind": "person",
+      "title": "Tyler Winklevoss",
+      "role": "Gemini co-founder; principal figure of Winklevoss Capital, which seeded Cypherpunk and invests in ZODL; personal donor to Shielded Labs; public ZEC advocate.",
+      "exposure": "Co-donor of 3,221 ZEC to Shielded Labs (21 Jan 2026); indirect exposure via Winklevoss Capital's Cypherpunk seed and via Gemini",
+      "summary": "Half of the twin pair whose fund, exchange and personal donations touch every leg of the disclosed Zcash lattice; called ZEC 'encrypted bitcoin' the same day the $58.9M placement was announced.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "winklevoss",
+        "gemini",
+        "advocate",
+        "donor"
+      ],
+      "sources": [
+        "S-the-block-378582-winklevoss-backed-cypherpunk-ta",
+        "S-cointelegraph-winklevoss-zcash-privacy-combat-ai",
+        "S-dl-news-people-culture-zcash-developer-shielded"
+      ]
+    },
+    {
+      "id": "N-cameron-winklevoss",
+      "kind": "person",
+      "title": "Cameron Winklevoss",
+      "role": "Gemini co-founder; principal figure of Winklevoss Capital, which seeded Cypherpunk and invests in ZODL; personal donor to Shielded Labs; public ZEC advocate.",
+      "exposure": "Co-donor of 3,221 ZEC to Shielded Labs (21 Jan 2026); indirect exposure via Winklevoss Capital's Cypherpunk seed and via Gemini",
+      "summary": "Posted 'Encrypted money with provable correctness is unstoppable' on the day ZEC fell more than 50% on the Orchard bug that had made correctness unprovable for four years.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "winklevoss",
+        "gemini",
+        "advocate",
+        "donor"
+      ],
+      "sources": [
+        "S-yahoo-finance-crypto-winklevoss-twins-back-zcash",
+        "S-dl-news-people-culture-zcash-developer-shielded",
+        "S-bitcoinworld-co-in-gemini-co-founder-ai-investme"
+      ]
+    },
+    {
+      "id": "N-will-mcevoy",
+      "kind": "person",
+      "title": "Will McEvoy",
+      "role": "Principal, Winklevoss Capital; Chief Investment Officer and board member, Cypherpunk Technologies (Nov 2025-); received a 1,000,000 RSU grant.",
+      "exposure": "1,000,000 RSUs granted 2 Jul 2026; salary plus equity in a pure-play ZEC vehicle",
+      "summary": "Sits simultaneously inside the seed investor and the company it seeded, calling ZEC 'the most mispriced asset in crypto' from that position.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "winklevoss-capital",
+        "cypherpunk",
+        "related-party"
+      ],
+      "sources": [
+        "S-pr-newswire-news-releases-leap-therapeutics-rebr",
+        "S-barchart-com-641883-cypherpunk-makes-5m-investme",
+        "S-the-block-403839-zcash-treasury-cypherpunk-remai"
+      ]
+    },
+    {
+      "id": "N-multicoin",
+      "kind": "fund",
+      "title": "Multicoin Capital",
+      "role": "Crypto venture fund; built a 'significant position' in ZEC starting Feb 2026, disclosed by managing partner Tushar Jain.",
+      "exposure": "Significant position since Feb 2026; size undisclosed",
+      "summary": "A VC whose single disclosure of an undisclosed-size ZEC position moved the price 30% in a day.",
+      "confidence": "med",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "vc-fund",
+        "undisclosed-size",
+        "price-catalyst"
+      ],
+      "sources": [
+        "S-yahoo-finance-crypto-zcash-spikes-30-multicoin-m"
+      ]
+    },
+    {
+      "id": "N-taylor-hornby",
+      "kind": "person",
+      "title": "Taylor Hornby (defuse, Defuse Security)",
+      "role": "Independent security researcher; found the 2016 InternalH collision and the 2026 Orchard soundness bug (CVE-2026-54496), ten years apart; runs ZecSec; contracted by Shielded Labs; sits on the Zcash Foundation board.",
+      "exposure": "Zcash ecosystem security grant recipient (amount undisclosed)",
+      "summary": "Found the two most severe counterfeiting bugs in Zcash's history while also sitting on the Foundation's board and taking Shielded Labs contract work.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "security-researcher",
+        "zf-board",
+        "bug-finder"
+      ],
+      "sources": [
+        "S-zecsec-zecsec",
+        "S-zcash-foundation-about",
+        "S-github-advisories-ghsa-ww9q-8r59-xv46"
+      ]
+    },
+    {
+      "id": "N-balaji-srinivasan",
+      "kind": "person",
+      "title": "Balaji Srinivasan",
+      "role": "Ex-Coinbase CTO, a16z GP; named investor in ZODL's $25M seed round; public ZEC advocate.",
+      "exposure": "Named investor in ZODL's $25M seed (Mar 2026)",
+      "summary": "A named ZODL seed investor who also publicly frames Zcash as one of crypto's true post-Bitcoin innovations.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "zodl-investor",
+        "advocate"
+      ],
+      "sources": [
+        "S-coindesk-09-josh-swihart-s-zcash-open-developmen"
+      ]
+    },
+    {
+      "id": "N-mert-mumtaz",
+      "kind": "person",
+      "title": "Mert Mumtaz",
+      "role": "Helius (Solana infrastructure) CEO; frequent public ZEC advocate; never disclosed a ZEC position.",
+      "exposure": null,
+      "summary": "Repeated, colorful public advocacy for ZEC from a Solana-infrastructure CEO with no disclosed position either way.",
+      "confidence": "med",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "advocate",
+        "no-disclosed-position"
+      ],
+      "sources": [
+        "S-coindesk-coindesk-podcast-network-why-zcash-is-t",
+        "S-finance-biggo-com-486e6ece5f83ea4a"
+      ]
+    },
+    {
+      "id": "N-paul-brigner",
+      "kind": "person",
+      "title": "Paul Brigner",
+      "role": "Chief Policy & Regulatory Officer, ZODL; simultaneously a sitting member of the Zcash Community Grants committee -- a grant-maker employed by the largest grant-eligible dev org.",
+      "exposure": null,
+      "summary": "A structural conflict inside the grant system itself: ZODL's policy chief helps decide which projects the ZCG funds.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "zodl",
+        "zcg-committee",
+        "conflict-of-interest"
+      ],
+      "sources": [
+        "S-zcash-community-grants-committee"
+      ]
+    },
+    {
+      "id": "N-zcash-community-grants",
+      "kind": "vehicle",
+      "title": "Zcash Community Grants (ZCG)",
+      "role": "Community-elected grant committee administered by the Zcash Foundation, funded by 8% of block subsidy; the largest documented body of paid Zcash promotion.",
+      "exposure": "$20.5M committed (excl. cancelled), $18.7M paid, $1.9M open, 183 approved grants; roughly $3.5-3.8M explicitly promotional",
+      "summary": "The transparent, milestone-tracked grant program whose funded content rarely re-discloses the funding at the point of consumption.",
+      "body": "Grant totals from the ZCG ledger: $20.5M committed, $18.7M paid, $1.9M open, across 183 approved grants. Selected marketing/media/community/education lines: Zcash Media 2023 $600,000 (cancelled at 6/9 milestones); ZecHub 2026 $433,079.25 (open); Zcash Brazil 2026 $344,985 (open); Free2Z 'Preparing the Garden For Spring' $333,000 (completed); ZK AV Club Zcash Community Media Infrastructure 2026 $228,545 (open); plus smaller regional, translation and event-sponsorship grants (Zcash Espanol, Nigeria, Turkiye, Ghana, ZcashArabia, readymouse conference marketing $9k-64k, the @_tm3k Twitter Ambassador Program $4,500). Aggregate of explicitly promotional line items is roughly $3.5-3.8M. Governance is genuinely transparent -- applications debated on forum.zcashcommunity.com, milestones tracked, the largest single media grant cancelled for under-delivery -- but Paul Brigner sits on the committee while employed as ZODL's policy chief, and downstream funded content rarely re-discloses the ZCG funding at the point of consumption.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "grants",
+        "zcg",
+        "paid-promotion"
+      ],
+      "sources": [
+        "S-openzcash-zcg-grants",
+        "S-zcash-community-grants-zcashcommunitygrants-org",
+        "S-zcash-improvement-proposals-zip-1016"
+      ]
+    },
+    {
+      "id": "N-bootstrap",
+      "kind": "foundation",
+      "title": "Bootstrap Project",
+      "role": "501(c)(3) non-profit parent of Electric Coin Company since 2020; its board (Zaki Manian, Christina Garman, Alan Fairless, Michelle Lai) was the counterparty in the Jan 2026 governance dispute that triggered the ECC walkout.",
+      "exposure": null,
+      "summary": "The non-profit parent whose board dispute with ECC's engineers produced the walkout that created ZODL.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "nonprofit",
+        "ecc-parent",
+        "governance-dispute"
+      ],
+      "sources": [
+        "S-the-block-384737-zcash-developers-form-new-compa",
+        "S-coindesk-08-zcash-developer-team-behind-ecc-quit"
+      ]
+    },
+    {
+      "id": "N-douglas-onsi",
+      "kind": "person",
+      "title": "Douglas E. Onsi",
+      "role": "President & CEO, Cypherpunk Technologies (carried over from Leap Therapeutics); received a 1,000,000 RSU grant.",
+      "exposure": "1,000,000 RSUs granted 2 Jul 2026",
+      "summary": "Cypherpunk's CEO, framing the treasury strategy as long-term shareholder value while personally holding large RSU upside in the ZEC price.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "cypherpunk",
+        "ceo",
+        "rsu-grant"
+      ],
+      "sources": [
+        "S-pr-newswire-news-releases-leap-therapeutics-rebr",
+        "S-pr-newswire-news-releases-cypherpunk-taps-zcash"
+      ]
+    },
+    {
+      "id": "N-vitalik-buterin",
+      "kind": "person",
+      "title": "Vitalik Buterin",
+      "role": "Ethereum co-founder; donor to Shielded Labs' Crosslink (second donation, first in 2023); publicly opposed the token-voting governance change favoured by Naval Ravikant.",
+      "exposure": null,
+      "summary": "A donor rather than a holder, and the ecosystem's clearest public dissent against a fellow promoter (Naval) rather than a promotional voice himself.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "donor",
+        "critic",
+        "governance"
+      ],
+      "sources": [
+        "S-cryptopolitan-com-vitalik-extends-generosity-to",
+        "S-decrypt-350481-vitalik-buterin-dark-hand-of-toke"
+      ]
+    },
+    {
+      "id": "N-tushar-jain",
+      "kind": "person",
+      "title": "Tushar Jain",
+      "role": "Multicoin Capital managing partner; disclosed Multicoin's ZEC position publicly.",
+      "exposure": "Spokesperson for Multicoin's undisclosed-size ZEC position",
+      "summary": "The Multicoin partner whose single disclosure moved ZEC's price more than 30% in a day.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "multicoin",
+        "disclosure",
+        "price-catalyst"
+      ],
+      "sources": [
+        "S-yahoo-finance-crypto-zcash-spikes-30-multicoin-m"
+      ]
+    },
+    {
+      "id": "N-grayscale-zcash-trust",
+      "kind": "vehicle",
+      "title": "Grayscale Zcash Trust (ZCSH)",
+      "role": "OTC trust holding ZEC in Coinbase Custody, sponsored by Grayscale; registering to convert into a spot ETF on NYSE Arca with a 2.5% sponsor fee and BNY Mellon as transfer agent.",
+      "exposure": "388,673.68359943 ZEC at 30 Jun 2026 (Q2 10-Q, fair value $155,252k, NAV per share $32.15); 391,103.89 ZEC at 31 Mar 2026; more than $260M in assets claimed 22 Aug 2026.",
+      "summary": "The institutional ZEC vehicle that, once converted to an ETF, will hold the token in fully transparent custody -- no privacy passes through to shareholders.",
+      "confidence": "med",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "etf",
+        "trust",
+        "transparent-custody"
+      ],
+      "sources": [
+        "S-crypto-news-the-first-privacy-coin-etf-inside-gr",
+        "S-the-block-regulation-2026-08-21-grayscale-moves",
+        "S-cryptoslate-grayscales-zcash-etf-regulated-priva",
+        "S-sec-edgar-000172026526000006-zcsh-20260630"
+      ],
+      "body": "The ZEC count is the one figure in this graph the corpus states three different ways. Research 04's SEC EDGAR table is itemised by filing date and is the primary record: 392,723.58934327 at 2024-12-31, 392,728.70106678 at 2025-06-30, 393,522.33134026 at 2025-12-31, and 388,673.68359943 at 2026-06-30 against total assets of $155,252k. Research 01 and the dossier's section E.3 both attach the 393,522.33 figure to the Q2 10-Q, but that figure is the 2025-12-31 line in the same table, and the $155,252k it is paired with belongs to the 388,673.68 line. The most recent primary figure is used here and the others are carried alongside it rather than silently dropped."
+    },
+    {
+      "id": "N-zcash-protocol",
+      "kind": "protocol",
+      "title": "Zcash protocol",
+      "role": "The Zcash blockchain and its block-subsidy funding mechanism (ZIP 1014 / 1015 / 1016); the asset that every disclosed purchase, listing and donation in this network ultimately references.",
+      "exposure": null,
+      "summary": "Represented here as the common counterparty for on-chain flows -- treasury purchases, exchange listings, the NU6 lockbox -- that do not have a single named recipient.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "protocol",
+        "zip-1016",
+        "block-subsidy"
+      ],
+      "sources": [
+        "S-zcash-improvement-proposals-zip-1016",
+        "S-zcash-improvement-proposals-zip-0271"
+      ]
+    },
+    {
+      "id": "N-genzcash",
+      "kind": "vehicle",
+      "title": "GenZcash",
+      "role": "Unidentified sponsor of a CoinDesk Research report on Zcash; no grant record, corporate registration or confirmed account was located.",
+      "exposure": null,
+      "summary": "A sponsor that funded major-outlet ZEC research and cannot be identified -- itself one of the dossier's findings.",
+      "confidence": "low",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "unidentified-sponsor",
+        "paid-research"
+      ],
+      "sources": [
+        "S-coindesk-research-inside-zcash-encrypted-money-a"
+      ]
+    },
+    {
+      "id": "N-coindesk-research",
+      "kind": "media",
+      "title": "CoinDesk Research",
+      "role": "Publisher of 'Inside Zcash: Encrypted Money at Planetary Scale' (3 Nov 2025), disclosed as sponsored by GenZcash; supplied the framing later reused as a Messari report title.",
+      "exposure": null,
+      "summary": "The clearest documented case of paid promotional research in mainstream crypto media, three days before ZEC broke $530.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "media",
+        "sponsored-research"
+      ],
+      "sources": [
+        "S-coindesk-research-inside-zcash-encrypted-money-a",
+        "S-messari-report-zcash-building-encrypted-money-at"
+      ]
+    },
+    {
+      "id": "N-zcash-media",
+      "kind": "media",
+      "title": "Zcash Media",
+      "role": "ZCG-funded media grantee; its flagship 2023 grant was cancelled at 6 of 9 milestones.",
+      "exposure": "$600,000 (Zcash Media 2023, cancelled); $213,200 (Launch Plan, completed); $208,014 (Short Documentary, completed)",
+      "summary": "The largest single ZCG media grant, and the one the program itself cancelled for under-delivery.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "zcg-grantee",
+        "media",
+        "cancelled-grant"
+      ],
+      "sources": [
+        "S-openzcash-zcg-grants",
+        "S-cryptoslate-zcash-media-reveals-edward-snowden-i"
+      ]
+    },
+    {
+      "id": "N-zechub",
+      "kind": "media",
+      "title": "ZecHub",
+      "role": "ZCG-funded education and community grantee; produces the ZecHub Visualizer, ZECBounties, wiki content and regional initiatives.",
+      "exposure": "$433,079.25 (ZecHub 2026, open 9/14); $238,303 (ZecHub 2025, completed); $44,980 + $34,440 (earlier rounds, completed)",
+      "summary": "The single largest open ZCG education grant, approved by async vote 11 Dec 2025.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "zcg-grantee",
+        "education",
+        "community"
+      ],
+      "sources": [
+        "S-openzcash-zcg-grants",
+        "S-zcash-community-forum-zechub-2026-53686"
+      ]
+    },
+    {
+      "id": "N-zcash-brazil",
+      "kind": "media",
+      "title": "Zcash Brazil",
+      "role": "ZCG-funded regional community grantee.",
+      "exposure": "$344,985 (2026, open 15/22); $206,582.43 (2025, completed); $41,208 plus 4x$16,800 (2023 + quarterly, completed)",
+      "summary": "The largest single regional-community line in the ZCG grant ledger.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "zcg-grantee",
+        "community",
+        "regional"
+      ],
+      "sources": [
+        "S-openzcash-zcg-grants"
+      ]
+    },
+    {
+      "id": "N-free2z",
+      "kind": "company",
+      "title": "Free2Z",
+      "role": "ZCG-funded non-wallet-apps grantee.",
+      "exposure": "$333,000 ('Preparing the Garden For Spring', completed); $123,000 (earlier round, completed); $12,037 (legal expenses reimbursement, completed)",
+      "summary": "A ZCG-funded applications project, among the larger non-media grant lines in the ledger.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "zcg-grantee",
+        "apps"
+      ],
+      "sources": [
+        "S-openzcash-zcg-grants"
+      ]
+    },
+    {
+      "id": "N-zk-av-club",
+      "kind": "media",
+      "title": "ZK AV Club",
+      "role": "ZCG-funded community media-infrastructure grantee.",
+      "exposure": "$228,545 (Zcash Community Media Infrastructure 2026, open 8/13)",
+      "summary": "A community media-infrastructure grant within the ZCG's explicitly promotional line items.",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "tags": [
+        "zcg-grantee",
+        "media"
+      ],
+      "sources": [
+        "S-openzcash-zcg-grants"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "N-edge-winklevoss-capital-seeds-cypherpunk",
+      "from": "N-winklevoss-capital",
+      "to": "N-cypherpunk-technologies",
+      "what": "lead / sole institutional investor in the private placement that created Cypherpunk",
+      "amount": "$58.888M",
+      "date": "12 Nov 2025",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-pr-newswire-news-releases-leap-therapeutics-rebr",
+        "S-the-block-378582-winklevoss-backed-cypherpunk-ta"
+      ]
+    },
+    {
+      "id": "N-edge-cypherpunk-buys-zec",
+      "from": "N-cypherpunk-technologies",
+      "to": "N-zcash-protocol",
+      "what": "ZEC treasury purchases (market buys, six tranches)",
+      "amount": "323,394.38 ZEC, $110.5M total cost, $341.83 avg",
+      "date": "12 Nov 2025 - 30 Jun 2026",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-stocktitan-cyph-10-q-cypherpunk-technologies-inc",
+        "S-pr-newswire-news-releases-leap-therapeutics-rebr"
+      ]
+    },
+    {
+      "id": "N-edge-cypherpunk-invests-zodl",
+      "from": "N-cypherpunk-technologies",
+      "to": "N-zodl",
+      "what": "SAFE investment -- first non-ZEC technology investment",
+      "amount": "$5.0M",
+      "date": "9 Mar 2026",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-stocktitan-cyph-10-q-cypherpunk-technologies-inc",
+        "S-barchart-com-641883-cypherpunk-makes-5m-investme"
+      ]
+    },
+    {
+      "id": "N-edge-winklevoss-capital-sells-mining-fleet",
+      "from": "N-winklevoss-capital",
+      "to": "N-cypherpunk-technologies",
+      "what": "sold a Zcash mining fleet (4.2 GSol/s, ~18% of network hashrate) to the company it seeded, taking equity as payment",
+      "amount": "$33.33M in equity",
+      "date": "18 Aug 2026",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-the-block-business-2026-08-18-cypherpunk-technol",
+        "S-cointelegraph-cypherpunk-zcash-mining-winklevoss",
+        "S-crypto-news-cypherpunk-becomes-largest-zcash-min"
+      ]
+    },
+    {
+      "id": "N-edge-winklevoss-capital-invests-zodl",
+      "from": "N-winklevoss-capital",
+      "to": "N-zodl",
+      "what": "seed investor",
+      "date": "Mar 2026",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-coindesk-09-josh-swihart-s-zcash-open-developmen"
+      ]
+    },
+    {
+      "id": "N-edge-winklevoss-twins-donate-shielded-labs",
+      "from": "N-tyler-winklevoss",
+      "to": "N-shielded-labs",
+      "what": "personal donation (with Cameron Winklevoss); second such donation, first in 2023",
+      "amount": "3,221 ZEC (~$1.2M)",
+      "date": "21 Jan 2026",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-dl-news-people-culture-zcash-developer-shielded"
+      ]
+    },
+    {
+      "id": "N-edge-zooko-cypherpunk-advisor",
+      "from": "N-zooko-wilcox",
+      "to": "N-cypherpunk-technologies",
+      "what": "paid strategic advisor",
+      "date": "9 Dec 2025",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-nasdaq-press-release-cypherpunk-taps-zcash-found",
+        "S-pr-newswire-news-releases-cypherpunk-taps-zcash"
+      ]
+    },
+    {
+      "id": "N-edge-swihart-cypherpunk-advisor",
+      "from": "N-josh-swihart",
+      "to": "N-cypherpunk-technologies",
+      "what": "paid strategic advisor",
+      "date": "19 Dec 2025",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-investing-com-company-news-zcash-developer-eccs"
+      ]
+    },
+    {
+      "id": "N-edge-gemini-lists-zec",
+      "from": "N-gemini",
+      "to": "N-zcash-protocol",
+      "what": "exchange listing",
+      "date": "predates 2020 (shielded withdrawals added 29 Sep 2020)",
+      "confidence": "med",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-the-block-79098-gemini-supports-shielded-zcash-w"
+      ]
+    },
+    {
+      "id": "N-edge-gemini-shielded-withdrawals",
+      "from": "N-gemini",
+      "to": "N-zcash-protocol",
+      "what": "first regulated exchange to support shielded ZEC withdrawals",
+      "date": "29 Sep 2020 (reaffirmed 10 Nov 2025)",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-the-block-79098-gemini-supports-shielded-zcash-w",
+        "S-electric-coin-company-gemini-sets-the-standard-f"
+      ]
+    },
+    {
+      "id": "N-edge-gemini-zec-rewards-card",
+      "from": "N-gemini",
+      "to": "N-zcash-protocol",
+      "what": "Gemini Credit Card: Zcash Edition launch; ZEC volume +45% post-launch",
+      "amount": "up to 4% cashback in ZEC",
+      "date": "29 Jan 2026",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-crypto-briefing-zcash-surges-gemini-zec-credit-c"
+      ]
+    },
+    {
+      "id": "N-edge-dcg-owns-grayscale",
+      "from": "N-dcg",
+      "to": "N-grayscale",
+      "what": "parent company / owns",
+      "date": "ongoing",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-the-block-389472-dcg-barry-silbert-bitcoin-priva"
+      ]
+    },
+    {
+      "id": "N-edge-grayscale-sponsors-trust",
+      "from": "N-grayscale",
+      "to": "N-grayscale-zcash-trust",
+      "what": "sponsors the trust; registering conversion to a spot ETF (ZCSH, NYSE Arca, 2.5% fee, Coinbase Custody, BNY Mellon transfer agent)",
+      "date": "12 May 2026 (initial S-3) - 22 Aug 2026 (5th amendment)",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-the-block-regulation-2026-08-21-grayscale-moves",
+        "S-crypto-news-the-first-privacy-coin-etf-inside-gr"
+      ]
+    },
+    {
+      "id": "N-edge-dcg-contributes-etf",
+      "from": "N-dcg",
+      "to": "N-grayscale-zcash-trust",
+      "what": "non-binding discussions to contribute ZEC as an in-kind ETF contribution",
+      "amount": "~200,000 ZEC (~$110M)",
+      "date": "Aug 2026",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-the-block-regulation-2026-08-21-grayscale-moves"
+      ]
+    },
+    {
+      "id": "N-edge-silbert-sells-trust-shares",
+      "from": "N-barry-silbert",
+      "to": "N-grayscale-zcash-trust",
+      "what": "sold Trust shares",
+      "amount": "9,753 shares (prior sale 1,897 shares, 25 Jul 2025)",
+      "date": "6 Nov 2025",
+      "confidence": "med",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-thecoinrepublic-com-06-breaking-barry-silbert-se"
+      ]
+    },
+    {
+      "id": "N-edge-naval-invests-ecc",
+      "from": "N-naval-ravikant",
+      "to": "N-electric-coin-company",
+      "what": "co-investment (with Barry Silbert and Roger Ver) into Zerocoin Electric Coin Company",
+      "amount": "$715,000 (collective)",
+      "date": "2015",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-protos-zcash-vs-bitcoin-debate-exposes-naval-rav"
+      ]
+    },
+    {
+      "id": "N-edge-naval-zf-board",
+      "from": "N-naval-ravikant",
+      "to": "N-zcash-foundation",
+      "what": "founding board member",
+      "date": "Feb 2017",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-zcash-foundation-first-announcement-from-the-zca",
+        "S-wikipedia-wiki-zcash"
+      ]
+    },
+    {
+      "id": "N-edge-hayes-builds-position",
+      "from": "N-arthur-hayes",
+      "to": "N-zcash-protocol",
+      "what": "sold BTC to build a ZEC position through Maelstrom, recorded by research 03 as the family office's second-largest holding after Bitcoin; size never disclosed, and the $174M Arkham figure belongs to a different unnamed party (quarantined as U-arkham-174m-position-post)",
+      "date": "2025",
+      "confidence": "med",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-yahoo-finance-arthur-hayes-10-000-zec-161819159",
+        "S-coindesk-05-arthur-hayes-dumps-zcash-holdings-af"
+      ]
+    },
+    {
+      "id": "N-edge-hayes-exits-position",
+      "from": "N-arthur-hayes",
+      "to": "N-zcash-protocol",
+      "what": "liquidated the entire ZEC position after the Orchard bug disclosure, and disclosed the exit publicly",
+      "date": "4-5 Jun 2026",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-coindesk-05-arthur-hayes-dumps-zcash-holdings-af",
+        "S-cryptopolitan-com-zachxbt-hayes-face-off-over-ex"
+      ]
+    },
+    {
+      "id": "N-edge-tushar-jain-multicoin",
+      "from": "N-tushar-jain",
+      "to": "N-multicoin",
+      "what": "managing partner",
+      "date": "ongoing",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-yahoo-finance-crypto-zcash-spikes-30-multicoin-m"
+      ]
+    },
+    {
+      "id": "N-edge-multicoin-discloses-position",
+      "from": "N-multicoin",
+      "to": "N-zcash-protocol",
+      "what": "disclosed a 'significant position' in ZEC; the disclosure moved the price +30% the same day",
+      "date": "6 May 2026",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-yahoo-finance-crypto-zcash-spikes-30-multicoin-m"
+      ]
+    },
+    {
+      "id": "N-edge-zf-holds-zec",
+      "from": "N-zcash-foundation",
+      "to": "N-zcash-protocol",
+      "what": "treasury holds ZEC",
+      "amount": "85,412 ZEC ($21.2M of $36.69M liquid assets)",
+      "date": "31 Mar 2026 (Q1 2026)",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-zcash-foundation-05-zcash-foundation-q1-2026"
+      ]
+    },
+    {
+      "id": "N-edge-nu6-lockbox-disbursement",
+      "from": "N-zcash-protocol",
+      "to": "N-zcash-foundation",
+      "what": "NU6 lockbox disbursement to a 2-of-3 P2SH multisig controlled by the Zcash Foundation, Electric Coin Company and Shielded Labs",
+      "amount": "78,750 ZEC",
+      "date": "since 23 Nov 2024 (NU6 activation)",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-zcash-improvement-proposals-zip-1015",
+        "S-zcash-improvement-proposals-zip-0271",
+        "S-pineanalytics-substack-com-zcash-quarterly-repor"
+      ]
+    },
+    {
+      "id": "N-edge-hornby-contracted-shielded-labs",
+      "from": "N-taylor-hornby",
+      "to": "N-shielded-labs",
+      "what": "contracted security research; found the Orchard soundness bug (CVE-2026-54496) using Anthropic's Opus 4.8",
+      "date": "Apr 2026 (contracted); 29 May 2026 (found)",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-zecsec-zecsec",
+        "S-github-advisories-ghsa-ww9q-8r59-xv46"
+      ]
+    },
+    {
+      "id": "N-edge-zcg-grants-zcash-media",
+      "from": "N-zcash-community-grants",
+      "to": "N-zcash-media",
+      "what": "grant funding (Zcash Media 2023) -- cancelled at 6 of 9 milestones",
+      "amount": "$600,000",
+      "date": "2023, cancelled",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-openzcash-zcg-grants"
+      ]
+    },
+    {
+      "id": "N-edge-zcg-grants-zechub",
+      "from": "N-zcash-community-grants",
+      "to": "N-zechub",
+      "what": "grant funding (ZecHub 2026, education) -- approved by async vote",
+      "amount": "$433,079.25",
+      "date": "approved 11 Dec 2025",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-openzcash-zcg-grants",
+        "S-zcash-community-forum-zechub-2026-53686"
+      ]
+    },
+    {
+      "id": "N-edge-zcg-grants-zcash-brazil",
+      "from": "N-zcash-community-grants",
+      "to": "N-zcash-brazil",
+      "what": "grant funding (2026, community)",
+      "amount": "$344,985",
+      "date": "2026",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-openzcash-zcg-grants"
+      ]
+    },
+    {
+      "id": "N-edge-zcg-grants-free2z",
+      "from": "N-zcash-community-grants",
+      "to": "N-free2z",
+      "what": "grant funding ('Preparing the Garden For Spring', non-wallet apps)",
+      "amount": "$333,000",
+      "date": "2026",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-openzcash-zcg-grants"
+      ]
+    },
+    {
+      "id": "N-edge-zcg-grants-zk-av-club",
+      "from": "N-zcash-community-grants",
+      "to": "N-zk-av-club",
+      "what": "grant funding (Zcash Community Media Infrastructure 2026)",
+      "amount": "$228,545",
+      "date": "2026, open (8/13 milestones)",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-openzcash-zcg-grants"
+      ]
+    },
+    {
+      "id": "N-edge-genzcash-sponsors-coindesk",
+      "from": "N-genzcash",
+      "to": "N-coindesk-research",
+      "what": "sponsored the 'Inside Zcash: Encrypted Money at Planetary Scale' report; sponsor identity unconfirmed",
+      "date": "3 Nov 2025 (published; updated 7 Nov 2025)",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-coindesk-research-inside-zcash-encrypted-money-a"
+      ]
+    },
+    {
+      "id": "N-edge-paul-brigner-zodl",
+      "from": "N-paul-brigner",
+      "to": "N-zodl",
+      "what": "Chief Policy & Regulatory Officer",
+      "date": "2026",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-zcash-community-grants-committee"
+      ]
+    },
+    {
+      "id": "N-edge-paul-brigner-zcg",
+      "from": "N-paul-brigner",
+      "to": "N-zcash-community-grants",
+      "what": "sitting committee member (grant-maker) while employed by ZODL, the largest grant-eligible dev org",
+      "date": "2026",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-zcash-community-grants-committee"
+      ]
+    },
+    {
+      "id": "N-edge-balaji-invests-zodl",
+      "from": "N-balaji-srinivasan",
+      "to": "N-zodl",
+      "what": "named investor in the $25M seed round",
+      "date": "Mar 2026",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-coindesk-09-josh-swihart-s-zcash-open-developmen"
+      ]
+    },
+    {
+      "id": "N-edge-mumtaz-advocacy",
+      "from": "N-mert-mumtaz",
+      "to": "N-zcash-protocol",
+      "what": "public advocacy ('the fastest horse for privacy'); no disclosed ZEC position",
+      "date": "24 Oct 2025",
+      "confidence": "med",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-coindesk-coindesk-podcast-network-why-zcash-is-t"
+      ]
+    },
+    {
+      "id": "N-edge-vitalik-donates-shielded-labs",
+      "from": "N-vitalik-buterin",
+      "to": "N-shielded-labs",
+      "what": "donation to Crosslink (second donation, first in 2023); amount undisclosed",
+      "date": "6 Feb 2026",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-cryptopolitan-com-vitalik-extends-generosity-to"
+      ]
+    },
+    {
+      "id": "N-edge-cypherpunk-grants-mcevoy-rsu",
+      "from": "N-cypherpunk-technologies",
+      "to": "N-will-mcevoy",
+      "what": "RSU grant (CIO)",
+      "amount": "1,000,000 RSUs",
+      "date": "2 Jul 2026",
+      "confidence": "med",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-stocktitan-sec-filings-cyph"
+      ]
+    },
+    {
+      "id": "N-edge-cypherpunk-grants-onsi-rsu",
+      "from": "N-cypherpunk-technologies",
+      "to": "N-douglas-onsi",
+      "what": "RSU grant (CEO)",
+      "amount": "1,000,000 RSUs",
+      "date": "2 Jul 2026",
+      "confidence": "med",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-stocktitan-sec-filings-cyph"
+      ]
+    },
+    {
+      "id": "N-edge-mcevoy-principal-winklevoss-capital",
+      "from": "N-will-mcevoy",
+      "to": "N-winklevoss-capital",
+      "what": "Principal, concurrent with Cypherpunk CIO role",
+      "date": "Nov 2025-",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-pr-newswire-news-releases-leap-therapeutics-rebr"
+      ]
+    },
+    {
+      "id": "N-edge-bootstrap-parent-ecc",
+      "from": "N-bootstrap",
+      "to": "N-electric-coin-company",
+      "what": "wholly owned subsidiary (parent since 2020)",
+      "date": "2020",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-the-block-384737-zcash-developers-form-new-compa"
+      ]
+    },
+    {
+      "id": "N-edge-swihart-ecc-ceo",
+      "from": "N-josh-swihart",
+      "to": "N-electric-coin-company",
+      "what": "CEO",
+      "date": "18 Dec 2023 - Jan 2026",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-the-block-268219-zcash-founder-zooko-wilcox-step",
+        "S-coindesk-08-zcash-developer-team-behind-ecc-quit"
+      ]
+    },
+    {
+      "id": "N-edge-swihart-founds-zodl",
+      "from": "N-josh-swihart",
+      "to": "N-zodl",
+      "what": "founder/CEO; founded after leading the Jan 2026 ECC walkout",
+      "date": "Jan/Feb 2026",
+      "confidence": "high",
+      "lastVerified": "2026-08-22",
+      "sources": [
+        "S-the-block-384737-zcash-developers-form-new-compa",
+        "S-coindesk-09-josh-swihart-s-zcash-open-developmen"
+      ]
+    }
+  ]
+}

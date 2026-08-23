@@ -70,18 +70,90 @@ dashboard.
 `apps/web/vercel.json` pins `"framework": "nextjs"` so the preset is recorded in the repository
 rather than only in the project settings.
 
-### Caution: the repo-root `vercel.json`
+### RESOLVED: the repo-root `vercel.json` applied to every project, and is now deleted
 
-`/vercel.json` at the repo root belongs to the **legacy dashboard** project — it hard-codes
-`outputDirectory: legacy/dashboard/dist` and a Vite build command. With Root Directory set to
-`apps/web`, Vercel reads project configuration from `apps/web`, so that file is not expected to
-apply to `zecreveal`. Confirm it on the first build anyway: the build log's install and build
-steps must read as pnpm install plus `next build`, **not** as the dashboard's Vite build. If the
-root file does leak in, the fix is an explicit `apps/web/vercel.json`, and that is a code change
-in a handoff, not a UI override.
+HANDOFF-01 recorded as UNVERIFIED the assumption that Vercel resolves `vercel.json` relative to a
+project's Root Directory. **It does not.** L2 executed the first production build of `zecreveal`
+(`prj_rNTLvGWnz92w5qcvROBchPUfdhIR`, Root Directory `apps/web`, framework Next.js) and it failed:
+deployment `dpl_9HHZKwUpk798aLxSdMAjy3UDnQNm`, `errorCode NEXT_OUTPUT_DIR_MISSING`. The build log
+shows Vercel ran the **root** file's `buildCommand` verbatim, built `legacy/dashboard`, and then
+looked for the root file's `outputDirectory` at `/vercel/path0/apps/web/legacy/dashboard/dist`.
+`apps/web/vercel.json` was ignored entirely.
 
-The root `.vercelignore` is likewise a v0.2 artefact (it excludes `apps/indexer`, `apps/gateway`,
-`infra`). It is harmless for `zecreveal` but is not doing any work for it either.
+The root file is read for **every** project in this repository and overrides the one inside the
+Root Directory. HANDOFF-02 therefore deleted it. `scripts/check-vercel-config.mjs` runs in CI and
+fails if it ever comes back.
+
+### Deleting it was necessary but NOT sufficient
+
+The preview deployment on the very commit that deleted the root file
+(`dpl_DjyBB8byMZYASmu7TA65yg8Y1n6h`, commit `9cc2dca`) **failed the same way**. Its build log shows
+Vercel still running
+
+```
+Running "install" command: `pnpm install --frozen-lockfile`...
+Running "pnpm --filter=@zcashreveal/types build && pnpm --filter=@zcashreveal/dashboard build"
+Error: The Next.js output directory "legacy/dashboard/dist" was not found at
+       "/vercel/path0/apps/web/legacy/dashboard/dist".
+```
+
+with no root `vercel.json` in the tree at all. **The same six settings are also stored on the
+`zecreveal` project itself**, adopted when the project was imported from a repository that still
+had the root file. A file deletion cannot remove a stored project setting.
+
+`vercel.json` takes precedence over stored project settings, so `apps/web/vercel.json` now pins the
+build explicitly rather than trusting the project's settings to be clean:
+
+```json
+{
+  "framework": "nextjs",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "next build",
+  "outputDirectory": ".next"
+}
+```
+
+`outputDirectory` is the one that matters most: `.next` is what the Next.js builder wants, and
+`legacy/dashboard/dist` is what the stored setting was feeding it. `scripts/check-vercel-config.mjs`
+asserts all four, so a later edit cannot quietly hand control back to the dashboard.
+
+**Verified.** The deployment on the commit that added the pin succeeded:
+`dpl_CrmijWHtimk842w65Tkux7vibZg1`, `READY`, built in 19 s, log reading
+`Running "next build"` and `Build Completed`, all twelve routes prerendered.
+
+**Operator click, one — clear the stale build overrides on the `zecreveal` project.** Settings →
+Build & Development. `apps/web/vercel.json` overrides them so the build no longer depends on this,
+but leaving the legacy dashboard's build command stored on the new project is a trap for whoever
+next edits that file. Set Framework Preset to `Next.js` and turn the Build Command, Install Command
+and Output Directory overrides OFF.
+
+**Operator click, two — move these into the `z-cash-reveal-dashboard2` project settings** so the
+legacy dashboard keeps building until the HANDOFF-11 cutover. These are the deleted file's exact
+values:
+
+| Setting | Value |
+|---|---|
+| Framework Preset | `Other` |
+| Install Command | `pnpm install --frozen-lockfile` |
+| Build Command | `pnpm --filter=@zcashreveal/types build && pnpm --filter=@zcashreveal/dashboard build` |
+| Output Directory | `legacy/dashboard/dist` |
+| Root Directory | `./` |
+| Environment Variable | `VITE_MOCK_MODE=true` (all three scopes) |
+
+Until that click happens, `z-cash-reveal-dashboard2` will fail to build. That is the accepted
+trade: the dashboard is legacy and retired at the cutover, and a red check on it is not a reason to
+keep the new project broken.
+
+The root `.vercelignore` stays. It is a v0.2 artefact (it excludes `apps/indexer`, `apps/gateway`,
+`infra`) and does no work for `zecreveal`, but unlike `vercel.json` it does no harm either.
+
+> **A note for HANDOFF-03.** `buildCommand` above is plain `next build`, which is correct only
+> while `apps/web` has no workspace dependencies. HANDOFF-03 makes it depend on
+> `@zcashreveal/content`. At that point either add `transpilePackages: ["@zcashreveal/content"]` to
+> `next.config` and leave the command alone, or change `buildCommand` in `apps/web/vercel.json` to
+> `pnpm --filter @zcashreveal/content build && next build`. Update
+> `scripts/check-vercel-config.mjs` to match, since it pins the expected value. Never fix this by
+> restoring a root `vercel.json`, and never by editing the project settings in the dashboard.
 
 ---
 
@@ -170,7 +242,11 @@ Leave Preview deployments protected by the team default. Production is public.
    required either way, because the value is inlined at build time.
 4. **Every public route returns 200.** `/` `/beware` `/contradictions` `/timeline` `/network`
    `/track` `/method` `/flows` `/sources`.
-5. **The build log shows `next build`,** not a Vite build (see the caution in section 1).
+5. **The build log shows `next build`,** not a Vite build. Before HANDOFF-02 deleted the root
+   `vercel.json`, it did not: the first production build ran the dashboard's Vite command and
+   failed with `NEXT_OUTPUT_DIR_MISSING`. See section 1.
+6. **No `vercel.json` at the repository root.** `node scripts/check-vercel-config.mjs` exits 0.
+   CI runs it; if the root file returns, `apps/web` breaks again in exactly the same way.
 
 ---
 
@@ -210,8 +286,14 @@ Deleting it is an operator click and it is safe: nothing links to it, and the li
 
 1. Delete the orphan project `z-cash-reveal-dashboard`.
 2. Create project `zecreveal` in team `aquatic-17b9f112` with the section 1 settings.
-3. Set the four `NEXT_PUBLIC_*` variables from section 2, with `NEXT_PUBLIC_DATA_MODE=snapshot`
+   **Done** as of 23 Aug 2026: `prj_rNTLvGWnz92w5qcvROBchPUfdhIR`.
+3. **Move the deleted root `vercel.json`'s settings into `z-cash-reveal-dashboard2`** — the table
+   in section 1. HANDOFF-02 deleted that file because it was breaking `zecreveal`'s build, so
+   until this click happens the legacy dashboard project fails to build. Do this one first if a
+   red check on the dashboard matters to you.
+4. Set the four `NEXT_PUBLIC_*` variables from section 2, with `NEXT_PUBLIC_DATA_MODE=snapshot`
    in Production and Preview.
-4. Leave every variable in section 3 unset for now; they arrive with HANDOFF-09/11.
-5. Deploy, then walk the section 5 checklist.
-6. Promote to Production by hand once the checklist passes.
+5. Leave every variable in section 3 unset for now; they arrive with HANDOFF-09/11.
+6. Redeploy `zecreveal`, then walk the section 5 checklist. The first build failed with
+   `NEXT_OUTPUT_DIR_MISSING`; the cause is fixed in code and a fresh build is needed to prove it.
+7. Promote to Production by hand once the checklist passes.

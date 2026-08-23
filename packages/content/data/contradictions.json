@@ -1,0 +1,334 @@
+[
+  {
+    "id": "C1",
+    "title": "Encrypted Bitcoin against a transparent supply",
+    "claim": "\"Encrypted Bitcoin\" / \"encrypted electronic cash\" — Zooko's framing on Bankless and the z.cash tagline; ECC's \"The Privacy Illusion\" calls Zcash \"the strongest form of on-chain privacy available today\" and says \"Shielded Zcash transaction details never touch the blockchain, so there is nothing to obfuscate, track, analyze, or hack.\"",
+    "reality": "~74% of supply sits in transparent addresses as of 22 Aug 2026; shielded share was 3.6% when Kappos measured it in 2018, 7.4% five years ago, and is ~26-27% today (26.8% per ZECStats/CipherScan, block 3,456,227). Peak shielded transaction share was 59.3% (Feb 2026), a record set nine years into the chain's life, and everything else sits on a public ledger.",
+    "summary": "Zcash's core slogan describes an encrypted currency, but a supermajority of ZEC has always lived in plain sight: transparent addresses still hold roughly three-quarters of supply, and even today's shielded share is a fraction of the whole.",
+    "body": "Coin Metrics attributes the recent shielded growth mostly to partially shielded flows rather than fully private transactions, and says fully shielded z-to-z transfers \"remain a small share\" of activity; Phemex separately calls the trend \"stable rather than accelerating\" and notes it \"does not tell you why,\" since cold storage and custody look identical to private spending from the outside. The gap between the marketing image (encrypted by default) and the on-chain reality (privacy as an opt-in minority behaviour) has held for the entire life of the chain.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "shielded-supply",
+      "transparent-addresses",
+      "marketing-claim",
+      "privacy-optional"
+    ],
+    "sources": [
+      "S-electric-coin-company-the-privacy-illusion-what",
+      "S-zec-stats-zecstats-com",
+      "S-usenix-usenixsecurity18-sec18-kappos",
+      "S-coin-metrics-state-of-the-network-issue-338"
+    ]
+  },
+  {
+    "id": "C2",
+    "title": "Two counterfeiting windows in the math",
+    "claim": "\"Nobody can counterfeit ZEC / the 21M cap is enforced by math.\"",
+    "reality": "Two independent unlimited-counterfeiting windows span roughly six of the chain's ~9.8 years — Sprout/BCTV14 (CVE-2019-7167, 28 Oct 2016 to 28 Oct 2018) and Orchard/halo2 (CVE-2026-54496, CVSS 9.3, 31 May 2022 to 1-2 Jun 2026) — and neither can be retroactively proven clean. zcashd also skipped Sprout proof verification entirely for 5.7 years (Jul 2020 to Mar 2026), and a duplicate-block-header bug let the turnstile accounting itself be silently disabled from zcashd v5.0.0 until the Apr 2026 fix.",
+    "summary": "The claim that the 21 million cap is \"enforced by math\" has been false, unprovably, for most of Zcash's history: two separate soundness bugs allowed unlimited counterfeiting, and even the safety-net turnstile mechanism had its own window where it could be switched off.",
+    "body": "The Orchard bug was a single missing constraint — assign_advice() used where copy_advice() was required in the incomplete double-and-add loop — that left pk_d = [ivk]·g_d unenforced, permitting forged nullifier keys and forged spend authorizations. Because the flaw sat inside the shielded circuit itself, forged notes are indistinguishable from real ones after the fact; Shielded Labs states there is no definitive way to determine using only cryptography whether the exploitation occurred, and ZODL's \"no evidence\" language is not evidence of no exploitation.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "counterfeiting",
+      "soundness-bug",
+      "supply-cap",
+      "turnstile"
+    ],
+    "sources": [
+      "S-zodl-zcashd-sprout-verification-vulnerability",
+      "S-zodl-zcashd-zebra-april-2026-disclosure",
+      "S-github-advisories-ghsa-ww9q-8r59-xv46"
+    ]
+  },
+  {
+    "id": "C3",
+    "title": "No trusted setup, two pools excepted",
+    "claim": "\"No trusted setup\" (post-Halo/NU5 messaging).",
+    "reality": "True for Orchard and Ironwood, which use recursive proof composition with no toxic waste. But Sprout still holds roughly 22,000-25,400 ZEC protected by the 2016 six-person Ceremony, and Sapling (~529,000 ZEC) still rests on the 2018 Powers of Tau (~90 participants); the Sprout turnstile audit — the only mechanism that could ever retire the 2016-2018 counterfeiting question — cannot conclude until that pool empties, and it has not in about eight years.",
+    "summary": "\"No trusted setup\" is accurate for the newest pools, but it is marketed as though it describes the whole coin — when two older pools holding hundreds of thousands of ZEC still depend on ceremonies from 2016 and 2018 that can never be retroactively audited clean while they hold value.",
+    "body": "Peter Todd, one of the six 2016 participants, said on the record: \"Nothing you will read below changes the fact that you're trusting me and five other participants not to collude.\" Greg Slepak's contemporaneous 2016 objection — that the zero-knowledge property means the community can never detect counterfeiting, and that fake tokens would be \"imbued with\" the price assumption of a hard 21 million cap — describes, in advance, exactly what the 2019 and 2026 disclosures later confirmed.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "trusted-setup",
+      "sprout",
+      "sapling",
+      "mpc-ceremony"
+    ],
+    "sources": [
+      "S-zcash-improvement-proposals-zip-0209",
+      "S-zcash-improvement-proposals-zip-0308",
+      "S-crypto-news-why-30-of-zcash-supply-is-now-in-the",
+      "S-coindesk-14-zcash-and-the-art-of-security-theate"
+    ]
+  },
+  {
+    "id": "C4",
+    "title": "Decentralized token, centralized control points",
+    "claim": "\"Decentralized.\"",
+    "reality": "20% of every block went to a for-profit company and 44-46 named stakeholders for four years (the Founders' Reward); then two organizations' addresses were written directly into consensus rules; then a one-time 78,750 ZEC disbursement went to a 2-of-3 P2SH multisig held by exactly three named entities (ZF, ECC, Shielded Labs) at t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo; and the Zcash trademark is governed by a two-party veto where, in ECC's own words, \"no party has independent authority to declare that a specific chain of Zcash can actually be called Zcash.\"",
+    "summary": "\"Decentralized\" sits awkwardly next to a funding and governance history that has, at every stage, routed control and issuance through a small, named, and often overlapping set of organizations and multisigs.",
+    "body": "The dev-fund structure moved from a straightforward company/foundation split (ZIP 1014) to consensus-coded addresses (ZIP 271) to a single 2-of-3 disbursement — concentration, not dispersion, at each step. ECC's own trademark-donation post is explicit that no single party can unilaterally certify what counts as \"Zcash,\" which functions as a veto rather than an open standard.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "decentralization",
+      "dev-fund",
+      "governance",
+      "multisig"
+    ],
+    "sources": [
+      "S-electric-coin-company-continued-funding-and-tran",
+      "S-zcash-improvement-proposals-zip-1014",
+      "S-zcash-improvement-proposals-zip-0271",
+      "S-electric-coin-company-electric-coin-co-donates-z"
+    ]
+  },
+  {
+    "id": "C5",
+    "title": "Shielded by default, transparent by exchange",
+    "claim": "\"Privacy is normal / shielded by default.\"",
+    "reality": "Only one exchange, Gemini, supports shielded withdrawals, by ECC's own November 2025 account. Zcash designed transparency-preserving address types (TEX / \"Traceable Unified Addresses\") specifically to satisfy Binance and avoid delisting, and ZEC has been delisted or restricted by Coincheck (2018), OKEx Korea and Upbit (2019), Coinbase UK (2019), and OKX (2024); exchange-held ZEC sits in transparent t-addresses and contributes nothing to shielded supply.",
+    "summary": "\"Shielded by default\" describes a wallet-level UX choice, not what happens once ZEC reaches an exchange: customer balances at every major venue except one sit in transparent addresses, and Zcash built a transparency-preserving address format specifically to keep Binance from delisting it.",
+    "body": "The wallet-level default (Zashi/Zodl making shielded transfers the default transaction type) is real engineering progress, but it does not touch the majority of ZEC that passes through custodial rails, where privacy has never been the default and in some cases has been actively engineered away to satisfy an exchange's compliance requirements.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "shielded-by-default",
+      "exchanges",
+      "tex-addresses",
+      "binance"
+    ],
+    "sources": [
+      "S-electric-coin-company-gemini-sets-the-standard-f",
+      "S-dl-news-defi-how-privacy-coins-firo-and-zcash-do",
+      "S-crypto-news-why-30-of-zcash-supply-is-now-in-the"
+    ]
+  },
+  {
+    "id": "C6",
+    "title": "Audited firms missed a live bug",
+    "claim": "\"Audited by leading firms.\"",
+    "reality": "The 2018 audits (NCC Group, Coinspect, Least Authority, Kudelski, Mary Maller) ran while four ECC insiders were sitting on an active counterfeiting bug and said nothing. The 2022 Orchard/halo2 audits (NCC Group, QEDIT, Mary Maller) missed a one-line circuit under-constraint that survived four years and was found by an LLM (Claude Opus 4.8, engaged by Shielded Labs) in a day.",
+    "summary": "\"Audited by leading firms\" is true and also did not catch either of the project's two counterfeiting bugs — the 2018 audits ran alongside a known, undisclosed one, and the 2022 audits missed the single-line error that became CVE-2026-54496.",
+    "body": "The 2022 flaw was not a subtle protocol-design question but a mechanical circuit-constraint bug — assign_advice() where copy_advice() was required — of exactly the kind formal audits exist to catch, and it sat in the audited code for four years before an AI-assisted review found it in weeks.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "security-audit",
+      "orchard-bug",
+      "circuit-constraint",
+      "disclosure"
+    ],
+    "sources": [
+      "S-electric-coin-company-2018-zcash-security-audit",
+      "S-electric-coin-company-zcash-counterfeiting-vulne",
+      "S-github-advisories-ghsa-ww9q-8r59-xv46"
+    ]
+  },
+  {
+    "id": "C7",
+    "title": "Responsible disclosure, two different records",
+    "claim": "\"Responsible disclosure / radical transparency.\"",
+    "reality": "In 2019, the counterfeiting bug was kept quiet for 341 days, told to only four people, with the Zcash Foundation informed one day before the public, the fix shipped disguised as a performance upgrade, and the MPC transcript quietly pulled offline. In 2026 the same class of bug was handled in about six days — a real improvement — but no security advisory was ever filed in zcash/orchard or zcash/halo2, the repositories that actually contain the defect.",
+    "summary": "The disclosure timeline improved by two orders of magnitude between 2019 and 2026, but the 2026 process still left no public advisory in the two repositories where the actual vulnerable code lives.",
+    "body": "The 2019 handling included specific concealment choices beyond simple delay: informing the Zcash Foundation only a day ahead of the public, and shipping the fix inside an unrelated-looking performance release rather than a flagged security patch. The 2026 improvement in speed does not close the gap in where the record of the vulnerability itself is kept.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "disclosure",
+      "transparency",
+      "security-advisory",
+      "governance"
+    ],
+    "sources": [
+      "S-electric-coin-company-zcash-counterfeiting-vulne",
+      "S-github-security-advisories-2"
+    ]
+  },
+  {
+    "id": "C8",
+    "title": "Community governance, VC-funded fork",
+    "claim": "\"Community governance.\"",
+    "reality": "On 7-8 Jan 2026 the entire ECC engineering and product team resigned; CEO Josh Swihart called it being \"constructively discharged\" by the Bootstrap board and described \"malicious governance.\" The team immediately raised $25M from Paradigm, a16z crypto, Winklevoss Capital, Coinbase Ventures, Cypherpunk, Chapter One and Balaji Srinivasan — the same capital pool accumulating the coin — and the community's own governance ZIP (ecc-zbloc) is marked Obsolete.",
+    "summary": "\"Community governance\" collided with a mass resignation and a VC-funded relaunch of the same engineering team, financed in part by the treasury company most exposed to the token price.",
+    "body": "ZIP 1016, which routes 12% of issuance to coinholder votes, was authored by the same person who then founded the VC-funded lab (ZODL) that went on to write roughly 82% of the code shipped in Ironwood — a single individual sitting on both sides of what \"governance\" is supposed to check.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "governance",
+      "ecc-resignation",
+      "zodl",
+      "dev-fund"
+    ],
+    "sources": [
+      "S-the-block-384737-zcash-developers-form-new-compa",
+      "S-coindesk-09-josh-swihart-s-zcash-open-developmen",
+      "S-zcash-improvement-proposals-draft-ecc-zbloc"
+    ]
+  },
+  {
+    "id": "C9",
+    "title": "Supply verification is new and partial",
+    "claim": "\"Supply is verifiable.\"",
+    "reality": "Supply verifiability for the Orchard-descended supply was created on 28 Jul 2026 by forcing everyone through the new Ironwood pool — it is prospective only. As of 22 Aug 2026, roughly 708,841 ZEC remain stranded in the still-unverifiable, exit-only Orchard pool, and the Ironwood pool itself is only 95.8% turnstile-verified, not 100%.",
+    "summary": "\"Supply is verifiable\" is a claim about a mechanism that is one month old and does not yet cover the coin: hundreds of thousands of ZEC still sit in a pool that cannot be verified, and even the new pool is not fully verified yet.",
+    "body": "Migration out of Orchard under ZIP 318 reveals every crossing amount on-chain, quantized to n×10^k, and dust under 0.01 ZEC is stranded permanently — so the mechanism that finally makes supply verifiable also permanently forfeits shielding for anyone still holding value in the old pool.",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "supply-verification",
+      "ironwood",
+      "orchard",
+      "turnstile"
+    ],
+    "sources": [
+      "S-zcash-improvement-proposals-zip-0258",
+      "S-cipherscan-ironwood"
+    ]
+  },
+  {
+    "id": "C10",
+    "title": "Provable correctness claimed the day it broke",
+    "claim": "\"Encrypted money with provable correctness is unstoppable.\" — Cameron Winklevoss, 5 Jun 2026.",
+    "reality": "The line was posted on the same day ZEC fell more than 50%, on the disclosure of a bug that had made \"provable correctness\" false and unprovable for four years.",
+    "summary": "The claim of provable correctness was made in public on the exact day the market learned that correctness had been unprovable for four years running.",
+    "body": "Cypherpunk, the treasury company Cameron Winklevoss is closely tied to, reaffirmed its 5%-of-supply accumulation target the same day; the timing put an unstoppability claim and the largest single-day ZEC price drop in the record on the same date.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "winklevoss",
+      "provable-correctness",
+      "orchard-bug",
+      "price-crash"
+    ],
+    "sources": [
+      "S-yahoo-finance-crypto-winklevoss-twins-back-zcash",
+      "S-the-block-403839-zcash-treasury-cypherpunk-remai"
+    ]
+  },
+  {
+    "id": "C11",
+    "title": "Institutional privacy product, transparent custody",
+    "claim": "\"Institutional privacy product\" — framing applied to the Grayscale Zcash ETF.",
+    "reality": "Grayscale's Zcash trust/ETF (OTC ticker ZCSH) custodies its ZEC transparently at Coinbase Custody; shareholders get price exposure to ZEC, not privacy, and pay a 2.5% sponsor fee for it.",
+    "summary": "An \"institutional privacy product\" that holds its underlying asset in fully transparent custody is selling exposure to the price of privacy, not privacy itself.",
+    "body": "The structure is not unusual for a regulated trust — transparent custody is what a custodian and an auditor require — but it means the product marketed on Zcash's privacy story cannot itself use any of the shielded features that make Zcash different from a transparent asset.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "etf",
+      "grayscale",
+      "custody",
+      "zcsh"
+    ],
+    "sources": [
+      "S-cryptoslate-grayscales-zcash-etf-regulated-priva",
+      "S-the-block-regulation-2026-08-21-grayscale-moves"
+    ]
+  },
+  {
+    "id": "C12",
+    "title": "One implementation left standing",
+    "claim": "\"Two independent implementations protect consensus.\"",
+    "reality": "zcashd was killed by an automatic shutdown at block 3,417,100 on 18 Jul 2026, ten days before NU6.3. Zcash now runs on one consensus implementation, Zebra, after 41 advisories in five months (12 Critical), including two cases where a Critical consensus fix had to be re-fixed because the first attempt was wrong; the zcashd/Zebra divergence checking that had caught two 2026 bugs no longer exists.",
+    "summary": "The two-implementation safety argument depended on zcashd and Zebra disagreeing when one of them was wrong — and that check disappeared the moment zcashd was retired, ten days before the network's next major upgrade.",
+    "body": "The dossier itself flags this claim HIGH confidence on the facts and MED on the framing: the shutdown date, advisory count and Critical re-fix history are documented, but how much weight to put on \"protection\" lost is an interpretive judgment rather than a hard number.",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zcashd",
+      "zebra",
+      "consensus",
+      "implementation-diversity"
+    ],
+    "sources": [
+      "S-zcash-support-zcashd-deprecation",
+      "S-github-security-advisories-4"
+    ]
+  },
+  {
+    "id": "C13",
+    "title": "Founder collects pay from every side",
+    "claim": "\"Neutral founder\" — applied to Zooko Wilcox.",
+    "reality": "As of Dec 2025 Zooko Wilcox was simultaneously Chief Product Officer of Shielded Labs (the org that funded the audit that found the 2026 bug) and a paid strategic advisor to Cypherpunk Technologies (the largest corporate ZEC holder, roughly 1.75-1.92% of supply); he co-authored the June 2026 vulnerability disclosure and drew about $3.65M/yr (2,033 ZEC/month, 0.9% of total supply) from the Founders' Reward.",
+    "summary": "\"Neutral founder\" describes someone drawing income from the token's issuance, employed by the org that ran the audit on the bug he helped disclose, and on the payroll of the largest corporate holder of the coin at the same time.",
+    "body": "None of these roles are hidden individually — each is disclosed somewhere — but they stack on one person across the exact points (audit sponsor, disclosure author, largest holder's advisor) where independence would matter most.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "zooko-wilcox",
+      "conflict-of-interest",
+      "founders-reward",
+      "cypherpunk"
+    ],
+    "sources": [
+      "S-pr-newswire-news-releases-cypherpunk-taps-zcash",
+      "S-coindesk-01-what-does-crypto-care-if-zooko-is-a"
+    ]
+  },
+  {
+    "id": "C14",
+    "title": "Advocates who were investors first",
+    "claim": "\"Independent advocates\" — applied to public ZEC promoters such as Naval Ravikant and Barry Silbert.",
+    "reality": "Naval Ravikant was both a 2015 co-investor in the Zcash Company ($715,000 alongside Silbert and Roger Ver) and a founding board member of the Zcash Foundation, while publicly calling ZEC \"insurance against Bitcoin\" in Oct 2025. Barry Silbert was also a 2015 seed investor, is Grayscale's chairman (Grayscale sponsors the Zcash trust/ETF), sold 9,753 shares of the Grayscale Zcash Trust on 6 Nov 2025 near the price peak, and separately predicted ZEC could 500x in Feb 2026.",
+    "summary": "Two of the most-quoted \"independent\" ZEC voices were both seed investors in the company a decade before they became public advocates — one also sat on the Foundation's board, and the other sold trust shares near the top while publicly predicting a 500x.",
+    "body": "Reporting on Naval's position also notes that ZEC actually correlates positively with Bitcoin and has underperformed it over the full history — directly against his \"insurance against Bitcoin\" framing, which implies an inverse relationship that the data does not show.",
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "naval-ravikant",
+      "barry-silbert",
+      "conflict-of-interest",
+      "grayscale"
+    ],
+    "sources": [
+      "S-zcash-foundation-first-announcement-from-the-zca",
+      "S-wikipedia-wiki-zcash",
+      "S-protos-zcash-vs-bitcoin-debate-exposes-naval-rav",
+      "S-the-block-389472-dcg-barry-silbert-bitcoin-priva",
+      "S-thecoinrepublic-com-06-breaking-barry-silbert-se"
+    ]
+  },
+  {
+    "id": "C15",
+    "title": "Two firsts for the same claim",
+    "claim": "\"First regulated exchange to support shielded withdrawals\" — claimed for Gemini.",
+    "reality": "Gemini claimed this in Sep 2020, and ECC claimed it again on Gemini's behalf in Nov 2025. Both cannot be a first.",
+    "summary": "The same \"first\" was announced twice, five years apart, for the same exchange — which means at least one of the two announcements was not describing a first at all.",
+    "body": "Whether the 2025 claim referred to a relaunch, an expanded feature, or was simply an uncorrected repeat of 2020 marketing language is not established in the record; what the record does establish is that the same superlative was used both times.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "gemini",
+      "shielded-withdrawals",
+      "marketing-claim",
+      "exchanges"
+    ],
+    "sources": [
+      "S-the-block-79098-gemini-supports-shielded-zcash-w",
+      "S-electric-coin-company-gemini-sets-the-standard-f"
+    ]
+  },
+  {
+    "id": "C16",
+    "title": "Founders' Reward left a perfect fingerprint",
+    "claim": "\"Founders' Reward is not a premine — it's like equity.\"",
+    "reality": "Kappos et al. (USENIX 2018) showed the Founders' Reward was a deterministic on-chain fingerprint: every founder withdrawal was exactly 250.0001 ZEC, and 1,943 of 1,953 withdrawals (99.5%) also matched a 6-10-block timing pattern.",
+    "summary": "Framed as ordinary equity-like compensation, the Founders' Reward was in practice the single most identifiable pattern on the entire chain — a fixed amount, on a fixed timing pattern, nearly every time.",
+    "body": "The predictability cut against the rest of the network's privacy, too: because the withdrawals were so mechanically identifiable, they gave researchers a reliable anchor point for de-anonymization research, degrading the anonymity set of everyone else's shielded transactions simply by being present and recognizable in the data.",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "founders-reward",
+      "premine",
+      "kappos",
+      "deanonymization"
+    ],
+    "sources": [
+      "S-discovery-ucl-ac-uk-1-pdfsam-kappos-sec18-full-p"
+    ]
+  }
+]

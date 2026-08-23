@@ -1,0 +1,321 @@
+[
+  {
+    "id": "P-encrypted-bitcoin",
+    "text": "encrypted Bitcoin",
+    "origin": "Predates Galaxy's Nov 2025 report, which attributes it to Zcash's advocates. Zooko himself calls it the winning meme (Bankless, 26 Jan 2026) — i.e. an intentional framing device. Earliest confirmed high-profile use: Tyler Winklevoss, 12 Nov 2025, same day as the $58.9M placement.",
+    "date": "12 Nov 2025",
+    "amplifiers": [
+      "Tyler Winklevoss",
+      "Galaxy",
+      "Will Owens",
+      "Zooko",
+      "Bankless",
+      "CoinDesk Research",
+      "Messari"
+    ],
+    "tension": "ZEC is not Bitcoin-derived in any meaningful sense; privacy is optional, not encrypted-by-default at the protocol level. In Nov 2025 shielded supply was approximately 30%, meaning approximately 70% of ZEC sat in transparent addresses.",
+    "confidence": "high",
+    "sources": [
+      "S-bankless-podcast-zcash-founder-on-privacy-ai-and",
+      "S-decrypt-347322-zcash-surging-cypherpunk-principl",
+      "S-research-grayscale-com-reports-zcash-financial-p"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-zcash-winning-meme",
+    "text": "Zcash being encrypted Bitcoin is the winning meme",
+    "origin": "Zooko Wilcox, Bankless, 26 Jan 2026",
+    "date": "26 Jan 2026",
+    "amplifiers": [],
+    "tension": "An insider explicitly describing the core slogan as a memetic strategy for winning governance consensus.",
+    "confidence": "high",
+    "sources": [
+      "S-bankless-podcast-zcash-founder-on-privacy-ai-and"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-privacy-is-normal",
+    "text": "privacy is normal",
+    "origin": "Josh Swihart, ECC blog, Privacy is normal, safe and essential, 21 Oct 2020",
+    "date": "21 Oct 2020",
+    "amplifiers": [
+      "Tyler Winklevoss",
+      "ecosystem-wide"
+    ],
+    "tension": "Six-year-old ECC marketing slogan re-voiced verbatim by the DAT's lead investor.",
+    "confidence": "high",
+    "sources": [
+      "S-electric-coin-company-privacy-is-normal-safe-and"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-digital-gold-digital-cash",
+    "text": "If bitcoin is digital gold, Zcash is digital cash",
+    "origin": "Tyler Winklevoss, 12 Nov 2025",
+    "date": "12 Nov 2025",
+    "amplifiers": [
+      "Gemini",
+      "Cypherpunk"
+    ],
+    "tension": "ZEC's actual payment volume is a rounding error against its market cap; the Jan 2026 Gemini card is one of the few real spending rails, and it settles in fiat with ZEC rewards.",
+    "confidence": "high",
+    "sources": [
+      "S-gemini-com-a-conversation-on-zcash-with-cameron",
+      "S-crypto-briefing-zcash-surges-gemini-zec-credit-c"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-encrypted-electronic-cash",
+    "text": "encrypted electronic cash",
+    "origin": "z.cash official site tagline: Zcash is encrypted electronic cash.",
+    "date": "date not established",
+    "amplifiers": [
+      "ECC",
+      "all official channels"
+    ],
+    "tension": "Same optional-privacy tension.",
+    "confidence": "high",
+    "sources": [
+      "S-zcash-z-cash",
+      "S-zechub-wiki-start-here-what-is-zec-and-zcash"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-encrypted-money",
+    "text": "encrypted money",
+    "origin": "CoinDesk Research (sponsored), 3 Nov 2025: Encrypted Money at Planetary Scale; Messari reused it",
+    "date": "3 Nov 2025",
+    "amplifiers": [
+      "Cameron Winklevoss",
+      "CoinDesk"
+    ],
+    "tension": "Cameron's line was posted the day ZEC fell more than 50% on a bug that made provable correctness demonstrably false for four years.",
+    "confidence": "high",
+    "sources": [
+      "S-coindesk-research-inside-zcash-encrypted-money-a",
+      "S-messari-report-zcash-building-encrypted-money-at"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-shielded-by-default",
+    "text": "shielded by default",
+    "origin": "ECC blog, New releases to help enable Zcash Shielded by Default",
+    "date": "date not established",
+    "amplifiers": [
+      "Zashi",
+      "Zodl wallet marketing",
+      "CoinDesk sponsored report"
+    ],
+    "tension": "Wallet-level default is not the same as protocol-level default. Exchanges (Binance, Coinbase, Upbit) hold customer ZEC in transparent t-addresses, contributing zero shielded supply.",
+    "confidence": "high",
+    "sources": [
+      "S-electric-coin-company-privacy-is-normal-safe-and",
+      "S-coindesk-research-inside-zcash-encrypted-money-a"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-zec-to-10k",
+    "text": "ZEC to $10k",
+    "origin": "Arthur Hayes, X post, approximately 26 Oct 2025",
+    "date": "~26 Oct 2025",
+    "amplifiers": [
+      "Media echo chamber",
+      "CMC",
+      "CCN",
+      "Daily Hodl",
+      "Bitget",
+      "Nov 14 2025 +3,791% variant"
+    ],
+    "tension": "ZEC +30% in 24h ($272 to $355) on the call. Hayes sold his entire position on 5 Jun 2026 at a fraction of $10k.",
+    "confidence": "high",
+    "sources": [
+      "S-coinmarketcap-academy-zec-surges-30percent-after",
+      "S-yahoo-finance-arthur-hayes-10-000-zec-161819159",
+      "S-coindesk-05-arthur-hayes-dumps-zcash-holdings-af"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-zec-10-20-btc",
+    "text": "ZEC to 10-20% of BTC's price",
+    "origin": "Arthur Hayes, The Butterfly Touch, 11 May 2026",
+    "date": "11 May 2026",
+    "amplifiers": [],
+    "tension": "Same author, revised target, approximately 7 months later.",
+    "confidence": "med",
+    "sources": [
+      "S-coindesk-05-arthur-hayes-dumps-zcash-holdings-af"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-fastest-horse-privacy",
+    "text": "Zcash is the fastest horse for privacy",
+    "origin": "Mert Mumtaz, CoinDesk podcast, 24 Oct 2025",
+    "date": "24 Oct 2025",
+    "amplifiers": [
+      "CoinDesk headline"
+    ],
+    "tension": "Mumtaz runs a Solana infra company; never disclosed a ZEC position.",
+    "confidence": "med",
+    "sources": [
+      "S-coindesk-coindesk-podcast-network-why-zcash-is-t"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-low-entropy-carrier",
+    "text": "a low-entropy carrier in a high-entropy world",
+    "origin": "Mert Mumtaz, 19 May 2026",
+    "date": "19 May 2026",
+    "amplifiers": [],
+    "tension": "No documented tension; recorded for completeness of the catalogue.",
+    "confidence": "med",
+    "sources": [
+      "S-finance-biggo-com-486e6ece5f83ea4a"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-insurance-bitcoin",
+    "text": "insurance against Bitcoin",
+    "origin": "Naval Ravikant, approximately 1 Oct 2025",
+    "date": "~1 Oct 2025",
+    "amplifiers": [
+      "Massive echo",
+      "AMBCrypto",
+      "CCN",
+      "ChainCatcher",
+      "gate.com"
+    ],
+    "tension": "Protos: ZEC correlates positively with BTC, does not trade inversely, and had underperformed BTC over the full history (95% below ATH vs. BTC within 5% of its peak). Naval invested $715k in ECC in 2015.",
+    "confidence": "high",
+    "sources": [
+      "S-protos-zcash-vs-bitcoin-debate-exposes-naval-rav",
+      "S-news-bitcoin-com-raoul-pal-backs-zcash-as-bitcoi"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-most-mispriced-asset",
+    "text": "the most mispriced asset in crypto",
+    "origin": "Will McEvoy (Cypherpunk CIO), CoinDesk, 26 Mar 2026",
+    "date": "26 Mar 2026",
+    "amplifiers": [
+      "CoinDesk"
+    ],
+    "tension": "Said by the CIO of a company holding 1.9% of the supply with 1,000,000 RSUs of upside.",
+    "confidence": "med",
+    "sources": [
+      "S-coindesk-research-inside-zcash-encrypted-money-a",
+      "S-the-block-378582-winklevoss-backed-cypherpunk-ta"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-return-cypherpunk-ideals",
+    "text": "a return to the cypherpunk ideals crypto was founded on",
+    "origin": "Tushar Jain (Multicoin), 6 May 2026",
+    "date": "6 May 2026",
+    "amplifiers": [
+      "ZEC +30% same day"
+    ],
+    "tension": "Said on disclosure of an undisclosed-size position.",
+    "confidence": "high",
+    "sources": [
+      "S-yahoo-finance-crypto-zcash-spikes-30-multicoin-m"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-privacy-precondition-freedom",
+    "text": "Privacy is the precondition of freedom",
+    "origin": "cypherpunk.com mission statement; Tyler Winklevoss variant 12 Nov 2025",
+    "date": "date not established",
+    "amplifiers": [
+      "Cypherpunk corporate"
+    ],
+    "tension": "No documented tension; recorded for completeness of the catalogue.",
+    "confidence": "high",
+    "sources": [
+      "S-cypherpunk-com-cypherpunk-com",
+      "S-yahoo-finance-crypto-winklevoss-twins-back-zcash"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-bug-not-security-failure",
+    "text": "Finding a bug isn't a security failure. Not looking is",
+    "origin": "@cypherpunk on X, 5 Jun 2026, alongside Please stop the FUD",
+    "date": "5 Jun 2026",
+    "amplifiers": [
+      "Cypherpunk"
+    ],
+    "tension": "Posted as CYPH fell more than 40% and ZEC more than 50%.",
+    "confidence": "high",
+    "sources": [
+      "S-the-block-403698-zcash-vulnerability-zec-drops",
+      "S-coindesk-05-zcash-plummets-30-as-developer-revea"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-spiritual-successor-bitcoin",
+    "text": "spiritual successor to Bitcoin",
+    "origin": "Galaxy Digital / Will Owens, 4 Nov 2025",
+    "date": "4 Nov 2025",
+    "amplifiers": [
+      "Decrypt",
+      "CoinMarketCap"
+    ],
+    "tension": "No documented tension; recorded for completeness of the catalogue.",
+    "confidence": "high",
+    "sources": [
+      "S-decrypt-347322-zcash-surging-cypherpunk-principl",
+      "S-coindesk-research-inside-zcash-encrypted-money-a"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-zashi-zodl",
+    "text": "Zashi / Zodl",
+    "origin": "Zashi wallet launched 2024 by ECC; rebranded Zodl under ZODL in 2026",
+    "date": "2024",
+    "amplifiers": [
+      "ZODL",
+      "Cypherpunk",
+      "CoinDesk"
+    ],
+    "tension": "Claimed more than 400% shielded-pool growth since 2024 launch; $600M+ in ZEC swaps since Oct.",
+    "confidence": "med",
+    "sources": [
+      "S-zcash-z-cash",
+      "S-zechub-wiki-start-here-what-is-zec-and-zcash",
+      "S-barchart-com-641883-cypherpunk-makes-5m-investme"
+    ],
+    "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "P-zcash-season",
+    "text": "Zcash season / privacy coin season",
+    "origin": "Generic crypto-media construction (U.Today, TradingView)",
+    "date": "date not established",
+    "amplifiers": [
+      "Retail media"
+    ],
+    "tension": "Privacy coins were the weakest-performing sector in early Jan 2026 while the phrase was still circulating.",
+    "confidence": "med",
+    "sources": [
+      "S-tradingview-u-today-56fd7e455094b-0-behind-xrp-s",
+      "S-ccn-crypto-zec-500-percent-rally-explained-next"
+    ],
+    "lastVerified": "2026-08-22"
+  }
+]

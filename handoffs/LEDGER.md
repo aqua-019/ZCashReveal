@@ -244,3 +244,398 @@ DEFERRED ASSUMPTIONS:
 - The eslint `no-unused-vars` promotion for test files and the unused `saplingSpend` in
   `block-decoder.test.ts` remain deferred to 06 or 07, as HANDOFF-00 recorded.
 ```
+
+---
+
+## L2 RESOLUTION — HANDOFF-01
+
+Appended by the HANDOFF-02 session under the revolution protocol, step 2. Verbatim; L2 has no write access to this repository.
+
+```
+L2 RESOLUTION — HANDOFF-01 (Cowork, 23 Aug 2026)
+
+VERIFY (Executed by L2 on a clean worktree of a17e7be, not relayed):
+  pnpm install --frozen-lockfile rc=0 · pnpm typecheck 6/6 rc=0 · pnpm lint "1 problem (0 errors,
+  1 warning)" rc=0, the warning being HANDOFF-00's pre-existing indexer finding ·
+  pnpm --filter @zcashreveal/web build rc=0, 14 static pages · pnpm -r test: web 96 passed,
+  gateway 7 passed, indexer 133 passed / 38 skipped (no database in this environment) ·
+  pnpm test:e2e 19 passed in 41.9 s, including both polarities of A5 · check:tokens 15 ok, and
+  drifting --gold to #ffcc00 produces "FAIL --gold expected #f4b728 found #ffcc00" rc=1 ·
+  grep -rn 'Math.random' apps/web/src empty · scripts/check-no-emoji.sh rc=0 ·
+  dev-surface gate re-tested from scratch: rm -rf .next, production build with NO environment
+  variable set at all, next start - / 200, /dev/primitives 404, /nope 404, zero occurrences of
+  __zr in the served HTML. The gate cannot fail open ·
+  STEP A landed in full: CLAUDE.md carries the revolution protocol including ARCHIVE, HANDOFF-00
+  is closed, the folds are present in 05, 06 and 10, LEDGER carries the L2 block verbatim, and
+  handoffs/prompts/PROMPT-01.md is 11,014 bytes, byte-for-byte the prompt that started the
+  session ·
+  CI check run "typecheck, lint, test" SUCCESS on the PR head a17e7be (run 32608529590).
+  Contrast recomputed independently (WCAG relative luminance): --ink-mute was 4.04:1 on --bg and
+  is now 5.20:1; --ink-faint was 2.10:1 and is now 3.11:1. The report's numbers are accurate and
+  slightly conservative.
+  Verdict: every assertion holds under re-execution. Two gate rounds, converged, no finding.
+  Lighthouse 99/100 is accepted on the session's evidence rather than reproduced here; the
+  accessibility half of it was verified independently by the contrast computation above.
+
+ANSWERS to the ledger questions:
+  Q1 MUTED INKS — ACCEPTED, and the new values are now canonical. The mockup's --ink-mute
+     (#7c7366, 4.04:1) and --ink-faint (#4f4840, 2.10:1) fail WCAG AA for normal text and were
+     being used for real text at 9.5-12px, so the mockup was wrong and the correction is right.
+     #8f8576 and #6a6157 stand, --ink-faint stays retired from text as a hairline token, and the
+     accessibility budget outranks mockup fidelity wherever the two disagree again. The mockup
+     files stay as the historical artefact; the token file is the source of truth for these two
+     values from here.
+  Q2 65-CHARACTER HASH — ACCEPTED. The mockup literal is a typo; the corrected 64-character
+     fixture and its unit test stand. Nothing may harvest that literal (fold below).
+  Q3 PLAYWRIGHT IN CI — YES, it should gate, but not on every PR. Folded into HANDOFF-10 as a
+     separate e2e job with a paths filter on apps/web, installing chromium in the job. The Google
+     Fonts flake that argued against it is removed at the root by vendoring the fonts (fold into
+     HANDOFF-03), which also settles DEFERRED assumption 9.
+  Q4 WEBFONT BUDGET — ACCEPTED as a standing constraint: four families, Manrope preloaded alone,
+     no fifth family without an explicit L2 decision. Recorded in the HANDOFF-03 fold.
+
+FOLDS (apply now, in the RECONCILE commit):
+  1. HANDOFF-02 §4 - add a deliverable: correct the two remaining "22 stale branches" claims in
+     `docs/2.0/ZECREVEAL-2.0-PLAN.md` (lines 14 and 126) to 20 `claude/*` + 2 merged `feat/*`,
+     matching the §10 line HANDOFF-01 already fixed.
+  2. HANDOFF-02 §4 - add a deliverable: in `docs/2.0/mockups/reference/README.md`, record that
+     the mockup's tip hash literal is 65 hex characters (one zero too many in the leading run)
+     and that the canonical fixture is the 64-character value in `apps/web/src/lib/chain.ts`, so
+     no later handoff harvests the typo.
+  3. HANDOFF-03 §3 - add to the contract: the four families are vendored with `next/font/local`
+     rather than fetched from Google at build time, so the build is hermetic and CI cannot flake
+     on a font fetch. Manrope alone is preloaded; a fifth family, or a second preload, needs an
+     explicit L2 decision (LEDGER-01 Q4). Keep the Lighthouse floors of performance >= 95 and
+     accessibility >= 95 on `/beware` as a §5 assertion.
+  4. HANDOFF-03 §3 - add: `--ink-mute` #8f8576 and `--ink-faint` #6a6157 are canonical and
+     `--ink-faint` is a non-text token (hairlines, rules) only. Where a mockup value and WCAG AA
+     for normal text disagree, AA wins and the divergence is recorded in §8.
+  5. HANDOFF-04 §3 - add: the tip-hash fixture is the 64-character value from
+     `apps/web/src/lib/chain.ts`. Never copy the 65-character literal out of the mockup HTML.
+  6. HANDOFF-10 §4 - add a deliverable: a Playwright e2e CI job, separate from the main verify
+     job, triggered only by a paths filter on `apps/web/**`, installing chromium in the job
+     (`playwright install --with-deps chromium`), running `pnpm --filter @zcashreveal/web
+     test:e2e` (LEDGER-01 Q3).
+  7. HANDOFF-10 §4 - add to the `.env.example` deliverable: the root `.env.example` still carries
+     the v0.2 `VITE_*` block and no `SNAPSHOT_*` names. Remove the former, add the latter
+     (LEDGER-01 NOTICED).
+
+NOTED, NOT ACTED ON: root `vercel.json` still points at `legacy/dashboard` - HANDOFF-11 retires
+it at the cutover, and `apps/web/vercel.json` makes the outcome the same either way. The bare
+error shell on a gated-off `/dev/primitives` is cosmetic and stays.
+
+OPERATOR CLICKS OUTSTANDING: create the Vercel project `zecreveal` (Root Directory `apps/web`,
+Framework Next.js) if not yet done; delete the stale remote branches per
+`docs/2.0/BRANCH-CLEANUP.md`; delete the orphaned Vercel project `z-cash-reveal-dashboard`.
+```
+
+---
+
+## L2 RESOLUTION — HANDOFF-01 addendum (Vercel)
+
+Appended by the HANDOFF-02 session under the revolution protocol, step 2. It arrived mid-session, after the HANDOFF-02 block below had already been written, and is placed here rather than at the end of the file because it names HANDOFF-01. Verbatim; L2 has no write access to this repository.
+
+```
+L2 RESOLUTION — HANDOFF-01 addendum, Vercel (Cowork, 23 Aug 2026)
+
+This block arrives mid-session. Apply it in your next commit, before the PR opens. It is two
+extra folds and does not change HANDOFF-02's scope.
+
+FINDING (Executed by L2, not relayed). The `zecreveal` Vercel project now exists
+(prj_rNTLvGWnz92w5qcvROBchPUfdhIR, Root Directory `apps/web`, framework Next.js, no environment
+variables, no custom domain). Its first production build FAILED:
+dpl_9HHZKwUpk798aLxSdMAjy3UDnQNm, errorCode NEXT_OUTPUT_DIR_MISSING. The build log shows Vercel
+ran the ROOT `vercel.json`'s buildCommand verbatim -
+"pnpm --filter=@zcashreveal/types build && pnpm --filter=@zcashreveal/dashboard build" - built
+`legacy/dashboard`, then looked for the root file's outputDirectory at
+`/vercel/path0/apps/web/legacy/dashboard/dist`. `apps/web/vercel.json` was ignored entirely.
+This RESOLVES the HANDOFF-01 §7 UNVERIFIED line "that Vercel resolves vercel.json relative to
+the Root Directory": it does not. The root file is read for every project in this repository and
+overrides the one inside the Root Directory.
+
+FOLDS (apply to THIS handoff, HANDOFF-02):
+  8. §4 - add as the FIRST deliverable: delete the root `vercel.json`. `apps/web` has no
+     workspace dependencies, so with that file gone the Next.js preset builds it with no custom
+     command and `apps/web/vercel.json` (`{"framework":"nextjs"}`) is finally the one that
+     applies. The operator moves the deleted file's settings into the `z-cash-reveal-dashboard2`
+     project settings so that project keeps building until the HANDOFF-11 cutover - Framework
+     Other, Install `pnpm install --frozen-lockfile`, Build `pnpm --filter=@zcashreveal/types
+     build && pnpm --filter=@zcashreveal/dashboard build`, Output `legacy/dashboard/dist`,
+     environment variable `VITE_MOCK_MODE=true`. Record those exact values in
+     `docs/2.0/DEPLOY-2.0.md` and add the click to the `handoffs/README.md` operator table.
+     Delete the file whether or not the operator has done it yet, and say which in §7: the
+     dashboard is legacy, and a red check on it is not a reason to keep the new project broken.
+  9. §5 - add an assertion: no `vercel.json` exists at the repository root, and
+     `apps/web/vercel.json` contains `"framework": "nextjs"` *(fail side: restore the root file
+     in a scratch commit, observe it present, revert)*.
+
+Nothing else in HANDOFF-02 changes. The seven folds you already applied stand.
+```
+
+---
+
+## HANDOFF-02 — `packages/content` — zod schemas + research seeds
+
+Branch `claude/aqua-stack-v4-l2-resolution-7v7qvw` (harness-designated) · shipped 23 Aug 2026 · gate rounds: 4
+
+```
+QUESTIONS (for the operator / L2):
+
+1. WHICH HANDOFF IS "THE NEWEST OPEN" WHEN THREE OPEN AT ONCE. The revolution
+   protocol says RECONCILE opens the lowest unblocked handoff in every track, and
+   the kickoff line says execute the newest one with status: open. After this
+   session's RECONCILE, 02 (Web), 05 (Data) and 10 (Infra) all became open in the
+   same commit, so "newest" had no unique referent. I read it as the Web track's
+   successor to HANDOFF-01, which is also the handoff L2's own folds 1 and 2
+   amended in the same breath. That is almost certainly what was meant, but the
+   rule as written does not say it. Suggest either "the lowest-numbered open
+   handoff unless the operator names one", or have the kickoff line name the file.
+   05 and 10 are now open and unclaimed; if they are meant to run in parallel,
+   each needs its own session told which file it owns.
+
+2. sources.json IS THE WHOLE BIBLIOGRAPHY, 328 ENTRIES, AND 144 ARE UNCITED.
+   Deliverable 2 says "sources.json (every URL de-duplicated)", so I took the
+   union of every URL in the four dossiers rather than only what the Record cites.
+   That comfortably clears A1's floor of 150, and it means any URL a later handoff
+   lifts out of the corpus already resolves. The cost is that /sources will render
+   a bibliography roughly 1.8 times the size of the citation graph. Confirm that is
+   the intent, or say prune-to-cited and I will note that "every URL" then means
+   "every URL the Record uses".
+
+3. TIMELINE DATES CARRY THREE FIELDS, NOT ONE. Section 3 says ids are
+   `T<ISO-date>[-n]`, but 36 of the 124 rows are month-, year- or range-precise in
+   the corpus ("2013", "May 2014", "Apr-Jun 2018", "~Nov 2025"). Inventing a day to
+   satisfy the id format would have fabricated precision, so `date` is the earliest
+   day consistent with the corpus and exists only to sort, `datePrecision` says how
+   much of it is real, and `dateText` carries the corpus's own rendering, which is
+   what HANDOFF-03 should print. `dateEnd` closes a range. Confirm the shape before
+   03 renders it, because changing it afterwards changes every id.
+
+4. SECTION D OR PART C, WHERE THEY DISAGREE ON A CATEGORY? research 03 PART C is
+   the 109-row table and its category key has no NET at all. The dossier's section D
+   is abridged but marks sixteen rows NET, and NET is in the contract's union. I
+   made section D authoritative for those rows: fourteen rows section D has and
+   PART C lacks were added, and seven PART C rows were recategorised to NET. Without
+   that, the /timeline page ships a filter with nothing behind it and the promotion
+   network, which is the site's thesis, is absent from its own timeline. Confirm
+   section D wins on category, or tell me PART C does and NET goes unused.
+
+5. WHICH GRAYSCALE ZEC COUNT IS CANONICAL? The corpus states it three ways.
+   research 04's SEC EDGAR table is itemised by filing date: 393,522.33134026 at
+   2025-12-31 and 388,673.68359943 at 2026-06-30 against total assets of $155,252k.
+   research 01 line 412 and dossier section E.3 both attach the 393,522.33 figure to
+   the Q2 10-Q, but that figure is the December line in the same table and the
+   $155,252k it is paired with belongs to the June line. I used 388,673.68359943 at
+   30 Jun 2026 and carried the others alongside. Confirm, because HANDOFF-03 renders
+   this on /network and /flows.
+
+6. I TOOK A FOURTH GATE ROUND. PLEASE RULE ON WHETHER THAT WAS RIGHT. CLAUDE.md
+   says a gate FAIL gets at most three rounds and a fourth is NOT CONVERGING,
+   escalated to the operator. Round 4 here found four new defects, two of them HIGH
+   and both wrong statements about named individuals: a Form 144 attributed to the
+   wrong Silbert entity on the wrong day at a ZEC price mistaken for a share price,
+   and the $174M Arkham figure still asserted against Arthur Hayes on a network edge
+   thirty lines below the entity body that disclaims it. I read the cap as governing
+   convergence on a finding, not as a budget of corrections: the rounds were
+   convergent, two HIGH then one then none, and round 4's findings were new, from
+   two different reviewers, not the same defect resisting a fix. Shipping a known
+   misattribution about a named person to keep a counter at three seemed clearly
+   worse. But it is your rule. If the cap is meant to be absolute, say so and I will
+   escalate instead next time; if it governs per-finding convergence, CLAUDE.md
+   should say "at most 3 rounds per finding".
+
+7. THE PROTOCOL ASSUMES ONE PROMPT PER SESSION, AND THIS SESSION HAD TWO. Step 5
+   says archive "the prompt that started your session" to prompts/PROMPT-NN.md. The
+   Vercel addendum arrived mid-session, after the PR was open. Dropping it would
+   lose half the session's instructions, and overwriting PROMPT-02.md would break
+   the byte-for-byte property L2 verified on PROMPT-01.md, so I appended it under a
+   rule and a heading that says what it is. The file is now two verbatim messages,
+   and each is still byte-identical to what was sent. If you would rather have one
+   file per message, say so and the convention can be PROMPT-NN-a/-b.
+
+8. THE ADDENDUM IS FILED UNDER HANDOFF-01, ABOVE THE HANDOFF-02 BLOCK IT AMENDS.
+   Step 2 says append an L2 RESOLUTION "beneath the ledger block of the handoff it
+   names", and this one names HANDOFF-01. It arrived after the HANDOFF-02 block had
+   been written, so obeying that literally put it earlier in the file than a block
+   it postdates. I did it anyway, because grouping HANDOFF-01's material is clearly
+   the intent and the block itself opens "This block arrives mid-session", so it
+   self-dates. Flagging it because file order in LEDGER.md is no longer chronological.
+
+INFERRED (non-empty inferences a worker made):
+
+- Subagents do not nest in this environment, so a director could not spawn a crew.
+  The lead acted as director-build and director-quality and named all eleven
+  workers. Same shape HANDOFF-01 recorded; worth folding into CLAUDE.md's operating
+  model as the standing arrangement rather than rediscovering it every session.
+- The claim base was extended onto Phrase, AddressLabel, Case and NetworkEdge.
+  Section 3's field lists for those four omit sources, confidence and lastVerified,
+  but the same section says every Record claim carries all three and A3 checks every
+  claim. Under the narrow reading, four claim types would have been uncheckable.
+  spec-reviewer flagged this as the one place an explicit assumption back to L2 was
+  the cleaner path, and it is here.
+- Fields added beyond section 3's literal lists, each additive and each used:
+  BewareEntry.cve; TimelineEvent.datePrecision, dateText, dateEnd, secondaryCategory;
+  NetworkEntity.kind, role, exposure; NetworkEdge.id (`N-edge-<slug>`, an id family
+  section 3's list does not name) and lastVerified; AddressLabel.id, network,
+  balanceZec, notes; Case.summary, lastVerified and CaseStep.txid; Unverified.id,
+  sources and lastVerified; and the whole Stats type, which section 3 never names
+  although deliverable 2 requires stats.json.
+- Loaders added beyond deliverable 1's list: getCases(), getSource(ref),
+  resolveSources(refs), getStats(). getCase(id) needs a list to search; the citation
+  popover HANDOFF-03 must build needs resolveSources.
+- A3's "lastVerified <= today" is enforced against the system date at validation
+  time, not against a pinned date. Every seed is 2026-08-22.
+- unverified.json is excluded from "every claim" in A3. Its records deliberately
+  carry no sources; six of the 32 cite nothing, which is the honest answer for an
+  artefact that was searched for and not found.
+- A4 is an exact, case-sensitive substring search of each quarantined `claim`
+  against the raw text of every other data file, and the schema refuses a claim
+  under 12 characters as uncheckable. It catches verbatim repetition, not
+  paraphrase, which matches the assertion's own fail-side example.
+- sources.json is generated, not hand-curated: scripts/build-sources.mjs takes the
+  union of every corpus URL and scripts/check-provenance.mjs asserts every URL in
+  the file occurs in the corpus. Crews cite URLs; scripts/resolve-refs.mjs rewrites
+  them to ids and fails on any URL the corpus does not contain. That caught three
+  truncated URLs during the run, one of them mine.
+- packages/content defines its own five-value supplyBucket rather than importing
+  `Pool` from packages/zec-types, which is still the v0.2 pair. HANDOFF-06 owns
+  widening Pool; when it does, content can switch, with transparent staying
+  separate because it is not a pool.
+- Fold 8's diagnosis was right about the root vercel.json and incomplete about the
+  cause. The deployment on the deleting commit failed identically, because the same
+  settings are also stored on the zecreveal project. The available remedy in code is
+  to pin them in apps/web/vercel.json, which takes precedence over stored project
+  settings; a stored setting itself is an operator click, and no agent may touch it.
+  Worth folding back into whatever L2 tells the next session about Vercel: deleting
+  a config file does not undo a setting the dashboard already adopted from it.
+- Fold 8's premise, "apps/web has no workspace dependencies", is true at this commit
+  and false at the next one: HANDOFF-03 makes apps/web depend on the very package
+  this PR creates. With no root vercel.json and a bare Next.js preset, that build
+  must still build the workspace package, via transpilePackages or an explicit Build
+  Command in project settings, never a restored root file. Written into
+  docs/2.0/DEPLOY-2.0.md as a note addressed to HANDOFF-03.
+- Deleting the root vercel.json falsified three sentences in root DEPLOY.md and
+  legacy/dashboard/README.md that fold 8 did not name. Corrected both: a deletion
+  that leaves the documentation describing the deleted thing is half a deletion.
+- Source ids derive from publisher plus the URL's own path, not from the title.
+  The first design used the title, and improving 47 titles moved 46 ids, which
+  would have broken every citation. Titles keep improving as the extractor does;
+  ids must not move when they do. Migration was mechanical, by URL, 452 citations,
+  none unmapped.
+- A bibliography bullet is recognised by its dash separator: "- Title -- URL". A
+  prose bullet that merely contains a link is about the claim, not about the
+  source, and no longer supplies a title. That is what had the BitMEX source, cited
+  by the corpus for both 2025 price extremes, titled with June 2026 crash figures.
+- The two Blockchair API dashboard URLs are admitted as sources even though they
+  are templates carrying {addr} and {hash}. They are the corpus's own stated
+  verification method for the single-use addresses, and citing press that never
+  mentioned those addresses would have been worse.
+
+NOT-MATCHED (patterns handed over that did not apply):
+
+- `gh pr create` (CLAUDE.md, Workflow) is still unavailable in this environment.
+  The PR was opened through the GitHub MCP tooling, as in HANDOFF-00 and 01. Third
+  session running; CLAUDE.md still says gh.
+- Section 6 suggested a Sonnet write the schema and loaders so the executor has a
+  written contract. The lead wrote them, along with the validator, the three
+  scripts, the five test suites, sources.json, labels.json, cases.json and
+  stats.json. labels and cases carry A5 and A6 and are small; the schema is the
+  contract every transcription runs against.
+- Section 6 suggested researcher (Haiku) transcribe the dossier tables. Split by
+  shape rather than uniformly: Haiku took the two well-structured tables (the
+  timeline halves, the phrase catalogue), Sonnet took the four files needing
+  judgement (beware, contradictions, network, unverified). Every Haiku dispatch and
+  every re-dispatch carried a PREFLIGHT.
+- Three separate workers independently reported the same non-problem: that writing
+  `sources` as URLs would fail `sourceSchema` as literally coded. The resolver they
+  had not found is scripts/resolve-refs.mjs. A dispatch that says "cite URLs" should
+  say in the same breath which script converts them.
+- research 03 PART C's category key lists eight categories and never NET, so the
+  worker reading PART C alone could not have produced a NET row. Question 4.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+
+- Whether section 3's field list per type is exhaustive, or whether every type
+  implicitly extends Claim because "every Record claim carries sources[],
+  confidence, lastVerified". The build chose the second uniformly. It is the only
+  reading under which A3 and the validator's sweep make sense across all types, but
+  the Phrase and Unverified lists look deliberately short rather than abbreviated,
+  which is what makes it ambiguous rather than merely terse.
+- Section 3 names an id family for every type except NetworkEdge, which needs one to
+  be a permalink target. Invented `N-edge-<slug>`.
+- A1's counts are given as a flat list; "beware 14, contradictions 16, cases 3" read
+  as exact and "timeline >= 100, labels >= 7, unverified >= 15, sources >= 150" as
+  floors, because the first three are fixed by the corpus and the others are not.
+  The validator enforces exactly that split.
+- A7 says the filter "returns >= 20 events and all have category === 'EXPLOIT'".
+  The purity half is a property of the filter, not of the data: no edit to a row can
+  break it, because a relabelled row genuinely is EXPLOIT. The fail-state transcript
+  therefore breaks the plausible wrong implementation (a filter that also matches
+  secondaryCategory) instead.
+
+GATE ROUND COUNTS: 4. See question 6: the fourth is a deliberate overrun of the
+Loop 4 cap and I am asking you to rule on the reading rather than assuming it.
+
+  round 1 (timeline.json, re-dispatched to researcher-timeline-gate)
+    file · rule · severity
+    timeline.json · no corrected fact may survive uncorrected · HIGH
+    timeline.json · section 2 READING names dossier section D as a source · HIGH
+    timeline.json · title is a headline, summary is the substance · MID
+  round 2 (lead corrections, from lead review and security-auditor)
+    network.json · no claim may be more certain than the corpus · HIGH
+    network.json · the most recent primary figure wins · MID
+    unverified.json · all five corrected premises must be quarantined · LOW
+    phrases.json · tension is what a reader sees · MID
+  round 3 (lead corrections, from spec-reviewer and docs-scribe)
+    schema.ts · CLAUDE.md requires bigint for zatoshi · MID
+    phrases.json · a citation must be about its claim · MID
+  round 4 (lead corrections, from lead review and security-auditor-2)
+    timeline.json · a claim about a person must match the primary record · HIGH
+    network.json · no claim may be more certain than the corpus · HIGH
+    sources.json · a title must name the source, not restate the claim · MID
+    sources.json · an id must not move when a title improves · MID
+
+  Rounds 1 to 3 converged: two HIGH, then one, then none. Round 4's two HIGH
+  findings are not a regression of that trend; they are the first pass in which
+  anyone read timeline.json and network.json line by line against the primary
+  filings, and both files landed last. The lesson for the next handoff is to gate
+  the largest files first rather than last.
+
+DEFERRED ASSUMPTIONS:
+
+- No live chain or explorer confirmation of the eight labelled addresses or the
+  fourteen case transaction ids. Egress to blockchair.com and
+  mainnet.zcashexplorer.app is blocked here; curl gets 403 from the proxy. Every one
+  is transcribed from research 04, which states it queried Blockchair on 2026-08-22
+  and marks each row [verified]. Re-pulling them needs an environment with egress,
+  which HANDOFF-10 or 11 will have.
+- No live fetch of any of the 328 source URLs. Provenance is proven against the
+  corpus, not the live web. research 03 PART F already reports at least one 404, and
+  the Protos URL cited for Naval Ravikant's row may be that one. Link-rot sweep
+  deferred to whichever handoff renders /sources.
+- research 03 PART C dates the ECC team's regrouping as "cashZ (cashz.org)" on
+  8 Jan 2026 while the dossier says the team became ZODL. Both are transcribed, the
+  January row as cashZ and the March row as ZODL, which reads as a rename; nobody
+  states that explicitly and no source in the corpus connects them.
+- The corpus's own Zebra advisory table tallies 11 Critical and 8 High across 41
+  rows, against its stated headline of 12 Critical. B10 transcribes the headline.
+  Pre-existing corpus arithmetic, not introduced here.
+- The eslint no-unused-vars promotion for test files and the unused `saplingSpend`
+  in block-decoder.test.ts remain deferred to 06 or 07, as HANDOFF-00 and 01 both
+  recorded. Still the only lint warning in the workspace.
+- Root .env.example still carries the v0.2 VITE_* block and no SNAPSHOT_* names.
+  This session's RECONCILE folded it into HANDOFF-10 deliverable 1.
+- Root vercel.json: no longer deferred. HANDOFF-00 and HANDOFF-01 both deferred
+  deleting it to the HANDOFF-11 cutover, and the first L2 RESOLUTION for HANDOFF-01
+  said apps/web/vercel.json "makes the outcome the same either way". L2's own build
+  log disproved that, and the addendum's fold 8 supersedes all three deferrals. It
+  is deleted in this PR.
+- The zecreveal project still stores the legacy dashboard's build command, install
+  command and output directory. apps/web/vercel.json overrides all three, so the
+  build no longer depends on them, but they are a trap for whoever next edits that
+  file. Clearing them is operator click one in docs/2.0/DEPLOY-2.0.md section 1.
+- `z-cash-reveal-dashboard2` will fail to build until an operator types the deleted
+  file's six settings into that project. Accepted by fold 8, recorded in
+  docs/2.0/DEPLOY-2.0.md section 1 and as row 02 of the operator table.
+- packages/zec-types `Pool` is still the v0.2 pair. HANDOFF-06.
+```

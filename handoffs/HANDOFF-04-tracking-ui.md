@@ -42,6 +42,9 @@ The Tracking suite UI in `apps/web`, driven by a typed `ZecApi` interface with a
 - `ZecApi` interface: `searchKind(q)`, `getAddress(a)`, `getTx(id)`, `getBlock(h)`, `getPools()`, `getMempool()`, `getFlows()`, `getLabels()`, `subscribe(onFrame)`; implementations `FixtureApi` and `HttpApi` (unwired).
 - Search-kind detection: `t1`/`t3` + 33 base58 chars → transparent; `zs1`/`u1`/`zc` → shielded (routes to `/reveal` Mode B); `uview`/`zxview`/`zivk` → viewing key (never leaves the client); 64 hex → txid; integer → height.
 - A shielded balance is rendered **only** inside the Mode A pane, which is gated; every estimate renders its assumptions and the claim chip.
+- **Tip-hash fixture** (LEDGER-01 Q2, fold 5): the canonical tip hash is the 64-character value in
+  `apps/web/src/lib/chain.ts`. Never copy the 65-character literal out of the mockup HTML — it carries one
+  zero too many in its leading run.
 
 ## §4 DELIVERABLES
 

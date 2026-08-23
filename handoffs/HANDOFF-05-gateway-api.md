@@ -1,7 +1,7 @@
 ---
 handoff: 05
 title: Gateway REST read API v2 + hardening (Zebra address-index RPCs with a cache)
-status: queued
+status: open
 branch: the session-designated branch (name it `feat/v2-05-gateway-api` if you may choose)
 track: Data
 depends_on: 00 (uses the DTOs from 04 if merged; otherwise defines them)

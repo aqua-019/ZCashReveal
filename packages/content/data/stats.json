@@ -1,0 +1,59 @@
+{
+  "asOf": "2026-08-22",
+  "height": 3456227,
+  "pools": [
+    {
+      "bucket": "transparent",
+      "zec": "12500223",
+      "zatoshi": "1250022300000000",
+      "sharePct": 74.0097
+    },
+    {
+      "bucket": "sprout",
+      "zec": "22621",
+      "zatoshi": "2262100000000",
+      "sharePct": 0.1339
+    },
+    {
+      "bucket": "sapling",
+      "zec": "529015",
+      "zatoshi": "52901500000000",
+      "sharePct": 3.1321
+    },
+    {
+      "bucket": "orchard",
+      "zec": "708841",
+      "zatoshi": "70884100000000",
+      "sharePct": 4.1968
+    },
+    {
+      "bucket": "ironwood",
+      "zec": "3129287",
+      "zatoshi": "312928700000000",
+      "sharePct": 18.5275
+    }
+  ],
+  "shieldedSharePct": {
+    "low": 26,
+    "high": 26.8
+  },
+  "shieldedShareNote": "CipherScan at block 3,456,227 gives 26.0 percent shielded; ZECStats reads 26.8 percent. Cite the range, roughly 26 to 27 percent. Coin Metrics adds that the growth was driven primarily by shielding and deshielding activity, and that fully shielded transfers remain a small share.",
+  "priceUsd": {
+    "low": 784,
+    "high": 821
+  },
+  "marketCapUsd": {
+    "low": 13300000000,
+    "high": 13800000000
+  },
+  "openInterestUsd": 1660000000,
+  "sources": [
+    "S-cipherscan-ironwood",
+    "S-zec-stats-zecstats-com",
+    "S-coingecko-coins-zcash",
+    "S-coinglass-com-currencies-zec",
+    "S-coin-metrics-state-of-the-network-issue-338"
+  ],
+  "confidence": "med",
+  "lastVerified": "2026-08-22"
+}

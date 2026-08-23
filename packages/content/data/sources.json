@@ -1,0 +1,2626 @@
+[
+  {
+    "id": "S-21shares-com-product",
+    "title": "21shares.com: Product",
+    "url": "https://www.21shares.com/en-eu/product",
+    "publisher": "21shares.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-ambcrypto-zcash-foundation-reports-36-7mln-in-li",
+    "title": "AMBCrypto on ZF Q1 2026 treasury",
+    "url": "https://ambcrypto.com/zcash-foundation-reports-36-7mln-in-liquid-assets-why-21mln-in-zec-matters/",
+    "publisher": "AMBCrypto",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-archive-org-details-radiolab-podcast17crypto-zca",
+    "title": "Radiolab — The Ceremony (podcast, archive copy)",
+    "url": "https://archive.org/details/radiolab_podcast17crypto_zcash_ceremony",
+    "publisher": "archive.org",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-arkham-announcements-zcash-is-live-on-arkham",
+    "title": "\"Zcash Is Live On Arkham\" (2025-12-08)",
+    "url": "https://info.arkm.com/announcements/zcash-is-live-on-arkham",
+    "publisher": "Arkham",
+    "date": "2025-12-08",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-arkham-research-how-to-track-zcash-transactions",
+    "title": "\"How To Track Zcash Transactions\"",
+    "url": "https://info.arkm.com/research/how-to-track-zcash-transactions",
+    "publisher": "Arkham",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-arkm-com-token-zcash",
+    "title": "arkm.com: Explorer Token Zcash",
+    "url": "https://arkm.com/explorer/token/zcash",
+    "publisher": "arkm.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-arxiv-pdf-1712-01210",
+    "title": "Quesnelle — On the linkability of Zcash transactions, arXiv:1712.01210 (4 Dec 2017)",
+    "url": "https://arxiv.org/pdf/1712.01210",
+    "publisher": "arXiv",
+    "date": "2017-12-04",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-bankless-podcast-zcash-founder-on-privacy-ai-and",
+    "title": "Zcash Founder on Privacy Ai and How ZEC Is Encrypted Bitcoin Zooko",
+    "url": "https://www.bankless.com/podcast/zcash-founder-on-privacy-ai-and-how-zec-is-encrypted-bitcoin-zooko",
+    "publisher": "Bankless",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-barchart-com-641883-cypherpunk-makes-5m-investme",
+    "title": "Cypherpunk Makes 5m Investment Into Zcash Open Development Lab Zodl",
+    "url": "https://www.barchart.com/story/news/641883/cypherpunk-makes-5m-investment-into-zcash-open-development-lab-zodl",
+    "publisher": "barchart.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-beincrypto-researcher-zcash-bug-monero-audit",
+    "title": "BeInCrypto, Researcher Who Found Zcash Bug Adds Monero to Audit Queue",
+    "url": "https://beincrypto.com/researcher-zcash-bug-monero-audit/",
+    "publisher": "BeInCrypto",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-beincrypto-zec-supply-unshielded-in-early-2026",
+    "title": "BeInCrypto, \"Over 1% ZEC Unshielded, Are Investors Exiting Privacy Coins?\"",
+    "url": "https://beincrypto.com/zec-supply-unshielded-in-early-2026/",
+    "publisher": "BeInCrypto",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-bingx-com-zcash-privacy-push-shielded-transactio",
+    "title": "Zcash Privacy Push Shielded Transactions Reach and Post Quantum Plans Expand",
+    "url": "https://bingx.com/en/news/post/zcash-privacy-push-shielded-transactions-reach-and-post-quantum-plans-expand",
+    "publisher": "bingx.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-bitcoin-core-20-notice",
+    "title": "Bitcoin Core CVE-2018-17144 disclosure",
+    "url": "https://bitcoincore.org/en/2018/09/20/notice/",
+    "publisher": "Bitcoin Core",
+    "date": "2018-09-20",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-bitcoinfoundation-org-altcoins-zec-price-zcash-f",
+    "title": "Zooko/McGee statement on supply soundness (2026-06-15)",
+    "url": "https://bitcoinfoundation.org/news/altcoins/zec-price-zcash-founder-says-exploit-was-unlikely/",
+    "publisher": "bitcoinfoundation.org",
+    "date": "2026-06-15",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-bitcoinfoundation-org-blockchain-news-zcash-bloc",
+    "title": "Bitcoin Foundation, Zcash Blockchain Down for Over 4 Hours",
+    "url": "https://bitcoinfoundation.org/news/blockchain-news/zcash-blockchain-outage/",
+    "publisher": "bitcoinfoundation.org",
+    "date": "2026-06-03",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-bitcoinops-org-topics-cve-2018-17144",
+    "title": "bitcoinops.org",
+    "url": "https://bitcoinops.org/en/topics/cve-2018-17144/",
+    "publisher": "bitcoinops.org",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-bitcoinworld-co-in-gemini-co-founder-ai-investme",
+    "title": "Gemini Co Founder Ai Investment Cycle Over Bitcoin Zcash",
+    "url": "https://bitcoinworld.co.in/gemini-co-founder-ai-investment-cycle-over-bitcoin-zcash/",
+    "publisher": "bitcoinworld.co.in",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-bitinfocharts-top-100-richest-zcash-addresses",
+    "title": "BitInfoCharts top-100",
+    "url": "https://bitinfocharts.com/top-100-richest-zcash-addresses.html",
+    "publisher": "BitInfoCharts",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-bitmex-com-zec-crash-2026",
+    "title": "BitMEX Blog — Why Zcash Crashed Nearly 50% in 48 Hours",
+    "url": "https://www.bitmex.com/blog/zec-crash-2026",
+    "publisher": "bitmex.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-bitquery-io-was-zcash-counterfeited-orchard-bug",
+    "title": "Bitquery, A Bug Could Have Printed Unlimited Zcash For Four Years. Did Anyone?",
+    "url": "https://bitquery.io/blog/was-zcash-counterfeited-orchard-bug",
+    "publisher": "bitquery.io",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-blockchain-news-flashnews-zec-whale-alert-newly",
+    "title": "blockchain.news, 30,000 ZEC withdrawal (source of the t1XKfb… address)",
+    "url": "https://blockchain.news/flashnews/zec-whale-alert-newly-created-wallet-withdraws-30-000-zec-13-25m-from-binance-on-chain-data-shows",
+    "publisher": "Blockchain.News",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-blockchain-news-flashnews-zec-whale-deposits-74",
+    "title": "blockchain.news, 74,002 ZEC to Binance (source of the t1Ym8XWv… address)",
+    "url": "https://blockchain.news/flashnews/zec-whale-deposits-74-002-zec-worth-35-75m-to-binance-signaling-exchange-inflow",
+    "publisher": "Blockchain.News",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-blockchain-news-flashnews-zec-zcash-whale-alert",
+    "title": "blockchain.news, 202,077 ZEC claim (EmberCN, unverified)",
+    "url": "https://blockchain.news/flashnews/zec-zcash-whale-alert-202-077-zec-withdrawn-from-binance-at-437-as-price-jumps-12-on-chain-address-and-trading-watch",
+    "publisher": "Blockchain.News",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-blockchair-api-address-addr",
+    "title": "Blockchair Zcash API -- address dashboard (method; queried 2026-08-22)",
+    "url": "https://api.blockchair.com/zcash/dashboards/address/{addr}",
+    "publisher": "Blockchair API",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-blockchair-api-transaction-hash",
+    "title": "Blockchair Zcash API -- transaction dashboard (method; queried 2026-08-22)",
+    "url": "https://api.blockchair.com/zcash/dashboards/transaction/{hash}",
+    "publisher": "Blockchair API",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-blockchair-api-zcash-addresses",
+    "title": "Blockchair API: Zcash Addresses",
+    "url": "https://api.blockchair.com/zcash/addresses?limit=25",
+    "publisher": "Blockchair API",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-blockchair-api-zcash-stats",
+    "title": "Blockchair Zcash stats API",
+    "url": "https://api.blockchair.com/zcash/stats",
+    "publisher": "Blockchair API",
+    "date": "2026-08-22",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-blocksec-com-web3-security-zcash-orchard-soundne",
+    "title": "BlockSec — Zcash Orchard Soundness Bug Analysis",
+    "url": "https://blocksec.com/blog/web3-security-zcash-orchard-soundness-bug-analysis",
+    "publisher": "blocksec.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-blockstream-what-the-zcash-orchard-bug-reveals-a",
+    "title": "Blockstream, What the Zcash Orchard Bug Reveals About Verifiable Supply",
+    "url": "https://blog.blockstream.com/what-the-zcash-orchard-bug-reveals-about-verifiable-supply/",
+    "publisher": "Blockstream",
+    "date": "2026-06-12",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-blockworks-com-zcash-mining-zcash-block-reward-d",
+    "title": "Blockworks Zcash analytics",
+    "url": "https://blockworks.com/analytics/zcash/zcash-mining/zcash-block-reward-distribution",
+    "publisher": "blockworks.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-ccn-coincheck-to-delist-privacy-coins-monero-zca",
+    "title": "CCN — Coincheck to delist privacy coins",
+    "url": "https://www.ccn.com/coincheck-to-delist-privacy-coins-monero-zcash-and-dash/",
+    "publisher": "CCN",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-ccn-crypto-zcash-dev-drama-explained-heres-what",
+    "title": "CCN — Zcash dev drama explained / cashZ pivot",
+    "url": "https://www.ccn.com/news/crypto/zcash-dev-drama-explained-heres-what-happened/",
+    "publisher": "CCN",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-ccn-crypto-zec-500-percent-rally-explained-next",
+    "title": "ZEC 500 Percent Rally Explained Next Bitcoin",
+    "url": "https://www.ccn.com/education/crypto/zec-500-percent-rally-explained-next-bitcoin/",
+    "publisher": "CCN",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-cipherscan-cipherscan-app",
+    "title": "CipherScan (cipherscan.app)",
+    "url": "https://cipherscan.app/",
+    "publisher": "CipherScan",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-cipherscan-ironwood",
+    "title": "CipherScan — Ironwood migration tracker",
+    "url": "https://cipherscan.app/ironwood",
+    "publisher": "CipherScan",
+    "date": "2026-08-22",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coin-metrics-state-of-the-network-issue-338",
+    "title": "Coin Metrics, State of the Network #338",
+    "url": "https://coinmetrics.substack.com/p/state-of-the-network-issue-338",
+    "publisher": "Coin Metrics",
+    "date": "2025-11-08",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coinbase-com-tokenomics-review-privacy-coins-zca",
+    "title": "Coinbase Institutional",
+    "url": "https://www.coinbase.com/institutional/research-insights/research/tokenomics-review/privacy_coins_zcash",
+    "publisher": "coinbase.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coincarp-zcash-exchange-wallets",
+    "title": "CoinCarp Zcash \"exchange wallets\" (empty; BEP20)",
+    "url": "https://www.coincarp.com/currencies/zcash/exchange-wallets/",
+    "publisher": "CoinCarp",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coincarp-zcash-richlist",
+    "title": "CoinCarp Zcash rich list (stale)",
+    "url": "https://www.coincarp.com/currencies/zcash/richlist/",
+    "publisher": "CoinCarp",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coincentral-com-zachxbt-questions-arthur-hayes-o",
+    "title": "CoinCentral, ZachXBT questions Hayes",
+    "url": "https://coincentral.com/zachxbt-questions-arthur-hayes-over-wld-zec-hype-and-near-token-sales/",
+    "publisher": "coincentral.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coincentral-com-zcash-block-halt-freezes-deposit",
+    "title": "CoinCentral, Zcash Block Halt Freezes Deposits",
+    "url": "https://coincentral.com/zcash-block-halt-freezes-deposits-on-major-exchanges/",
+    "publisher": "coincentral.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coincodex-com-87367-zcash-etf",
+    "title": "Coincodex, When Is the First Zcash ETF Launching in the U.S.?",
+    "url": "https://coincodex.com/article/87367/zcash-etf/",
+    "publisher": "coincodex.com",
+    "date": "2026-01-15",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindataflow-com-zcash-halving-countdown",
+    "title": "coindataflow.com",
+    "url": "https://coindataflow.com/en/zcash-halving-countdown",
+    "publisher": "coindataflow.com",
+    "date": "2024-11-23",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-01-what-does-crypto-care-if-zooko-is-a",
+    "title": "CoinDesk — What Does Crypto Care if Zooko Is a Millionaire? (1 Jul 2018)",
+    "url": "https://www.coindesk.com/markets/2018/07/01/what-does-crypto-care-if-zooko-is-a-millionaire",
+    "publisher": "CoinDesk",
+    "date": "2018-07-01",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-05-arthur-hayes-dumps-zcash-holdings-af",
+    "title": "CoinDesk, \"Arthur Hayes dumps zcash holdings after Orchard Pool vulnerability revealed\" (2026-06-05)",
+    "url": "https://www.coindesk.com/markets/2026/06/05/arthur-hayes-dumps-zcash-holdings-after-orchard-pool-vulnerability-revealed",
+    "publisher": "CoinDesk",
+    "date": "2026-06-05",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-05-bearish-zcash-bets-hit-record-high-a",
+    "title": "CoinDesk, \"Bearish zcash bets hit record high\" (2026-06-05)",
+    "url": "https://www.coindesk.com/markets/2026/06/05/bearish-zcash-bets-hit-record-high-as-privacy-token-s-price-crashes",
+    "publisher": "CoinDesk",
+    "date": "2026-06-05",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-05-zcash-plummets-30-as-developer-revea",
+    "title": "CoinDesk, Zcash plummets 38% as Shielded Labs reveals a major bug",
+    "url": "https://www.coindesk.com/markets/2026/06/05/zcash-plummets-30-as-developer-reveals-a-major-bug-that-went-undetected-for-four-years",
+    "publisher": "CoinDesk",
+    "date": "2026-06-05",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-06-binance-to-delist-monero-privacy-tok",
+    "title": "Binance to Delist Monero Privacy Token Xmr Slides",
+    "url": "https://www.coindesk.com/markets/2024/02/06/binance-to-delist-monero-privacy-token-xmr-slides",
+    "publisher": "CoinDesk",
+    "date": "2024-02-06",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-07-zcash-trademark-talks-were-about-mor",
+    "title": "CoinDesk — Zcash Trademark Talks Were About More Than a Logo (7 Nov 2019)",
+    "url": "https://www.coindesk.com/tech/2019/11/07/zcash-trademark-talks-were-about-more-than-a-logo",
+    "publisher": "CoinDesk",
+    "date": "2019-11-07",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-08-zcash-developer-team-behind-ecc-quit",
+    "title": "CoinDesk — Zcash developer team quits after governance clash (8 Jan 2026)",
+    "url": "https://www.coindesk.com/tech/2026/01/08/zcash-developer-team-behind-ecc-quits-after-governance-clash-with-bootstrap-board",
+    "publisher": "CoinDesk",
+    "date": "2026-01-08",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-09-josh-swihart-s-zcash-open-developmen",
+    "title": "CoinDesk — ZODL raises $25M (9 Mar 2026)",
+    "url": "https://www.coindesk.com/business/2026/03/09/josh-swihart-s-zcash-open-development-lab-raises-usd25-million-in-seed-funding",
+    "publisher": "CoinDesk",
+    "date": "2026-03-09",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-13-zcash-completes-powers-of-tau-privac",
+    "title": "CoinDesk — Zcash Completes 'Powers of Tau' (13 Apr 2018)",
+    "url": "https://www.coindesk.com/markets/2018/04/13/zcash-completes-powers-of-tau-privacy-ceremony",
+    "publisher": "CoinDesk",
+    "date": "2018-04-13",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-14-zcash-and-the-art-of-security-theate",
+    "title": "CoinDesk — Zcash and the Art of Security Theater (14 Nov 2016)",
+    "url": "https://www.coindesk.com/markets/2016/11/14/zcash-and-the-art-of-security-theater",
+    "publisher": "CoinDesk",
+    "date": "2016-11-14",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-19-winklevoss-backed-cypherpunk-buys-us",
+    "title": "Winklevoss Backed Cypherpunk Buys Usd18m More Zcash Bringing Holdings to Usd150m",
+    "url": "https://www.coindesk.com/business/2025/11/19/winklevoss-backed-cypherpunk-buys-usd18m-more-zcash-bringing-holdings-to-usd150m",
+    "publisher": "CoinDesk",
+    "date": "2025-11-19",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-20-south-koreas-upbit-becomes-latest-ex",
+    "title": "CoinDesk — South Korea's Upbit delists privacy coins (20 Sep 2019)",
+    "url": "https://www.coindesk.com/markets/2019/09/20/south-koreas-upbit-becomes-latest-exchange-to-delist-privacy-coins/",
+    "publisher": "CoinDesk",
+    "date": "2019-09-20",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-28-zcash-seals-usd1-7-billion-shielded",
+    "title": "CoinDesk, Zcash seals $1.7B shielded pool as Ironwood activates",
+    "url": "https://www.coindesk.com/tech/2026/07/28/zcash-seals-usd1-7-billion-shielded-pool-as-ironwood-upgrade-activates",
+    "publisher": "CoinDesk",
+    "date": "2026-07-28",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-29-about-usd80-million-zec-crosses-into",
+    "title": "CoinDesk — ~$80M ZEC crosses into Ironwood on day one (29 Jul 2026)",
+    "url": "https://www.coindesk.com/tech/2026/07/29/about-usd80-million-zec-crosses-into-zcash-s-new-ironwood-pool-in-the-first-day",
+    "publisher": "CoinDesk",
+    "date": "2026-07-29",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-29-bitcoin-prices-roar-past-700-but-zca",
+    "title": "CoinDesk — Bitcoin Prices Roar Past $700 But Zcash Steals the Show (29 Oct 2016)",
+    "url": "https://www.coindesk.com/markets/2016/10/29/bitcoin-prices-roar-past-700-but-zcash-steals-the-show",
+    "publisher": "CoinDesk",
+    "date": "2016-10-29",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-30-zcash-upside-hinges-on-repricing-fin",
+    "title": "Zcash Upside Hinges on Repricing Financial Privacy in an Ai Driven World Grayscale Says",
+    "url": "https://www.coindesk.com/tech/2026/03/30/zcash-upside-hinges-on-repricing-financial-privacy-in-an-ai-driven-world-grayscale-says",
+    "publisher": "CoinDesk",
+    "date": "2026-03-30",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-coindesk-podcast-network-why-zcash-is-t",
+    "title": "CoinDesk podcast",
+    "url": "https://www.coindesk.com/podcasts/coindesk-podcast-network/why-zcash-is-the-fastest-horse-for-privacy-helius-ceo-mert-mumtaz",
+    "publisher": "CoinDesk",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-price-zcash",
+    "title": "CoinDesk ZEC price page",
+    "url": "https://www.coindesk.com/price/zcash",
+    "publisher": "CoinDesk",
+    "date": "2016-10-28",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-research-inside-zcash-encrypted-money-a",
+    "title": "coindesk.com/research/inside-zcash-encrypted-money-at-planetary-scale",
+    "url": "https://www.coindesk.com/research/inside-zcash-encrypted-money-at-planetary-scale",
+    "publisher": "CoinDesk",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coindesk-tag-zcash",
+    "title": "CoinDesk: Tag Zcash",
+    "url": "https://www.coindesk.com/tag/zcash",
+    "publisher": "CoinDesk",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coingecko-coins-zcash",
+    "title": "CoinGecko — Zcash",
+    "url": "https://www.coingecko.com/en/coins/zcash",
+    "publisher": "CoinGecko",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coingecko-companies-cypherpunk-technologies",
+    "title": "CoinGecko treasuries",
+    "url": "https://www.coingecko.com/en/treasuries/companies/cypherpunk-technologies",
+    "publisher": "CoinGecko",
+    "date": "2026-06-05",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coingecko-treasuries-zcash",
+    "title": "CoinGecko — Zcash treasuries",
+    "url": "https://www.coingecko.com/en/treasuries/zcash",
+    "publisher": "CoinGecko",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coinglass-com-balance",
+    "title": "CoinGlass exchange balances (no ZEC)",
+    "url": "https://www.coinglass.com/Balance",
+    "publisher": "coinglass.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coinglass-com-currencies-zec",
+    "title": "Coinglass ZEC derivatives",
+    "url": "https://www.coinglass.com/currencies/ZEC",
+    "publisher": "coinglass.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coinglass-com-zec-futures",
+    "title": "coinglass.com: Currencies ZEC Futures",
+    "url": "https://www.coinglass.com/currencies/ZEC/futures",
+    "publisher": "coinglass.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coinmarketcap-academy-zec-surges-30percent-after",
+    "title": "ZEC Surges 30percent After Arthur Hayes Predicts Dollar10000 Target",
+    "url": "https://coinmarketcap.com/academy/article/zec-surges-30percent-after-arthur-hayes-predicts-dollar10000-target",
+    "publisher": "CoinMarketCap",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coinmarketcap-zcash-latest-updates",
+    "title": "Latest Updates",
+    "url": "https://coinmarketcap.com/cmc-ai/zcash/latest-updates/",
+    "publisher": "CoinMarketCap",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coinpaprika-com-ai-audit-finds-zcash-orchard-bug",
+    "title": "Ai Audit Finds Zcash Orchard Bug Thorchain",
+    "url": "https://coinpaprika.com/news/ai-audit-finds-zcash-orchard-bug-thorchain/",
+    "publisher": "coinpaprika.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-coinpedia-org-price-analysis-zcash-price-surges",
+    "title": "Zcash Price Surges After SEC Closure Will This Catalyst Push ZEC to 1000 in 2026",
+    "url": "https://coinpedia.org/price-analysis/zcash-price-surges-after-sec-closure-will-this-catalyst-push-zec-to-1000-in-2026/",
+    "publisher": "coinpedia.org",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-cointelegraph-cypherpunk-zcash-mining-winklevoss",
+    "title": "Cointelegraph",
+    "url": "https://cointelegraph.com/news/cypherpunk-zcash-mining-winklevoss-capital-zec",
+    "publisher": "Cointelegraph",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-cointelegraph-magazine-2026-pragmatic-privacy-cr",
+    "title": "Cointelegraph Magazine",
+    "url": "https://cointelegraph.com/magazine/2026-pragmatic-privacy-crypto-canton-zcash-ethereum-foundation/",
+    "publisher": "Cointelegraph",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-cointelegraph-winklevoss-zcash-privacy-combat-ai",
+    "title": "Cointelegraph",
+    "url": "https://cointelegraph.com/news/winklevoss-zcash-privacy-combat-ai-threat",
+    "publisher": "Cointelegraph",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-cointribune-zcash-anthropics-claude-mythos-detec",
+    "title": "Cointribune, Anthropic's Claude Mythos detects no major flaw",
+    "url": "https://www.cointribune.com/en/zcash-anthropics-claude-mythos-detects-no-major-flaw-after-requested-audit/",
+    "publisher": "Cointribune",
+    "date": "2026-06-02",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-briefing-grayscale-zcash-etf-dcg-zec-cont",
+    "title": "CryptoBriefing, Grayscale/DCG ZEC contribution",
+    "url": "https://cryptobriefing.com/grayscale-zcash-etf-dcg-zec-contribution/",
+    "publisher": "Crypto Briefing",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-briefing-zcash-anthropic-audit-no-serious",
+    "title": "Cryptobriefing, Zcash audit by Anthropic finds no serious bugs",
+    "url": "https://cryptobriefing.com/zcash-anthropic-audit-no-serious-bugs/",
+    "publisher": "Crypto Briefing",
+    "date": "2026-06-12",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-briefing-zcash-jumps-anthropic-mythos-sec",
+    "title": "Crypto Briefing — Zcash jumps 25% as Anthropic Mythos audit finds no critical flaws (15 Jun 2026)",
+    "url": "https://cryptobriefing.com/zcash-jumps-anthropic-mythos-security-audit/",
+    "publisher": "Crypto Briefing",
+    "date": "2026-06-15",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-briefing-zcash-orchard-bug-emergency-upgr",
+    "title": "Crypto Briefing — Zcash fixes critical Orchard bug (3 Jun 2026)",
+    "url": "https://cryptobriefing.com/zcash-orchard-bug-emergency-upgrade/",
+    "publisher": "Crypto Briefing",
+    "date": "2026-06-03",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-briefing-zcash-paused-nu6-2-mainnet-upgra",
+    "title": "Cryptobriefing, Zcash deposits and withdrawals paused ahead of NU6.2",
+    "url": "https://cryptobriefing.com/zcash-paused-nu6-2-mainnet-upgrade/",
+    "publisher": "Crypto Briefing",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-briefing-zcash-surges-42-percent-past-800",
+    "title": "Cryptobriefing, Zcash surges 42% past $800",
+    "url": "https://cryptobriefing.com/zcash-surges-42-percent-past-800-grayscale-etf/",
+    "publisher": "Crypto Briefing",
+    "date": "2025-08-06",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-briefing-zcash-surges-gemini-zec-credit-c",
+    "title": "CryptoBriefing",
+    "url": "https://cryptobriefing.com/zcash-surges-gemini-zec-credit-card/",
+    "publisher": "Crypto Briefing",
+    "date": "2026-01-09",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-briefing-zcash-zcash-etf-sec-filing",
+    "title": "Cryptobriefing, Grayscale files fifth SEC amendment",
+    "url": "https://cryptobriefing.com/zcash-zcash-etf-sec-filing/",
+    "publisher": "Crypto Briefing",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-economy-com-zcash-foundation-reports-36-6",
+    "title": "Crypto Economy — ZF reports $36.69M liquid assets",
+    "url": "https://crypto-economy.com/zcash-foundation-reports-36-69m-in-liquid-assets-as-q1-expenses-reach-817k/",
+    "publisher": "crypto-economy.com",
+    "date": "2026-05-19",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-news-coinbase-limits-zcash-trading-as-via",
+    "title": "crypto.news — Coinbase limits Zcash trading (ViaBTC)",
+    "url": "https://crypto.news/coinbase-limits-zcash-trading-as-viabtc-poses-risks-of-51-attack/",
+    "publisher": "crypto.news",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-news-cypherpunk-becomes-largest-zcash-min",
+    "title": "crypto.news, \"Cypherpunk becomes largest Zcash miner in $33M deal\"",
+    "url": "https://crypto.news/cypherpunk-becomes-largest-zcash-miner-in-33m-deal/",
+    "publisher": "crypto.news",
+    "date": "2026-06-05",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-news-electric-coin-companys-entire-zcash",
+    "title": "crypto.news — ECC team quits in Bootstrap governance rift",
+    "url": "https://crypto.news/electric-coin-companys-entire-zcash-team-quits-in-bootstrap-governance-rift/",
+    "publisher": "crypto.news",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-news-sec-ends-zcash-foundation-probe-enfo",
+    "title": "crypto.news — SEC ends Zcash Foundation probe",
+    "url": "https://crypto.news/sec-ends-zcash-foundation-probe-enforcement-2026/",
+    "publisher": "crypto.news",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-news-the-first-privacy-coin-etf-inside-gr",
+    "title": "The First Privacy Coin ETF Inside Grayscales Zcash Filing",
+    "url": "https://crypto.news/the-first-privacy-coin-etf-inside-grayscales-zcash-filing/",
+    "publisher": "crypto.news",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-news-why-30-of-zcash-supply-is-now-in-the",
+    "title": "crypto.news — Why 30% of Zcash supply is in the shielded pool (29 May 2026)",
+    "url": "https://crypto.news/why-30-of-zcash-supply-is-now-in-the-shielded-pool/",
+    "publisher": "crypto.news",
+    "date": "2026-05-29",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-news-zcash-ironwood-upgrade-whats-changed",
+    "title": "crypto.news, Zcash Ironwood upgrade: What's changed after the Orchard bug?",
+    "url": "https://crypto.news/zcash-ironwood-upgrade-whats-changed-after-the-orchard-bug/",
+    "publisher": "crypto.news",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-news-zcash-privacy-tested-as-arkham-track",
+    "title": "\"Zcash privacy tested as Arkham tracks 53% of ZEC\"",
+    "url": "https://crypto.news/zcash-privacy-tested-as-arkham-tracks-53percent-of-zec/",
+    "publisher": "crypto.news",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-news-zcash-sets-ironwood-upgrade-for-july",
+    "title": "crypto.news — Ironwood set for July 28",
+    "url": "https://crypto.news/zcash-sets-ironwood-upgrade-for-july-28-after-orchard-bug/",
+    "publisher": "crypto.news",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-news-zcash-upgrade-trio-targets-300pecnt",
+    "title": "crypto.news, Zcash upgrade trio targets 300% speed boost via NU7",
+    "url": "https://crypto.news/zcash-upgrade-trio-targets-300pecnt-speed-boost-in-nu7/",
+    "publisher": "crypto.news",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-crypto-news-zcash-wallet-zashi-rebrands-zodl-tea",
+    "title": "crypto.news — Zashi rebrands to Zodl",
+    "url": "https://crypto.news/zcash-wallet-zashi-rebrands-zodl-team-split-2026/",
+    "publisher": "crypto.news",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-cryptonews-net-defi-32758544",
+    "title": "cryptonews.net",
+    "url": "https://cryptonews.net/news/defi/32758544/",
+    "publisher": "cryptonews.net",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-cryptopolitan-com-vitalik-extends-generosity-to",
+    "title": "Cryptopolitan",
+    "url": "https://www.cryptopolitan.com/vitalik-extends-generosity-to-crosslink/",
+    "publisher": "cryptopolitan.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-cryptopolitan-com-zachxbt-hayes-face-off-over-ex",
+    "title": "Cryptopolitan",
+    "url": "https://www.cryptopolitan.com/zachxbt-hayes-face-off-over-exit-liquidity/",
+    "publisher": "cryptopolitan.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-cryptoquant-com-exchange-flows-exchange-reserve",
+    "title": "CryptoQuant ZEC exchange reserve (Cloudflare-blocked)",
+    "url": "https://cryptoquant.com/asset/zec/chart/exchange-flows/exchange-reserve",
+    "publisher": "cryptoquant.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-cryptoslate-grayscales-zcash-etf-regulated-priva",
+    "title": "Grayscales Zcash ETF Regulated Privacy or Privacy in Name Only",
+    "url": "https://cryptoslate.com/grayscales-zcash-etf-regulated-privacy-or-privacy-in-name-only/",
+    "publisher": "CryptoSlate",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-cryptoslate-zcash-media-reveals-edward-snowden-i",
+    "title": "Zcash Media Reveals Edward Snowden Is John Dobbertin",
+    "url": "https://cryptoslate.com/zcash-media-reveals-edward-snowden-is-john-dobbertin/",
+    "publisher": "CryptoSlate",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-cryptotimes-io-20-zcash-foundation-ends-q1-with",
+    "title": "CryptoTimes on ZF Q1 2026",
+    "url": "https://www.cryptotimes.io/2026/05/20/zcash-foundation-ends-q1-with-36-69m-treasury-as-crypto-spending-rises/",
+    "publisher": "cryptotimes.io",
+    "date": "2026-05-20",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-cryptotimes-io-21-zcash-zec-price-surges-13-on-p",
+    "title": "Zcash ZEC Price Surges 13 on Privacy Push and ETF Developments Is 700 Next",
+    "url": "https://www.cryptotimes.io/2026/08/21/zcash-zec-price-surges-13-on-privacy-push-and-etf-developments-is-700-next/",
+    "publisher": "cryptotimes.io",
+    "date": "2026-08-21",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-cryptotimes-io-28-zcash-activates-ironwood-nu6-3",
+    "title": "Crypto Times, Zcash Activates Ironwood NU6.3",
+    "url": "https://www.cryptotimes.io/2026/07/28/zcash-activates-ironwood-nu6-3-to-boost-shielded-security-zec-slides/",
+    "publisher": "cryptotimes.io",
+    "date": "2026-07-28",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-cvedetails-com-cve-cve-2019-16930",
+    "title": "CVE-2019-16930",
+    "url": "https://www.cvedetails.com/cve/CVE-2019-16930/",
+    "publisher": "cvedetails.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-cypherpunk-com-cypherpunk-com",
+    "title": "cypherpunk.com",
+    "url": "https://cypherpunk.com/",
+    "publisher": "cypherpunk.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-decrypt-347322-zcash-surging-cypherpunk-principl",
+    "title": "Zcash Surging Cypherpunk Principles Bitcoin Galaxy Digital",
+    "url": "https://decrypt.co/347322/zcash-surging-cypherpunk-principles-bitcoin-galaxy-digital",
+    "publisher": "Decrypt",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-decrypt-350481-vitalik-buterin-dark-hand-of-toke",
+    "title": "Vitalik Buterin Dark Hand of Token Voting Could Erode Zcash Privacy",
+    "url": "https://decrypt.co/350481/vitalik-buterin-dark-hand-of-token-voting-could-erode-zcash-privacy",
+    "publisher": "Decrypt",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-decrypt-351690-zcash-founder-zooko-wilcox-joins",
+    "title": "Decrypt, Zooko joins Cypherpunk",
+    "url": "https://decrypt.co/351690/zcash-founder-zooko-wilcox-joins-zec-treasury-firm-privacy-coin-surges",
+    "publisher": "Decrypt",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-decrypt-362957-zcash-devs-patch-vulnerability-mi",
+    "title": "Decrypt — Zcash devs patch vulnerability, millions at risk (Mar 2026)",
+    "url": "https://decrypt.co/362957/zcash-devs-patch-vulnerability-millions-dollars-zec-risk",
+    "publisher": "Decrypt",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-decrypt-370105-zec-crashes-38-as-zcash-discloses",
+    "title": "Decrypt, ZEC Crashes 38% as Zcash Discloses 'Critical Counterfeiting Vulnerability'",
+    "url": "https://decrypt.co/370105/zec-crashes-38-as-zcash-discloses-critical-counterfeiting-vulnerability",
+    "publisher": "Decrypt",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-decrypt-370232-frontier-ai-models-find-crypto-bu",
+    "title": "Decrypt, Frontier AI Models Can Find Crypto's Biggest Bugs",
+    "url": "https://decrypt.co/370232/frontier-ai-models-find-crypto-bugs-industry-isnt-ready",
+    "publisher": "Decrypt",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-decrypt-375926-winklevoss-cypherpunk-zcash-minin",
+    "title": "Winklevoss Cypherpunk Zcash Mining Fleet",
+    "url": "https://decrypt.co/375926/winklevoss-cypherpunk-zcash-mining-fleet",
+    "publisher": "Decrypt",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-discovery-ucl-ac-uk-1-pdfsam-kappos-sec18-full-p",
+    "title": "PDFsam Kappos Sec18 Full Proceedings",
+    "url": "https://discovery.ucl.ac.uk/id/eprint/10055500/1/PDFsam_Kappos_sec18_full_proceedings.pdf",
+    "publisher": "discovery.ucl.ac.uk",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-dl-news-defi-how-privacy-coins-firo-and-zcash-do",
+    "title": "DL News — How Firo and Zcash dodged Binance delisting",
+    "url": "https://www.dlnews.com/articles/defi/how-privacy-coins-firo-and-zcash-dodged-binance-delisting/",
+    "publisher": "DL News",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-dl-news-markets-winklevoss-twins-bet-on-zcash-wi",
+    "title": "Winklevoss Twins Bet on Zcash with New Treasury Firm",
+    "url": "https://www.dlnews.com/articles/markets/winklevoss-twins-bet-on-zcash-with-new-treasury-firm/",
+    "publisher": "DL News",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-dl-news-people-culture-zcash-developer-shielded",
+    "title": "Zcash Developer Shielded Labs Gets Donation From Winklevoss Twins",
+    "url": "https://www.dlnews.com/articles/people-culture/zcash-developer-shielded-labs-gets-donation-from-winklevoss-twins/",
+    "publisher": "DL News",
+    "date": "2026-01-21",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-03-transparency-report-sep",
+    "title": "ECC transparency report",
+    "url": "https://electriccoin.co/wp-content/uploads/2024/03/Transparency-Report-Sept-2023.pdf",
+    "publisher": "Electric Coin Company",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-04-transparency-report-mar",
+    "title": "ECC — Transparency Report Q3 2024 (PDF)",
+    "url": "https://electriccoin.co/wp-content/uploads/2025/04/Transparency-Report-Mar-2025-V2.pdf",
+    "publisher": "Electric Coin Company",
+    "date": "2025-03-12",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-2018-zcash-security-audit",
+    "title": "ECC — 2018 Zcash Security Audit Details (27 Mar 2018)",
+    "url": "https://electriccoin.co/blog/2018-zcash-security-audit-details/",
+    "publisher": "Electric Coin Company",
+    "date": "2018-03-27",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-continued-funding-and-tran",
+    "title": "ECC — Continued Funding and Transparency (23 Sep 2016)",
+    "url": "https://electriccoin.co/blog/continued-funding-and-transparency/",
+    "publisher": "Electric Coin Company",
+    "date": "2016-09-23",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-electric-coin-co-donates-z",
+    "title": "ECC — Electric Coin Co. donates Zcash trademark to ZF",
+    "url": "https://electriccoin.co/blog/electric-coin-co-donates-zcash-trademark-to-zcash-foundation/",
+    "publisher": "Electric Coin Company",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-electriccoin-co",
+    "title": "ECC blog index (dormant since Dec 2025)",
+    "url": "https://electriccoin.co/blog/",
+    "publisher": "Electric Coin Company",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-fixing-zcash-vulns",
+    "title": "ECC — Fixing Vulnerabilities in the Zcash Protocol (26 Apr 2016)",
+    "url": "https://electriccoin.co/blog/fixing-zcash-vulns/",
+    "publisher": "Electric Coin Company",
+    "date": "2016-04-26",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-gemini-sets-the-standard-f",
+    "title": "ECC — Gemini Sets the Standard (10 Nov 2025)",
+    "url": "https://electriccoin.co/blog/gemini-sets-the-standard-for-privacy-on-cexs-with-shielded-zec-withdrawals/",
+    "publisher": "Electric Coin Company",
+    "date": "2025-11-10",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-meet-zashi-eccs-new-mobile",
+    "title": "ECC — Meet Zashi (28 Mar 2024)",
+    "url": "https://electriccoin.co/blog/meet-zashi-eccs-new-mobile-wallet-for-zcash/",
+    "publisher": "Electric Coin Company",
+    "date": "2024-03-28",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-new-release-2-0-7-3",
+    "title": "ECC — New Release: 2.0.7-3 (24 Sep 2019)",
+    "url": "https://electriccoin.co/blog/new-release-2-0-7-3/",
+    "publisher": "Electric Coin Company",
+    "date": "2019-09-24",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-privacy-is-normal-safe-and",
+    "title": "Privacy Is Normal Safe and Essential",
+    "url": "https://electriccoin.co/blog/privacy-is-normal-safe-and-essential/",
+    "publisher": "Electric Coin Company",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-privacy-leak-bug-discovere",
+    "title": "ECC — Privacy-leak bug in Nighthawk and ECC wallets (13 Jul 2021)",
+    "url": "https://electriccoin.co/blog/privacy-leak-bug-discovered-in-nighthawk-and-ecc-wallets/",
+    "publisher": "Electric Coin Company",
+    "date": "2021-07-13",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-sapling-activation-complet",
+    "title": "ECC — Sapling Activation Complete",
+    "url": "https://electriccoin.co/blog/sapling-activation-complete/",
+    "publisher": "Electric Coin Company",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-tag-transparency",
+    "title": "ECC transparency tag index",
+    "url": "https://electriccoin.co/blog/tag/transparency/",
+    "publisher": "Electric Coin Company",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-the-design-of-the-ceremony",
+    "title": "ECC — The Design of the Ceremony",
+    "url": "https://electriccoin.co/blog/the-design-of-the-ceremony/",
+    "publisher": "Electric Coin Company",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-the-privacy-illusion-what",
+    "title": "ECC — The Privacy Illusion (22 May 2025)",
+    "url": "https://electriccoin.co/blog/the-privacy-illusion-what-crypto-gets-wrong/",
+    "publisher": "Electric Coin Company",
+    "date": "2025-05-02",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-turnstile-enforcement-agai",
+    "title": "ECC, Turnstile Enforcement Against Counterfeiting",
+    "url": "https://electriccoin.co/blog/turnstile-enforcement-against-counterfeiting/",
+    "publisher": "Electric Coin Company",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-zcash-counterfeiting-vulne",
+    "title": "ECC — Zcash Counterfeiting Vulnerability Successfully Remediated (5 Feb 2019)",
+    "url": "https://electriccoin.co/blog/zcash-counterfeiting-vulnerability-successfully-remediated/",
+    "publisher": "Electric Coin Company",
+    "date": "2018-03-01",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-zcash-halvening-nu6-embrac",
+    "title": "ECC — Zcash Halvening & NU6 (23 Nov 2024)",
+    "url": "https://electriccoin.co/blog/zcash-halvening-nu6-embracing-the-new-dev-fund/",
+    "publisher": "Electric Coin Company",
+    "date": "2024-11-23",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-electric-coin-company-zooko-and-a-new-focus-for",
+    "title": "ECC — Zooko and a new focus (5 Jul 2024)",
+    "url": "https://electriccoin.co/blog/zooko-and-a-new-focus-for-zcash-resilience/",
+    "publisher": "Electric Coin Company",
+    "date": "2024-07-05",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-en-coinotag-com-winklevoss-backed-cypherpunk-acc",
+    "title": "COINOTAG, Cypherpunk/Gemini custody",
+    "url": "https://en.coinotag.com/winklevoss-backed-cypherpunk-accumulates-zcash-holdings-with-gemini-custody-support/",
+    "publisher": "en.coinotag.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-en-cryptonomist-ch-06-grayscale-zcash-silbert-sa",
+    "title": "Cryptonomist, Silbert ZCSH sale",
+    "url": "https://en.cryptonomist.ch/2025/11/06/grayscale-zcash-silbert-sale/",
+    "publisher": "en.cryptonomist.ch",
+    "date": "2025-11-06",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-finance-biggo-com-486e6ece5f83ea4a",
+    "title": "finance.biggo.com (finance.biggo.com)",
+    "url": "https://finance.biggo.com/news/486e6ece5f83ea4a",
+    "publisher": "finance.biggo.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-forbes-08-how-satoshi-collaborator-zooko-wilcox",
+    "title": "Forbes — How Satoshi Collaborator Zooko Wilcox Aims to Revive His Zombie Blockchain (8 Aug 2024)",
+    "url": "https://www.forbes.com/sites/stevenehrlich/2024/08/08/how-satoshi-collaborator-zooko-wilcox-aims-to-revive-his-zombie-blockchain/",
+    "publisher": "Forbes",
+    "date": "2025-03-12",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-forbes-30-japans-financial-regulator-is-pushing",
+    "title": "Japans Financial Regulator Is Pushing Crypto Exchanges to Drop Altcoins Favored by Criminals",
+    "url": "https://www.forbes.com/sites/adelsteinjake/2018/04/30/japans-financial-regulator-is-pushing-crypto-exchanges-to-drop-altcoins-favored-by-criminals/",
+    "publisher": "Forbes",
+    "date": "2018-04-30",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-forklog-com-the-illusion-of-succession",
+    "title": "ForkLog — Unpacking the Zcash Paradox",
+    "url": "https://forklog.com/en/the-illusion-of-succession/",
+    "publisher": "forklog.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-fxempire-com-forecasts-zcash-price-news-arkham-r",
+    "title": "\"Arkham Reveals Top ZEC Holders\" (2025-12-09)",
+    "url": "https://www.fxempire.com/forecasts/article/zcash-price-news-arkham-reveals-top-zec-holders-privacy-crisis-1566416",
+    "publisher": "fxempire.com",
+    "date": "2025-12-09",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-gemini-com-a-conversation-on-zcash-with-cameron",
+    "title": "A Conversation on Zcash with Cameron and Tyler Winklevoss and Zooko Wilcox",
+    "url": "https://www.gemini.com/blog/a-conversation-on-zcash-with-cameron-and-tyler-winklevoss-and-zooko-wilcox",
+    "publisher": "gemini.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-github-advisories-ghsa-8m29-fpq5-89jj",
+    "title": "GHSA-8m29-fpq5-89jj / CVE-2026-41583",
+    "url": "https://github.com/ZcashFoundation/zebra/security/advisories/GHSA-8m29-fpq5-89jj",
+    "publisher": "GitHub",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-github-advisories-ghsa-cwfq-rfcr-8hmp",
+    "title": "GHSA-cwfq-rfcr-8hmp",
+    "url": "https://github.com/ZcashFoundation/zebra/security/advisories/GHSA-cwfq-rfcr-8hmp",
+    "publisher": "GitHub",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-github-advisories-ghsa-gf9r-m956-97qx",
+    "title": "GHSA-gf9r-m956-97qx / CVE-2026-52735",
+    "url": "https://github.com/ZcashFoundation/zebra/security/advisories/GHSA-gf9r-m956-97qx",
+    "publisher": "GitHub",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-github-advisories-ghsa-gq4h-3grw-2rhv",
+    "title": "GHSA-gq4h-3grw-2rhv / CVE-2026-44497",
+    "url": "https://github.com/ZcashFoundation/zebra/security/advisories/GHSA-gq4h-3grw-2rhv",
+    "publisher": "GitHub",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-github-advisories-ghsa-ww9q-8r59-xv46",
+    "title": "GHSA-ww9q-8r59-xv46 / CVE-2026-54496 (Orchard soundness, CVSS 9.3)",
+    "url": "https://github.com/ZcashFoundation/zebra/security/advisories/GHSA-ww9q-8r59-xv46",
+    "publisher": "GitHub",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-github-allarboristcallnotes-sandblasting-retrosp",
+    "title": "Sandblasting Retrospective (ZCG arboretum notes)",
+    "url": "https://github.com/ZcashCommunityGrants/arboretum-notes/blob/main/AllArboristCallNotes/Sandblasting%20Retrospective%20-%20Summary.md",
+    "publisher": "GitHub",
+    "date": "2022-05-31",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-github-security-advisories",
+    "title": "zcash/halo2 security advisories (empty)",
+    "url": "https://github.com/zcash/halo2/security/advisories",
+    "publisher": "GitHub",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-github-security-advisories-2",
+    "title": "zcash/orchard and zcash/halo2 advisories (both empty)",
+    "url": "https://github.com/zcash/orchard/security/advisories",
+    "publisher": "GitHub",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-github-security-advisories-3",
+    "title": "GitHub: Zcash Zcash Security Advisories",
+    "url": "https://github.com/zcash/zcash/security/advisories",
+    "publisher": "GitHub",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-github-security-advisories-4",
+    "title": "ZcashFoundation/zebra advisories (pages 1–5)",
+    "url": "https://github.com/ZcashFoundation/zebra/security/advisories",
+    "publisher": "GitHub",
+    "date": "2026-08-22",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-github-shieldedlabs-sl-cipherscan",
+    "title": "Sl Cipherscan",
+    "url": "https://github.com/ShieldedLabs/sl-cipherscan",
+    "publisher": "GitHub",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-github-zcash-releases",
+    "title": "zcash/zcash releases",
+    "url": "https://github.com/zcash/zcash/releases",
+    "publisher": "GitHub",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-github-zcash-security",
+    "title": "zcash/zcash security disclosures",
+    "url": "https://github.com/zcash/zcash/security",
+    "publisher": "GitHub",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-grayscale-com-products-grayscale-zcash-trust",
+    "title": "Grayscale Zcash Trust product page",
+    "url": "https://grayscale.com/products/grayscale-zcash-trust/",
+    "publisher": "grayscale.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-iacr-eprint-2014-349",
+    "title": "eprint 2014/349",
+    "url": "https://eprint.iacr.org/2014/349",
+    "publisher": "IACR ePrint",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-intel-arkm-com-token-zcash",
+    "title": "Arkham Zcash explorer",
+    "url": "https://intel.arkm.com/explorer/token/zcash",
+    "publisher": "intel.arkm.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-investing-com-company-news-zcash-developer-eccs",
+    "title": "Investing.com",
+    "url": "https://www.investing.com/news/company-news/zcash-developer-eccs-ceo-joins-cypherpunk-as-strategic-advisor-93CH-4417079",
+    "publisher": "investing.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-kucoin-com-es-zcash-ironwood-upgrade-zec-supply",
+    "title": "KuCoin, Zooko says ZEC supply is verifiable",
+    "url": "https://www.kucoin.com/blog/es-zcash-ironwood-upgrade-zec-supply-verification",
+    "publisher": "kucoin.com",
+    "date": "2026-07-29",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-kucoin-com-flash-ironwood-surpasses-orchard-as-l",
+    "title": "KuCoin, Ironwood surpasses Orchard",
+    "url": "https://www.kucoin.com/news/flash/ironwood-surpasses-orchard-as-largest-shielded-pool-on-zcash-locks-over-1-billion-in-zec",
+    "publisher": "kucoin.com",
+    "date": "2026-08-09",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-kucoin-com-zachxbt-accuses-arthur-hayes-exit-liq",
+    "title": "KuCoin, ZachXBT accuses Arthur Hayes of using followers as exit liquidity (allegation)",
+    "url": "https://www.kucoin.com/blog/zachxbt-accuses-arthur-hayes-exit-liquidity",
+    "publisher": "kucoin.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-leastauthority-com-11-zcg-zebra-nu6-1-network-up",
+    "title": "Least Authority — Zebra NU6.1 Network Upgrade Audit (Nov 2025)",
+    "url": "https://leastauthority.com/wp-content/uploads/2025/11/ZCG-Zebra-NU6.1-Network-Upgrade-Final-Audit-Report.pdf",
+    "publisher": "leastauthority.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-mainnet-zcashexplorer-app-address-t3ev37q2ul1sft",
+    "title": "Alternate explorer cross-check",
+    "url": "https://mainnet.zcashexplorer.app/address/t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo",
+    "publisher": "mainnet.zcashexplorer.app",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-manilatimes-net-cypherpunk-technologies-launches",
+    "title": "Cypherpunk mining fleet press release (2026-08-18)",
+    "url": "https://www.manilatimes.net/2026/08/18/tmt-newswire/pr-newswire/cypherpunk-technologies-launches-worlds-largest-zcash-mining-fleet/2407485",
+    "publisher": "manilatimes.net",
+    "date": "2026-08-18",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-memeburn-com-arthur-hayes-is-buying-zcash",
+    "title": "Arthur Hayes Is Buying Zcash",
+    "url": "https://memeburn.com/arthur-hayes-is-buying-zcash/",
+    "publisher": "memeburn.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-messari-report-zcash-building-encrypted-money-at",
+    "title": "Zcash Building Encrypted Money at Planetary Scale",
+    "url": "https://messari.io/report/zcash-building-encrypted-money-at-planetary-scale",
+    "publisher": "Messari",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-mitrade-com-live-news-article-3-761018-20250415",
+    "title": "mitrade.com: Insights Live News Article 3",
+    "url": "https://www.mitrade.com/insights/news/live-news/article-3-761018-20250415",
+    "publisher": "mitrade.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-nasdaq-press-release-cypherpunk-taps-zcash-found",
+    "title": "Cypherpunk Taps Zcash Founder Zooko Strategic Advisor 2025 12 09",
+    "url": "https://www.nasdaq.com/press-release/cypherpunk-taps-zcash-founder-zooko-strategic-advisor-2025-12-09",
+    "publisher": "Nasdaq",
+    "date": "2025-12-09",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-news-bitcoin-com-raoul-pal-backs-zcash-as-bitcoi",
+    "title": "news.bitcoin.com",
+    "url": "https://news.bitcoin.com/raoul-pal-backs-zcash-as-bitcoins-younger-sibling-while-zec-climbs-8-outpacing-altcoins/",
+    "publisher": "news.bitcoin.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-openzcash-zcg-disbursements",
+    "title": "OpenZcash ZCG disbursements",
+    "url": "https://openzcash.org/zcg/disbursements",
+    "publisher": "OpenZcash",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-openzcash-zcg-grants",
+    "title": "openzcash.org/zcg/grants",
+    "url": "https://openzcash.org/zcg/grants",
+    "publisher": "OpenZcash",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-orbilu-uni-lu-1-zcash-miner-linking-2",
+    "title": "Biryukov, Feher — Privacy and Linkability of Mining in Zcash, IEEE CNS 2019",
+    "url": "https://orbilu.uni.lu/bitstream/10993/39996/1/Zcash_Miner_Linking%20(2).pdf",
+    "publisher": "orbilu.uni.lu",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-phemex-blogs-zcash-shielded-pool-1-billion-ironw",
+    "title": "Phemex, Zcash Shielded Pool Tops $1 Billion",
+    "url": "https://phemex.com/blogs/zcash-shielded-pool-1-billion-ironwood-upgrade",
+    "publisher": "Phemex",
+    "date": "2026-07-28",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-pineanalytics-substack-com-zcash-quarterly-repor",
+    "title": "Pine Analytics — Zcash Quarterly Report Q2 2026",
+    "url": "https://pineanalytics.substack.com/p/zcash-quarterly-report-q2-2026",
+    "publisher": "pineanalytics.substack.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-pr-newswire-news-releases-cypherpunk-accelerates",
+    "title": "Cypherpunk Accelerates Zcash Accumulation Increases Treasury Holdings to 290 062 67 ZEC",
+    "url": "https://www.prnewswire.com/news-releases/cypherpunk-accelerates-zcash-accumulation-increases-treasury-holdings-to-290-062-67-zec-302650408.html",
+    "publisher": "PR Newswire",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-pr-newswire-news-releases-cypherpunk-increases-i",
+    "title": "Cypherpunk Increases Its Zcash Stake Launches New Website and Investor Dashboard",
+    "url": "https://www.prnewswire.com/news-releases/cypherpunk-increases-its-zcash-stake-launches-new-website-and-investor-dashboard-302743497.html",
+    "publisher": "PR Newswire",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-pr-newswire-news-releases-cypherpunk-purchases-a",
+    "title": "Cypherpunk Purchases Additional 18 Million of ZEC Bringing Total Network Percentage to 1 43",
+    "url": "https://www.prnewswire.com/news-releases/cypherpunk-purchases-additional-18-million-of-zec-bringing-total-network-percentage-to-1-43-302617999.html",
+    "publisher": "PR Newswire",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-pr-newswire-news-releases-cypherpunk-taps-zcash",
+    "title": "PR Newswire — Cypherpunk Taps Zooko as Strategic Advisor (9 Dec 2025)",
+    "url": "https://www.prnewswire.com/news-releases/cypherpunk-taps-zcash-founder-zooko-as-strategic-advisor-302636089.html",
+    "publisher": "PR Newswire",
+    "date": "2025-12-09",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-pr-newswire-news-releases-cypherpunk-technologie",
+    "title": "Cypherpunk Technologies Reports Second Quarter 2026 Financial Results",
+    "url": "https://www.prnewswire.com/news-releases/cypherpunk-technologies-reports-second-quarter-2026-financial-results-302849045.html",
+    "publisher": "PR Newswire",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-pr-newswire-news-releases-leap-therapeutics-rebr",
+    "title": "Leap Therapeutics Rebrands as Cypherpunk Expands Leadership Team to Drive New Zcash Treasury Strategy",
+    "url": "https://www.prnewswire.com/news-releases/leap-therapeutics-rebrands-as-cypherpunk-expands-leadership-team-to-drive-new-zcash-treasury-strategy-302612466.html",
+    "publisher": "PR Newswire",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-pr-newswire-news-releases-shareholder-alert-purc",
+    "title": "Shareholder Alert Purcell Lefkowitz Llp Announces Shareholder Investigation of Cypherpunk Technologies Inc Nasdaq Cyph",
+    "url": "https://www.prnewswire.com/news-releases/shareholder-alert-purcell--lefkowitz-llp-announces-shareholder-investigation-of-cypherpunk-technologies-inc-nasdaq-cyph-302621655.html",
+    "publisher": "PR Newswire",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-project-tachyon-detecting-counterfeiting-in-zcas",
+    "title": "Project Tachyon, Detecting Counterfeiting after Zcash's Ironwood",
+    "url": "https://tachyon.z.cash/blog/detecting-counterfeiting-in-zcash/",
+    "publisher": "Project Tachyon",
+    "date": "2026-07-07",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-project-tachyon-overview",
+    "title": "Project Tachyon, Overview",
+    "url": "https://tachyon.z.cash/overview/",
+    "publisher": "Project Tachyon",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-protos-winklevoss-zcash-company-pivots-to-cancer",
+    "title": "Protos, \"Winklevoss' Zcash company pivots to cancer drug after $37.8M loss\"",
+    "url": "https://protos.com/winklevoss-zcash-company-pivots-to-cancer-drug-after-37-8m-loss/",
+    "publisher": "Protos",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-protos-zcash-chain-triples-in-size-thanks-to-10",
+    "title": "Protos — Zcash chain triples in size thanks to $10-a-day spam attack",
+    "url": "https://protos.com/zcash-chain-triples-in-size-thanks-to-10-a-day-spam-attack/",
+    "publisher": "Protos",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-protos-zcash-vs-bitcoin-debate-exposes-naval-rav",
+    "title": "Zcash vs Bitcoin Debate Exposes Naval Ravikants Conflicts of Interest",
+    "url": "https://protos.com/zcash-vs-bitcoin-debate-exposes-naval-ravikants-conflicts-of-interest/",
+    "publisher": "Protos",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-qed-it-com-zsa-hub",
+    "title": "QEDIT ZSA Hub",
+    "url": "https://qed-it.com/zsa-hub/",
+    "publisher": "qed-it.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-research-grayscale-com-reports-zcash-financial-p",
+    "title": "Zcash Financial Privacy in the Age of Ai",
+    "url": "https://research.grayscale.com/reports/zcash-financial-privacy-in-the-age-of-ai",
+    "publisher": "research.grayscale.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-schneier-on-security-06-critical-zcash-vulnerabi",
+    "title": "Schneier on Security — Critical Zcash Vulnerability Found and Fixed (Jun 2026)",
+    "url": "https://www.schneier.com/blog/archives/2026/06/critical-zcash-vulnerability-found-and-fixed.html",
+    "publisher": "Schneier on Security",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-sean-bowe-tachyon-scaling-zcash-oblivious-synchr",
+    "title": "Sean Bowe, Tachyon: Scaling Zcash with Oblivious Synchronization",
+    "url": "https://seanbowe.com/blog/tachyon-scaling-zcash-oblivious-synchronization/",
+    "publisher": "Sean Bowe",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-sec-edgar-000119312525298561-zcsh-20251126",
+    "title": "Grayscale Zcash Trust S-3 (2025-11-26)",
+    "url": "https://www.sec.gov/Archives/edgar/data/1720265/000119312525298561/zcsh-20251126.htm",
+    "publisher": "SEC EDGAR",
+    "date": "2025-11-26",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-sec-edgar-000119312526361067-zec-s-3-amendment-5",
+    "title": "S-3/A Amendment 5, 21 Aug 2026",
+    "url": "https://www.sec.gov/Archives/edgar/data/1720265/000119312526361067/zec_s-3_amendment_5.htm",
+    "publisher": "SEC EDGAR",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-sec-edgar-000119312526361075-zcsh-20260821",
+    "title": "8-K, 21 Aug 2026 (NYSE Arca listing, name change)",
+    "url": "https://www.sec.gov/Archives/edgar/data/1720265/000119312526361075/zcsh-20260821.htm",
+    "publisher": "SEC EDGAR",
+    "date": "2026-08-21",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-sec-edgar-000172026526000006-zcsh-20260630",
+    "title": "Grayscale Zcash Trust 10-Q, period ended 2026-06-30",
+    "url": "https://www.sec.gov/Archives/edgar/data/1720265/000172026526000006/zcsh-20260630.htm",
+    "publisher": "SEC EDGAR",
+    "date": "2026-06-30",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-sec-edgar-submissions-cik0001652536",
+    "title": "Filer identity lookups",
+    "url": "https://data.sec.gov/submissions/CIK0001652536.json",
+    "publisher": "SEC EDGAR",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-sec-edgar-submissions-cik0001720265",
+    "title": "Grayscale Zcash Trust submissions index (CIK 0001720265)",
+    "url": "https://data.sec.gov/submissions/CIK0001720265.json",
+    "publisher": "SEC EDGAR",
+    "date": "2025-11-26",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-sec-edgar-xsl144x01-primary-doc",
+    "title": "Form 144, Barry E. Silbert (2025-11-06)",
+    "url": "https://www.sec.gov/Archives/edgar/data/1720265/000197641525000042/xsl144X01/primary_doc.xml",
+    "publisher": "SEC EDGAR",
+    "date": "2025-11-06",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-sec-edgar-xsl144x01-primary-doc-2",
+    "title": "Form 144, Silbert Family Investments LLC (2025-11-05)",
+    "url": "https://www.sec.gov/Archives/edgar/data/1720265/000197908625000009/xsl144X01/primary_doc.xml",
+    "publisher": "SEC EDGAR",
+    "date": "2025-11-05",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-shielded-labs-four-questions-about-the-orchard-v",
+    "title": "Shielded Labs, Four Questions About the Orchard Vulnerability",
+    "url": "https://shieldedlabs.net/four-questions-about-the-orchard-vulnerability/",
+    "publisher": "Shielded Labs",
+    "date": "2026-06-02",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-shielded-labs-ironwood",
+    "title": "Shielded Labs, Ironwood",
+    "url": "https://shieldedlabs.net/ironwood/",
+    "publisher": "Shielded Labs",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-shielded-labs-the-orchard-counterfeiting-vulnera",
+    "title": "Shielded Labs, The Orchard Counterfeiting Vulnerability",
+    "url": "https://shieldedlabs.net/the-orchard-counterfeiting-vulnerability/",
+    "publisher": "Shielded Labs",
+    "date": "2026-06-04",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-shielded-labs-zcash-vulnerability-successfully-r",
+    "title": "Shielded Labs — Zcash Vulnerability Successfully Remediated",
+    "url": "https://shieldedlabs.net/zcash-vulnerability-successfully-remediated/",
+    "publisher": "Shielded Labs",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-stockanalysis-cyph-statistics",
+    "title": "StockAnalysis",
+    "url": "https://stockanalysis.com/stocks/cyph/statistics/",
+    "publisher": "StockAnalysis",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-stocktitan-cyph-10-q-cypherpunk-technologies-inc",
+    "title": "Cypherpunk Technologies 10-Q (six months ended 2026-06-30)",
+    "url": "https://www.stocktitan.net/sec-filings/CYPH/10-q-cypherpunk-technologies-inc-quarterly-earnings-report-2d7997690ba4.html",
+    "publisher": "StockTitan",
+    "date": "2026-06-30",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-stocktitan-cyph-8-k-cypherpunk-technologies-inc",
+    "title": "8-K via StockTitan",
+    "url": "https://www.stocktitan.net/sec-filings/CYPH/8-k-cypherpunk-technologies-inc-reports-material-event-02ccc6b027a3.html",
+    "publisher": "StockTitan",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-stocktitan-cyph-8-k-cypherpunk-technologies-inc-2",
+    "title": "8-K via StockTitan",
+    "url": "https://www.stocktitan.net/sec-filings/CYPH/8-k-cypherpunk-technologies-inc-reports-material-event-99da8e4d0a22.html",
+    "publisher": "StockTitan",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-stocktitan-sec-filings-cyph",
+    "title": "StockTitan filings index",
+    "url": "https://www.stocktitan.net/sec-filings/CYPH/",
+    "publisher": "StockTitan",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-stocktitan-sec-filings-zcsh",
+    "title": "StockTitan ZCSH filings summaries",
+    "url": "https://www.stocktitan.net/sec-filings/ZCSH/",
+    "publisher": "StockTitan",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-stocktitan-zcsh-s-3-a-grayscale-zcash-trust-zec",
+    "title": "Grayscale Zcash Trust S-3/A summary (2026-08-18)",
+    "url": "https://www.stocktitan.net/sec-filings/ZCSH/s-3-a-grayscale-zcash-trust-zec-amended-shelf-registration-statement-46cd7cb6a529.html",
+    "publisher": "StockTitan",
+    "date": "2026-08-18",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-support-gemini-com-en-us-31670107364891-what-typ",
+    "title": "Gemini support, ZEC deposit address type",
+    "url": "https://support.gemini.com/hc/en-us/articles/31670107364891-What-type-of-Zcash-deposit-address-does-Gemini-issue",
+    "publisher": "support.gemini.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-swapkit-dev-swapkit-zcash-integration",
+    "title": "Swapkit Zcash Integration",
+    "url": "https://swapkit.dev/blog/swapkit-zcash-integration/",
+    "publisher": "swapkit.dev",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-techleaks24-substack-com-why-zcash-should-be-con",
+    "title": "TechLeaks24, \"Why Zcash Should Be Considered Fraudulent…\" (2026-08-08)",
+    "url": "https://techleaks24.substack.com/p/why-zcash-should-be-considered-fraudulent",
+    "publisher": "techleaks24.substack.com",
+    "date": "2026-08-08",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-block-268219-zcash-founder-zooko-wilcox-step",
+    "title": "The Block — Zooko steps down as ECC CEO (18 Dec 2023)",
+    "url": "https://www.theblock.co/post/268219/zcash-founder-zooko-wilcox-steps-down-from-electric-coin-ceo-role",
+    "publisher": "The Block",
+    "date": "2023-12-18",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-block-269613-okx-privacy-coins-delisting",
+    "title": "The Block — OKX to delist privacy coins (29 Dec 2023)",
+    "url": "https://www.theblock.co/post/269613/okx-privacy-coins-delisting",
+    "publisher": "The Block",
+    "date": "2023-12-29",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-block-378582-winklevoss-backed-cypherpunk-ta",
+    "title": "Winklevoss Backed Cypherpunk Targets 5 Zcash Supply 58 Million Treasury Seed",
+    "url": "https://www.theblock.co/post/378582/winklevoss-backed-cypherpunk-targets-5-zcash-supply-58-million-treasury-seed",
+    "publisher": "The Block",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-block-380611-grayscale-zcash-trust-etf-zcsh",
+    "title": "The Block, Grayscale Zcash Trust ETF (ZCSH) tracker",
+    "url": "https://www.theblock.co/other-etf-live-chart/380611/grayscale-zcash-trust-etf-zcsh",
+    "publisher": "The Block",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-block-384737-zcash-developers-form-new-compa",
+    "title": "The Block — Zcash developers quit, form new company (7 Jan 2026)",
+    "url": "https://www.theblock.co/post/384737/zcash-developers-form-new-company",
+    "publisher": "The Block",
+    "date": "2026-01-07",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-block-389472-dcg-barry-silbert-bitcoin-priva",
+    "title": "Dcg Barry Silbert Bitcoin Privacy Crypto Zcash",
+    "url": "https://www.theblock.co/post/389472/dcg-barry-silbert-bitcoin-privacy-crypto-zcash",
+    "publisher": "The Block",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-block-403698-zcash-vulnerability-zec-drops",
+    "title": "The Block — Zcash vulnerability, ZEC drops 31% (4 Jun 2026)",
+    "url": "https://www.theblock.co/post/403698/zcash-vulnerability-zec-drops",
+    "publisher": "The Block",
+    "date": "2026-06-04",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-block-403791-zcash-selloff-extends-past-50-a",
+    "title": "The Block, Zcash selloff extends past 50%",
+    "url": "https://www.theblock.co/post/403791/zcash-selloff-extends-past-50-amid-bug-disclosure-as-liquidations-top-100-million",
+    "publisher": "The Block",
+    "date": "2022-05-31",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-block-403839-zcash-treasury-cypherpunk-remai",
+    "title": "The Block — Cypherpunk remains committed to 5% (5 Jun 2026)",
+    "url": "https://www.theblock.co/post/403839/zcash-treasury-cypherpunk-remains-committed-accumulating-5-zec-supply",
+    "publisher": "The Block",
+    "date": "2026-06-05",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-block-409934-zcash-ironwood-upgrade-launchin",
+    "title": "The Block — Zcash activates Ironwood (28 Jul 2026)",
+    "url": "https://www.theblock.co/post/409934/zcash-ironwood-upgrade-launching-new-shielded-pool-after-orchard-vulnerability",
+    "publisher": "The Block",
+    "date": "2026-07-28",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-block-79098-gemini-supports-shielded-zcash-w",
+    "title": "The Block — Gemini shielded withdrawals (29 Sep 2020)",
+    "url": "https://www.theblock.co/linked/79098/gemini-supports-shielded-zcash-withdrawals",
+    "publisher": "The Block",
+    "date": "2020-09-29",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-block-business-2026-08-18-cypherpunk-technol",
+    "title": "2026 08 18 Cypherpunk Technologies Launches Zcash Mining Fleet",
+    "url": "https://www.theblock.co/news/business/2026-08-18-cypherpunk-technologies-launches-zcash-mining-fleet-412071",
+    "publisher": "The Block",
+    "date": "2026-08-18",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-block-markets-2026-08-19-grayscale-zcash-etf",
+    "title": "The Block, DCG 200,000 ZEC discussions (2026-08-19)",
+    "url": "https://www.theblock.co/news/markets/2026-08-19-grayscale-zcash-etf-amendment-dcg-discussions-contribute-200000-zec-fund-412232",
+    "publisher": "The Block",
+    "date": "2026-08-19",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-block-markets-2026-08-21-upbit-trading-volum",
+    "title": "2026 08 21 Upbit Trading Volume Spikes",
+    "url": "https://www.theblock.co/news/markets/2026-08-21-upbit-trading-volume-spikes-412435",
+    "publisher": "The Block",
+    "date": "2026-08-21",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-block-regulation-2026-08-21-grayscale-moves",
+    "title": "The Block — Grayscale moves closer to first Zcash ETF (21 Aug 2026)",
+    "url": "https://www.theblock.co/news/regulation/2026-08-21-grayscale-moves-closer-launching-first-zcash-etf-in-us-sec-amended-filing-412517",
+    "publisher": "The Block",
+    "date": "2026-08-21",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-daily-hodl-02-crypto-giant-bitwise-files-for",
+    "title": "Daily Hodl, Bitwise files for Zcash and 10 other altcoin ETFs",
+    "url": "https://dailyhodl.com/2026/01/02/crypto-giant-bitwise-files-for-zcash-aave-sui-and-eight-additional-altcoin-etfs-with-sec/",
+    "publisher": "The Daily Hodl",
+    "date": "2026-01-02",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-defiant-blockchains-arkham-zcash-activity-tr",
+    "title": "Criticism: \"Arkham's 'Misleading' Zcash Tracking Claims Spark Outrage\"",
+    "url": "https://thedefiant.io/news/blockchains/arkham-zcash-activity-tracking",
+    "publisher": "The Defiant",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-defiant-infrastructure-ledger-draws-heat-as",
+    "title": "The Defiant — Ledger draws heat as pre-2018 Zcash holders face dropped support",
+    "url": "https://thedefiant.io/news/infrastructure/ledger-draws-heat-as-pre-2018-zcash-holders-face-dropped-support",
+    "publisher": "The Defiant",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-the-defiant-tradfi-and-fintech-zcash-drops-50-pe",
+    "title": "Zcash Drops 50 Percent Since Last Cypherpunk Last ZEC Purchase",
+    "url": "https://thedefiant.io/news/tradfi-and-fintech/zcash-drops-50-percent-since-last-cypherpunk-last-zec-purchase",
+    "publisher": "The Defiant",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-thecoinrepublic-com-06-breaking-barry-silbert-se",
+    "title": "Coin Republic",
+    "url": "https://www.thecoinrepublic.com/2025/11/06/breaking-barry-silbert-sells-grayscale-zcash-trust-shares-as-zec-price-soars/",
+    "publisher": "thecoinrepublic.com",
+    "date": "2025-11-06",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-tradingview-u-today-56fd7e455094b-0-behind-xrp-s",
+    "title": "U.Today/TradingView",
+    "url": "https://vn.tradingview.com/news/u_today:56fd7e455094b:0-behind-xrp-solana-zec-rally-has-nothing-to-do-with-retail-data-says",
+    "publisher": "TradingView",
+    "date": "2025-11-04",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-tradingview-u-today-e268c0a1f094b-0-zcash-zec-ne",
+    "title": "TradingView/U.Today",
+    "url": "https://www.tradingview.com/news/u_today:e268c0a1f094b:0-zcash-zec-needs-2-600-to-pass-xrp-easy-says-top-solana-contributor-mert-mumtaz/",
+    "publisher": "TradingView",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-unchainedcrypto-com-ai-assisted-audit-uncovers-c",
+    "title": "Unchained, AI-Assisted Audit Uncovers Critical Zcash Orchard Vulnerability",
+    "url": "https://unchainedcrypto.com/ai-assisted-audit-uncovers-critical-zcash-orchard-vulnerability-that-could-have-minted-unlimited-counterfeit-zec/",
+    "publisher": "unchainedcrypto.com",
+    "date": "2026-05-28",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-usenix-presentation-kappos",
+    "title": "USENIX: Conference Usenixsecurity18 Presentation Kappos",
+    "url": "https://www.usenix.org/conference/usenixsecurity18/presentation/kappos",
+    "publisher": "USENIX",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-usenix-presentation-tramer",
+    "title": "Tramèr, Boneh, Paterson — Remote Side-Channel Attacks on Anonymous Transactions, USENIX Security 2020",
+    "url": "https://www.usenix.org/conference/usenixsecurity20/presentation/tramer",
+    "publisher": "USENIX",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-usenix-usenixsecurity18-sec18-kappos",
+    "title": "Kappos, Yousaf, Maller, Meiklejohn — An Empirical Analysis of Anonymity in Zcash, USENIX Security 2018",
+    "url": "https://www.usenix.org/system/files/conference/usenixsecurity18/sec18-kappos.pdf",
+    "publisher": "USENIX",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-whale-alert-faq",
+    "title": "Whale Alert FAQ (supported chains — no Zcash)",
+    "url": "https://whale-alert.io/faq.html",
+    "publisher": "Whale Alert",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-wikipedia-wiki-starkware-industries",
+    "title": "Wikipedia: StarkWare",
+    "url": "https://en.wikipedia.org/wiki/StarkWare_Industries",
+    "publisher": "Wikipedia",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-wikipedia-wiki-zcash",
+    "title": "Wikipedia — Zcash",
+    "url": "https://en.wikipedia.org/wiki/Zcash",
+    "publisher": "Wikipedia",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-x-com-status-2052030080394703230",
+    "title": "x.com: NEARProtocol Status",
+    "url": "https://x.com/NEARProtocol/status/2052030080394703230",
+    "publisher": "x.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-x-com-status-2062807526463205876",
+    "title": "Charles Guillemet (Ledger CTO) thread",
+    "url": "https://x.com/P3b7_/status/2062807526463205876",
+    "publisher": "x.com",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-yahoo-finance-arthur-hayes-10-000-zec-161819159",
+    "title": "Arthur Hayes 10 000 ZEC",
+    "url": "https://finance.yahoo.com/news/arthur-hayes-10-000-zec-161819159.html",
+    "publisher": "Yahoo Finance",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-yahoo-finance-crypto-winklevoss-twins-back-zcash",
+    "title": "Winklevoss Twins Back Zcash Security",
+    "url": "https://finance.yahoo.com/markets/crypto/articles/winklevoss-twins-back-zcash-security-223000523.html",
+    "publisher": "Yahoo Finance",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-yahoo-finance-crypto-zcash-flashes-golden-cross",
+    "title": "Zcash Flashes Golden Cross One",
+    "url": "https://finance.yahoo.com/markets/crypto/articles/zcash-flashes-golden-cross-one-160455171.html",
+    "publisher": "Yahoo Finance",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-yahoo-finance-crypto-zcash-spikes-30-multicoin-m",
+    "title": "Yahoo/CoinDesk",
+    "url": "https://finance.yahoo.com/markets/crypto/articles/zcash-spikes-30-multicoin-managing-162938449.html",
+    "publisher": "Yahoo Finance",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-yahoo-finance-over-1-zec-supply-unshielded-08054",
+    "title": "Yahoo Finance syndication",
+    "url": "https://finance.yahoo.com/news/over-1-zec-supply-unshielded-080545871.html",
+    "publisher": "Yahoo Finance",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-yahoo-finance-over-200-firms-face-sec-141715311",
+    "title": "Over 200 Firms Face SEC",
+    "url": "https://finance.yahoo.com/news/over-200-firms-face-sec-141715311.html",
+    "publisher": "Yahoo Finance",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-yahoo-finance-zcash-price-prepares-500-exchanges",
+    "title": "Yahoo/AMBCrypto \"Exchanges' ZEC Balance Falls 44%\" (unreliable)",
+    "url": "https://finance.yahoo.com/news/zcash-price-prepares-500-exchanges-173000972.html",
+    "publisher": "Yahoo Finance",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-community-forum-generation-z-grant-proposa",
+    "title": "Generation Z Grant Proposal",
+    "url": "https://forum.zcashcommunity.com/t/generation-z-grant-proposal/48434",
+    "publisher": "Zcash Community Forum",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-community-forum-im-departing-ecc-but-its-g",
+    "title": "Zcash Community Forum — I'm departing ECC (Sean Bowe, 3 Oct 2024)",
+    "url": "https://forum.zcashcommunity.com/t/im-departing-ecc-but-its-going-to-be-fine/48956",
+    "publisher": "Zcash Community Forum",
+    "date": "2024-10-03",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-community-forum-ironwood-is-here-updated-w",
+    "title": "Ironwood is Here! Updated Wallets, Libraries",
+    "url": "https://forum.zcashcommunity.com/t/ironwood-is-here-updated-wallets-libraries-july-30/56557",
+    "publisher": "Zcash Community Forum",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-community-forum-josh-cincinnati-leaving-th",
+    "title": "Zcash Community Forum — Josh Cincinnati leaving the Zcash Foundation (31 Jul 2020)",
+    "url": "https://forum.zcashcommunity.com/t/josh-cincinnati-leaving-the-zcash-foundation/36961",
+    "publisher": "Zcash Community Forum",
+    "date": "2020-07-31",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-community-forum-proposal-for-marketing-eff",
+    "title": "Proposal for Marketing Efforts at Global Conferences",
+    "url": "https://forum.zcashcommunity.com/t/proposal-for-marketing-efforts-at-global-conferences/52231",
+    "publisher": "Zcash Community Forum",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-community-forum-shielded-labs-an-independe",
+    "title": "Shielded Labs founding thread",
+    "url": "https://forum.zcashcommunity.com/t/shielded-labs-an-independent-non-us-organization/43855",
+    "publisher": "Zcash Community Forum",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-community-forum-taylor-hornby-bonus-grant",
+    "title": "Taylor Hornby bonus grant",
+    "url": "https://forum.zcashcommunity.com/t/taylor-hornby-bonus-grant-for-orchard-counterfeiting-vulnerability-bug-bounty/57025",
+    "publisher": "Zcash Community Forum",
+    "date": "2026-08-14",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-community-forum-the-orchard-counterfeiting",
+    "title": "Zcash Community Forum — The Orchard Counterfeiting Vulnerability—And Next Steps (4 Jun 2026)",
+    "url": "https://forum.zcashcommunity.com/t/the-orchard-counterfeiting-vulnerability-and-next-steps/56015",
+    "publisher": "Zcash Community Forum",
+    "date": "2026-06-04",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-community-forum-zcash-community-grants-mee",
+    "title": "ZCG minutes 17 Aug 2026",
+    "url": "https://forum.zcashcommunity.com/t/zcash-community-grants-meeting-minutes-8-17-2026/57119",
+    "publisher": "Zcash Community Forum",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-community-forum-zcash-foundation-q2-2026-r",
+    "title": "Zcash Foundation Q2 2026 report thread",
+    "url": "https://forum.zcashcommunity.com/t/zcash-foundation-q2-2026-report/56917",
+    "publisher": "Zcash Community Forum",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-community-forum-zcash-halvening-nu-6-embra",
+    "title": "Zcash Community Forum — Zcash Halvening & NU6 thread",
+    "url": "https://forum.zcashcommunity.com/t/zcash-halvening-nu-6-embracing-the-new-dev-fund/49331",
+    "publisher": "Zcash Community Forum",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-community-forum-zebra-4-5-3-and-5-0-0-emer",
+    "title": "Zebra 4.5.3 / 5.0.0 thread",
+    "url": "https://forum.zcashcommunity.com/t/zebra-4-5-3-and-5-0-0-emergency-soft-fork-and-nu6-2-activation/55981",
+    "publisher": "Zcash Community Forum",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-community-forum-zechub-2026-53686",
+    "title": "Zcash Community Forum: Zechub 2026",
+    "url": "https://forum.zcashcommunity.com/t/zechub-2026/53686",
+    "publisher": "Zcash Community Forum",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-community-forum-zf-engineering-update-27th",
+    "title": "ZF Engineering Update 27 Jul – 9 Aug 2026",
+    "url": "https://forum.zcashcommunity.com/t/zf-engineering-update-27th-july-to-9th-august-2026/56966",
+    "publisher": "Zcash Community Forum",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-community-grants-committee",
+    "title": "Zcash Community Grants committee",
+    "url": "https://zcashcommunitygrants.org/committee/",
+    "publisher": "Zcash Community Grants",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-community-grants-zcashcommunitygrants-org",
+    "title": "Zcash Community Grants",
+    "url": "https://zcashcommunitygrants.org/",
+    "publisher": "Zcash Community Grants",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-foundation-05-zcash-foundation-q1-2026",
+    "title": "ZF Q1 2026 PDF",
+    "url": "https://zfnd.org/wp-content/uploads/2026/05/Zcash-Foundation-Q1-2026.pdf",
+    "publisher": "Zcash Foundation",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-foundation-about",
+    "title": "ZF — About / board",
+    "url": "https://zfnd.org/about/",
+    "publisher": "Zcash Foundation",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-foundation-arborist-calls",
+    "title": "zfnd.org/arborist-calls",
+    "url": "https://zfnd.org/arborist-calls/",
+    "publisher": "Zcash Foundation",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-foundation-board-appoints-alex-bornstein-a",
+    "title": "ZF — Board Appoints Alex Bornstein as ED (1 Nov 2025)",
+    "url": "https://zfnd.org/board-appoints-alex-bornstein-as-executive-director/",
+    "publisher": "Zcash Foundation",
+    "date": "2025-11-01",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-foundation-changing-of-the-guard",
+    "title": "ZF — Changing of the Guard (4 Mar 2025)",
+    "url": "https://zfnd.org/changing-of-the-guard/",
+    "publisher": "Zcash Foundation",
+    "date": "2025-03-04",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-foundation-concerning-the-sprout-vulnerabi",
+    "title": "ZF — Concerning the Sprout Vulnerability CVE-2019-7167",
+    "url": "https://zfnd.org/concerning-the-sprout-vulnerability-cve-2019-7167/",
+    "publisher": "Zcash Foundation",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-foundation-first-announcement-from-the-zca",
+    "title": "ZF — First Announcement from the Zcash Foundation (7 Mar 2017)",
+    "url": "https://zfnd.org/first-announcement-from-the-zcash-foundation/",
+    "publisher": "Zcash Foundation",
+    "date": "2017-03-07",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-foundation-transparency-reports-quarterly",
+    "title": "ZF quarterly reports archive",
+    "url": "https://zfnd.org/category/transparency-reports/quarterly-reports/",
+    "publisher": "Zcash Foundation",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-foundation-zcash-foundation-2025-year-in-r",
+    "title": "ZF — 2025 Year in Review",
+    "url": "https://zfnd.org/zcash-foundation-2025-year-in-review/",
+    "publisher": "Zcash Foundation",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-foundation-zcash-foundation-bids-farewell",
+    "title": "ZF — Bids Farewell to Jack Gavigan (2 Apr 2025)",
+    "url": "https://zfnd.org/zcash-foundation-bids-farewell-to-jack-gavigan/",
+    "publisher": "Zcash Foundation",
+    "date": "2025-04-02",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-foundation-zcash-foundation-q1-2026-report",
+    "title": "Zcash Foundation Q1 2026 report",
+    "url": "https://zfnd.org/zcash-foundation-q1-2026-report/",
+    "publisher": "Zcash Foundation",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-foundation-zebra-4-5-1-security-fixes",
+    "title": "ZF — Zebra 4.5.1: Security Fixes (1 Jun 2026)",
+    "url": "https://zfnd.org/zebra-4-5-1-security-fixes/",
+    "publisher": "Zcash Foundation",
+    "date": "2026-06-01",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-foundation-zebra-4-5-3-and-5-0-0-emergency",
+    "title": "ZF — Zebra 4.5.3 and 5.0.0: Emergency Soft Fork and NU6.2 Activation",
+    "url": "https://zfnd.org/zebra-4-5-3-and-5-0-0-emergency-soft-fork-and-nu6-2-activation/",
+    "publisher": "Zcash Foundation",
+    "date": "2026-06-02",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-foundation-zebra-6-0-0-release",
+    "title": "Zcash Foundation, Zebra 6.0.0 Release",
+    "url": "https://zfnd.org/zebra-6-0-0-release/",
+    "publisher": "Zcash Foundation",
+    "date": "2026-07-10",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-foundation-zfnd-org",
+    "title": "ZF blog index",
+    "url": "https://zfnd.org/blog/",
+    "publisher": "Zcash Foundation",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-github-io-user-end-of-life",
+    "title": "zcashd Book, End of Life",
+    "url": "https://zcash.github.io/zcash/user/end-of-life.html",
+    "publisher": "zcash.github.io",
+    "date": "2026-07-18",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-improvement-proposals-draft-ecc-zbloc",
+    "title": "Draft ecc-zbloc (Obsolete)",
+    "url": "https://zips.z.cash/draft-ecc-zbloc",
+    "publisher": "Zcash Improvement Proposals",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-improvement-proposals-protocol-protocol",
+    "title": "Zcash Protocol Specification",
+    "url": "https://zips.z.cash/protocol/protocol.pdf",
+    "publisher": "Zcash Improvement Proposals",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-improvement-proposals-zip-0209",
+    "title": "ZIP 209, Prohibit Out-of-Range Chain Value Pool Balances",
+    "url": "https://zips.z.cash/zip-0209",
+    "publisher": "Zcash Improvement Proposals",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-improvement-proposals-zip-0212",
+    "title": "ZIP 212 (note plaintext / ephemeral secret)",
+    "url": "https://zips.z.cash/zip-0212",
+    "publisher": "Zcash Improvement Proposals",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-improvement-proposals-zip-0255",
+    "title": "ZIP 255, Deployment of the NU6.1 Network Upgrade (Mainnet activation height 3,146,400)",
+    "url": "https://zips.z.cash/zip-0255",
+    "publisher": "Zcash Improvement Proposals",
+    "date": "2024-11-23",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-improvement-proposals-zip-0257",
+    "title": "ZIP 257, Deployment of the Orchard Temporary Vulnerability Mitigation and NU6.2 Network Upgrade",
+    "url": "https://zips.z.cash/zip-0257",
+    "publisher": "Zcash Improvement Proposals",
+    "date": "2026-05-29",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-improvement-proposals-zip-0258",
+    "title": "ZIP 258, Deployment of the NU6.3 Network Upgrade",
+    "url": "https://zips.z.cash/zip-0258",
+    "publisher": "Zcash Improvement Proposals",
+    "date": "2026-07-28",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-improvement-proposals-zip-0271",
+    "title": "ZIP 271 (dev fund extension + 78,750 ZEC disbursement)",
+    "url": "https://zips.z.cash/zip-0271",
+    "publisher": "Zcash Improvement Proposals",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-improvement-proposals-zip-0308",
+    "title": "ZIP 308 (Sprout→Sapling migration)",
+    "url": "https://zips.z.cash/zip-0308",
+    "publisher": "Zcash Improvement Proposals",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-improvement-proposals-zip-0317",
+    "title": "ZIP 317 (proportional transfer fee)",
+    "url": "https://zips.z.cash/zip-0317",
+    "publisher": "Zcash Improvement Proposals",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-improvement-proposals-zip-0318",
+    "title": "ZIP 318, Orchard to Ironwood Migration",
+    "url": "https://zips.z.cash/zip-0318",
+    "publisher": "Zcash Improvement Proposals",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-improvement-proposals-zip-1014",
+    "title": "ZIP 1014 (Dev Fund)",
+    "url": "https://zips.z.cash/zip-1014",
+    "publisher": "Zcash Improvement Proposals",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-improvement-proposals-zip-1015",
+    "title": "ZIP 1015, Block Subsidy Allocation for Non-Direct Development Funding",
+    "url": "https://zips.z.cash/zip-1015",
+    "publisher": "Zcash Improvement Proposals",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-improvement-proposals-zip-1016",
+    "title": "ZIP 1016, Community and Coinholder Funding Model",
+    "url": "https://zips.z.cash/zip-1016",
+    "publisher": "Zcash Improvement Proposals",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-improvement-proposals-zip-2005",
+    "title": "ZIP 2005 (Ironwood quantum recoverability)",
+    "url": "https://zips.z.cash/zip-2005",
+    "publisher": "Zcash Improvement Proposals",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-improvement-proposals-zip-2006",
+    "title": "ZIP 2006, Restricting Transfers into the Orchard Pool",
+    "url": "https://zips.z.cash/zip-2006",
+    "publisher": "Zcash Improvement Proposals",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-improvement-proposals-zips-z-cash",
+    "title": "Zcash Improvement Proposals (zips.z.cash)",
+    "url": "https://zips.z.cash/",
+    "publisher": "Zcash Improvement Proposals",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-network",
+    "title": "z.cash — network information",
+    "url": "https://z.cash/network/",
+    "publisher": "Zcash",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-support-zcashd-deprecation",
+    "title": "z.cash — zcashd deprecation / EOL",
+    "url": "https://z.cash/support/zcashd-deprecation/",
+    "publisher": "Zcash",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-upgrade",
+    "title": "z.cash upgrades: Overwinter · Sapling · Blossom · Heartwood · Canopy · NU5 · NU6 · NU6.1 · NU6.2 · NU6.3",
+    "url": "https://z.cash/upgrade/",
+    "publisher": "Zcash",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-upgrade-blossom",
+    "title": "Zcash: Upgrade Blossom",
+    "url": "https://z.cash/upgrade/blossom/",
+    "publisher": "Zcash",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-upgrade-canopy",
+    "title": "Zcash: Upgrade Canopy",
+    "url": "https://z.cash/upgrade/canopy/",
+    "publisher": "Zcash",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-upgrade-heartwood",
+    "title": "Zcash: Upgrade Heartwood",
+    "url": "https://z.cash/upgrade/heartwood/",
+    "publisher": "Zcash",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-upgrade-nu5",
+    "title": "Zcash: Upgrade NU5",
+    "url": "https://z.cash/upgrade/nu5/",
+    "publisher": "Zcash",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-upgrade-nu6",
+    "title": "Zcash: Upgrade NU6",
+    "url": "https://z.cash/upgrade/nu6/",
+    "publisher": "Zcash",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-upgrade-nu6-1",
+    "title": "Zcash NU6.1 upgrade page",
+    "url": "https://z.cash/upgrade/nu6-1/",
+    "publisher": "Zcash",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-upgrade-nu6-2",
+    "title": "Zcash: Upgrade NU6 2",
+    "url": "https://z.cash/upgrade/nu6-2/",
+    "publisher": "Zcash",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-upgrade-overwinter",
+    "title": "Zcash: Upgrade Overwinter",
+    "url": "https://z.cash/upgrade/overwinter/",
+    "publisher": "Zcash",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zcash-z-cash",
+    "title": "Zcash (z.cash)",
+    "url": "https://z.cash/",
+    "publisher": "Zcash",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zec-stats-zecstats-com",
+    "title": "ZEC Stats (zecstats.com)",
+    "url": "https://zecstats.com/",
+    "publisher": "ZEC Stats",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zechub-wiki-start-here-what-is-zec-and-zcash",
+    "title": "What Is ZEC and Zcash",
+    "url": "https://zechub.wiki/start-here/what-is-zec-and-zcash",
+    "publisher": "zechub.wiki",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zecsec-zecsec",
+    "title": "ZecSec / defuse.ca (no Orchard post)",
+    "url": "https://defuse.ca/zecsec.htm",
+    "publisher": "ZecSec",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zerocash-project-org-paper",
+    "title": "Ben-Sasson, Chiesa, Garman, Green, Miers, Tromer, Virza — Zerocash, IEEE S&P 2014",
+    "url": "http://zerocash-project.org/paper",
+    "publisher": "zerocash-project.org",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zodl-about",
+    "title": "ZODL — About / blog",
+    "url": "https://zodl.com/about/",
+    "publisher": "ZODL",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zodl-ironwood-a-new-shielded-pool-for-zcash",
+    "title": "ZODL, Ironwood: A New Shielded Pool for Zcash",
+    "url": "https://zodl.com/ironwood-a-new-shielded-pool-for-zcash/",
+    "publisher": "ZODL",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zodl-orchard-vulnerability-successfully-remediat",
+    "title": "ZODL — Orchard Vulnerability Successfully Remediated (2 Jun 2026)",
+    "url": "https://zodl.com/orchard-vulnerability-successfully-remediated",
+    "publisher": "ZODL",
+    "date": "2026-05-29",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zodl-zcashd-sprout-verification-vulnerability",
+    "title": "ZODL — Zcashd Sprout Verification Vulnerability (31 Mar 2026)",
+    "url": "https://zodl.com/zcashd-sprout-verification-vulnerability/",
+    "publisher": "ZODL",
+    "date": "2026-05-29",
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zodl-zcashd-zebra-april-2026-disclosure",
+    "title": "ZODL — Several Zcash Vulnerabilities Remediated (Apr 2026)",
+    "url": "https://zodl.com/zcashd-zebra-april-2026-disclosure",
+    "publisher": "ZODL",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zodl-zodl-com",
+    "title": "ZODL (zodl.com)",
+    "url": "https://zodl.com/blog/",
+    "publisher": "ZODL",
+    "date": null,
+    "accessed": "2026-08-22"
+  },
+  {
+    "id": "S-zorion-network-zorion-network",
+    "title": "Zorion Solana↔Zcash bridge (early MVP)",
+    "url": "https://zorion.network/",
+    "publisher": "zorion.network",
+    "date": null,
+    "accessed": "2026-08-22"
+  }
+]

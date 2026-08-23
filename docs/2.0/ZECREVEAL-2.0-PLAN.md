@@ -11,7 +11,7 @@
 
 | Item | HANDOFF said | Verified today |
 |---|---|---|
-| PR #30 / module 7Y | "OPEN — verify" | **Merged** (`cf5c775`, 5 Jun 2026). `main` = 7Y. No open PRs; 22 stale `claude/*` branches + 2 `feat/*` branches remain on origin. |
+| PR #30 / module 7Y | "OPEN — verify" | **Merged** (`cf5c775`, 5 Jun 2026). `main` = 7Y. No open PRs; 20 stale `claude/*` branches (19 merged, 1 not) + 2 merged `feat/*` branches remain on origin (corrected from 22 by HANDOFF-01; `docs/2.0/BRANCH-CLEANUP.md`, generated from live git, is authoritative -- LEDGER-00 Q3). |
 | Module 7X (Redis) | "not started" | **Code is done**: `redis` service is in `docker-compose.yml`, `REDIS_URL` wired in indexer+gateway. What remains is *operational* (run it, point `.env` at it). |
 | Tests | 171 indexer + 7 gateway | **Reproduced today**: indexer 133 pass / 38 skip (Postgres-gated) of 171; gateway 7/7; dashboard builds clean in mock mode. |
 | Vercel `VITE_MOCK_MODE` | "deleted — re-add before next deploy" | **Already shipped broken.** The production bundle (`/assets/index-B7wcWexO.js`) has the mock flag compiled to `false` and `ws://localhost:8080/stream` as the WS URL → visitors see the empty "offline / waiting for transactions" state. Fix: Vercel → Settings → Environment Variables → `VITE_MOCK_MODE=true` (Production, Preview, Development) → Redeploy. |
@@ -123,7 +123,7 @@ Decisions:
 **Phase 0 — Make production safe (today).**
 - Vercel: add `VITE_MOCK_MODE=true` (3 scopes) → redeploy; disconnect/delete the orphan project.
 - Commit `research/`, `RESEARCH-2026-08-DOSSIER.md`, this plan, the v2 handoff, and the mockups to the repo under `docs/2.0/`.
-- Prune the 22 stale `claude/*` branches (`git push origin --delete …`) to keep the repo legible.
+- Prune the 20 stale `claude/*` branches and the 2 merged `feat/*` branches (`git push origin --delete …`) to keep the repo legible; the exact list is `docs/2.0/BRANCH-CLEANUP.md`.
 
 **Phase 1 — The Record ships (weeks 1–2).** No node required.
 - Scaffold `apps/web` (Next.js 15+, React 19, Tailwind v4, the token system ported from `apps/dashboard/src/lib/tokens.ts`).

@@ -20,21 +20,21 @@ Aqua Stack v4.1 session. Read CLAUDE.md, then handoffs/LEDGER.md, then pick the 
 | # | Handoff | Branch | Track | Depends on | Status |
 |---|---|---|---|---|---|
 | 00 | [Housekeeping, docs import, CI runs tests, CLAUDE.md](HANDOFF-00-housekeeping.md) | `claude/aqua-stack-v4-1-handoff-818gb3` | Foundation — first | — | `closed` |
-| 01 | [`apps/web` scaffold + the ZEC Forensic design system](HANDOFF-01-web-scaffold.md) | session-designated | Web | 00 (closed) | `shipped` |
-| 02 | [`packages/content` — zod schemas + research seeds](HANDOFF-02-content-package.md) | session-designated | Web | 00 | `queued` |
+| 01 | [`apps/web` scaffold + the ZEC Forensic design system](HANDOFF-01-web-scaffold.md) | session-designated | Web | 00 (closed) | `closed` |
+| 02 | [`packages/content` — zod schemas + research seeds](HANDOFF-02-content-package.md) | session-designated | Web | 00 | `shipped` |
 | 03 | [The Record — Splash, Beware, Contradictions, Timeline, Network, Method, Flows, Sources](HANDOFF-03-record-pages.md) | session-designated | Web | 01, 02 | `queued` |
 | 04 | [ZEC Tracking UI in fixture mode — search, mempool, address, tx, pools, reveal](HANDOFF-04-tracking-ui.md) | session-designated | Web | 01, 02 (03 optional) | `queued` |
-| 05 | [Gateway REST read API v2 + hardening (Zebra address-index RPCs with a cache)](HANDOFF-05-gateway-api.md) | session-designated | Data | 00 (uses the DTOs from 04 if merged; otherwise defines them) | `queued` |
+| 05 | [Gateway REST read API v2 + hardening (Zebra address-index RPCs with a cache)](HANDOFF-05-gateway-api.md) | session-designated | Data | 00 (uses the DTOs from 04 if merged; otherwise defines them) | `open` |
 | 06 | [Indexer: four pools + migration 003 + post-NU6.3 invariants](HANDOFF-06-four-pools.md) | session-designated | Data | 00 | `queued` |
 | 07 | [Indexer: v6 / Ironwood decoder (module 7A.2) + migration detection](HANDOFF-07-v6-decoder.md) | session-designated | Data | 06 | `queued` |
 | 08 | [Indexer analysis toolkit: echo, clustering, labels, posterior, taint (+ golden cases)](HANDOFF-08-analysis-toolkit.md) | session-designated | Data | 06 | `queued` |
 | 09 | [Turnstile accounting, migration lens, Ironwood birth, snapshot publisher](HANDOFF-09-instruments-snapshot.md) | session-designated | Data | 06, 08 | `queued` |
-| 10 | [Infra: Zebra 6.2.x compose, VPS runbook, tunnel, DEPLOY-2.0](HANDOFF-10-infra.md) | session-designated | Infra | 00 | `queued` |
+| 10 | [Infra: Zebra 6.2.x compose, VPS runbook, tunnel, DEPLOY-2.0](HANDOFF-10-infra.md) | session-designated | Infra | 00 | `open` |
 | 11 | [Live wiring: snapshot baseline → WS upgrade, smoke tests, cutover checklist](HANDOFF-11-live-wiring.md) | session-designated | Integration | 04, 05, 09, 10 | `queued` |
 | 12 | [7B / 7C runtime wiring — PoolState replay, confirmed-block driver, assessments on the live path](HANDOFF-12-runtime-poolstate.md) | session-designated | Integration | 06, 07, 08 | `queued` |
 | 13 | [Mode A — viewing-key decryption in the browser (2.1; PLAN ONLY, stop for approval)](HANDOFF-13-mode-a-wasm.md) | session-designated | 2.1 — plan only | 04, 11 | `queued` |
 
-Web (01→04), Data (05→09) and Infra (10) are independent once 00 is closed. 00 is `closed` (PR #31 merged as `0031d7c`), so 01, 02, 05, 06 and 10 are releasable; L2 released 01 first. 11 and 12 integrate. 13 is plan-only.
+Web (01→04), Data (05→09) and Infra (10) are independent once 00 is closed. 00 is `closed` (PR #31 merged as `0031d7c`) and 01 is `closed` (PR #32 merged as `0ed75ad`), so the Web track has advanced to 02, and the Data and Infra tracks release at their lowest unblocked handoff: 05 and 10 are `open`. 03 and 04 stay `queued` until 02 closes; 06–09 stay `queued` behind 05's track position. 11 and 12 integrate. 13 is plan-only.
 
 ## Human clicks (L4 — nothing here is done by an agent)
 | When | What the operator does |
@@ -44,6 +44,8 @@ Web (01→04), Data (05→09) and Infra (10) are independent once 00 is closed. 
 | after 00 | run the commands in `docs/2.0/BRANCH-CLEANUP.md` to delete the stale remotes, including `claude/build-leak-panel-I0181` — L2 reviewed it: an early 748-line LeakPanel superseded by the 527-line version on main, in an app that is now `legacy/` and retired at the HANDOFF-11 cutover |
 | after 00 | delete the orphaned Vercel project `z-cash-reveal-dashboard` (Root Directory `apps/dashboard`, a path that no longer exists) — it is the only red check on every PR and is caused by none of them |
 | 01 | create the Vercel project `zecreveal` (Root Directory `apps/web`, Framework Next.js) from the repo; keep `z-cash-reveal-dashboard2` until the cutover |
+| 02 | **move the deleted root `vercel.json`'s settings into the `z-cash-reveal-dashboard2` project** — Framework `Other`, Install `pnpm install --frozen-lockfile`, Build `pnpm --filter=@zcashreveal/types build && pnpm --filter=@zcashreveal/dashboard build`, Output `legacy/dashboard/dist`, Root `./`, env `VITE_MOCK_MODE=true`. HANDOFF-02 deleted that file because Vercel applied it to every project in the repo and broke `zecreveal`'s first build (`NEXT_OUTPUT_DIR_MISSING`); until this click, the legacy dashboard project fails to build. Exact values in `docs/2.0/DEPLOY-2.0.md` section 1 |
+| 02 | **clear the stale build overrides on the `zecreveal` project** (Settings -> Build & Development): Framework Preset `Next.js`, and Build Command, Install Command and Output Directory overrides OFF. `apps/web/vercel.json` overrides them so the build no longer depends on this, but the legacy dashboard's build command is still stored on the new project and is a trap for whoever next edits that file |
 | 09 → 11 | connect the existing Vercel Marketplace **Redis** store to `zecreveal` (project → Storage); copy the REST URL + read-only token into `SNAPSHOT_REDIS_REST_URL` / `SNAPSHOT_REDIS_REST_TOKEN` (Vercel env) and the `rediss://` URL into `SNAPSHOT_REDIS_URL` in the VPS `.env` — the publisher's only managed-store writer |
 | 10 | provision the VPS, run the runbook, create the tunnel |
 | 11 | cutover checklist → production promotion |
