@@ -40,10 +40,16 @@ const ADDRESS = /^t[123][1-9A-HJ-NP-Za-km-z]{33}$/;
 export const addressSchema = z.string().regex(ADDRESS, "expected a transparent Zcash address");
 
 /**
- * The five supply buckets the Record accounts for. This is deliberately NOT
- * `Pool` from @zcashreveal/types: that union is still the v0.2 pair and
- * HANDOFF-06 owns widening it. `transparent` is not a pool at all -- it is the
- * absence of one -- but supply accounting needs all five in one axis.
+ * The five supply buckets the Record accounts for.
+ *
+ * Deliberately NOT `Pool` from @zcashreveal/types, and the reason CHANGED with
+ * HANDOFF-06 rather than going away. It used to be that `Pool` was the v0.2
+ * pair and HANDOFF-06 owned widening it; that has happened, and `Pool` is now
+ * the same four shielded pools this enum names. The remaining difference is the
+ * fifth member: `transparent` is not a pool at all - it is the absence of one -
+ * but supply accounting needs all five on one axis, and putting `transparent`
+ * into `Pool` would let it reach a commitment tree and a nullifier set that
+ * cannot exist for it.
  */
 export const supplyBucketSchema = z.enum(["transparent", "sprout", "sapling", "orchard", "ironwood"]);
 export type SupplyBucket = z.infer<typeof supplyBucketSchema>;

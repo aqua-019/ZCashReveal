@@ -1569,3 +1569,330 @@ DEFERRED / NOTICED:
   licensed a fourth (the system-identity register). Unrelated to this note and not swept with it;
   a one-line fix for whoever next touches that file.
 ```
+
+---
+
+## L2 RESOLUTION — HANDOFF-05
+
+Arrived in the HANDOFF-06 session kickoff, fenced as `L2 RESOLUTION`, and appended here verbatim
+under the revolution protocol's step 2. Its eight folds were applied in the RECONCILE commit; the
+prompt that carried it is archived at `handoffs/prompts/PROMPT-06.md` §1.
+
+```
+L2 RESOLUTION — HANDOFF-05 (Cowork, 23 Aug 2026)
+
+VERIFY (Executed by L2 on a clean worktree of bba3775, with a REAL PostgreSQL 16, not relayed):
+  pnpm install rc=0 · pnpm build rc=0, 7 packages · migrations 001, 002 and 003a apply through the
+  real runner · `pnpm -r test` with DATABASE_URL set: content 67, zebra-rpc 23, web 346, gateway
+  95, indexer **178 passed / 1 skipped (179)**. The only skip is the mainnet block fixture that
+  HANDOFF-10 owns. Every Postgres-gated test ran.
+  ADVERSARIAL CHECKS, three, each by breaking the thing rather than reading it:
+  (a) `scripts/check-redis-safety.mjs` rc=0 clean, 20 self-tested detectors. I planted
+      `await r.flushdb()` in a new gateway file: rc=1, "FLUSHDB is forbidden against the shared
+      store (rule 2)", naming file and line. Removed, rc=0. The guard on the other project's data
+      is real.
+  (b) Log redaction: the suite is 9 tests and passes. I disabled the redaction itself - replaced
+      the body of `redactKeys` with a passthrough - and FOUR tests failed, including both the pass
+      state and the path-not-just-query fail state. Restored, 9 pass. The A9 assertion discriminates.
+  (c) The A1 coverage gap you found and fixed: I planted the exact defect you described, a 10x
+      error in `views/units.ts` (100_000_000n to 1_000_000_000n). FIVE tests failed. Restored, 95
+      pass. The gap is closed, and closed against the specific mutation that used to slip through.
+  The `expiryheight` work is the best thing in this PR. `rpc-casing.test.ts` does not merely assert
+  the field maps: it names which wallet tells were dead and are now reachable - YWALLET and
+  ZECWALLET_LITE go from `UNKNOWN_NONSTANDARD` to their real values once `expiryDelta` is non-null -
+  and it is honest that NIGHTHAWK and ZCASHD_RUST stay unreachable for a different missing input.
+  That is exactly the "if none change, that is itself a finding" case, answered with evidence.
+  Verdict: every assertion holds. Three gate rounds. ONE FINDING, below.
+
+FINDING F-05-1 (Executed) - `pnpm --filter @zcashreveal/indexer migrate` fails on a clean checkout.
+  On a fresh worktree, after `pnpm install` and before any build, the documented migrate command
+  dies: "Cannot find module '.../packages/zec-types/dist/index.js' imported from
+  apps/indexer/src/config.ts". `pnpm build` first, then it applies 001, 002 and 003a cleanly.
+  This is F-02-1's shape in a place fold 1 did not reach: turbo's `test: dependsOn ^build` fixed the
+  test task, and `migrate` is not a turbo task. It does not affect CI, whose order is Install, Build,
+  then migrate. It DOES affect the operator, because HANDOFF-10's runbook will tell a human to run
+  migrations on a VPS from a fresh clone, and this is the command they will run. Fold 1 fixes it.
+
+ANSWERS to the ledger questions:
+  Q1 THE API PREFIX — `/v2` survives, `/api` is deleted. Your reasoning is right and I will add the
+     part that settles it: `/api` is not a version, it is a category, and the moment a v3 exists the
+     name lies. Mounting both to avoid a cutover break was the correct call for one handoff and is
+     the wrong state to keep. Fold 2 deletes `/api` in HANDOFF-11 and makes the redirect explicit.
+  Q2 `/api/pools` ANSWERING 503 — keep the refusal, and I want the reasoning recorded because it is
+     the site's own thesis applied to itself. A page that serves four empty blocks is claiming to
+     have looked and found nothing; a 503 naming each missing block and the handoff that owns it is
+     the truth. Serving the real half separately at `/pools/balances` is right. Fold 3 puts the 503
+     and its body shape into HANDOFF-11's cutover checklist so it is expected rather than triaged.
+  Q3 ZIP 317 — CORRECT THE DOCUMENT. The gateway is right to follow the protocol, and you were
+     right not to edit another track's specification silently. `TRACKING-MATH.md` §3.5 gets the
+     exact rule, `max(ceil(inSize/150), ceil(outSize/34))`, with the count form kept beside it and
+     labelled as the P2PKH-only simplification it is. This is not pedantry: the lockbox is a 2-of-3
+     P2SH multisig, the divergence lands exactly there, and "the lockbox did not pay the conventional
+     fee" is a false statement about the one address this project exists to track. Fold 4.
+  Q4 THE FEE IS NOT ON THE WIRE — accepted, and this is now a blocker on HANDOFF-08, not a note.
+     A fee is a property of the inputs a transaction spends, so it must be computed by summing the
+     spent outputs, which is the indexer's job and not the boundary's. Two wallet signatures and
+     every `isZip317Conventional` call are blind until it exists. Fold 5 makes fee computation an
+     explicit HANDOFF-06 deliverable and makes HANDOFF-08's golden cases depend on it, for the same
+     reason the fingerprint fix had to precede them: a baseline captured over an analyser that
+     cannot see fees freezes the blindness into the record of correct behaviour.
+  Q5 THE GATE THAT CAPPED VERIFICATION SILENTLY — you are right, and this becomes a rule. Reading
+     the 19 unverified findings rather than shipping the 7 confirmed ones is the single best
+     judgement call in this revolution: two were live and one was a DTO field carrying different
+     quantities under a label describing only one. Fold 6 writes it into CLAUDE.md: a gate states
+     its verification budget in its first line, unverified findings are reported as WORK and not as
+     a footnote, and a round that ends with unread findings is not a round that converged.
+  Q6 THE QUARANTINE COUNT — thank you for measuring it from the prerendered HTML instead of
+     repeating my number. Ten anchor, twenty-two do not; my 24 and the four/four split were both
+     wrong and the correction belongs where you put it. The page for the 22 stays owed.
+
+FOLDS (apply in the RECONCILE commit):
+  1. HANDOFF-06 §4 - make `pnpm --filter @zcashreveal/indexer migrate` work on a clean checkout
+     (a `premigrate`, or route it through turbo with `dependsOn: ["^build"]`). §5 assertion: on a
+     tree with `packages/*/dist` deleted, `pnpm install && pnpm --filter @zcashreveal/indexer
+     migrate` exits 0 *(fail side: revert, same command, observe the resolve error)*. F-05-1.
+  2. HANDOFF-11 §4 - delete the `/api` prefix; `/v2` is the API. Any remaining `/api` path answers
+     410 with a body naming `/v2`, rather than 404 (LEDGER-05 Q1).
+  3. HANDOFF-11 §2 - the cutover checklist expects `/v2/pools` to answer 503 with a body naming the
+     four missing blocks until 06, 07, 08 and 09 have landed, and expects `/v2/pools/balances` to
+     answer 200 throughout. A 503 there is the design, not an incident (LEDGER-05 Q2).
+  4. HANDOFF-06 §4 - correct `docs/2.0/TRACKING-MATH.md` §3.5 and the `/method` component that
+     renders it: state ZIP 317's exact transparent term `max(ceil(inSize/150), ceil(outSize/34))`,
+     cite Zebra `zebra-chain/src/transaction/unmined/zip317.rs:160-173`, and keep the count form
+     beside it labelled as the P2PKH-only simplification. Add the worked lockbox case, two 2-of-3
+     P2SH inputs giving L=4 and 20,000 zatoshi against the count form's L=2 and 10,000 (LEDGER-05 Q3).
+  5. HANDOFF-06 §4 - add a deliverable: compute the transaction fee by summing the outputs a
+     transaction spends, and carry it on the analysis path so `feeZat` is real rather than `0n`.
+     §8 must record that HANDOFF-08's golden cases depend on this AND on the `expiryheight` fix
+     being merged, and may not be captured before both (LEDGER-05 Q4).
+  6. CLAUDE.md, revolution protocol - add to the gate: a gate states its verification budget in the
+     FIRST line of its return. Findings it did not verify are reported as work, listed with the
+     others, never as a trailing log line. A round that ends with unread findings has not converged,
+     and the lead reads them before deciding whether to ship (LEDGER-05 Q5).
+  7. CLAUDE.md, revolution protocol - add: a fail-side probe that does not fail is itself a finding
+     and is reported as one. Two-polarity evidence is worthless when the negative case does not
+     discriminate; repairing it quietly hides that the positive result was never evidence. This has
+     now happened twice, in HANDOFF-04 (a reused Playwright server) and HANDOFF-05 (the zatoshi
+     conversion), and both times the session caught it. Make it a rule so the third time is caught
+     by the rule rather than by luck.
+  8. HANDOFF-06 §2 - add to the reading: gates fetch `origin/main` before fanning out. HANDOFF-05's
+     round-2 gate reviewed the whole project as its diff because the local base was stale, which is
+     most of why it cost 14 agents and 29 minutes (LEDGER-05, noticed).
+
+OPERATOR CLICKS OUTSTANDING: delete the stale remote branches per `docs/2.0/BRANCH-CLEANUP.md`.
+The shared Upstash store is connected and its guard script is proven; nothing else is needed there
+until the publisher exists at HANDOFF-09.
+```
+
+
+---
+
+## HANDOFF-06 — Indexer: four pools + migration 003 + post-NU6.3 invariants
+
+Branch `claude/new-session-s4er6f` (harness-designated) - shipped 23 Aug 2026 - gate rounds: 2
+
+```
+QUESTIONS (for the operator / L2):
+
+1. THE HANDOFF GAVE THREE TESTNET HEIGHTS FOR FIVE UPGRADES, AND ONE OF THE MISSING
+   ONES IS IN THE CORPUS. §3 lists testnet 4,048,500 / 4,052,000 / 4,134,000 while
+   naming NU6, NU6.1, ORCHARD_MITIGATION, NU6.2 and NU6.3. Assigning three numbers to
+   five names positionally would have written constants that are simply wrong, so they
+   were resolved from the repository instead: 4,048,500 is the mitigation, which ZIP 257
+   pins by naming mainnet and testnet in ONE verbatim clause; 4,134,000 is NU6.3 per ZIP
+   258; 4,052,000 is NU6.2, and that one is CORROBORATED BY ORDERING rather than by
+   statement - the corpus gives the pair in the same order as the mainnet pair it follows
+   and never writes "testnet NU6.2 =" in a sentence of its own. Testnet NU6.1 is
+   3,536,500, which IS in the corpus at high confidence and is NOT in the handoff's
+   triple. And there is no testnet NU6 height anywhere in this tree, so the constant is
+   deliberately absent with a comment saying why. Confirm 4,052,000, or point me at a
+   line that states it; and if you would rather no constant carry an ordering-derived
+   value at all, say so and it comes out.
+
+2. IRONWOOD IS DECLARED EVERYWHERE AND DECODED NOWHERE, AND I HAVE KEPT IT VISIBLY
+   ABSENT RATHER THAN PRESENT AT ZERO. `perPoolZat` omits a pool that did not move, and
+   Ironwood never appears in it, because reading a v6 bundle is HANDOFF-07's deliverable
+   and §1 puts it out of scope. The alternative was an `ironwoodValueBalanceZat: 0n` on
+   every report, and a hardcoded zero renders as a measurement - which is the entire
+   defect this handoff spent its length removing from `feeZat`. The consequence is that
+   `MIGRATION_O2I` cannot fire on the live path today: the rule is implemented, both
+   polarities are tested through `AnalyzeContext.ironwoodValueBalanceZat`, and a real
+   Orchard-to-Ironwood migration classifies as `MIXED` until 07 fills that seam. I think
+   that is the right trade and I want it on the record rather than discovered.
+
+3. THE FEE IS REAL NOW, AND THE THING THAT MADE IT SAFE TO SHIP WAS MAKING IT NULLABLE
+   ALL THE WAY DOWN - WHICH BROKE THREE THINGS THAT HAD BEEN UNREACHABLE. This is the
+   most useful thing I learned. `leak_reports.fee_zat` was `NOT NULL DEFAULT 0`, so every
+   consumer had a coalesce or a cast that could never see a null and had therefore never
+   been exercised. Dropping the constraint made /tx render MINUS one ZEC through a
+   fallback that sums only resolved inputs; made `routes/tx.ts` throw `BigInt(null)` into
+   its own catch, silently dropping the whole leak record and blaming a lookup that had
+   succeeded; and made `likelyWallet` publish an unknown fee as `UNKNOWN_NONSTANDARD`,
+   the same verdict as a fee measured and found non-conventional. TypeScript saw none of
+   them: postgres.js row types are caller-asserted and `Number(null)` is legal. The
+   general point for the next handoff that widens a type: a NOT NULL column is not only
+   a constraint, it is a set of untested branches, and dropping it runs them all at once.
+
+4. A9 WAS RIGHT TO BE ITS OWN ASSERTION, AND ONE PLACE WAS NOT ENOUGH. You asked for it
+   named rather than folded into a gate list. Having it named is what made the gate check
+   it as a RULE rather than as a fix, and the rule then failed in three more places than
+   the one I had corrected: /track published `class: "shield"`, `flow: "t to z"` and
+   `migrations: 0` for every migration because its class ternary tested direction before
+   the migration branch, making that branch unreachable for every input; `likelyWallet`
+   overrode a null fee with a verdict; and the test titled "cannot fire on an unknown
+   fee" passed `0n`, a KNOWN fee, so it pinned the conflation rather than the behaviour -
+   swapping in `null` left it green. I would not have gone looking for any of those if
+   the assertion had stayed a bullet in a round summary.
+
+5. THE READ-ONLY WORKER THAT WROTE IS NOW A RULE, AND THE EARLIER OCCURRENCE IS NOT IN
+   THIS LEDGER. A mapping agent scoped to read-only wrote the pool widening into
+   `shielded.ts` and `leaks.ts`; it was reverted and re-made deliberately. You report the
+   same class in HANDOFF-04, a gate verifier writing a scratch test into the repo. I
+   searched LEDGER.md, LOG.md and every handoff for it under several wordings and could
+   not find it, so it is carried in CLAUDE.md as your account rather than as something I
+   re-verified. That is itself the argument for the rule: an incident that happened and
+   was never written down is one the next session cannot learn from. The sweep ran after
+   all four fan-outs this session and its results are in §7 - it caught the mapping
+   agent, and gate round 1 left five probe files that their own agents removed before the
+   run ended.
+
+6. THE INTEGRATION SUITE IS NOT SAFE AGAINST TWO CONCURRENT RUNS ON ONE POSTGRES.
+   CI IS SAFE AS CONFIGURED TODAY, AND THE FIRST DRAFT OF THIS QUESTION SAID OTHERWISE -
+   it claimed this would "bite CI before it bites anyone else", which I then checked
+   rather than left standing. `.github/workflows/ci.yml` runs ONE `vitest run` per
+   package and `fileParallelism: false` orders files within that process, so nothing in
+   CI shares the database concurrently. The exposure is real and it is elsewhere: two
+   agents or two developers running suites side by side, and CI itself the day anyone
+   parallelises integration files across processes to cut the wall clock.
+   `fileParallelism: false` orders files within a single process; every integration
+   suite TRUNCATEs shared tables in `beforeEach`. Two round-2 workers ran suites simultaneously against the one database
+   and produced failures in BOTH directions - one worker's TRUNCATE wiping the other's
+   rows mid-test, and foreign rows landing in a count - including a corrupted A6 balance
+   assertion. Both workers proved it pre-existing by inducing it against `git show HEAD:`
+   versions of their own files. It is not a defect this handoff introduced and it is not
+   in its scope, but the fix is a decision someone has to make: a database per worker, an
+   advisory lock, or schema-per-run. Whoever owns CI concurrency should own it.
+
+INFERRED (non-empty inferences a worker made):
+
+- The `map:facts` worker was asked to verify the handoff's activation heights and
+  inferred that "verify" includes reporting what the handoff FAILED to supply. That
+  inference produced questions 1's whole content: testnet NU6.1 = 3,536,500 exists in the
+  corpus and is absent from the handoff, and testnet NU6 exists nowhere. A worker that
+  had checked only the numbers it was given would have returned "all corroborated" and
+  been right about every number it looked at.
+- `A7` names a grep. I inferred that the ASSERTION is what must hold and the command is
+  a suggestion for testing it, because the command as written cannot fail: this tree is
+  double-quoted throughout, so the single-quoted pattern never matched a line of it even
+  before the widening. Implemented as a self-testing guard instead, which then caught a
+  flaw in itself on its first run.
+- CLAUDE.md's sweep rule says to correct every restatement of a corrected fact in the
+  same commit. I inferred that a restatement in CODE counts, not only in prose - which is
+  how the indexer's third ZIP 317 implementation came to be corrected here rather than
+  left to HANDOFF-08 where LEDGER-05 deferred it, and how /track's use of the count
+  approximation to decide whether a fee is conventional was found at all.
+- `PoolPath` was specified as gaining one member, `orchard->ironwood`. I inferred that a
+  hand-enumerated cross-product is the defect rather than the shape, since the omission
+  it was gaining had been hidden by an `as` cast on the one line that built one, and made
+  it a template type over `ShieldedPool`. Sixteen crossings now exist by construction and
+  the cast is gone.
+
+NOT-MATCHED (patterns handed over that did not apply):
+
+- §6's dispatch did not match. `chain-integrator` (Sonnet) for the widening,
+  `backend-api` (Haiku) for migration 003 after a PREFLIGHT, `test-engineer` (Haiku) for
+  the property test, `security-auditor` for the runner - none of those roles was spawned.
+  The session ran the lead plus four Workflow fan-outs whose workers were scoped by FILE
+  LIST rather than by crew role. So Loop 1's PREFLIGHT and Loop 3's spec-author review
+  did not happen as separate steps: the spec author and the executor were the lead. This
+  is the second handoff to record exactly this divergence and it is now the norm rather
+  than the exception; §6 either describes something this stack does not do, or the
+  fan-out mechanism needs to be reconciled with the crew vocabulary.
+- §5's A7 did not match, as above. Recorded because "implemented the assertion" and "ran
+  the command" are different acts and only one of them is what the handoff asked for.
+- The `docs-scribe` role in §7's own heading did not apply: the report is the lead's.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+
+- "LeakClass gains MIGRATION_O2I and IRONWOOD VARIANTS" - plural, and the plural has no
+  referent. Every member except a migration is pool-agnostic: PURE_SHIELDED, T_TO_Z,
+  Z_TO_T and MIXED describe where value crossed, not which pool it crossed in. An
+  `IRONWOOD_ONLY` would be the only pool-named non-migration class and would immediately
+  owe a `SAPLING_ONLY` and an `ORCHARD_ONLY` for symmetry, at which point the taxonomy is
+  about pools instead of about flow. Resolved as the one member the taxonomy needs.
+- `pool_snapshots(height, pool, ...)` and `migrations_zip318(txid, height, ...)` are
+  given as column LISTS with no types, no nullability and no keys. Everything load-bearing
+  about those two tables - `denom_k`'s unit, whether `amount_zat` carries an upper bound,
+  what `canonical` means when the denominations are null - had to be decided from the
+  corpus, and two of those decisions are recorded as assumptions because the corpus
+  states the cap two different ways.
+- A2 and A3 both say "(integration test)" and neither had one. They held because a human
+  ran psql. Written now, and one of the fail-side probes for A2 did not discriminate -
+  see the fail-side entry below.
+
+GATE ROUND COUNTS: 2.
+
+Round 1: five review lenses (correctness, facts, security, spec, design) followed by five
+verifiers whose instruction was to REFUTE, and to default to REFUTED where they could not
+reproduce. 41 raw findings, every one carrying an executed probe. Every finding was read
+by the lead, and every one of the ten returns stated its verification budget in its first
+line, per the rule LEDGER-05 Q5 added - which mattered: two lenses reported items they
+could not verify as WORK, and one of those (the `vjoinsplit` wire casing) is now the most
+important line in §7's UNVERIFIED. The verifiers refuted five findings outright, including
+two the reviewers had rated HIGH, and cut most of the design lens to LOW. Fingerprints are
+in §7.
+
+Round 2: four workers, every surviving fingerprint closed. THREE OF THE FINDINGS WERE
+DEFECTS THE ROUND-1 FIX HAD CREATED - the nullable fee opening two paths a NOT NULL column
+had kept unreachable, and making the migration class reachable making a direction-blind
+label and a self-contradicting crossing tile live. No finding reached a third round on
+itself, so Loop 4's per-finding cap was never approached and nothing is NOT CONVERGING.
+
+A FAIL-SIDE PROBE THAT DID NOT FAIL, reported rather than repaired quietly, per the rule
+LEDGER-05 fold 7 added this session: the first transactional-runner probe broke a
+migration's BODY and passed with `sql.begin` removed. postgres.js sends a parameterless
+`unsafe()` as one simple-query message and Postgres wraps that in an implicit
+transaction, so the body always rolled itself back - the probe had never been evidence of
+what it claimed. It is kept, relabelled in-file as a regression guard on the
+one-simple-query property, and a probe that does discriminate was added beside it. The
+rule is three for three now: HANDOFF-04's Playwright server, HANDOFF-05's zatoshi
+conversion, and this.
+
+DEFERRED ASSUMPTIONS:
+
+- HANDOFF-08 MUST NOT CAPTURE ITS GOLDEN CASES BEFORE THIS MERGES, and the dependency is
+  now two-fold rather than one. LEDGER-05 Q4 already recorded that the `expiryheight` fix
+  had to land first. The fee is the second half: `feeZat` went from `0n` on every
+  transaction ever analysed to a computed number or an explicit null, `isZip317ConventionalFee`
+  went from a re-statement of the wallet guess to an actual test of the fee, and
+  `likelyWallet` gained `UNKNOWN_UNPRICED`. Golden cases captured against the current main
+  would freeze three blindnesses into the record of correct behaviour.
+- HANDOFF-07 OWNS THE IRONWOOD HALF OF THREE THINGS THIS HANDOFF LEFT OPEN: the bundle in
+  `DecodedShieldedBundle`, the entry in `valueFlow.perPoolZat`, and the balance that makes
+  `MIGRATION_O2I` fire. The seam is `AnalyzeContext.ironwoodValueBalanceZat`; filling it
+  is a value passed at one call site, not a reopening of the module.
+- `PrevOutCache` HAS NO NEGATIVE CACHE. An unresolvable parent is refetched on every
+  analysis - 500 resolves of one missing parent issue 500 RPC calls, measured. A
+  short-TTL entry trades a cost problem for a freshness one and there is no unit suite
+  over the class to hold the trade in place, so it is left undone deliberately and the
+  docblock now states the unbounded consequence rather than only the intent.
+- THE WIRE CASING OF `vjoinsplit` IS UNCORROBORATED, and it is the same shape as the
+  defect that made every wallet fingerprint inert for the life of this project. Every
+  Sprout term added here keys on lowercase `vjoinsplit`; no fixture in the repository
+  contains a JoinSplit and `rpc-casing.test.ts` does not cover it. If the spelling is
+  wrong, every Sprout term is silently `0n` with no failing test. HANDOFF-10's captured
+  fixture should include a Sprout transaction for exactly this reason.
+- `pool_snapshots` AND `migrations_zip318` HAVE NO WRITER. They are created by migration
+  003 and referenced by no TypeScript in the tree; HANDOFF-12 §4 commissions the
+  `pool_snapshots` writer and HANDOFF-09 the migration lens. `truncateAll` in the
+  integration setup does not truncate them, which is correct today and will need changing
+  by whichever handoff writes to them first.
+- MIGRATION 003 HAS BEEN APPLIED TO A LOCAL POSTGRES 16 AND ASSERTED THERE, including the
+  001-002 upgrade path, the fresh path, idempotence and the transactional runner. It has
+  NOT been applied to the VPS database. That is an operator click, and 003 is the first
+  migration in this project that ALTERs objects it did not create and REWRITES existing
+  rows (`UPDATE leak_reports SET fee_zat = NULL WHERE fee_zat = 0`).
+- The eslint no-unused-vars promotion and the unused `saplingSpend` in
+  `block-decoder.test.ts` remain deferred, as HANDOFF-00 through 05 all recorded. Still
+  the only warning.
+```

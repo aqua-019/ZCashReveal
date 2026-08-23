@@ -78,7 +78,14 @@ describe("the RPC boundary maps the wire's casing onto the names the decoder rea
 
     const report = await analyze(tx, context(3_456_200));
     expect(report.fingerprint.expiryDelta).toBeNull();
-    expect(report.fingerprint.likelyWallet).toBe("UNKNOWN_NONSTANDARD");
+    // UNKNOWN_UNPRICED, not UNKNOWN_NONSTANDARD. This suite has no prevout
+    // resolver, so the fee is null - and the two NONSTANDARD/BUT_STANDARD
+    // answers are both claims ABOUT the fee, which is why neither is available
+    // without one. The assertion said NONSTANDARD until a gate round found that
+    // it was pinning the conflation rather than the blindness this test is
+    // about: the expiry delta is what is missing here, and the wallet answer
+    // must not smuggle in a verdict on a fee nobody computed.
+    expect(report.fingerprint.likelyWallet).toBe("UNKNOWN_UNPRICED");
   });
 
   it("the mapping is ADDITIVE, and a camelCase key would survive - which is why the casing is linted", async () => {
@@ -131,24 +138,32 @@ describe("casing of the transaction fixtures", () => {
 
 describe("which wallet signatures the fix actually revives, and which stay inert", () => {
   /**
-   * Two of the five become live and two do not, and the two that do not fail
-   * for a SECOND reason of the same kind - so naming them here is the point of
-   * this block rather than an aside.
+   * Two of the five became live with the casing fix and two needed a second
+   * repair of the same kind - so naming them here is the point of this block
+   * rather than an aside.
    *
-   * `leak-analyzer.ts:112` reads `tx.feeZat`. Zebra's `TransactionObject`
-   * carries no fee field at all (types/transaction.rs:268-429 scanned in full),
-   * and neither does zcashd's `getrawtransaction`: a fee is a property of the
-   * outputs a transaction spends, and those are not in the response. So
-   * `feeZat` is `undefined` on the wire exactly as `expiryHeight` was, the
-   * analyser coalesces it to `0n`, and `isZip317Conventional(0n, actions)` is
-   * false for every transaction, because the conventional fee has a floor of
-   * two logical actions at 5,000 zatoshi.
+   * WHEN THIS BLOCK WAS WRITTEN, `leak-analyzer.ts` read `tx.feeZat`. Zebra's
+   * `TransactionObject` carries no fee field at all (types/transaction.rs:268-429
+   * scanned in full), and neither does zcashd's `getrawtransaction`: a fee is a
+   * property of the outputs a transaction spends, and those are not in the
+   * response. So `feeZat` was `undefined` on the wire exactly as `expiryHeight`
+   * was, the analyser coalesced it to `0n`, and `isZip317Conventional(0n,
+   * actions)` was false for every transaction, because the conventional fee has
+   * a floor of two logical actions at 5,000 zatoshi.
    *
-   * Both fee-gated signatures are therefore still unreachable from real data
-   * after this fix. Repairing that means COMPUTING the fee, which is analysis
-   * and belongs to HANDOFF-06/07/08, not to a boundary. It is recorded in the
-   * section 8 ledger as a deferred assumption rather than left for HANDOFF-08's
-   * golden cases to freeze.
+   * HANDOFF-06 CLOSED THAT SECOND GAP: `computeFeeZat` sums the outputs a
+   * transaction spends through an injected resolver, and returns `null` rather
+   * than `0n` when it cannot. So the fee-gated signatures are reachable from
+   * real data now, given a resolver - what they still cannot do is fire on an
+   * unknown fee, which is the behaviour the `feeZat: 0n` rows below pin. The
+   * titles of the last two cases say what they pin rather than what was once
+   * true of the analyser; the assertions are unchanged.
+   *
+   * `logicalActions` is passed rather than derived here since HANDOFF-06, and
+   * each value below is ZIP 317's L for the counts its own row declares:
+   * `transparent + 2*joinsplits + max(saplingSpends, saplingOutputs) + orchard`.
+   * For `base` that is 0 + 0 + 0 + 2 = 2, whose conventional fee is the grace
+   * floor of 10,000 zatoshi - which is why 10,000 tests as conventional below.
    */
   const base = {
     txVersion: 5,
@@ -157,6 +172,7 @@ describe("which wallet signatures the fix actually revives, and which stay inert
     saplingSpendCount: 0,
     saplingOutputCount: 0,
     orchardActionCount: 2,
+    logicalActions: 2,
     feeZat: 0n,
     hasOrchardBundle: true,
     hasSaplingBundle: false,
@@ -168,23 +184,48 @@ describe("which wallet signatures the fix actually revives, and which stay inert
   });
 
   it("ZECWALLET_LITE is now reachable, and was not before", () => {
-    const lite = { ...base, hasSaplingBundle: true, saplingOutputCount: 1 };
+    // One Sapling output on top of base's two Orchard actions: L = 1 + 2 = 3,
+    // whose conventional fee is 15,000 - so the 0n rows below are non-conventional
+    // for the right arithmetic reason and not by accident of the grace floor.
+    const lite = {
+      ...base,
+      hasSaplingBundle: true,
+      saplingOutputCount: 1,
+      logicalActions: 3,
+    };
     expect(guessWallet({ ...lite, expiryDelta: 20 })).toBe("ZECWALLET_LITE");
     expect(guessWallet({ ...lite, expiryDelta: null })).toBe("UNKNOWN_NONSTANDARD");
   });
 
-  it("NIGHTHAWK stays unreachable from real data, because it also needs a fee the wire omits", () => {
-    // Expiry delta of 70 satisfies its own gate; the conventional-fee gate is
-    // what still refuses, and it refuses for every real transaction.
-    expect(guessWallet({ ...base, expiryDelta: 90, feeZat: 0n })).toBe("UNKNOWN_NONSTANDARD");
-    // With a fee that a computed one WOULD supply, it fires - so the signature
-    // itself is sound and only its input is missing.
+  it("NIGHTHAWK cannot fire on an unknown fee, and does fire on a computed one", () => {
+    // THE UNKNOWN FEE IS `null`, NOT `0n`. This assertion passed `0n` and was
+    // titled as if it tested the unknown case - a gate round showed the two are
+    // not the same test at all, because `0n` is a KNOWN fee that happens to be
+    // non-conventional, which is the very value HANDOFF-06 exists to abolish.
+    // Swapping one for the other left the file green, so the old assertion was
+    // not evidence for its own title.
+    //
+    // Three states, three answers. Expiry delta of 90 satisfies NIGHTHAWK's own
+    // gate throughout; only the fee differs.
+    expect(guessWallet({ ...base, expiryDelta: 90, feeZat: null })).toBe("UNKNOWN_UNPRICED");
+    expect(guessWallet({ ...base, expiryDelta: 90, feeZat: 1n })).toBe("UNKNOWN_NONSTANDARD");
+    // With the fee `computeFeeZat` now supplies, it fires - so the signature
+    // itself is sound and it was only ever its input that was missing.
     expect(guessWallet({ ...base, expiryDelta: 90, feeZat: 10_000n })).toBe("NIGHTHAWK");
   });
 
-  it("ZCASHD_RUST stays unreachable from real data, for the same reason", () => {
-    const zcashd = { ...base, hasSaplingBundle: true, saplingOutputCount: 2, orchardActionCount: 0, hasOrchardBundle: false };
-    expect(guessWallet({ ...zcashd, expiryDelta: 40, feeZat: 0n })).toBe("UNKNOWN_NONSTANDARD");
+  it("ZCASHD_RUST behaves the same way, for the same reason", () => {
+    // Two Sapling outputs, no Orchard: L = max(0, 2) = 2, conventional fee 10,000.
+    const zcashd = {
+      ...base,
+      hasSaplingBundle: true,
+      saplingOutputCount: 2,
+      orchardActionCount: 0,
+      hasOrchardBundle: false,
+      logicalActions: 2,
+    };
+    expect(guessWallet({ ...zcashd, expiryDelta: 40, feeZat: null })).toBe("UNKNOWN_UNPRICED");
+    expect(guessWallet({ ...zcashd, expiryDelta: 40, feeZat: 1n })).toBe("UNKNOWN_NONSTANDARD");
     expect(guessWallet({ ...zcashd, expiryDelta: 40, feeZat: 10_000n })).toBe("ZCASHD_RUST");
   });
 });

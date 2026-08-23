@@ -36,6 +36,7 @@ Wire `apps/web` to the real API and WS with the snapshot as the baseline, so the
 - `handoffs/LEDGER.md` (§8 entries from every shipped handoff — read before planning)
 - `apps/web/src/lib/api` (HttpApi), gateway routes (`docs/2.0/API.md`), `packages/zec-types` `SnapshotV1`, `docs/2.0/DEPLOY-2.0.md`, `docs/2.0/SNAPSHOT.md` (sinks + the two-Redis topology)
 - **A session cannot reach the VPS, the gateway or a preview host from inside its container.** Deployment Protection returns 302 to the SSO endpoint, and the session's own egress proxy refuses the CONNECT tunnel with 403 before that (HANDOFF-04 §7, LEDGER-04 Q3). Every live check in this handoff is either the operator's, taken and pasted into the ledger, or it is not taken. Plan the cutover checklist on that basis rather than discovering it at cutover.
+- **The cutover checklist expects `/v2/pools` to answer 503 with a body naming the four missing blocks until 06, 07, 08 and 09 have landed, and expects `/v2/pools/balances` to answer 200 throughout.** A 503 there is the design, not an incident (L2 RESOLUTION for HANDOFF-05, fold 3, LEDGER-05 Q2). The page has five blocks; one - the pool balances - is chain-derived and the gateway computes it, and the other four are the turnstile ledger (06), the deployment history (07), the estimator panel (08) and the supply reconciliation (09). A page that serves four empty blocks is claiming to have looked and found nothing; a 503 naming each missing block and the handoff that owns it is the truth. Triage it as a checklist expectation, never as a broken deployment.
 
 ## §3 CONTRACT
 
@@ -55,6 +56,8 @@ Wire `apps/web` to the real API and WS with the snapshot as the baseline, so the
 ## §4 DELIVERABLES
 
 1. Wiring + staleness indicator; `SnapshotStore` with the four sources and a unit test per source; `apps/web/e2e/*.spec.ts` (Playwright); CI jobs: e2e against a fixture build on PRs, and a post-deploy smoke job that fetches the production bundle and fails if the snapshot fallback marker is absent; `docs/2.0/CUTOVER.md`. The Storage step is **already done** — the store is connected to `zecreveal` for Production and Preview and its variables are injected automatically, so `CUTOVER.md` records the names and the read-only-token rule rather than asking the operator to set them. **The managed store is shared with an unrelated production project**: read `docs/2.0/SNAPSHOT.md` before any test or smoke job so that none of them points at it — a Playwright run against the shared store is exactly the mistake §4.5 forbids.
+
+2. **Delete the `/api` prefix; `/v2` is the API** (L2 RESOLUTION for HANDOFF-05, fold 2, LEDGER-05 Q1). HANDOFF-05 mounted every route at BOTH `/api` and `/v2` because the handoff specified one and HANDOFF-04's only written client sends the other, and mounting one would have broken the other at this cutover. That was the correct call for one handoff and is the wrong state to keep: `/api` is not a version, it is a category, and the moment a v3 exists the name lies. Delete it here. Any remaining `/api` path answers **410 with a body naming `/v2`**, not 404 - a 404 says the route never existed, and a client still sending `/api` needs to be told where the API went rather than left to guess at a network fault.
 
 ## §5 ASSERTIONS — binary, machine-checkable, each needs a pass-state and a fail-state transcript
 

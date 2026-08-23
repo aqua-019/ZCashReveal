@@ -209,6 +209,26 @@ function asZat(v: unknown): bigint | null {
   return null;
 }
 
+/**
+ * A zatoshi field that is allowed to be null, distinguishing THE FIELD WAS NULL
+ * from THE FIELD WAS RUBBISH.
+ *
+ * `asZat` collapses both onto `null`, which is fine for a required field and
+ * wrong for a nullable one. `feeZat` became nullable in HANDOFF-06 because the
+ * fee is not on the wire and computing it can fail - and the guard below reads
+ * `feeZat === null` as "reject this row", so with the old helper every
+ * transaction whose fee could not be computed would have been DROPPED FROM THE
+ * LIVE PANEL rather than shown without a fee. A dropped row does not look like
+ * a bug; it looks like a quiet mempool.
+ *
+ * Returns `undefined` for a malformed value, which is what the guard rejects.
+ */
+function asNullableZat(v: unknown): bigint | null | undefined {
+  if (v === null) return null;
+  const zat = asZat(v);
+  return zat === null ? undefined : zat;
+}
+
 const LANES = new Set(["transparent", "sprout", "sapling", "orchard", "ironwood"]);
 const VERSIONS = new Set(["v4", "v5", "v6"]);
 const SEVERITIES = new Set(["INFO", "LOW", "MED", "HIGH"]);
@@ -217,7 +237,7 @@ const CLASSES = new Set(["shield", "deshield", "shielded", "migration", "transpa
 function asRow(v: unknown): MempoolRow | null {
   if (typeof v !== "object" || v === null) return null;
   const r = v as Record<string, unknown>;
-  const feeZat = asZat(r["feeZat"]);
+  const feeZat = asNullableZat(r["feeZat"]);
   const lanes = Array.isArray(r["lanes"]) && r["lanes"].length > 0 && r["lanes"].every((l) => typeof l === "string" && LANES.has(l))
     ? (r["lanes"] as MempoolRow["lanes"])
     : null;
@@ -230,7 +250,7 @@ function asRow(v: unknown): MempoolRow | null {
     !isText(r["flow"]) ||
     lanes === null ||
     !isText(r["valueBalanceText"]) ||
-    feeZat === null ||
+    feeZat === undefined ||
     !isCount(r["logicalActions"]) ||
     !isText(r["walletGuess"]) ||
     !isText(r["finding"]) ||
@@ -283,6 +303,7 @@ function asView(v: unknown): MempoolView | null {
     !isCount(sum["transparent"]) ||
     !isCount(sum["bytes"]) ||
     !isCount(sum["nextBlockSeconds"]) ||
+    !isCount(sum["pricedCount"]) ||
     !isCount(sum["conventionalCount"]) ||
     !isCount(sum["findingsHigh"]) ||
     !isText(sum["crossingSplit"]) ||
@@ -304,6 +325,7 @@ function asView(v: unknown): MempoolView | null {
       crossingZat,
       crossingSplit: sum["crossingSplit"],
       conventionalFeeZat,
+      pricedCount: sum["pricedCount"],
       conventionalCount: sum["conventionalCount"],
       findingsHigh: sum["findingsHigh"],
       findingsNote: sum["findingsNote"],

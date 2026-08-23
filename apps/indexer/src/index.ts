@@ -6,6 +6,12 @@
  *               ├─▶ fetchAndAnalyze(txid) ─▶ MempoolState.upsert(report)
  *   poll loop ──┘                                      │
  *                                                       └─▶ persist + publish
+ *
+ * The analysis path carries a `PrevOutCache` from HANDOFF-06, because the fee
+ * is not on the wire: no node sends one, so it is computed by summing the
+ * outputs a transaction spends and those have to be fetched. Before that, the
+ * analyser read `tx.feeZat` and every transaction it ever processed was
+ * recorded as having paid nothing.
  */
 
 import pino from "pino";
@@ -17,6 +23,7 @@ import { MempoolState, type MempoolDiff } from "./mempool-state.js";
 import { createDb, persistLeakReport } from "./persistence/index.js";
 import { AnchorRegistry, analyze } from "./decoder/index.js";
 import { RoundTripIndex } from "./analysis/round-trip.js";
+import { PrevOutCache } from "./analysis/prevout-cache.js";
 import { asHex, type Hex } from "@zcashreveal/types";
 
 const cfg = loadConfig();
@@ -42,6 +49,9 @@ async function main() {
   const sql = createDb(cfg.DATABASE_URL);
   const redis = new Redis(cfg.REDIS_URL, { lazyConnect: false });
   const anchorRegistry = new AnchorRegistry(redis, sql);
+  // Makes the fee real rather than zero. No node sends a fee, so it is computed
+  // by summing the outputs each transaction spends, and those come from here.
+  const prevOuts = new PrevOutCache(rpc);
   const roundTrip = new RoundTripIndex();
   const state = new MempoolState(log);
 
@@ -114,6 +124,7 @@ async function main() {
         seenAt: Date.now(),
         anchorRegistry,
         recentAnchorThreshold: cfg.RECENT_ANCHOR_THRESHOLD,
+        resolvePrevOut: prevOuts.resolve,
       });
       const newLinks = roundTrip.ingest(report);
       report.links = newLinks;

@@ -32,6 +32,7 @@
 import { z } from "zod";
 
 import type { FilterApplication } from "./analysis.js";
+import type { ShieldedPool } from "./shielded.js";
 
 /* ============================================================================
    Primitives
@@ -65,14 +66,39 @@ export const countSchema = z.number().int().nonnegative();
 /**
  * The four shielded pools, per CLAUDE.md.
  *
- * NOT the same union as `Pool` in analysis.ts, which is still the v0.2 pair
- * (`sapling | orchard`) because widening it breaks the indexer's exhaustive
- * state machines - HANDOFF-06 owns that widening and its migration 003. Until
- * it lands the two coexist, and this is the one the display layer uses.
- * Recorded in the section 8 ledger.
+ * THE SAME FOUR AS `Pool` IN analysis.ts SINCE HANDOFF-06. This docblock used
+ * to say the two unions differed - that `Pool` was "still the v0.2 pair" and
+ * that HANDOFF-06 owned the widening. That handoff has landed and the two now
+ * agree member for member, so this schema is the zod MIRROR of the union rather
+ * than a display-layer parallel to it.
+ *
+ * They stay two declarations because a zod enum is a runtime value and
+ * `ShieldedPool` is a type, and neither can be derived from the other without
+ * losing what makes it useful. What keeps them in step is the assertion below,
+ * which is a compile-time check rather than a test: a test can be skipped, and
+ * this one would have to be remembered by whoever adds a fifth pool, which is
+ * exactly the person who will not be thinking about it.
  */
 export const poolNameSchema = z.enum(["sprout", "sapling", "orchard", "ironwood"]);
 export type PoolName = z.infer<typeof poolNameSchema>;
+
+/**
+ * `PoolName` and `ShieldedPool` are the same union, enforced by the compiler.
+ *
+ * Assignability is checked in BOTH directions on purpose. One direction alone
+ * passes when one union is a strict subset of the other, which is precisely the
+ * state this project was in before HANDOFF-06 - `PoolName` had four members and
+ * `Pool` had two - and is the state a half-finished widening would leave it in
+ * again. Adding a member to either declaration without the other now fails
+ * `tsc`, naming this line.
+ */
+type Expect<T extends true> = T;
+type Covers<A, B> = [A] extends [B] ? true : false;
+
+/** Every `PoolName` is a `ShieldedPool`. Fails `tsc` here if a member is added to only one. */
+export type PoolNameIsShieldedPool = Expect<Covers<PoolName, ShieldedPool>>;
+/** Every `ShieldedPool` is a `PoolName`. The other direction, which a subset would pass. */
+export type ShieldedPoolIsPoolName = Expect<Covers<ShieldedPool, PoolName>>;
 
 /**
  * The five lanes the site draws value moving between. Transparent is not a
@@ -483,9 +509,27 @@ export const txViewSchema = z.object({
   /** The round trip, when this transaction is one leg of a documented one. */
   roundTrip: z.array(ledgerLineSchema),
   roundTripNote: z.string().min(1).nullable(),
-  feeZat: zatSchema,
+  /**
+   * The fee, or `null` when it could not be computed. THE CONTRACT NOTE FOR
+   * BOTH VIEWS THAT CARRY A FEE - `mempoolRowSchema.feeZat` points here.
+   *
+   * NULLABLE SINCE HANDOFF-06 BECAUSE THE FEE IS NOT ON THE WIRE. No node sends
+   * one - the fee is the difference between the outputs a transaction spends
+   * and what it pays out, and the spent outputs are not in the response - so it
+   * is computed by resolving them, and that computation can fail: an unsynced
+   * node, a parent still propagating, a v6 bundle this build cannot decode.
+   *
+   * A NON-NULLABLE FIELD FORCED THE PRODUCER TO INVENT A NUMBER, and it did:
+   * every transaction this project ever analysed was recorded as paying `0n`.
+   * A renderer must therefore print an absence here rather than a zero - "not
+   * priced", not "0 zat" - because ZIP 317's conventional fee has a floor of
+   * 10,000 zatoshi and a transaction that truly paid nothing would be
+   * remarkable rather than routine.
+   */
+  feeZat: zatSchema.nullable(),
   logicalActions: countSchema,
-  conventionalFee: z.boolean(),
+  /** `null` when the fee is unknown: unknown is not the same claim as false. */
+  conventionalFee: z.boolean().nullable(),
 });
 export type TxView = z.infer<typeof txViewSchema>;
 
@@ -641,7 +685,16 @@ export const mempoolRowSchema = z.object({
   flow: z.string().min(1),
   lanes: z.array(ledgerSchema).min(1),
   valueBalanceText: z.string().min(1),
-  feeZat: zatSchema,
+  /**
+   * The fee, or `null` when it could not be computed.
+   *
+   * THE REASONING IS ON `txViewSchema.feeZat` ABOVE AND IS NOT REPEATED HERE.
+   * It was, word for word, in both places - and two copies of one contract are
+   * how the two come to disagree, which on this field would mean /tx and
+   * /track telling a reader different things about the same absent fee. The
+   * rule a renderer needs, in one line: print an absence, never a zero.
+   */
+  feeZat: zatSchema.nullable(),
   logicalActions: countSchema,
   walletGuess: z.string().min(1),
   finding: z.string().min(1),
@@ -675,7 +728,19 @@ export const mempoolViewSchema = z.object({
      * at 2 logical actions". The count beside it is the quantity that varies.
      */
     conventionalFeeZat: zatSchema,
-    /** How many of `unconfirmed` pay the conventional fee for their own action count. */
+    /**
+     * How many transactions could be PRICED at all - the denominator
+     * `conventionalCount` is out of.
+     *
+     * NOT `unconfirmed`. The fee is not on the wire and the gateway computes
+     * it, and that computation can fail, so a mempool of twelve transactions
+     * may have three with a known fee. `conventionalCount` counts within those
+     * three. Rendering "3 of 12 conventional" would be a claim about nine
+     * transactions nobody priced - the same shape of statement that made
+     * `feeZat: 0n` a lie, moved into a denominator.
+     */
+    pricedCount: countSchema,
+    /** How many of `pricedCount` pay the conventional fee for their own action count. */
     conventionalCount: countSchema,
     findingsHigh: countSchema,
     findingsNote: z.string().min(1),

@@ -81,6 +81,8 @@ earliest day consistent with the corpus and exists only to order the list, and
 ## Pools
 
 `supplyBucketSchema` is `transparent | sprout | sapling | orchard | ironwood`.
-That is deliberately not `Pool` from `@zcashreveal/types`, which is still the
-v0.2 pair and which HANDOFF-06 owns widening. Transparent is not a pool at all,
-but supply accounting needs all five on one axis.
+That is deliberately not `Pool` from `@zcashreveal/types`, and since HANDOFF-06
+the reason is no longer that the two unions differ in their shielded members -
+they agree on all four. The difference is the fifth: transparent is not a pool
+at all, but supply accounting needs all five on one axis, and admitting it to
+`Pool` would let it reach a commitment tree and a nullifier set it cannot have.

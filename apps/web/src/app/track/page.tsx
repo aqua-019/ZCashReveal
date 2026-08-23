@@ -104,7 +104,13 @@ export default async function TrackPage() {
           <Metric
             label="conventional fee"
             value={fmtInt(Number(s.conventionalFeeZat))}
-            sub={`zat - ZIP 317 at 2 logical actions - ${fmtInt(s.conventionalCount)} of ${fmtInt(s.unconfirmed)} conventional`}
+            // THE DENOMINATOR IS WHAT COULD BE PRICED, not everything unconfirmed.
+            // It read `s.unconfirmed`, so a mempool of twelve with three known
+            // fees printed "3 of 12 conventional" - a verdict on nine
+            // transactions nobody priced - while the sentence in the block
+            // beside it correctly said "3 of the 3 that could be priced". One
+            // page, two answers.
+            sub={`zat - ZIP 317 at 2 logical actions - ${fmtInt(s.conventionalCount)} of ${fmtInt(s.pricedCount)} priced pay it`}
           />
           <Metric label="findings at high" value={fmtInt(s.findingsHigh)} sub={s.findingsNote} />
         </MetricRow>

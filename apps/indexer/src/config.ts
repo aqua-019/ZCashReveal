@@ -19,8 +19,20 @@ const ConfigSchema = z.object({
    *  the tree. 100 blocks ≈ 2.5 hours on Zcash's 2.5-min target. */
   RECENT_ANCHOR_THRESHOLD: z.coerce.number().int().positive().default(100),
 
-  /** ZIP-317 conventional fee floor in zatoshi per logical action. */
-  ZIP317_MARGINAL_FEE_ZAT: z.coerce.number().int().positive().default(5000),
+  /*
+   * ZIP317_MARGINAL_FEE_ZAT WAS HERE AND HAS BEEN DELETED (HANDOFF-06).
+   *
+   * It made a CONSENSUS CONSTANT settable per deployment. Nothing read it -
+   * `cfg.ZIP317_MARGINAL_FEE_ZAT` had no call site - so it was an invitation
+   * rather than a live fault, but it is the kind of invitation someone accepts
+   * during an incident: a process whose marginal fee is not 5,000 zatoshi is
+   * not misconfigured, it is computing a different chain's conventional fee and
+   * publishing the answer as Zcash's. Its comment also called it the
+   * "conventional fee floor per logical action", which is two errors in six
+   * words - it is the marginal fee, and the floor is two actions' worth of it.
+   *
+   * The value lives in `packages/zec-types/src/zip317.ts` as ZIP317_MARGINAL_FEE.
+   */
 
   /** Per-attempt Zebra RPC timeout, and how many transport failures to retry. */
   ZEBRAD_RPC_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),

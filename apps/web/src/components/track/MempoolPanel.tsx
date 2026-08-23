@@ -19,6 +19,35 @@ const LANE_VAR: Readonly<Record<string, string>> = {
   ironwood: "var(--p-ironwood)",
 };
 
+/**
+ * The fee cell, which has to be able to say NOTHING WAS MEASURED.
+ *
+ * `feeZat` is nullable since HANDOFF-06: the fee is not on the wire, so it is
+ * computed by resolving the outputs a transaction spends, and that can fail.
+ * The obvious formatting - `fmtInt(Number(feeZat))` - turns that null into
+ * `Number(null)`, which is `0`, and prints a confident "0" where the honest
+ * answer is a shrug. TypeScript cannot catch it, because `Number(null)` is a
+ * perfectly legal expression.
+ *
+ * "0" would be a specific false claim rather than a vague one: ZIP 317's
+ * conventional fee has a floor of 10,000 zatoshi, so a transaction that really
+ * paid nothing would be remarkable, and a table full of them reads as a finding
+ * about Zcash instead of a gap in our indexer.
+ *
+ * AND THE ABSENCE MAY NOT BORROW THE CONNECTOR. A gate round found the first
+ * draft printing "not priced to 2" in a column headed "fee to L", among rows
+ * reading "10,000 to 2" - where the connector belongs to the fee that is not
+ * there, so the cell parses as a fee priced TO something. That is the claim the
+ * null exists to refuse, made by punctuation. The absence takes the site's own
+ * separator instead and names L the way the panel beside it already does. It
+ * has to read correctly alone: this table carries no sr-only twin, so the cell
+ * text and the caption are the whole of what a screen reader is given.
+ */
+function fmtFeeAndActions(feeZat: bigint | null, logicalActions: number): string {
+  if (feeZat === null) return `not priced - L = ${logicalActions}`;
+  return `${fmtInt(Number(feeZat))} to ${logicalActions}`;
+}
+
 const STATE_TEXT: Readonly<Record<SocketState, string>> = {
   open: "live",
   connecting: "reconnecting",
@@ -157,7 +186,7 @@ export function MempoolPanel({ initial }: { readonly initial: MempoolView }) {
                   </span>
                 </td>
                 <td className="tk-vb">{r.valueBalanceText}</td>
-                <td className="mono">{`${fmtInt(Number(r.feeZat))} to ${r.logicalActions}`}</td>
+                <td className="mono">{fmtFeeAndActions(r.feeZat, r.logicalActions)}</td>
                 <td className="cp">{r.walletGuess}</td>
                 <td className="cp">{r.finding}</td>
                 <td>
@@ -190,7 +219,13 @@ export function MempoolPanel({ initial }: { readonly initial: MempoolView }) {
                 entries={[
                   { k: "flow", v: `${detail.flow} - ${detail.class}` },
                   { k: "valueBalance", v: detail.valueBalanceText },
-                  { k: "fee", v: `${fmtInt(Number(detail.feeZat))} zat to L = ${detail.logicalActions} logical actions` },
+                  {
+                    k: "fee",
+                    v:
+                      detail.feeZat === null
+                        ? `not priced - L = ${detail.logicalActions} logical actions`
+                        : `${fmtInt(Number(detail.feeZat))} zat to L = ${detail.logicalActions} logical actions`,
+                  },
                   { k: "wallet guess", v: detail.walletGuess },
                   { k: "severity", v: <Sev level={detail.severity} /> },
                 ]}

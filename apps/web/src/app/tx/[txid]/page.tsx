@@ -36,9 +36,12 @@ export default async function TxPage({ params }: { params: Promise<{ txid: strin
         dek={
           <>
             A Zcash transaction publishes its version, the pools it touches, its per-pool value balance, its nullifiers, its
-            anchors, its commitments, its transparent inputs and outputs, and its fee. All of that is exact. What it does not
-            publish is a sender inside the pool, and no amount of arithmetic on the rest produces one - so what follows the
-            public fields is a candidate set, its filters, and the assumptions each filter rests on.
+            anchors, its commitments, and its transparent inputs and outputs. All of that is exact. The fee is not among them:
+            a fee is the difference between the outputs a transaction spends and what it pays out, and the outputs it spends
+            belong to earlier transactions, so it is computed here rather than read - and where an earlier output cannot be
+            resolved, this page says so instead of naming a figure. What no transaction publishes is a sender inside the
+            pool, and no amount of arithmetic on the rest produces one - so what follows the public fields is a candidate
+            set, its filters, and the assumptions each filter rests on.
           </>
         }
       />

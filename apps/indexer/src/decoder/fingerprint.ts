@@ -5,6 +5,7 @@
  */
 
 import type { Zatoshi, WalletGuess } from "@zcashreveal/types";
+import { conventionalFeeZat, isConventionalFee } from "@zcashreveal/types";
 
 export interface FingerprintInputs {
   txVersion: number;
@@ -13,30 +14,59 @@ export interface FingerprintInputs {
   saplingSpendCount: number;
   saplingOutputCount: number;
   orchardActionCount: number;
-  feeZat: Zatoshi;
+  /**
+   * ZIP 317 logical actions for this transaction, computed by
+   * `zip317LogicalActions` in `@zcashreveal/types`.
+   *
+   * PASSED IN RATHER THAN DERIVED HERE SINCE HANDOFF-06. This file used to
+   * compute its own: it SUMMED the transparent input and output counts and
+   * SUMMED Sapling's spends and outputs, where ZIP 317 takes the maximum of
+   * each pair and measures the transparent side in bytes. That made a third
+   * answer to a question the gateway already answered a fourth way, and the
+   * two differed for any transaction with more than one input.
+   */
+  logicalActions: number;
+  /**
+   * The fee, or `null` when it could not be computed.
+   *
+   * NULLABLE, AND THE NULL CHANGES THE ANSWER RATHER THAN DEFAULTING IT. A
+   * signature that gates on a conventional fee cannot fire on an unknown fee,
+   * and must not be ruled out by one either.
+   */
+  feeZat: Zatoshi | null;
   expiryDelta: number | null;
   hasOrchardBundle: boolean;
   hasSaplingBundle: boolean;
 }
 
-const ZIP317_MARGINAL_FEE = 5_000n;
-const ZIP317_GRACE_ACTIONS = 2n;
-
+/**
+ * ZIP 317's conventional fee. Re-exported from the canonical implementation so
+ * existing importers keep working and no second copy of the rule exists.
+ */
 export function computeConventionalFee(actionCount: bigint): Zatoshi {
-  const logical = actionCount > ZIP317_GRACE_ACTIONS ? actionCount : ZIP317_GRACE_ACTIONS;
-  return logical * ZIP317_MARGINAL_FEE;
+  return conventionalFeeZat(actionCount);
 }
 
-export function isZip317Conventional(feeZat: Zatoshi, totalActions: bigint): boolean {
-  const expected = computeConventionalFee(totalActions);
-  return feeZat === expected;
+/**
+ * Whether a fee is ZIP 317 conventional. `false` for an unknown fee is a
+ * claim, so callers holding `null` must not call this - they report `null`.
+ */
+export function isZip317Conventional(feeZat: Zatoshi, totalActions: bigint | number): boolean {
+  return isConventionalFee(feeZat, totalActions);
 }
 
 export function guessWallet(i: FingerprintInputs): WalletGuess {
-  const totalActions = BigInt(
-    i.saplingSpendCount + i.saplingOutputCount + i.orchardActionCount + i.vinCount + i.voutCount,
-  );
-  const conventionalFee = isZip317Conventional(i.feeZat, totalActions);
+  // UNKNOWN, NOT FALSE - AND THE FALLTHROUGH HAS TO KNOW THE DIFFERENCE. With no
+  // fee there is no evidence either way, so the two signatures that require a
+  // conventional fee cannot fire and the two that do not require one are
+  // unaffected. That much was right in the first version of this comment, and
+  // it missed a third consumer: the fallthrough at the bottom of this function
+  // chooses between UNKNOWN_BUT_STANDARD and UNKNOWN_NONSTANDARD on this
+  // boolean, and both of those are claims ABOUT THE FEE. Collapsing null to
+  // false therefore published "this transaction did not pay the conventional
+  // fee" about every transaction whose fee could not be computed.
+  const feeIsUnknown = i.feeZat === null;
+  const conventionalFee = feeIsUnknown ? false : isConventionalFee(i.feeZat!, i.logicalActions);
 
   if (
     i.hasOrchardBundle &&
@@ -80,5 +110,8 @@ export function guessWallet(i: FingerprintInputs): WalletGuess {
   }
 
   if (conventionalFee) return "UNKNOWN_BUT_STANDARD";
+  // Both remaining answers are claims about the fee, so neither is available
+  // without one. See UNKNOWN_UNPRICED in packages/zec-types/src/leaks.ts.
+  if (feeIsUnknown) return "UNKNOWN_UNPRICED";
   return "UNKNOWN_NONSTANDARD";
 }

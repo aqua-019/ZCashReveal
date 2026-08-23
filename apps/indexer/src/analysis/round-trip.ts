@@ -2,7 +2,7 @@
  * Round-trip detection — replaces the v0.1 LinkEngine (link-engine.ts).
  *
  * Maintains a sliding time window of shielding deposits and unshielding
- * withdrawals across both pools. For each new report, prunes expired
+ * withdrawals across all four pools. For each new report, prunes expired
  * entries, records the report's contribution as a deposit and/or
  * withdrawal, and emits LinkRecords for any newly-matchable pairs.
  *
@@ -24,7 +24,14 @@
  *     PoolState reaches AnalyzeContext).
  */
 
-import type { Hex, LeakReport, LinkRecord, Zatoshi } from "@zcashreveal/types";
+import type {
+  Hex,
+  LeakReport,
+  LinkRecord,
+  PoolPath,
+  ShieldedPool,
+  Zatoshi,
+} from "@zcashreveal/types";
 import { FEE_TOLERANCE_ZAT, MAX_LINK_WINDOW_MS } from "./constants.js";
 
 interface ShieldingDeposit {
@@ -33,7 +40,7 @@ interface ShieldingDeposit {
   readonly amountZat: Zatoshi;
   readonly seenAt: number;
   readonly height: number;
-  readonly pool: "sapling" | "orchard";
+  readonly pool: ShieldedPool;
 }
 
 interface UnshieldingWithdrawal {
@@ -42,7 +49,7 @@ interface UnshieldingWithdrawal {
   readonly amountZat: Zatoshi;
   readonly seenAt: number;
   readonly height: number;
-  readonly pool: "sapling" | "orchard";
+  readonly pool: ShieldedPool;
 }
 
 export interface RoundTripIndexConfig {
@@ -76,56 +83,42 @@ export class RoundTripIndex {
   ingest(report: LeakReport): LinkRecord[] {
     this.prune(this.now());
 
-    const sapBal = BigInt(report.bundle.saplingValueBalanceZat);
-    const orchBal = BigInt(report.bundle.orchardValueBalanceZat);
-
-    if (sapBal < 0n) {
-      this.deposits.push({
-        txid: report.txid,
-        senderAddress: report.identity.sender.transparentAddresses[0] ?? null,
-        amountZat: -sapBal,
-        seenAt: report.seenAt,
-        height: report.tipHeightAtSeen,
-        pool: "sapling",
-      });
-    }
-    if (orchBal < 0n) {
-      this.deposits.push({
-        txid: report.txid,
-        senderAddress: report.identity.sender.transparentAddresses[0] ?? null,
-        amountZat: -orchBal,
-        seenAt: report.seenAt,
-        height: report.tipHeightAtSeen,
-        pool: "orchard",
-      });
-    }
-
     const hits: LinkRecord[] = [];
-    if (sapBal > 0n) {
-      const w: UnshieldingWithdrawal = {
-        txid: report.txid,
-        recipientAddress:
-          report.identity.recipient.transparentAddresses[0] ?? null,
-        amountZat: sapBal,
-        seenAt: report.seenAt,
-        height: report.tipHeightAtSeen,
-        pool: "sapling",
-      };
-      this.withdrawals.push(w);
-      hits.push(...this.matchWithdrawal(w));
-    }
-    if (orchBal > 0n) {
-      const w: UnshieldingWithdrawal = {
-        txid: report.txid,
-        recipientAddress:
-          report.identity.recipient.transparentAddresses[0] ?? null,
-        amountZat: orchBal,
-        seenAt: report.seenAt,
-        height: report.tipHeightAtSeen,
-        pool: "orchard",
-      };
-      this.withdrawals.push(w);
-      hits.push(...this.matchWithdrawal(w));
+
+    // FOUR POOLS, DRIVEN OFF `valueFlow.perPoolZat` RATHER THAN TWO NAMED
+    // FIELDS. This used to read `bundle.saplingValueBalanceZat` and
+    // `bundle.orchardValueBalanceZat` by name, in two hand-unrolled copies of
+    // the same block, so a Sprout or Ironwood turnstile movement was invisible
+    // to round-trip detection - no error, no warning, simply no links. Reading
+    // the single list the analyser builds means a pool becomes visible here the
+    // moment it becomes visible there, with no second place to remember.
+    //
+    // Sign convention, as everywhere: negative is value ENTERING the pool (a
+    // shielding deposit), positive is value LEAVING it (an unshielding
+    // withdrawal).
+    for (const { pool, deltaZat } of report.valueFlow.perPoolZat) {
+      if (deltaZat < 0n) {
+        this.deposits.push({
+          txid: report.txid,
+          senderAddress: report.identity.sender.transparentAddresses[0] ?? null,
+          amountZat: -deltaZat,
+          seenAt: report.seenAt,
+          height: report.tipHeightAtSeen,
+          pool,
+        });
+      } else if (deltaZat > 0n) {
+        const w: UnshieldingWithdrawal = {
+          txid: report.txid,
+          recipientAddress:
+            report.identity.recipient.transparentAddresses[0] ?? null,
+          amountZat: deltaZat,
+          seenAt: report.seenAt,
+          height: report.tipHeightAtSeen,
+          pool,
+        };
+        this.withdrawals.push(w);
+        hits.push(...this.matchWithdrawal(w));
+      }
     }
 
     return hits;
@@ -211,10 +204,18 @@ export class RoundTripIndex {
   }
 }
 
-function poolPath(
-  fromPool: "sapling" | "orchard",
-  toPool: "sapling" | "orchard",
-): LinkRecord["poolPath"] {
+/**
+ * The label for a link between two pools.
+ *
+ * NO CAST. This used to end `as LinkRecord["poolPath"]`, because the field was
+ * a hand-enumerated union of the two-pool era - four members, none of them
+ * `orchard->ironwood`. The assertion was what let a path outside the union be
+ * stamped as inside it with no diagnostic, and it would have hidden exactly the
+ * omission it was written around. `PoolPath` is now derived from `ShieldedPool`
+ * as a template type, so the template expression below satisfies it by
+ * construction and cannot fall behind the union.
+ */
+function poolPath(fromPool: ShieldedPool, toPool: ShieldedPool): PoolPath {
   if (fromPool === toPool) return fromPool;
-  return `${fromPool}→${toPool}` as LinkRecord["poolPath"];
+  return `${fromPool}→${toPool}`;
 }

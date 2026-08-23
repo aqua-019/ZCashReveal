@@ -48,7 +48,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      # THE THREE STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose. None of
+      # THE FOUR STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose. None of
       # them needs node_modules or a build - they are bash, grep and dependency-free
       # node - and putting them after meant a PR whose build broke never got its
       # verdict on any of them. The Redis one in particular protects another
@@ -72,6 +72,15 @@ jobs:
       - name: Redis safety (shared managed store)
         run: node scripts/check-redis-safety.mjs
 
+      # HANDOFF-06 widened the pool model from two to four. A field still typed as
+      # the old sapling-or-orchard pair cannot hold a Sprout or Ironwood value, and
+      # it fails by silently dropping one rather than by refusing it, which is the
+      # kind of defect that reads as "that pool had no activity". The detector is
+      # self-tested in both directions on every run, so a clean scan is evidence
+      # rather than the absence of it. See A7.
+      - name: Pool union (no stale two-pool unions)
+        run: node scripts/check-pool-union.mjs
+
       - name: Install
         run: pnpm install --frozen-lockfile
 
@@ -86,8 +95,9 @@ jobs:
 
 
       # Must precede the tests. The integration suites probe for a reachable database,
-      # not for migrated tables: an unmigrated-but-reachable Postgres unskips all 37
-      # and then fails on missing relations.
+      # not for migrated tables: an unmigrated-but-reachable Postgres unskips all 56
+      # and then fails on missing relations. (37 before HANDOFF-06, which added the
+      # A6 conservation property and the A2/A3 migration suite.)
       - name: Migrate database
         run: pnpm --filter @zcashreveal/indexer migrate
 
@@ -97,7 +107,9 @@ jobs:
           vitest run --reporter=default --reporter=json --outputFile=../../indexer-results.json
 
       # vitest exits 0 when the integration suites skip themselves, so a broken
-      # DATABASE_URL would otherwise produce a green run with 37 fewer tests. See A5.
+      # DATABASE_URL would otherwise produce a green run with 56 fewer tests. See A5,
+      # and A1 in HANDOFF-06, whose fail side is exactly this: vitest stays green and
+      # rc=0 while this script goes rc=1 and names every skipped test.
       - name: Assert Postgres integration tests actually ran
         run: node scripts/assert-no-skipped-integration.mjs indexer-results.json
 

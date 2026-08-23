@@ -14,7 +14,8 @@
  * only by `apps/web`; per-transaction traffic must never leave the VPS
  * (CLAUDE.md, HANDOFF-05 section 3).
  */
-import type { LeakReport, MempoolRow, MempoolView } from "@zcashreveal/types";
+import type { LeakReport, MempoolRow, MempoolView, RpcTransaction, ShieldedPool } from "@zcashreveal/types";
+import { ZIP317_GRACE_ACTIONS, conventionalFeeZat, zip317LogicalActionsP2pkhApproximation } from "@zcashreveal/types";
 
 import { countText, zecText } from "./units.js";
 
@@ -49,14 +50,33 @@ export function buildMempoolView(
   const shielded = entries.filter((e) => e.class === "shielded").length;
   const migrations = entries.filter((e) => e.class === "migration").length;
   const transparent = entries.filter((e) => e.class === "transparent").length;
-  const crossings = entries.filter((e) => e.class === "shield" || e.class === "deshield");
+  // A MIGRATION CROSSES A POOL BOUNDARY, so it belongs in this count. It was
+  // `shield || deshield` only, which was consistent while the migration class
+  // was unreachable and became a self-contradiction the moment the ordering
+  // above was fixed: `crossingZat` sums `perPoolZat` over EVERY row, so a
+  // mempool of two migrations printed a gold-accented "0.0002 ZEC" tile above
+  // the subtitle "Nothing in the mempool crosses a pool boundary." The tile and
+  // its own caption have to be counted over the same set.
+  const crossings = entries.filter(
+    (e) => e.class === "shield" || e.class === "deshield" || e.class === "migration",
+  );
 
+  // SUMMED OVER `perPoolZat`, NOT OVER TWO NAMED FIELDS. These read
+  // `saplingValueBalanceZat + orchardValueBalanceZat`, so a JoinSplit moving
+  // value out of Sprout contributed exactly nothing to the crossing totals
+  // /track publishes. That is the same omission HANDOFF-05 rated HIGH in
+  // `context.ts`'s `poolValueBalanceZat`, surviving in a second file because
+  // the fix there was a new term rather than a new source. `perPoolZat` is that
+  // source: the analyser builds it once, a pool that did not move is absent
+  // from it, and a pool that becomes decodable appears here with no edit.
+  const netCrossing = (r: LeakReport): bigint =>
+    r.valueFlow.perPoolZat.reduce<bigint>((acc, p) => acc + p.deltaZat, 0n);
   const intoPool = reports.reduce<bigint>((acc, r) => {
-    const net = r.valueFlow.saplingValueBalanceZat + r.valueFlow.orchardValueBalanceZat;
+    const net = netCrossing(r);
     return net < 0n ? acc - net : acc;
   }, 0n);
   const outOfPool = reports.reduce<bigint>((acc, r) => {
-    const net = r.valueFlow.saplingValueBalanceZat + r.valueFlow.orchardValueBalanceZat;
+    const net = netCrossing(r);
     return net > 0n ? acc + net : acc;
   }, 0n);
 
@@ -72,9 +92,19 @@ export function buildMempoolView(
    * entirely.
    *
    * The fee and the action counts ARE on the report, so the test is done here:
-   * `feeZat === 5000 * max(2, logicalActions)`.
+   * `feeZat === 5000 * max(2, logicalActions)` - through the same
+   * `conventionalFeeZat` that prices the tile above and `/tx`'s verdict, so the
+   * curve has one author.
+   *
+   * A NULL FEE IS AN UNKNOWN, NOT A ZERO, and that is why the reports are split
+   * in two first. `FingerprintAnnotation.feeZat` became nullable in HANDOFF-06 -
+   * a fee is the difference between the outputs a transaction spends and the
+   * ones it creates, and the spent side is not always resolvable - and
+   * `null === 10_000n` is false, so an unpriced transaction would otherwise be
+   * counted as one that failed to pay.
    */
-  const conventional = reports.filter((r) => r.fingerprint.feeZat === conventionalFeeZat(logicalActionsOf(r)));
+  const priced = reports.filter((r) => r.fingerprint.feeZat !== null);
+  const conventional = priced.filter((r) => r.fingerprint.feeZat === conventionalFeeZat(logicalActionsOf(r)));
   const findingsHigh = reports.reduce((acc, r) => acc + r.findings.filter((f) => f.severity === "HIGH").length, 0);
 
   return {
@@ -114,45 +144,142 @@ export function buildMempoolView(
        * how many transactions actually pay their own, which is the part that
        * varies.
        */
-      conventionalFeeZat: conventionalFeeZat(GRACE_ACTIONS),
+      conventionalFeeZat: conventionalFeeZat(ZIP317_GRACE_ACTIONS),
+      pricedCount: priced.length,
       conventionalCount: conventional.length,
       findingsHigh,
       findingsNote:
         findingsHigh === 0
           ? "No finding in the current mempool is rated HIGH."
           : `${countText(findingsHigh)} HIGH ${findingsHigh === 1 ? "finding" : "findings"} across the transactions below.`,
-      feeWeather:
-        entries.length === 0
-          ? "Nothing is waiting."
-          : conventional.length === entries.length
-            ? "Every transaction in the mempool pays the ZIP 317 conventional fee."
-            : `${countText(conventional.length)} of ${countText(entries.length)} pay the ZIP 317 conventional fee.`,
+      feeWeather: feeWeatherText(entries.length, priced.length, conventional.length),
     },
   };
 }
 
+/**
+ * The flow label for a migration, named after the pools that actually moved.
+ *
+ * IT WAS THE LITERAL `"S to O"`, for every migration, whichever pools were
+ * involved - and, as the gate found, for NO migration, because the branch that
+ * reached it was unreachable. Both halves of that are worth stating: the label
+ * was wrong for any crossing that is not Sapling to Orchard, AND the reason
+ * nobody had noticed is that `summary.migrations` was permanently zero and no
+ * row ever carried it. Fixing the ordering above is what makes this function
+ * live, so the label had to be right before the branch could be opened.
+ *
+ * The fixture corpus already spelled the right thing - `apps/web`'s mempool
+ * fixture says "O to I" - so the producer and the fixture disagreed as well.
+ */
+function migrationFlowText(deltas: ReadonlyArray<{ pool: ShieldedPool; deltaZat: bigint }>): string {
+  // DIRECTION COMES FROM THE SIGN, NOT FROM THE ORDER OF THE LIST. `perPoolZat`
+  // is built in canonical pool order - sprout, sapling, orchard - regardless of
+  // which side of the crossing each pool is on, so reading the label off that
+  // order printed "S to O" for a transaction moving value from Orchard INTO
+  // Sapling. That is the same class of false statement as the hardcoded
+  // "S to O" this function replaced, arrived at by a different route, and it
+  // was invisible until the ordering fix above made the branch reachable.
+  //
+  // Positive means value LEFT the pool, so positives are sources and negatives
+  // are sinks.
+  const from = deltas.filter((d) => d.deltaZat > 0n).map((d) => d.pool);
+  const to = deltas.filter((d) => d.deltaZat < 0n).map((d) => d.pool);
+  if (from.length === 0 || to.length === 0) return "migration";
+  // More than one pool on a side is a shape this label cannot describe without
+  // inventing a grammar for it, and "P to S to O" is not a flow. Say the
+  // number instead of guessing the story.
+  if (from.length > 1 || to.length > 1) return `${from.length + to.length} pools`;
+  return `${poolInitial(from[0]!)} to ${poolInitial(to[0]!)}`;
+}
+
+/**
+ * One pool, one letter, in the abbreviation the corpus already settled on.
+ *
+ * SPROUT AND SAPLING BOTH BEGIN WITH S, so one of them cannot have its own
+ * initial and something has to say which. This function used to answer "Sp",
+ * which is a coinage: grep the tree and it appears in no other file, no
+ * fixture and no mockup. The corpus had already written the mapping down -
+ * `apps/web/src/lib/api/fixtures/mempool.ts` states "O, I, S, P for Orchard,
+ * Ironwood, Sapling and Sprout" over the column that prints these same four
+ * pools - so Sapling keeps S and SPROUT IS P, which is not a typo.
+ *
+ * Taking the mapping from there rather than inventing one is the whole point.
+ * The flow column and the value-balance column sit beside each other in one
+ * table, and a pool abbreviated two ways across two columns of one row is a
+ * second spelling of the same concept, which is a defect this session has
+ * already fixed once. The fixture's `flow: "O to I"` is what this function has
+ * to reproduce, and it does.
+ *
+ * Spelling the pools out in full would also be legible - the cell has no
+ * nowrap and the table lays out automatically - but it would put "orchard to
+ * ironwood" in the gateway's flow column against "O to I" in the fixture's,
+ * which is the disagreement this is avoiding rather than a fix for it.
+ */
+function poolInitial(pool: ShieldedPool): string {
+  switch (pool) {
+    case "sprout":
+      return "P";
+    case "sapling":
+      return "S";
+    case "orchard":
+      return "O";
+    case "ironwood":
+      return "I";
+  }
+}
+
 function mempoolRow(r: LeakReport, now: number): MempoolRow {
-  const sapling = r.valueFlow.saplingValueBalanceZat;
-  const orchard = r.valueFlow.orchardValueBalanceZat;
-  const net = sapling + orchard;
+  const net = r.valueFlow.perPoolZat.reduce<bigint>((acc, p) => acc + p.deltaZat, 0n);
   const hasTransparent = r.transparent.vin.length + r.transparent.vout.length > 0;
   const hasSapling = r.bundle.saplingSpends.length + r.bundle.saplingOutputs.length > 0;
   const hasOrchard = r.bundle.orchardActions.length > 0;
+  const hasSprout = r.valueFlow.sproutValueBalanceZat !== 0n;
 
+  // THE LANE SWATCHES ARE WHAT A READER SEES FIRST, so a missing lane is a
+  // stronger claim than a missing number: it says the transaction did not touch
+  // that pool. Sprout was never pushed, so every Sprout transaction on /track
+  // was drawn as transparent-only. `lanes` has accepted all five lanes since
+  // HANDOFF-04; only the producer was short.
   const lanes: MempoolRow["lanes"] = [];
   if (hasTransparent) lanes.push("transparent");
+  if (hasSprout) lanes.push("sprout");
   if (hasSapling) lanes.push("sapling");
   if (hasOrchard) lanes.push("orchard");
   if (lanes.length === 0) lanes.push("transparent");
 
+  // Which pools this transaction actually moved value in, in the order the site
+  // draws them. A migration is more than one, whichever two - keyed off
+  // `hasSapling && hasOrchard` this said "migration" only for the crossing that
+  // existed before NU6.3.
+  const movedPools = r.valueFlow.perPoolZat.map((p) => p.pool);
+
+  /**
+   * ASSERTION A9, APPLIED HERE TOO. The indexer's `LeakClass` learned that a
+   * class naming the transparent side requires a transparent side; this is the
+   * same rule for the same reason on the row /track actually renders, and the
+   * two must not diverge - a reader comparing /tx with /track would otherwise
+   * see one page call a transaction a migration and the other call it a shield.
+   *
+   * TWO DEFECTS ARE FIXED BY THE ORDER OF THESE TESTS. `direction` was tested
+   * FIRST, and every transaction that moves a pool at all has a `direction` of
+   * DEPOSIT or WITHDRAWAL - so the migration branch below it was UNREACHABLE
+   * for every input, `summary.migrations` was permanently zero, and a
+   * Sapling-to-Orchard migration was published as `class: "shield"`,
+   * `flow: "t to z"` while the same row printed "no net crossing". The row
+   * contradicted itself and made a transparent-side claim about a transaction
+   * with no transparent side.
+   *
+   * So the migration test goes first, and shield and deshield now require the
+   * transparent half they name.
+   */
   const klass: MempoolRow["class"] =
-    r.valueFlow.direction === "DEPOSIT"
-      ? "shield"
-      : r.valueFlow.direction === "WITHDRAWAL"
-        ? "deshield"
-        : hasSapling && hasOrchard
-          ? "migration"
-          : hasSapling || hasOrchard
+    movedPools.length > 1
+      ? "migration"
+      : r.valueFlow.direction === "DEPOSIT" && r.transparent.vin.length > 0
+        ? "shield"
+        : r.valueFlow.direction === "WITHDRAWAL" && r.transparent.vout.length > 0
+          ? "deshield"
+          : hasSprout || hasSapling || hasOrchard
             ? "shielded"
             : "transparent";
 
@@ -170,7 +297,7 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
         : klass === "deshield"
           ? "z to t"
           : klass === "migration"
-            ? "S to O"
+            ? migrationFlowText(r.valueFlow.perPoolZat)
             : klass === "shielded"
               ? "shielded"
               : "t to t",
@@ -193,7 +320,7 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
 }
 
 /**
- * ZIP 317's logical-action count, from what a `LeakReport` carries.
+ * ZIP 317's logical-action count, as far as a `LeakReport` can carry it.
  *
  * THE OBVIOUS SUM DOUBLE-COUNTS ORCHARD. `FingerprintAnnotation.outputCount` is
  * `vout + saplingOutputs + orchardActions` and `spendCount` is
@@ -201,31 +328,56 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
  * every Orchard action TWICE - and that doubled figure was rendered to the
  * reader as the transaction's logical actions.
  *
- * This is the count-based approximation of ZIP 317's rule: the greater of the
- * transparent input and output counts, plus the greater of the Sapling spends
- * and outputs, plus the Orchard actions. It is exact for standard P2PKH
- * transactions and understates a transaction with oversized scripts, because a
- * `LeakReport` carries counts and not serialised sizes - `views/tx.ts` has the
- * raw transaction and uses the size-based rule there. The two agree wherever
- * both can be computed, which is what stops /track and /tx contradicting each
- * other about the same transaction.
+ * THIS IS THE COUNT FORM, AND IT IS THE ONLY FORM AVAILABLE ON THIS PATH. ZIP
+ * 317 measures the transparent term in serialised BYTES,
+ * `max(ceil(inSize/150), ceil(outSize/34))`, and a `LeakReport` carries counts
+ * and script TYPES rather than the scripts themselves, so the sizes cannot be
+ * recovered from it. `views/tx.ts` has the raw transaction and uses the byte
+ * rule there. The two agree while every input and output is a standard P2PKH
+ * and diverge above it: a 2-of-3 P2SH multisig input serialises at 297 bytes,
+ * so two of them cost the protocol four logical actions where this says two.
+ * When `FingerprintAnnotation` carries the indexer's own byte-based count, this
+ * function should read that instead of approximating.
+ *
+ * The arithmetic itself is `packages/zec-types/src/zip317.ts`'s and is called
+ * rather than rewritten, because a fourth hand-written L is how /track and /tx
+ * came to state two different action counts for one transaction. The argument
+ * is a SHAPE, not a transaction: the approximation reads list LENGTHS and
+ * nothing else, and five of the seven it looks for are exactly what a report
+ * carries. The other two stay at zero because a `DecodedShieldedBundle` holds
+ * neither: an Ironwood bundle needs the v6 decoder, which is HANDOFF-07's, and
+ * Sprout moves value through JoinSplits without a decoded structure at all. So a
+ * Sprout transaction's count is understated here by two per JoinSplit until they
+ * arrive.
  */
 function logicalActionsOf(r: LeakReport): number {
-  const transparent = Math.max(r.transparent.vin.length, r.transparent.vout.length);
-  const sapling = Math.max(r.bundle.saplingSpends.length, r.bundle.saplingOutputs.length);
-  return transparent + sapling + r.bundle.orchardActions.length;
+  return zip317LogicalActionsP2pkhApproximation({
+    vin: r.transparent.vin,
+    vout: r.transparent.vout,
+    vShieldedSpend: r.bundle.saplingSpends,
+    vShieldedOutput: r.bundle.saplingOutputs,
+    orchard: { actions: r.bundle.orchardActions },
+  } as unknown as RpcTransaction);
 }
 
 /**
- * ZIP 317's grace: a transaction is priced at no fewer than two logical
- * actions, so two is both the floor of the fee curve and the figure /track
- * labels its conventional-fee tile with.
+ * The sentence under /track's conventional-fee tile.
+ *
+ * A TRANSACTION WHOSE FEE IS UNKNOWN IS NOT ONE THAT UNDERPAID. With the fee
+ * nullable, "3 of 10 pay the ZIP 317 conventional fee" would be a claim about
+ * seven transactions nobody priced. The denominator here is what could be
+ * priced, and the remainder is stated rather than folded into the count.
  */
-const GRACE_ACTIONS = 2;
-
-/** ZIP 317's conventional fee for a count of logical actions. Mirrors `views/tx.ts`. */
-function conventionalFeeZat(logicalActions: number): bigint {
-  const actions = BigInt(logicalActions);
-  const floor = BigInt(GRACE_ACTIONS);
-  return (actions > floor ? actions : floor) * 5_000n;
+function feeWeatherText(unconfirmed: number, priced: number, conventional: number): string {
+  if (unconfirmed === 0) return "Nothing is waiting.";
+  const noun = unconfirmed === 1 ? "transaction" : "transactions";
+  if (priced === 0) {
+    return `No fee could be computed for any of the ${countText(unconfirmed)} ${noun} waiting, so none can be tested against ZIP 317.`;
+  }
+  if (priced < unconfirmed) {
+    return `${countText(conventional)} of the ${countText(priced)} that could be priced pay the ZIP 317 conventional fee; ${countText(unconfirmed - priced)} could not be priced.`;
+  }
+  return conventional === unconfirmed
+    ? "Every transaction in the mempool pays the ZIP 317 conventional fee."
+    : `${countText(conventional)} of ${countText(unconfirmed)} pay the ZIP 317 conventional fee.`;
 }

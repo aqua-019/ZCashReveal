@@ -8,6 +8,8 @@
  * inside the MAX_LINK_WINDOW_MS time window. Edit them together.
  */
 
+import { ZIP317_MARGINAL_FEE } from "@zcashreveal/types";
+
 /**
  * Maximum time window (ms) for matching a shielding deposit to an
  * unshielding withdrawal. 7 days. Beyond this, the matching heuristic
@@ -17,11 +19,17 @@
 export const MAX_LINK_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * ZIP-317 marginal fee per logical action, in zatoshi. Used in the
- * FEE_TOLERANCE_ZAT derivation. See ZIP-317 for the network-level
- * specification of conventional fees.
+ * ZIP 317's marginal fee per logical action, in zatoshi, used in the
+ * FEE_TOLERANCE_ZAT derivation below.
+ *
+ * RE-EXPORTED FROM THE CANONICAL DECLARATION SINCE HANDOFF-06 rather than
+ * written out again. It was a second copy of a consensus constant, and there
+ * was a third in `config.ts` that made it settable from the ENVIRONMENT - a
+ * deployment could have given this network rule a different value for one
+ * process, which is not a configuration, it is a fork. That one is deleted; the
+ * two that remain are one declaration and this alias.
  */
-export const ZIP317_MARGINAL_FEE_ZAT = 5_000n;
+export const ZIP317_MARGINAL_FEE_ZAT = ZIP317_MARGINAL_FEE;
 
 /**
  * Maximum number of internal shielded hops we assume a user might chain

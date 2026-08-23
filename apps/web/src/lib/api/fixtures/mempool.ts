@@ -7,14 +7,17 @@
  *
  * THE FEE COUNT. The mockup's summary says nine of twelve carry a conventional
  * fee. ZIP 317 makes a conventional fee 5,000 zatoshi times max(2, L), and by
- * that rule eleven of these twelve do: the only exception is the mining-pool
- * payout at 5,000 zatoshi with L = 1, where the floor of two logical actions
- * means the conventional fee is 10,000. The mockup separately labels the
+ * that rule ten of the eleven this corpus can price do: the only PRICED
+ * exception is the mining-pool payout at 5,000 zatoshi with L = 1, where the
+ * floor of two logical actions means the conventional fee is 10,000. The
+ * twelfth row carries no fee at all - see 41ab9cd3 below - and it is counted as
+ * unpriced rather than as unconventional, because "did not pay the conventional
+ * fee" is a claim about a fee somebody measured. The mockup separately labels the
  * 0b7c2d19 shield "unknown - nonstandard fee" while giving it 10,000 zatoshi at
  * L = 2, which is conventional exactly. The wallet guess there is kept - an
  * unrecognised fingerprint is a real observation - and the words "nonstandard
- * fee" are dropped, because they contradict the fee in the same row. The count
- * is computed from the rows, so it cannot drift from them again.
+ * fee" are dropped, because they contradict the fee in the same row. Both
+ * counts are computed from the rows, so neither can drift from them again.
  *
  * WHAT THE REASONING PANEL IS FOR. Each row carries the reasoning for its
  * CLASS, not for its individual contents: a deshield gets the candidate-set
@@ -73,7 +76,16 @@ interface Row {
    * public and exact.
    */
   readonly valueBalanceText: string;
-  readonly feeZat: bigint;
+  /**
+   * The fee, or NOTHING AT ALL. Nullable since HANDOFF-06: the fee is not on
+   * the wire, it is the difference between the outputs a transaction spends and
+   * what it pays out, and an input whose parent this node does not hold leaves
+   * that sum unfinished - `apps/indexer/src/analysis/fee.ts` refuses it as
+   * `unresolved-inputs` rather than naming a figure. A corpus in which every
+   * row is priced never renders the branch that says so, which is how the "not
+   * priced" cell reached a gate round having been seen by nobody.
+   */
+  readonly feeZat: bigint | null;
   readonly logicalActions: number;
   readonly walletGuess: string;
   readonly finding: string;
@@ -254,7 +266,19 @@ const ROWS: readonly Row[] = [
     flow: "t to t",
     lanes: ["transparent"],
     valueBalanceText: "no pool component",
-    feeZat: 10_000n,
+    // THE ONE ROW NOBODY COULD PRICE, and a sweep is where that really
+    // happens. Pricing a transaction costs one previous-output lookup per
+    // input, so a many-to-one consolidation has the most ways to fail: a
+    // single input whose parent this node does not hold - one still
+    // propagating, or one gone before we saw it - leaves the sum unfinished,
+    // and the whole fee is then refused rather than approximated.
+    // `prevout-cache.ts` is built around this exact shape, a child spending
+    // many outputs of parents it may not have.
+    // Nothing else this row says needs the fee: a common-input cluster and a
+    // labeller's attribution both stand without one. And the ZIP 317 exception
+    // two rows up stays priced, so "conventional" keeps being a statement about
+    // fees that were measured.
+    feeZat: null,
     logicalActions: 2,
     walletGuess: "exchange sweep shape",
     finding: "many-to-one into t1PKBiv7... - the hot wallet Lookonchain labels Binance (analyst, precedence 4 of 5)",
@@ -292,7 +316,19 @@ const migrations = ROWS.filter((r) => r.cls === "migration").length;
 const transparent = ROWS.filter((r) => r.cls === "transparent").length;
 /** Anything that touches a shielded pool and is not a migration. */
 const shielded = ROWS.length - migrations - transparent;
-const conventional = ROWS.filter((r) => r.feeZat === conventionalFeeZat(r.logicalActions)).length;
+/*
+ * PRICED FIRST, and conventional only WITHIN the priced.
+ *
+ * `null === conventionalFeeZat(L)` is false, so an unpriced row drops out of
+ * the conventional count by itself - but it must not stay in the DENOMINATOR,
+ * or /track prints "ten of twelve priced pay it" about a transaction nobody
+ * priced. That is the same false statement as `feeZat: 0n`, moved one field
+ * over. This is `apps/gateway/src/views/mempool.ts`'s arithmetic, kept in the
+ * same shape here so the fixture and the gateway cannot mean different things
+ * by the tile above this table.
+ */
+const priced = ROWS.filter((r) => r.feeZat !== null);
+const conventional = priced.filter((r) => r.feeZat === conventionalFeeZat(r.logicalActions)).length;
 const findingsHigh = ROWS.filter((r) => r.severity === "HIGH").length;
 
 const crossingBy = (kind: "t-to-z" | "z-to-t" | "o-to-i"): bigint =>
@@ -321,6 +357,7 @@ export const MEMPOOL_VIEW: MempoolView = {
     crossingZat: tToZ + zToT + oToI,
     crossingSplit: `t to z ${fmt(tToZ)} - z to t ${fmt(zToT)} - Orchard to Ironwood ${fmt(oToI)}`,
     conventionalFeeZat: 10_000n,
+    pricedCount: priced.length,
     conventionalCount: conventional,
     findingsHigh,
     // The mockup's sub-line for this tile is "amount echo - recent anchor"
