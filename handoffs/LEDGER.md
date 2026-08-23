@@ -769,3 +769,184 @@ delete the orphaned Vercel project `z-cash-reveal-dashboard`. The `z-cash-reveal
 settings move is no longer urgent - `apps/web/vercel.json` now pins its own settings, so that
 project keeps building from its stored ones - but do it before the HANDOFF-11 cutover.
 ```
+
+---
+
+## HANDOFF-03 — The Record — Splash, Beware, Contradictions, Timeline, Network, Method, Flows, Sources
+
+Branch `claude/handoff-03-record-pages-3jzxm1` (harness-designated) · shipped 23 Aug 2026 · gate rounds: 4
+
+```
+QUESTIONS (for the operator / L2):
+
+1. A5's PERFORMANCE FLOOR WAS SET AGAINST A PLACEHOLDER, AND THE REAL PAGE MISSES IT BY ONE
+   POINT. Lighthouse on /beware is accessibility 100 (floor 95) and performance 94 (floor 95),
+   five runs giving 94/94/93/94/94. HANDOFF-01 measured 99 when /beware was two sample rows and
+   a "scheduled" panel; it is now fourteen entries, twenty-nine citation disclosures and the B2
+   deep dive. I took it from 89 to 94 with four real reductions - one stylesheet instead of two
+   (a second render-blocking request cost about 1,370 ms), an icon so the browser stops probing
+   a 404 favicon, Fraunces instanced at the opsz and weight every rule already asks of it
+   (121 KB to 32 KB), the mono narrowed to the range it uses (40 KB to 30 KB) - and then
+   stopped, because what is left is the page itself. LCP is the dek, gated by resource arrival
+   under simulated throttling, not by layout: a content-visibility pass moved nothing and was
+   reverted. I did not lower the floor and I did not keep shaving until a noisy metric happened
+   to clear. Rule on one of: (a) the floor stands and a later handoff reduces the page; (b) the
+   floor becomes 90 for Record pages of this size and 95 stays for the splash; (c) the floor is
+   measured on Vercel with brotli and a CDN rather than on `next start` in a container, which is
+   a different and probably kinder number. My recommendation is (c) then (b).
+
+2. THE ACCENT BUDGET AND THE MOCKUP DISAGREE, AND NEITHER SECTION 3 NOR CLAUDE.md BREAKS THE
+   TIE. CLAUDE.md says gold is spent on exactly three things: the primary action, the active
+   state, and value crossing a boundary. design-reviewer counted the gold-set block indices
+   alone at 36 on /flows, 18 on /method, 10 on /network, and found six to nine further jobs per
+   page - the wordmark, the h1 accent, the ledger row ids, the entry letters, the clock dot.
+   Then it checked the reference renders: the mockup itself spends gold on eight to eleven jobs
+   per screen, and the crews reproduced the design source faithfully. So this is not drift, it
+   is two documents disagreeing, and unlike the ink ruling there is no tiebreak. I fixed only
+   the inventions that had no warrant: the shielded-share chart drew its series in gold, which
+   is a quantity and not a boundary crossing, and is now ink. I deliberately KEPT gold on the
+   network loop's money edges, because a disclosed payment between two parties is exactly the
+   "value crossing a boundary" the budget licenses - but that is my reading of a rule you wrote.
+   Rule on it: either the budget yields to the mockup for the chrome and binds strictly on new
+   marks, or the indices move to ink and the mockup is superseded the way its inks were.
+
+3. THE SILBERT FORM 144 WAS WRONG IN THREE PLACES, AND HANDOFF-02 FIXED ONLY ONE. LEDGER-02
+   round 4 caught "a Form 144 attributed to the wrong Silbert entity on the wrong day at a ZEC
+   price mistaken for a share price" and corrected timeline.json. The same error was still live
+   in contradictions.json C14 and in two network.json records: 9,753 shares attributed to Barry
+   Silbert personally, dated 6 Nov, at "ZEC ~$544". EDGAR says Silbert Family Investments LLC
+   filed on 5 Nov for 9,753 shares at $407,312.59, and Barry E. Silbert personally on 6 Nov for
+   1,000 at $47,250.00 - about $41.76 a share, and no ZEC moved at all. All three now carry the
+   EDGAR reading with both primary filings cited first. The lesson is not about Silbert: when a
+   gate round corrects a fact, the correction has to be swept across every file that states it,
+   and nothing in the protocol currently says so. Worth a line in CLAUDE.md.
+
+4. THE QUARANTINE HAS NO HOME PAGE, AND permalink() CANNOT EXPRESS THAT. Section 3's id
+   families map a prefix to a route, but the 32 unverified records are rendered beside the
+   findings they qualify - four on /flows, four on /network, the rest unrendered - which is the
+   right editorial call and unrepresentable as a prefix rule. I corrected permalink() to send
+   U- to /flows (it said /sources, which renders no U- id at all, so every quarantine citation
+   dead-ended), then had to add a module in apps/web holding the actual split. A `surface` field
+   on Unverified would make this a property of the seed instead of a fact two files have to
+   agree about. That belongs to whoever owns packages/content next.
+
+5. SHOULD THE FOUR ROUTE STYLESHEETS STAY FOLDED INTO globals.css? I told each page crew to
+   write its CSS into its own file so four parallel workers could not collide, which worked -
+   zero collisions across 834 lines. But each import emitted its own stylesheet, and the second
+   render-blocking request was worth about 1,370 ms on /beware, so I folded all four back in at
+   gate round 4. globals.css is now 3,100 lines. design-reviewer's findings 5 to 7 - three
+   preformatted-mono treatments, two compact-cell registers, seven card insets on a five-step
+   ladder - are now all visible in one file, which is where they have to be before they can be
+   collapsed. Confirm the consolidation should stay, and whether the de-duplication is a
+   HANDOFF-04 deliverable or its own housekeeping pass.
+
+INFERRED (non-empty inferences a worker made):
+
+- The citation popover is a native <details> rather than the client island section 3 names. It
+  is keyboard-operable, announced and dismissible with no JavaScript, and it registers no
+  animation - which is precisely what A6 measures on every Record page. An island would have had
+  to re-implement all three and then be excluded from A6 by hand.
+- Charts are inline SVG through one frame, including the two-windows diagram the mockup builds
+  from absolutely positioned divs. Section 3 says charts are inline SVG with a table twin, and
+  that diagram carries the page's central claim, so it is the last one that should be
+  unreadable to a screen reader.
+- The splash pool bar is the exception and stays a flex row of coloured bands with a
+  hand-written twin. HANDOFF-01 lost a gate round to that bar collapsing to 2 px slivers when it
+  was built any other way, and the contract is that the numbers are readable without the
+  picture, not that the picture is an <svg>.
+- The timeline filter is server-first: the category search parameter sets the `hidden` attribute
+  server-side, so /timeline?category=EXPLOIT works with JavaScript off, and the island upgrades
+  it by toggling the same attribute. One attribute, one meaning. The CSS that makes it work is
+  load-bearing and not obvious - `.tl .ev` sets display:grid at a specificity that defeats the
+  user agent's [hidden] rule, so without an explicit `.tl .ev[hidden]` every hidden row renders.
+- Series the corpus states as dated tables rather than as claim objects (the shielded share, the
+  ZEC price) live in apps/web/src/lib/series.ts. packages/content's schemas describe claims, and
+  a claim per data point would be thirty near-identical records saying nothing the table does
+  not. They are held to the same standard by other means: every source id resolves through
+  getSource(), and a sweep over the whole tree proves the same for all 52 ids written directly
+  into apps/web.
+- An `R-` id family was invented for research-04 figures with no record in packages/content (the
+  rich list, the labelling survey, the provider table, the Form 144 counts). Each carries its
+  primary sources, a confidence and an "unbound" chip explained in the page head.
+- Nine figures the mockup draws are not on the shipped pages, because the corpus does not state
+  them as drawn: two price points the research gives as a before-and-after pair rather than as
+  dated closes, two drawdowns computed from intraday extremes the corpus quarantines, a diluted
+  mNAV the seed does not carry, two phrase chips with no phrase record, and the mis-paired
+  Grayscale figure deliverable 11 corrects.
+- The page crews ran on the session model rather than section 6's Sonnet suggestion. Section 6
+  is L2's routing suggestion and the director decides; these pages carry verbatim claims about
+  named living people, which is where three consecutive handoffs have lost their gate rounds.
+- /method restates the ClaimLevel union rather than importing it, because @zcashreveal/types is
+  not a dependency of apps/web and adding one was outside the deliverable. HANDOFF-04 needs the
+  DTOs anyway and should add it then.
+- Fraunces is instanced at opsz 144 and wght 300, and JetBrains Mono narrowed to 400-700. Those
+  are the values every rule in globals.css already asks for; a unit test reads the stylesheet and
+  holds the assumption to it, so a rule asking for a weight the file cannot supply fails rather
+  than getting a synthesised one.
+
+NOT-MATCHED (patterns handed over that did not apply):
+
+- `gh pr create` (CLAUDE.md, Workflow) is still unavailable in this environment. The PR was
+  opened through the GitHub MCP tooling, as in HANDOFF-00, 01 and 02. Fourth session running;
+  CLAUDE.md still says gh.
+- Section 6 suggested `test-engineer` (Haiku) write the Playwright checks and `docs-scribe`
+  capture the screens. The lead did both. Every one of the section 5 assertions needed a
+  fail-state transcript designed against the specific way the assertion could be satisfied
+  vacuously, and three of them were caught being vacuous by workers or by the suite itself.
+- Section 6 suggested Loop 1 PREFLIGHT for any Haiku touching the chart code. No Haiku touched
+  it, so no PREFLIGHT was issued.
+- The `pretest` remedy L2's fold 1 named works, and then races. `pnpm -r` runs packages in
+  parallel, so apps/gateway and apps/indexer both ran `tsc -b` over packages/zec-types at the
+  same time and collided; A10 passed on one run and failed on the next with the very error it
+  was meant to remove. Both suites now resolve the package to its source, which needs no build
+  and cannot race.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+
+- A3 says "every chart <svg> has a sibling <table> twin (Playwright counts match per page)".
+  Read as charts, not as every svg: the design system is SVG-icons-only, so a bare svg count can
+  never match a table count. `figure[data-chart]` is what marks a chart, and the structure is
+  fixed so the assertion is a count rather than a judgement.
+- A1 says "each page's first claim id is present in the HTML". /sources has no first claim id -
+  it is the bibliography, and a citation popover on a source would cite the citation. It is
+  asserted differently and deliberately: both labelled groups, and one row per source.
+- A5 names two floors and one page but not the preset, the throttling or the server. Measured on
+  the mobile preset with simulated throttling against `next start`, matching HANDOFF-01's stated
+  convention. See question 1.
+- Section 3 requires "a visually-hidden table twin for every chart" and also that "charts are
+  inline SVG". The splash pool bar is a chart by the first sentence and not by the second. It
+  carries a twin.
+- Whether the accent budget or the mockup governs gold. See question 2.
+
+GATE ROUND COUNTS: 4. See section 7 for the fingerprints. Rounds 1 to 3 converged on the
+findings they were about; round 4 is A5, a different finding, and under the Loop 4 rule as
+CLAUDE.md now states it that is not an overrun. No single finding took more than two rounds, and
+the one that did - a <details> inside a <p>, written twice in one session an hour apart - is now
+held by a unit test rather than by anyone remembering.
+
+DEFERRED ASSUMPTIONS:
+
+- The A5 performance floor. Question 1.
+- The accent budget ruling. Question 2.
+- De-duplicating the four route layers now folded into globals.css. Question 5.
+- A `surface` field on Unverified so the quarantine's page is a property of the seed. Question 4.
+- LedgerRow's Detectability and LedgerSeverity unions have drifted from the schema's
+  detectableSchema and severitySchema (three values against four, and `note` against `mid`).
+  BewareRow extends rather than edits it; the primitive is now used only by the dev gallery.
+- Cite cannot distinguish a legitimately empty sources[] - an unlocatable quarantine claim,
+  where the absence IS the finding - from a seed that has drifted from the schema. /flows works
+  around it locally; the shared component should carry the distinction.
+- No URL was fetched. Provenance is proven against the corpus, not the live web, and /sources
+  states that limitation on the page. research 03 part F already reports at least one 404. A
+  link-rot sweep needs an environment with egress.
+- The preview deployment is READY but Deployment Protection blocks fetching it, for the second
+  revolution running. Operator click 03.
+- research 02 section 5.2 says the Orchard bug was "disclosed and patched in three days"; B2's
+  own dated fields do not support that. The page prints B2's fields and no day count.
+- TRACKING-MATH section 3.4 specifies an absolute fee tolerance the indexer does not ship.
+  /method prints both, labelled "as specified" and "as shipped".
+- The corpus and the loader disagree on chain height (3,456,227 against 3,456,938), issued
+  supply and the shielded total. /flows surfaces all three rather than hiding them.
+- The eslint no-unused-vars promotion and the unused `saplingSpend` in block-decoder.test.ts
+  remain deferred to 06 or 07, as HANDOFF-00, 01 and 02 all recorded. Still the only warning.
+```
