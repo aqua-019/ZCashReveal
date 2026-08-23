@@ -46,7 +46,14 @@ export default defineConfig({
   webServer: {
     command: `pnpm build && pnpm start --port ${PORT}`,
     url: BASE_URL,
-    reuseExistingServer: process.env.CI === undefined,
+    // Never reuse. The usual `reuseExistingServer: !CI` is a trap here, because
+    // this command BUILDS before it serves: a reused server keeps answering
+    // from whatever was compiled last time, so an edit under src/ is invisible
+    // and the suite reports a pass for code that is not on disk. Found while
+    // collecting the A4 fail-state transcript - deleting a primitive from the
+    // gallery still passed against the stale server. Rebuilding every run costs
+    // about thirty seconds and is what makes the gate mean anything.
+    reuseExistingServer: false,
     timeout: 240_000,
     env: { NEXT_PUBLIC_DATA_MODE: "fixture" },
   },
