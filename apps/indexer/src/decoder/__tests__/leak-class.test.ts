@@ -489,3 +489,71 @@ describe("a Sprout-only JoinSplit transaction is no longer FULLY_TRANSPARENT", (
     expect(report.leakClass).toBe("FULLY_TRANSPARENT");
   });
 });
+
+describe("A9 — a class that names the transparent side requires a transparent side", () => {
+  /**
+   * THE ONE ASSERTION THAT PROTECTS THIS SITE'S CENTRAL CLAIM.
+   *
+   * `Z_TO_T` and `T_TO_Z` are not neutral labels. They say that shielded value
+   * crossed to the transparent side, which is the precise claim this whole
+   * project exists to make carefully - the difference between "value moved
+   * between pools" and "value became publicly attributable" is the difference
+   * between what the site is for and what it refuses to do.
+   *
+   * The analyser was making it wrongly, and not in a corner case. An
+   * Orchard-to-Ironwood migration has Orchard positive and no transparent
+   * output at all, and it came out `Z_TO_T` while the same report carried
+   * `netTransparentInflowZat: 0n`. That is a self-contradicting report and a
+   * false statement about every migration NU6.3 exists to produce. The cause
+   * was reading `direction` as if it named the other side of the crossing; it
+   * names only which way value moved across a pool boundary, and value leaving
+   * one pool lands in another pool as readily as in a transparent output.
+   *
+   * The operator asked for this as its own assertion rather than as a line in a
+   * gate-round list, so that a later reader can find the thing that guards it.
+   * That is what this block is. Do not merge it into the classifier suite.
+   */
+
+  it("PASS A: a migration with no transparent output is MIGRATION_O2I, never transparent-naming", async () => {
+    const report = await analyze(orchardToIronwood(), {
+      ...context(),
+      ironwoodValueBalanceZat: -700_000n,
+    });
+    expect(report.transparent.vout).toHaveLength(0);
+    expect(report.valueFlow.netTransparentInflowZat).toBe(0n);
+    expect(report.leakClass).toBe("MIGRATION_O2I");
+    expect(["Z_TO_T", "T_TO_Z"]).not.toContain(report.leakClass);
+  });
+
+  it("PASS A': with the Ironwood half withheld it is still never transparent-naming", async () => {
+    // The branch every live transaction takes until HANDOFF-07 decodes v6. It
+    // may decline to name the crossing; it may not name the wrong one.
+    const report = await analyze(orchardToIronwood(), context());
+    expect(report.valueFlow.netTransparentInflowZat).toBe(0n);
+    expect(["Z_TO_T", "T_TO_Z"]).not.toContain(report.leakClass);
+    expect(report.leakClass).toBe("MIXED");
+  });
+
+  it("PASS B: a transaction that genuinely pays a transparent output is still Z_TO_T", async () => {
+    // The guard must not be "never say Z_TO_T". A real deshield has somewhere
+    // for the value to go, and the class is exactly right for it.
+    const deshield = txn({
+      version: 5,
+      orchard: { actions: [orchardAction()], valueBalanceZat: 700_000 },
+      vout: [transparentOutput(690_000)],
+    });
+    const report = await analyze(deshield, context());
+    expect(report.valueFlow.netTransparentInflowZat).toBe(690_000n);
+    expect(report.leakClass).toBe("Z_TO_T");
+  });
+
+  it("PASS B': the mirror, a genuine shield with a transparent input, is still T_TO_Z", async () => {
+    const shield = txn({
+      version: 5,
+      vin: [transparentInput()],
+      orchard: { actions: [orchardAction()], valueBalanceZat: -690_000 },
+    });
+    const report = await analyze(shield, context());
+    expect(report.leakClass).toBe("T_TO_Z");
+  });
+});
