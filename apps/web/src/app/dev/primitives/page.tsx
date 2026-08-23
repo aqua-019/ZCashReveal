@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { FogCanvas } from "@/components/ambience/FogCanvas";
-import { Grain } from "@/components/ambience/Grain";
-import { Tide } from "@/components/ambience/Tide";
 import { Block } from "@/components/ui/Block";
 import { Chip } from "@/components/ui/Chip";
 import { Conf } from "@/components/ui/Conf";
@@ -21,7 +19,6 @@ import { Reason } from "@/components/ui/Reason";
 import { ScreenNav } from "@/components/ui/ScreenNav";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { SubNav } from "@/components/ui/SubNav";
-import { SysBar } from "@/components/ui/SysBar";
 import { Tooltip } from "@/components/ui/Tooltip";
 import { FIXTURE_TIP, POOL_LABEL, POOL_ORDER, POOL_VAR } from "@/lib/chain";
 import { DEV_SURFACES } from "@/lib/env";
@@ -82,12 +79,15 @@ export default function PrimitivesPage() {
 
       <Block idx="G1" title="Shell" right="SysBar, ScreenNav, EpochClock">
         <div className="spec">
-          <Eyebrow idx="SysBar">the full bar, rendered standalone</Eyebrow>
-          <SysBar tip={FIXTURE_TIP} />
+          <Eyebrow idx="SysBar">the bar at the top of this page is the instance</Eyebrow>
+          <p className="note">
+            SysBar is a shell singleton and is not remounted here. A second one would put a second role=&quot;banner&quot; landmark
+            inside &lt;main&gt;, which is an accessibility defect rather than a demonstration.
+          </p>
         </div>
         <div className="spec" style={{ marginTop: 14 }}>
           <Eyebrow idx="ScreenNav">hover the group: siblings dim, nothing transforms</Eyebrow>
-          <ScreenNav />
+          <ScreenNav ariaLabel="Screens (gallery sample)" />
         </div>
         <div className="spec" style={{ marginTop: 14 }}>
           <Eyebrow idx="EpochClock">height advances on block arrival, reduced motion or not</Eyebrow>
@@ -273,16 +273,18 @@ export default function PrimitivesPage() {
         <div className="spec" style={{ marginTop: 14 }}>
           <Eyebrow idx="Tide">the one ceremony; never constructed under reduced motion</Eyebrow>
           <p className="note">
-            A second Tide instance is mounted here for the gallery. It is fixed-position and invisible until a block arrives, so
-            it renders as nothing.
+            Tide is a shell singleton, mounted once for the document and already present on this page. It is fixed-position and
+            fully transparent until a block arrives. Mounting a second one here would be two block-arrival ceremonies on one
+            surface, which is the one thing the ceremony budget forbids.
           </p>
-          <Tide />
         </div>
         <div className="spec" style={{ marginTop: 14 }}>
           <Eyebrow idx="Grain">static texture, nothing to suppress</Eyebrow>
-          <Grain>
-            <p className="note">The grain film is applied by the shell; this instance nests one for the gallery.</p>
-          </Grain>
+          <p className="note">
+            Grain is a shell singleton too, and the film over this page is that instance. Nesting a second would stack two
+            full-viewport overlays and make the gallery - the page a reviewer judges the texture on - the one page where the
+            texture is wrong.
+          </p>
         </div>
       </Block>
     </div>

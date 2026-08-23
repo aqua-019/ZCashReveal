@@ -82,21 +82,29 @@ Nothing secret is ever given that prefix. `apps/web/src/lib/env.ts` is the singl
 | `NEXT_PUBLIC_API_URL` | Gateway REST base, e.g. `https://api.example/`. Nothing reads it in HANDOFF-01. | leave blank until HANDOFF-05/11 | leave blank | blank or a local gateway |
 | `NEXT_PUBLIC_WS_URL` | Gateway WebSocket, `wss://<tunnel>/stream`. Nothing reads it in HANDOFF-01. | leave blank until HANDOFF-11 | leave blank | blank or `ws://localhost:8080/stream` |
 | `NEXT_PUBLIC_SNAPSHOT_URL` | Published snapshot document URL. Nothing reads it in HANDOFF-01. | leave blank until HANDOFF-09 | leave blank | blank |
-| `NEXT_PUBLIC_DATA_MODE` | `fixture` \| `snapshot` \| `live`. Selects the data source and gates the dev-only surfaces. | **`snapshot`** | **`snapshot`** | `fixture` |
+| `NEXT_PUBLIC_DATA_MODE` | `fixture` \| `snapshot` \| `live`. Selects the data source. | **`snapshot`** | **`snapshot`** | `fixture` |
+| `NEXT_PUBLIC_ENABLE_DEV_SURFACES` | Exposes `/dev/primitives` and `window.__zr`. **Do not set it.** | do not set | do not set | do not set |
 
-### `NEXT_PUBLIC_DATA_MODE` is a security setting, not only a data setting
+### The dev surfaces are gated in code, not by an operator setting
 
-`apps/web/src/lib/env.ts` derives `DEV_SURFACES` as `NODE_ENV === "development" || DATA_MODE === "fixture"`,
-and `DEV_SURFACES` is what gates `/dev/primitives` and the `window.__zr` instrumentation.
+`apps/web/src/lib/env.ts` derives `DEV_SURFACES` as
+`NODE_ENV !== "production" || NEXT_PUBLIC_ENABLE_DEV_SURFACES === "1"`, and `DEV_SURFACES` is what
+gates `/dev/primitives` and the `window.__zr` instrumentation.
 
-**Leaving `NEXT_PUBLIC_DATA_MODE` at `fixture` on a deployed environment leaves `/dev/primitives`
-publicly reachable.** Set it to `snapshot` in Production **and** in Preview. An unset variable
-falls back to `fixture` in code, so "not set" is the same mistake as "set to fixture".
+**Nothing you do, or forget to do, in the Vercel dashboard can expose those surfaces.** A production
+build has them off unless `NEXT_PUBLIC_ENABLE_DEV_SURFACES=1` is set explicitly, and the only place
+that ever happens is `apps/web/playwright.config.ts`, so the assertion suite can exercise the
+gallery against a real production build. Do not add the variable to the Vercel project.
 
-Until HANDOFF-09 publishes a snapshot there is nothing for `snapshot` mode to read; the pages
-render their committed placeholder state either way. Set it to `snapshot` now regardless — the
-gate matters before the data does.
+An earlier draft keyed the gate to `NEXT_PUBLIC_DATA_MODE === "fixture"`. Because `fixture` is also
+the code's fallback for an unset variable, a single forgotten setting would have been enough to
+publish the gallery — and CLAUDE.md forbids any agent from setting a Vercel variable, so nothing in
+the repository could have corrected it. The gate now fails closed.
 
+`NEXT_PUBLIC_DATA_MODE` is therefore back to being what its name says: the data source. Set it to
+`snapshot` in Production and Preview. Until HANDOFF-09 publishes a snapshot there is nothing for
+that mode to read and the pages render their committed placeholder state either way, so this is a
+correctness setting rather than an urgent one.
 ---
 
 ## 3. Environment variables — SERVER-ONLY (never `NEXT_PUBLIC_`)
@@ -142,10 +150,11 @@ Leave Preview deployments protected by the team default. Production is public.
 2. **The system bar renders.** Load `/` in a browser: the `00 SYSTEM` bar is present at the top.
    Machine form: the HTML contains `data-ui="sysbar"`.
    `curl -sS https://<deployment>/ | grep -c 'data-ui="sysbar"'` prints a non-zero count.
-3. **`/dev/primitives` returns 404** when `NEXT_PUBLIC_DATA_MODE` is not `fixture`.
+3. **`/dev/primitives` returns 404.**
    `curl -sS -o /dev/null -w '%{http_code}\n' https://<deployment>/dev/primitives` prints `404`.
-   If it prints `200`, `NEXT_PUBLIC_DATA_MODE` is unset or is `fixture` for that environment.
-   Fix the variable and redeploy; a rebuild is required because the value is inlined at build time.
+   This holds with no environment variables set at all. If it prints `200`, someone has added
+   `NEXT_PUBLIC_ENABLE_DEV_SURFACES=1` to the project: remove it and redeploy. A rebuild is
+   required either way, because the value is inlined at build time.
 4. **Every public route returns 200.** `/` `/beware` `/contradictions` `/timeline` `/network`
    `/track` `/method` `/flows` `/sources`.
 5. **The build log shows `next build`,** not a Vite build (see the caution in section 1).

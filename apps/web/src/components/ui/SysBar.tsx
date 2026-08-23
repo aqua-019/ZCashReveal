@@ -20,7 +20,7 @@ export function SysBar({ tip }: { readonly tip: ChainTip }) {
         <span className="name">
           ZCash<em>Reveal</em>
         </span>
-        <span className="tag">shielded is not silent</span>
+        <span className="tag">shielded ≠ silent</span>
       </Link>
       <ScreenNav />
       <EpochClock tip={tip} />

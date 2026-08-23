@@ -45,10 +45,20 @@ export const SNAPSHOT_URL: string = process.env.NEXT_PUBLIC_SNAPSHOT_URL ?? "";
  * Whether the development-only surfaces exist: `/dev/primitives` and the
  * `window.__zr` instrumentation the reduced-motion assertions read.
  *
- * True in `next dev`, and in a production build running in fixture mode - which
- * is what the Playwright suite exercises, so the assertions run against the
- * same compiled output a reviewer sees. A deployed site sets
- * NEXT_PUBLIC_DATA_MODE=snapshot and `/dev/primitives` returns 404.
+ * This gate FAILS CLOSED, and that is the whole point of its shape.
+ *
+ * The obvious spelling - "on when DATA_MODE is fixture" - would have been
+ * wrong, because `readDataMode()` above falls back to "fixture" for an unset
+ * or misspelled variable. A production deployment that simply forgot one
+ * Vercel setting would then publish the primitives gallery and install the
+ * diagnostics object, and CLAUDE.md forbids any agent from setting that
+ * variable, so nothing in this repository could correct it. A default that
+ * opens a surface is a default that will eventually open it in production.
+ *
+ * So: off in any production build unless something deliberately turns it on,
+ * and the switch is its own variable rather than a side effect of the data
+ * mode. The Playwright suite sets it (see playwright.config.ts webServer.env)
+ * so A4 and A5 still run against real production output. Vercel never sets it.
  */
 export const DEV_SURFACES: boolean =
-  process.env.NODE_ENV === "development" || DATA_MODE === "fixture";
+  process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_ENABLE_DEV_SURFACES === "1";

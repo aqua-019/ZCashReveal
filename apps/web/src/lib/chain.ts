@@ -23,7 +23,10 @@ export interface ChainTip {
 
 export const FIXTURE_TIP: ChainTip = {
   height: 3_456_854,
-  hash: "00000000005f3a9e7c1b2d4f8a6e3c0d9b7f5a2e4c8d1b6f3a9e7c1b2d4f8c21e",
+  // 64 hex characters. The mockup literal is 65 - one zero too many in the
+  // leading run - and a block hash is 32 bytes exactly. Corrected here rather
+  // than propagated; HANDOFF-11 replaces this with a validated `Hex` anyway.
+  hash: "0000000005f3a9e7c1b2d4f8a6e3c0d9b7f5a2e4c8d1b6f3a9e7c1b2d4f8c21e",
   // 22 Aug 2026 14:58 UTC, the mockup's stated tip time.
   timeMs: Date.UTC(2026, 7, 22, 14, 58, 0),
   snapshotAgeBlocks: 0,

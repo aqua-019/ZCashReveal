@@ -139,31 +139,62 @@ export function FogCanvas({ seed, className }: { readonly seed: string; readonly
     let last = 0;
     let visible = true;
 
-    const io = new IntersectionObserver((entries) => {
-      visible = entries[0]?.isIntersecting ?? false;
-    });
-    io.observe(canvas);
+    /** Awake only while the canvas is on screen and the tab is foregrounded. */
+    function awake(): boolean {
+      return visible && !document.hidden;
+    }
 
     function schedule(): void {
       countRaf();
       raf = requestAnimationFrame(loop);
     }
 
+    /**
+     * Break the chain rather than spin on a no-op. A rAF loop that keeps
+     * scheduling while it has nothing to draw still costs a callback at display
+     * refresh rate for as long as the tab exists, and this page is meant to be
+     * left open. When the loop stops it records `raf = 0`; `resume()` is the
+     * only thing that restarts it.
+     */
     function loop(t: number): void {
-      if (visible && !document.hidden) {
-        const dt = Math.min(40, t - last);
-        last = t;
-        for (const p of particles) {
-          p.x += p.vx * dt;
-          p.y += p.vy * dt;
-          if (p.x < -20) p.x = w + 20;
-          if (p.x > w + 20) p.x = -20;
-          if (p.y < -20) p.y = h + 20;
-          if (p.y > h + 20) p.y = -20;
-        }
-        draw(t);
+      if (!awake()) {
+        raf = 0;
+        return;
       }
+      const dt = Math.min(40, t - last);
+      last = t;
+      for (const p of particles) {
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        if (p.x < -20) p.x = w + 20;
+        if (p.x > w + 20) p.x = -20;
+        if (p.y < -20) p.y = h + 20;
+        if (p.y > h + 20) p.y = -20;
+      }
+      draw(t);
       schedule();
+    }
+
+    /**
+     * `last = 0` matters. After an idle period the next timestamp is far in the
+     * future, and without the reset the first frame back would advance every
+     * particle by the whole gap. The dt clamp would cap that at 40 ms, but the
+     * field would still visibly jump; zero makes the first frame a no-op step.
+     */
+    function resume(): void {
+      if (raf !== 0 || !awake()) return;
+      last = 0;
+      schedule();
+    }
+
+    const io = new IntersectionObserver((entries) => {
+      visible = entries[0]?.isIntersecting ?? false;
+      resume();
+    });
+    io.observe(canvas);
+
+    function onVisibility(): void {
+      resume();
     }
 
     function onResize(): void {
@@ -172,12 +203,15 @@ export function FogCanvas({ seed, className }: { readonly seed: string; readonly
       draw(0);
     }
 
+    document.addEventListener("visibilitychange", onVisibility);
     window.addEventListener("resize", onResize);
     schedule();
 
     return () => {
       cancelAnimationFrame(raf);
+      raf = 0;
       io.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("resize", onResize);
     };
   }, [seed]);

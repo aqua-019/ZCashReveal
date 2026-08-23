@@ -31,11 +31,22 @@ export const REQUIRED = [
   ["--p-sapling", "#d9641e"],
   ["--p-orchard", "#c94f8f"],
   ["--p-ironwood", "#8b7fe6"],
-  ["--ease", "cubic-bezier(0.32, 0.72, 0, 1)"],
+  // Spelled as HANDOFF-01 section 3 spells it. Restating it in tokens.css's
+  // own formatting would make the check unable to detect the drift it exists
+  // to detect, so the comparison normalises instead (see `norm` below).
+  ["--ease", "cubic-bezier(.32,.72,0,1)"],
   ["--t1", "180ms"],
   ["--t2", "320ms"],
   ["--t3", "500ms"],
 ];
+
+/** Case, whitespace and `0.5` vs `.5` are not differences worth failing on. */
+function norm(value) {
+  return value
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/(^|[(,])0\./g, "$1.");
+}
 
 /**
  * @param {string} [css] token file contents; read from disk when omitted
@@ -53,9 +64,12 @@ export function checkTokens(css) {
       token,
       expected,
       found,
-      // Hex is compared case-insensitively; the contract writes uppercase, the
-      // file writes lowercase (CLAUDE.md: lowercase hex).
-      ok: found !== null && found.toLowerCase() === expected.toLowerCase(),
+      // Compared modulo case, whitespace and leading zeros on decimals: the
+      // contract writes uppercase hex and `cubic-bezier(.32,.72,0,1)`, the file
+      // writes lowercase hex and the prettier-formatted curve. Same values,
+      // different strings; a raw string equality would report a false failure
+      // and a restated expectation would report a false pass.
+      ok: found !== null && norm(found) === norm(expected),
     };
   });
 }

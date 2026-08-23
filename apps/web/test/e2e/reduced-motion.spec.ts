@@ -69,7 +69,7 @@ test.describe("A5 pass state - reduced motion requested", () => {
       .not.toBeNull();
 
     const zr = await readZr(page);
-    expect(zr, "window.__zr is missing; DEV_SURFACES should be true in fixture mode").not.toBeNull();
+    expect(zr, "window.__zr is missing; NEXT_PUBLIC_ENABLE_DEV_SURFACES should be on").not.toBeNull();
 
     const refusal = zr?.refused["FogCanvas"] ?? "";
     expect(typeof refusal, "refused.FogCanvas is not a string").toBe("string");

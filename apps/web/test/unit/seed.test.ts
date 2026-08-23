@@ -98,6 +98,14 @@ describe("seededRng", () => {
   });
 });
 
+describe("FIXTURE_TIP", () => {
+  it("carries a well-formed 32-byte block hash", () => {
+    // 64 lowercase hex characters, no 0x (CLAUDE.md conventions). The mockup
+    // literal this was harvested from is 65 characters; the typo stops here.
+    expect(FIXTURE_TIP.hash).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
 describe("ambience regression guard", () => {
   /**
    * Literal expectations, computed by running the shipped implementation. They
@@ -115,13 +123,29 @@ describe("ambience regression guard", () => {
     // seed. Editing that hash changes what every visitor sees, so it should have
     // to be recomputed here deliberately rather than drifting unobserved.
     const fog = seededRng(FIXTURE_TIP.hash, "fog");
-    expect(draw(fog, 3).map((v) => v.toFixed(6))).toEqual(["0.138194", "0.929098", "0.040321"]);
+    // Recomputed once, deliberately, when FIXTURE_TIP.hash was corrected from
+    // 65 characters to the 64 a block hash actually has. The ambience changed
+    // because the seed changed, which is the system working as designed.
+    expect(draw(fog, 3).map((v) => v.toFixed(6))).toEqual(["0.142717", "0.149401", "0.632158"]);
   });
 });
 
 describe("seedLabel", () => {
-  it("elides a 64-character hash to first four and last four", () => {
-    expect(seedLabel(HASH_64)).toBe("0000...2a3b");
+  it("strips the proof-of-work zero run before eliding", () => {
+    // Not "0000...2a3b". Every block hash starts with a run of zeros, so
+    // eliding the raw string would render the same four leading characters for
+    // every block that has ever existed and identify nothing.
+    expect(seedLabel(HASH_64)).toBe("f1a2...2a3b");
+  });
+
+  it("renders the fixture tip the way the mockup renders it", () => {
+    // docs/2.0/mockups/zecreveal-2.0-mockups-v2.html shows "seed 5f3a...c21e"
+    // for this tip, and docs/2.0/mockups/reference/v2-00-splash.png with it.
+    expect(seedLabel(FIXTURE_TIP.hash)).toBe("5f3a...c21e");
+  });
+
+  it("falls back to the original when a seed is all zeros", () => {
+    expect(seedLabel("000")).toBe("000");
   });
 
   it("returns short input unchanged", () => {

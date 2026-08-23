@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { Grain } from "@/components/ambience/Grain";
 import { Tide } from "@/components/ambience/Tide";
 import { SysBar } from "@/components/ui/SysBar";
 import { TooltipLayer } from "@/components/ui/Tooltip";
@@ -11,15 +12,17 @@ import { FooterLedger } from "./FooterLedger";
  * The frame every route renders inside: grain film, the block-arrival tide, the
  * system bar, the content, the footer ledger, and the single shared tooltip.
  *
- * The grain class is applied here rather than through the Grain component so
- * the film covers the full document including the footer; Grain remains
- * available as a standalone primitive for a nested surface that needs its own.
+ * Everything here is a SINGLETON. Grain, Tide, SysBar and TooltipLayer are each
+ * mounted exactly once, for the whole document, and a page must never mount its
+ * own. Two Grains stack two full-viewport films; two Tides are two block-arrival
+ * ceremonies on one surface, which the design system forbids outright; two
+ * SysBars are two role="banner" landmarks, the second nested inside <main>.
  */
 export function Shell({ tip, children }: { readonly tip: ChainTip; readonly children: ReactNode }) {
   return (
     <>
       <Tide />
-      <div className="shell grain">
+      <Grain>
         <a className="skip" href="#main">
           Skip to content
         </a>
@@ -28,7 +31,7 @@ export function Shell({ tip, children }: { readonly tip: ChainTip; readonly chil
           {children}
         </main>
         <FooterLedger tip={tip} />
-      </div>
+      </Grain>
       <TooltipLayer />
     </>
   );

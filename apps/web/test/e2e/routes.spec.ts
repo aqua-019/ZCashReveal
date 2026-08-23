@@ -46,16 +46,17 @@ test.describe("A7 route walk", () => {
 
   /**
    * The dev-only surface. It answers 200 here because webServer.env sets
-   * NEXT_PUBLIC_DATA_MODE=fixture, which makes DEV_SURFACES true in this
-   * production build. On a deployed site NEXT_PUBLIC_DATA_MODE is snapshot or
-   * live, DEV_SURFACES is false, and the page calls notFound() - it answers 404
-   * and the primitive gallery is not published.
+   * NEXT_PUBLIC_ENABLE_DEV_SURFACES=1, which is the explicit opt-in that makes
+   * DEV_SURFACES true in a production build (src/lib/env.ts). Nothing else
+   * turns it on: a deployed site never sets it, DEV_SURFACES is false, the page
+   * calls notFound() and answers 404, and the primitive gallery is not
+   * published.
    */
-  test("/dev/primitives serves 200 in fixture mode", async ({ page }) => {
+  test("/dev/primitives serves 200 with the dev-surface opt-in", async ({ page }) => {
     const response = await page.goto("/dev/primitives");
 
     expect(response, "no response for /dev/primitives").not.toBeNull();
-    expect(response?.status(), "/dev/primitives did not answer 200 in fixture mode").toBe(200);
+    expect(response?.status(), "/dev/primitives did not answer 200 with the dev-surface opt-in").toBe(200);
     await expect(page.locator('[data-primitive="SysBar"]').first()).toBeAttached();
   });
 });

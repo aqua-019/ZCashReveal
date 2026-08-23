@@ -17,11 +17,11 @@ import { SCREENS, isActive } from "@/lib/nav";
  * Real <a> elements, not tab buttons: these are navigations. `aria-current`
  * carries the active state, and the gold fill follows from it.
  */
-export function ScreenNav() {
+export function ScreenNav({ ariaLabel = "Screens" }: { readonly ariaLabel?: string }) {
   const pathname = usePathname();
 
   return (
-    <nav className="screens" aria-label="Screens" data-primitive="ScreenNav" data-ui="screennav">
+    <nav className="screens" aria-label={ariaLabel} data-primitive="ScreenNav" data-ui="screennav">
       {SCREENS.map((s) => {
         const active = isActive(pathname, s.href);
         return (

@@ -31,7 +31,10 @@ export function LedgerRow({
   readonly confidence: Confidence;
 }) {
   return (
-    <article className={`lrow ${severity}`} id={id} data-primitive="LedgerRow" data-severity={severity}>
+    // role="listitem" is required, not decorative: the parent <Ledger> is
+    // role="list", and an <article> maps to role "article", which trips
+    // axe's aria-required-children on the one page carrying the a11y budget.
+    <article className={`lrow ${severity}`} id={id} role="listitem" data-primitive="LedgerRow" data-severity={severity}>
       <div className="id">{id}</div>
       <h3 className="name">
         {name}

@@ -44,8 +44,17 @@ export function seededRng(seed: string, namespace?: string): () => number {
   return mulberry32(fnv1a(namespace === undefined ? seed : `${seed}:${namespace}`));
 }
 
-/** A short, stable display form of a seed: the first and last four hex characters. */
+/**
+ * A short, stable display form of a seed.
+ *
+ * The leading zero run is stripped first. Every Zcash block hash begins with
+ * one - that is what the proof of work buys - so eliding the raw string would
+ * render "0000...c21e" for every block that has ever existed, which identifies
+ * nothing. Dropping the zeros gives four characters of actual entropy and
+ * matches the mockup, which shows "5f3a...c21e" for this tip.
+ */
 export function seedLabel(seed: string): string {
-  if (seed.length <= 9) return seed;
-  return `${seed.slice(0, 4)}...${seed.slice(-4)}`;
+  const s = seed.replace(/^0+/, "") || seed;
+  if (s.length <= 9) return s;
+  return `${s.slice(0, 4)}...${s.slice(-4)}`;
 }
