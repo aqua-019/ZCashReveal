@@ -263,4 +263,15 @@ export type FindingCode =
   | "WALLET_FINGERPRINT"
   | "MEMO_PRESENT"
   | "FULL_TRANSPARENT"
-  | "SHIELDED_COINBASE";
+  | "SHIELDED_COINBASE"
+  /**
+   * The node did not say whether this transaction has JoinSplits.
+   *
+   * NOT A PROPERTY OF THE TRANSACTION - a property of the response. Zebra
+   * serialises `vjoinsplit` only from ZcashFoundation/zebra PR #9805 (merged
+   * 22 Aug 2025); an older node omits it on every transaction, so an absent
+   * field on a version that CAN carry JoinSplits (v2, v3, v4) leaves Sprout's
+   * contribution unknown rather than zero. Raised so a `sproutValueBalanceZat`
+   * of `0n` on such a transaction is never read as a measurement.
+   */
+  | "SPROUT_FIELD_INDETERMINATE";

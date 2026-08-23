@@ -488,6 +488,44 @@ describe("a Sprout-only JoinSplit transaction is no longer FULLY_TRANSPARENT", (
     expect(report.valueFlow.perPoolZat).toEqual([]);
     expect(report.leakClass).toBe("FULLY_TRANSPARENT");
   });
+
+  /**
+   * A SPROUT BALANCE OF ZERO IS TWO DIFFERENT STATEMENTS AND THE REPORT NOW
+   * SAYS WHICH ONE IT IS.
+   *
+   * Zebra serialises `vjoinsplit` only from ZcashFoundation/zebra PR #9805
+   * (merged 22 Aug 2025), so against an older node the field is absent on every
+   * transaction and `sproutValueBalanceZat` is `0n` for all of them - including
+   * ones that moved Sprout value. That is the shape of `expiryheight` and
+   * `tx.feeZat`: a fabricated measurement with every test green. The reports
+   * below carry the same `0n`; only one of them claims it.
+   */
+  it("flags an absent vjoinsplit on a version that could carry one, and stays silent where it could not", async () => {
+    const codesFor = async (version: number): Promise<string[]> => {
+      const report = await analyze(txn({ version, vin: [], vout: [] }), context());
+      expect(report.valueFlow.sproutValueBalanceZat).toBe(0n);
+      return report.findings.map((f) => f.code);
+    };
+
+    // v4 CAN carry a JoinSplit, so absence leaves the Sprout term unknown.
+    const v4 = await codesFor(4);
+    expect(v4).toContain("SPROUT_FIELD_INDETERMINATE");
+
+    // THE FAIL SIDE, AND IT IS THE HALF THAT MAKES THE FINDING WORTH HAVING.
+    // v5 removed JoinSplits (ZIP 225) and v6 did not bring them back (ZIP 229),
+    // so on those the same absence is a fact about the format. A finding that
+    // fired here would fire on substantially every transaction on the chain
+    // today and every one of them would be false.
+    expect(await codesFor(5)).not.toContain("SPROUT_FIELD_INDETERMINATE");
+    expect(await codesFor(6)).not.toContain("SPROUT_FIELD_INDETERMINATE");
+  });
+
+  it("does not flag a v4 transaction whose node DID send an empty vjoinsplit", async () => {
+    // The distinction the finding exists for: `[]` is an answer, absence is not.
+    const report = await analyze(txn({ version: 4, vjoinsplit: [] }), context());
+    expect(report.valueFlow.sproutValueBalanceZat).toBe(0n);
+    expect(report.findings.map((f) => f.code)).not.toContain("SPROUT_FIELD_INDETERMINATE");
+  });
 });
 
 describe("A9 — a class that names the transparent side requires a transparent side", () => {

@@ -37,6 +37,7 @@ Decode v6 transactions and Ironwood actions from Zebra 6.x RPC JSON into the fou
 - Design: ZEC gold `#F4B728` is a budgeted accent; one hover verb (dim); one curve `cubic-bezier(.32,.72,0,1)`; reduced motion honoured by not constructing the animation system; `Math.random` banned (FNV-1a → mulberry32 from a chain seed).
 - The PR stops at **opened**. No merge, no deploy, no production promotion by any agent at any tier.
 - Provenance on every claim in §7: Executed (output shown) / Read (file + commit cited) / UNVERIFIED (labelled). Stale or fabricated claims are a gate failure.
+- **Do not parallelise integration files across processes to buy wall clock.** `fileParallelism: false` in `apps/indexer/vitest.config.ts` is load-bearing until HANDOFF-10 lands database isolation: every integration suite TRUNCATEs shared tables in `beforeEach`, so two vitest processes on one Postgres corrupt each other's rows in both directions. Proven in both directions in HANDOFF-06's round 2 and pre-existing (LEDGER-06 Q6). *(Added by the L2 RESOLUTION for HANDOFF-06, fold 8.)*
 - `decoder/ironwood.ts` mirrors `orchard.ts`; `decoder/v6.ts` dispatches by `version`; `block-decoder.ts` emits Ironwood commitments/anchors/nullifiers and boundary deltas.
 - Unknown version or bundle → a structured `UNSUPPORTED_TX` leak report (severity INFO) with the raw field names logged — never a throw.
 - Migration detection: `valueBalanceOrchard > 0 && valueBalanceIronwood < 0` with no transparent components → `MIGRATION_O2I`; amount recorded with `(n, k)` where amount = `n × 10^k` ZEC, `n ∈ {1,2,5}`, `canonical` false otherwise.
@@ -46,6 +47,8 @@ Decode v6 transactions and Ironwood actions from Zebra 6.x RPC JSON into the fou
 ## §4 DELIVERABLES
 
 1. `decoder/ironwood.ts`, `decoder/v6.ts`, updated `block-decoder.ts`, `leak-analyzer.ts`, `fingerprint.ts`; fixtures under `test/fixtures/blocks/` (real if a synced node is available — say which heights; else synthetic mirroring the RPC shape with the real-fixture test `skipIf`-guarded); tests.
+2. **Fill `AnalyzeContext.ironwoodValueBalanceZat` at its call site so `MIGRATION_O2I` fires on the LIVE path.** HANDOFF-06 implemented the rule, tested both polarities through the seam and left the seam unfilled deliberately, because decoding a v6 bundle was out of its scope — so today a real Orchard-to-Ironwood migration classifies `MIXED` on the live path. `MIGRATION_O2I` unreachable for one handoff is acceptable; for two it is not. The seam is one value passed at one call site (`apps/indexer/src/index.ts`), not a reopening of the module. *(Added by the L2 RESOLUTION for HANDOFF-06, fold 4; LEDGER-06 Q2.)*
+3. **Add `perPoolZat.ironwood` on the same terms as the other three pools** — present when the pool moved, OMITTED when it did not, never a hardcoded `0n`. A hardcoded zero renders as a measurement that was never taken, which is the defect HANDOFF-06 spent its length removing from `feeZat`. *(Same fold.)*
 
 ## §5 ASSERTIONS — binary, machine-checkable, each needs a pass-state and a fail-state transcript
 
@@ -56,6 +59,7 @@ Decode v6 transactions and Ironwood actions from Zebra 6.x RPC JSON into the fou
 - **A5.** `proofsOrchard` of length `2720 + 2272×2 − 1` on a post-NU6.2 fixture produces a `PROOF_SIZE_NONCANONICAL` finding; the correct length produces none.
 - **A6.** No `any` introduced: `grep -rn ': any' apps/indexer/src/decoder` is empty.
 - **A7.** Replay of the fixture block through `PoolState` leaves `Bal_orchard` unchanged or decreased and `Bal_ironwood` increased by the migrated amounts (integration test).
+- **A8.** A decoded v6 Orchard-to-Ironwood migration classifies `MIGRATION_O2I` **end to end through the real decoder path**, not through a hand-built `AnalyzeContext` *(fail side: withhold the Ironwood balance at the call site and observe `MIXED`)*. *(Added by the L2 RESOLUTION for HANDOFF-06, fold 4. A4 tests the rule; A8 tests that the live path reaches it — HANDOFF-06 shipped a version where the rule was correct and no caller could reach it, and the docblock beside it claimed otherwise.)*
 
 ## §6 DISPATCH HINTS (director-build decides; these are L2's routing suggestions)
 

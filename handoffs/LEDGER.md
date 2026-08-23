@@ -1896,3 +1896,308 @@ DEFERRED ASSUMPTIONS:
   `block-decoder.test.ts` remain deferred, as HANDOFF-00 through 05 all recorded. Still
   the only warning.
 ```
+
+---
+
+## L2 RESOLUTION — HANDOFF-06
+
+Appended by the HANDOFF-07 session under the revolution protocol, step 2. Verbatim; L2 has no write access to this repository.
+
+```
+L2 RESOLUTION — HANDOFF-06 (Cowork, 23 Aug 2026)
+
+VERIFY (Executed by L2 on a clean worktree of **6fda93f**, not a5291c6, with a REAL PostgreSQL 16 — not relayed):
+  You pushed two commits after the PR URL reached me, so I re-ran everything at the new head. That
+  was the right order: a5291c6 was the commit CI went red on.
+  `packages/*/dist` and every `*.tsbuildinfo` deleted first, then `pnpm -r test` with no build step:
+  content 67 · zebra-rpc 23 · web 354 · gateway 108 · indexer **312 passed / 1 skipped (313)**.
+  Total 864 passed, 1 skipped — your count, confirmed. rc=0. F-05-1 stays fixed: `pnpm --filter
+  @zcashreveal/indexer migrate` exits 0 from that same clean tree and applies 001, 002, 003, 003a.
+  typecheck 10/10 cached-clean. lint 0 errors, 1 warning — and I checked rather than accepted the
+  word "pre-existing": the warning is `block-decoder.test.ts:22`, which is on `origin/main`. It is
+  pre-existing. Four static guards rc=0, all four self-testing.
+  `assert-no-skipped-integration.mjs` rc=0 over a real vitest JSON report: 9 integration files
+  executed, one allowed skip (the mainnet fixture HANDOFF-10 owns). **56 integration assertions
+  counted directly out of the report** — the corrected number in ci.yml's comments is right and the
+  old 37 was stale.
+
+  THE CI ROUND, VERIFIED INDEPENDENTLY AND IN BOTH POLARITIES. I did not take the collation
+  diagnosis on the strength of the commit message, because a narrative that explains a red run is
+  the easiest thing in the world to write convincingly and get wrong.
+  (a) The mechanism, checked outside this repository entirely. Under glibc `en_US.UTF-8`,
+      `locale.strxfrm` orders the four migration names 001, 002, **003a_gateway_cache**,
+      **003_four_pools**; byte order gives the reverse pair. Your reading of why is exactly right.
+      One precision worth having: this is a **glibc** property, not a property of "en-US". The same
+      Postgres 16 server, asked for `en-US-x-icu`, returns the BYTE order, because ICU's CLDR root
+      treats punctuation as non-ignorable by default. `postgres:16` initdbs with glibc en_US.utf8,
+      so CI is the glibc case and your fix is aimed correctly — but a reader who generalises the
+      comment to "any en-US collation" will be surprised. Worth one clause in the docblock.
+  (b) The fix, proved by controlled input rather than by reading it. I made a C.UTF-8 database
+      return the exact en_US sequence — `ORDER BY regexp_replace(name, '[_.]', '', 'g')` — and ran
+      the file twice against that same adversarial ordering:
+        with your JS sort in place          -> 18 passed
+        with the JS sort removed (pre-fix)  -> **3 failed | 15 passed**, and the failure is
+        byte-for-byte the diff you quoted, on the same three A2 tests.
+      Same input, old code red, new code green. That is the fix demonstrated, not asserted.
+      File restored, 18 pass, `git diff` empty.
+  CI on 6fda93f: run 32663016953, job "typecheck, lint, test", **success**, 1m 56s, artifact
+  `indexer-vitest-report`. Green on the actual head.
+  `fileParallelism: false` confirmed at `apps/indexer/vitest.config.ts:42`. Q6's corrected claim
+  holds as written.
+  Verdict: every assertion holds. Two gate rounds plus a CI round. NO FINDINGS. This is the first
+  handoff in this project to come back from me with nothing to fix, and the reason is Q3 and Q4 —
+  you went looking for the branches a change made reachable instead of the change itself.
+
+ANSWERS to the ledger questions:
+
+  Q1 THE TESTNET HEIGHTS — I went to the ZIPs rather than ruling on the corpus, and the answer is
+     better than the one you asked for. **4,052,000 is not ordering-derived. ZIP 257 states it.**
+     The ZIP is Final and prints "Testnet: 4052000" and "Mainnet: 3364600" under NU6.2's own
+     heading, separately from the mitigation clause you already quote. So the constant is right AND
+     its provenance is stronger than the docblock claims. Confirmed alongside it: ZIP 257 Final for
+     the mitigation pair 3363426 / 4048500; ZIP 255 Final for NU6.1, "Testnet: 3536500" and
+     "Mainnet: 3146400" — your 3,536,500 is correct and the handoff was wrong to omit it.
+     Two things you could not have concluded from inside the repository:
+     - **Testnet NU6 exists. ZIP 253 (Final) gives "Testnet: 2976000".** Your comment saying no line
+       in this repository gives one is true and was the right call at the time; the constant can now
+       exist with a citation instead of being deliberately absent. Fold 1.
+     - **ZIP 258 is DRAFT, not Final.** Every Ironwood height in this project — mainnet 3,428,143,
+       testnet 4,134,000, the `poolsActiveAt` gate, A4, and all of HANDOFF-07 — rests on a ZIP that
+       can still move. That belongs on the constants and in the ledger, not in my head. Fold 2.
+     You also found a defect in the research corpus rather than in your own work:
+     `01-contemporary-zcash.md:149` compresses two separately-labelled ZIP 257 heights into one
+     ordering-dependent clause, and the corpus has no testnet NU6 height at all. Fold 3 corrects the
+     document, because the next worker to read it inherits the same ambiguity you did.
+
+  Q2 IRONWOOD DECLARED AND NOT DECODED — the right trade, and I want it on the record that you asked
+     rather than shipped a zero. `ironwoodValueBalanceZat: 0n` on every report is a measurement that
+     was never taken, which is the exact defect this handoff spent its length removing from `feeZat`;
+     doing it twice in one PR would have been remarkable. `MIGRATION_O2I` unreachable on the live
+     path is acceptable for one handoff and unacceptable for two, so HANDOFF-07 closes it as a named
+     deliverable and a named assertion, not as a side effect of the decoder. Fold 4.
+
+  Q3 THE NULLABLE FEE — this is the most valuable paragraph in the ledger and it is not about fees.
+     "A NOT NULL column is not only a constraint, it is a set of untested branches, and dropping it
+     runs them all at once" is a stack rule, not a HANDOFF-06 note. Three live defects fell out of
+     one constraint drop, and TypeScript saw none of them because postgres.js row types are
+     caller-asserted. Fold 5 puts it in CLAUDE.md so the next handoff that widens a type goes
+     looking on purpose.
+
+  Q4 A9 WAS RIGHT TO BE NAMED — and the generalisation is the part I want kept. An assertion the
+     operator names is checked as a RULE across the tree, not as a fix at the site that prompted it;
+     that is what turned one corrected classification into four, including a `/track` ternary that
+     had made its own migration branch unreachable for every input, and a test whose title said
+     "unknown fee" while it passed `0n`. Fold 6 makes that the standing reading of a named
+     assertion. The test that pinned the conflation rather than the behaviour is the sharpest
+     example this project has produced of why a green test is not evidence.
+
+  Q5 THE READ-ONLY WORKER THAT WROTE — you are right that an incident nobody wrote down is one the
+     next session cannot learn from, and right not to invent a ledger entry for mine. The HANDOFF-04
+     occurrence is real: a gate verifier wrote a scratch test into the repo and I caught it in the
+     tree, not in a report. It is in no ledger because I ruled on it in the prompt and never folded
+     it, which is my failure of the same kind. Two occurrences, two different agent roles, both
+     scoped read-only, so it is a class. Fold 7 writes the rule and the two occurrences into
+     CLAUDE.md, and keeps your post-fan-out sweep as the enforcement.
+
+  Q6 THE INTEGRATION SUITE AND CONCURRENT POSTGRES — accepted, including the correction, and I want
+     the correction itself noted as the good part: you had a finding that read well, checked it, and
+     published the weaker true version. `fileParallelism: false` is where you say it is and CI runs
+     one vitest process per package, so CI is safe today for the reason you give. The exposure is
+     real and it now has an owner rather than a paragraph: HANDOFF-10 owns infra and CI topology, so
+     it takes the decision — database-per-worker, advisory lock, or schema-per-run — and HANDOFF-07
+     is told not to parallelise integration files to buy wall clock in the meantime. Fold 8.
+
+  ON THE DEFERRED `vjoinsplit` CASING — I closed it, because you flagged it as the same shape as the
+  defect that made every wallet fingerprint inert for the life of this project, and that deserves a
+  source rather than a fixture someday. Two independent primary sources: the official zcash RPC
+  documentation for `getrawtransaction` prints `"vjoinsplit"`, all lowercase, in the same result
+  object where the Sapling arrays are `"vShieldedSpend"` and `"vShieldedOutput"` — the inconsistency
+  is real, which is exactly why doubting it was correct — and ZcashFoundation/zebra PR #9805,
+  merged 22 Aug 2025, adds `vjoinsplit` to Zebra's own `getrawtransaction`. **Your spelling is
+  right.** The risk relocates rather than disappearing: Zebra only gained the field in that PR, and
+  `tx.vjoinsplit?.length ?? 0` renders "this node is too old to tell you" and "this transaction has
+  no JoinSplits" as the same 0n, silently, with no failing test. `docker-compose.yml` still pins
+  `zfnd/zebra:4.4.1`. HANDOFF-2026-08-22-v2 already mandates Zebra >= 6.0.0; it now has a second
+  named reason. Fold 9.
+
+FOLDS — apply these in your FIRST commit, before HANDOFF-07 work, then reconcile statuses as usual.
+
+  1. `apps/indexer/src/decoder/activation-heights.ts` — add `NU6_ACTIVATION_TESTNET = 2_976_000`,
+     cited to ZIP 253 (Final), and replace the "THERE IS DELIBERATELY NO NU6_ACTIVATION_TESTNET"
+     block with a note that it was absent from the corpus and was resolved from the ZIP by L2.
+     Rewrite `NU6_2_ACTIVATION_TESTNET`'s docblock: ZIP 257 (Final) states "Testnet: 4052000" under
+     NU6.2's own heading; delete "CORROBORATED BY ORDERING rather than by statement". Add to
+     `NU6_1_ACTIVATION_TESTNET` that ZIP 255 (Final) states both heights.
+  2. Same file — mark every NU6.3 / Ironwood constant as resting on **ZIP 258, status DRAFT**, and
+     say what that means: the height may change before the ZIP is Final, and `poolsActiveAt` plus
+     every Ironwood gate move with it. Add the same line to the LEDGER as a standing DEFERRED entry.
+  3. `docs/2.0/research/01-contemporary-zcash.md` — correct line 149 to give the ZIP 257 heights
+     under their own names instead of as an ordered pair, and add testnet NU6 2,976,000 (ZIP 253) to
+     the activation table. Apply CLAUDE.md's sweep rule to every restatement in the same commit.
+  4. `handoffs/HANDOFF-07-v6-decoder.md` §4 — add: fill `AnalyzeContext.ironwoodValueBalanceZat` at
+     its call site so `MIGRATION_O2I` fires on the LIVE path, and add `perPoolZat.ironwood` on the
+     same terms as the other three (omitted when the pool did not move, never a hardcoded zero).
+     §5 — add **A8: a decoded v6 Orchard-to-Ironwood migration classifies `MIGRATION_O2I` end to end
+     through the real decoder path, not through a hand-built `AnalyzeContext`** *(fail side: withhold
+     the Ironwood balance at the call site and observe `MIXED`)*.
+  5. `CLAUDE.md`, new bullet under the conventions: dropping a `NOT NULL` runs every branch the
+     constraint kept unreachable — enumerate the consumers and exercise the null before shipping the
+     migration, and expect the type checker not to help, because driver row types are caller-asserted.
+  6. `CLAUDE.md`, gate contract: an assertion the operator names in §5 is checked as a RULE across
+     the tree, not as a fix at the site that prompted it. Cite HANDOFF-06's A9: one named assertion,
+     four live defects, three of them outside the file that prompted it.
+  7. `CLAUDE.md`, Don'ts: a worker scoped read-only does not write to the tree; if it must, it
+     returns the change as a diff for the lead to apply. Two occurrences: HANDOFF-04's gate verifier
+     wrote a scratch test, HANDOFF-06's mapping agent wrote the pool widening into `shielded.ts` and
+     `leaks.ts`. The post-fan-out sweep that caught the second is the enforcement and stays.
+  8. `handoffs/HANDOFF-10-infra.md` §4 — add a deliverable: decide and implement integration-test
+     database isolation (database-per-worker, advisory lock, or schema-per-run), citing LEDGER-06 Q6
+     and the round-2 failures in both directions. `handoffs/HANDOFF-07-v6-decoder.md` §3 — add: do
+     not parallelise integration files across processes; `fileParallelism: false` is load-bearing
+     until HANDOFF-10 lands the isolation.
+  9. `handoffs/HANDOFF-10-infra.md` §2/§4 — pin `zfnd/zebra` >= 6.0.0 with the second reason stated:
+     `vjoinsplit` reaches `getrawtransaction` only via ZcashFoundation/zebra PR #9805 (merged 22 Aug
+     2025), so an older node makes every Sprout term silently `0n`. `packages/zebra-rpc` — make an
+     ABSENT `vjoinsplit` on a v2+ transaction distinguishable from an empty one at the boundary
+     (a decoder finding, not a throw), so "the node is too old" cannot read as "no JoinSplits".
+     Update the LEDGER's UNVERIFIED entry to CLOSED with both citations, and keep HANDOFF-10's
+     Sprout-transaction fixture request — the casing is settled, the end-to-end path is not.
+ 10. `handoffs/LEDGER.md` — record that L2 verified HANDOFF-06 at 6fda93f with no findings, that the
+     collation fix was reproduced in both polarities by controlled input, and that ZIP 258's draft
+     status is now a tracked dependency of the whole Data track.
+
+OPERATOR CLICKS (Aqua, not any agent):
+  - Merge PR #37. It is green on 6fda93f and I found nothing.
+  - HANDOFF-08 stays blocked until #37 is on main — golden cases captured before it would freeze
+    the zero-fee, guessed-conventional and inert-fingerprint behaviour into the record of correct
+    behaviour. LEDGER-05 Q4 and LEDGER-06 both say so; this is the confirmation.
+  - Migration 003 has not been applied to the VPS database. It is the first migration here that
+    ALTERs objects it did not create and REWRITES rows (`UPDATE leak_reports SET fee_zat = NULL
+    WHERE fee_zat = 0`). HANDOFF-10 owns the runbook; the click is yours.
+  - Stale remote branches still listed in `docs/2.0/BRANCH-CLEANUP.md`.
+```
+
+---
+
+## L2 RESOLUTION — HANDOFF-06, folds applied (recorded by the HANDOFF-07 session)
+
+Appended under the revolution protocol, step 2: this is the receipt for the block above, not a
+restatement of it. The block itself is verbatim and untouched.
+
+```
+FOLDS APPLIED — by the HANDOFF-07 session, before any HANDOFF-07 work
+
+ 1. APPLIED. `NU6_ACTIVATION_TESTNET = 2_976_000` exists, cited to ZIP 253 (Final) and to the
+    new corpus table. The "THERE IS DELIBERATELY NO NU6_ACTIVATION_TESTNET" block is replaced by
+    the constant plus the account of why it was absent. `NU6_2_ACTIVATION_TESTNET`'s docblock no
+    longer says "CORROBORATED BY ORDERING rather than by statement"; it says ZIP 257 (Final)
+    prints "Testnet: 4052000" under NU6.2's own heading, and keeps the correction visible because
+    the constant did not change - only its provenance did, from weak to strong.
+    `NU6_1_ACTIVATION_TESTNET` records that ZIP 255 (Final) states both heights.
+ 2. APPLIED. `IRONWOOD_HEIGHTS_REST_ON_A_DRAFT_ZIP` marks the dependency at the constants, names
+    what moves if ZIP 258 moves (both NU6.3 heights, the Ironwood row of `POOL_BIRTH`, every
+    `poolsActiveAt`/`isPoolActiveAt` answer about Ironwood, `orchardExitOnlyFrom` and with it the
+    height `ValuePool` starts throwing `ExitOnlyViolation` from, and HANDOFF-07's v6 gate), and
+    says what does not move: the activation happened at a real height and the chain is the
+    authority. It is deliberately not a boolean any code branches on. The standing DEFERRED entry
+    is below.
+ 3. APPLIED. `01-contemporary-zcash.md` §1.4 now names all four ZIP 257 heights individually
+    instead of giving two of them as an ordered pair, with a note saying why the sentence is
+    written out four times. A new consolidated table, "Network-upgrade activation heights", is
+    added at :60 and carries testnet NU6 2,976,000 (ZIP 253) - which appeared nowhere in this
+    corpus before - together with each upgrade's ZIP and that ZIP's status.
+    SWEPT IN THE SAME COMMIT: the table's insertion moved every line below it, so the eight
+    corpus line citations in `activation-heights.ts` were re-pinned (:145 to :167, :149 to :171,
+    :215 to :239, :216 to :240, :217 to :241, :628 to :652; :28 unmoved) and each now names its
+    section as well as its line, because a line number alone is a citation that decays. The two
+    verbatim archives that cite ":149" - this ledger's L2 block and `prompts/PROMPT-07.md` - are
+    NOT edited: they are records of what L2 wrote.
+ 4. APPLIED to HANDOFF-07: §4 gains deliverables 2 and 3 (fill the seam at the call site; add
+    `perPoolZat.ironwood` on the same omit-when-unmoved terms), §5 gains A8.
+ 5. APPLIED to CLAUDE.md, conventions.
+ 6. APPLIED to CLAUDE.md, operating model, beside the gate-budget bullet.
+ 7. APPLIED to CLAUDE.md, Don'ts, as its opening rule.
+ 8. APPLIED. HANDOFF-10 §4 gains deliverable 5 (integration-test database isolation, with the
+    three options named and the round-2 evidence in both directions); HANDOFF-07 §3 gains the
+    prohibition on parallelising integration files.
+ 9. APPLIED. HANDOFF-10 §2 gains the version-floor block with both reasons and §3's pin reads
+    ">= 6.0.0, 6.2.x"; §4 deliverable 2 gains 2a (the captured block must contain a JoinSplit)
+    and 2b (verify the pinned node actually serialises `vjoinsplit`, record the `subversion`).
+    In code: `packages/zebra-rpc/src/sprout-field.ts` is new and makes an absent `vjoinsplit`
+    distinguishable from an empty one at the boundary, as a finding and never a throw;
+    `rpcJoinSplitSchema` declares the field so the schema stops being silent about it;
+    `FindingCode` gains `SPROUT_FIELD_INDETERMINATE` and `leak-analyzer.ts` raises it at INFO.
+    ONE NARROWING, STATED RATHER THAN SLIPPED IN: the fold says "on a v2+ transaction" and the
+    implementation is versions 2 TO 4. v5 (ZIP 225) removed JoinSplits and v6 (ZIP 229) did not
+    bring them back, so on a v5 or v6 transaction an absent `vjoinsplit` is a fact about the
+    format, not an indeterminacy. Taking "v2+" literally would have put an INFO finding on
+    substantially every transaction on the chain today, and each one would have been false.
+    The UNVERIFIED entry on the casing is CLOSED below.
+10. APPLIED below.
+```
+
+```
+STANDING DEFERRED — ZIP 258 IS DRAFT, AND THE WHOLE DATA TRACK RESTS ON IT
+
+Every Ironwood height in this project - mainnet 3,428,143, testnet 4,134,000, the Ironwood row of
+`poolsActiveAt`, `orchardExitOnlyFrom`, HANDOFF-06's A4 and all of HANDOFF-07 - comes from ZIP 258,
+which is status DRAFT and was Draft when NU6.3 activated. A Draft ZIP may be edited; a height in
+one is not frozen the way ZIP 253's, 255's and 257's are. This is a documentation risk rather than
+a chain risk: if the ZIP is edited, the constants here would be found wrong against a NODE rather
+than the chain being found wrong against the constants. It closes when HANDOFF-10's captured
+mainnet fixture pins the height to observed chain data. Marked at the constants as
+`IRONWOOD_HEIGHTS_REST_ON_A_DRAFT_ZIP` and in the corpus's activation table.
+```
+
+```
+CLOSED — THE WIRE CASING OF `vjoinsplit`
+
+HANDOFF-06 deferred this as UNVERIFIED, flagging it as the same shape as the defect that made every
+wallet fingerprint inert for the life of this project. L2 closed it with two independent primary
+sources: the official zcash RPC documentation for `getrawtransaction` prints `vjoinsplit`
+all-lowercase in the same result object where the Sapling arrays are `vShieldedSpend` and
+`vShieldedOutput` - the inconsistency is real, which is why doubting it was correct - and
+ZcashFoundation/zebra PR #9805, merged 22 Aug 2025, adds `vjoinsplit` to Zebra's own
+`getrawtransaction`. The spelling in this repository is right.
+
+THE RISK RELOCATED RATHER THAN DISAPPEARING, which is why this entry is closed and not deleted.
+Zebra only gained the field in that PR, so against an older node `tx.vjoinsplit?.length ?? 0`
+renders "this node is too old to tell you" and "this transaction has no JoinSplits" as the same
+`0n`, silently, with no failing test. `docker-compose.yml` still pins `zfnd/zebra:4.4.1`.
+HANDOFF-10 now pins >= 6.0.0 with that as its second named reason, and the boundary reports the
+indeterminacy rather than a zero (fold 9). HANDOFF-10's Sprout-transaction fixture request stands:
+the casing is settled, the end-to-end path is not.
+```
+
+```
+L2 VERIFICATION OF HANDOFF-06 — NO FINDINGS (recorded per fold 10)
+
+L2 re-ran everything on a clean worktree of 6fda93f - the PR head, not a5291c6 - with a real
+PostgreSQL 16, after deleting `packages/*/dist` and every `*.tsbuildinfo` and with no build step.
+content 67, zebra-rpc 23, web 354, gateway 108, indexer 312 passed / 1 skipped: 864 passed, 1
+skipped, rc=0. F-05-1 holds from that same clean tree. typecheck 10/10 cached-clean. lint 0 errors
+and 1 warning, checked rather than accepted as "pre-existing" - it is `block-decoder.test.ts:22`
+and it is on `origin/main`. Four static guards rc=0, all four self-testing.
+`assert-no-skipped-integration.mjs` rc=0 over a real vitest JSON report, 9 integration files
+executed, one allowed skip, and 56 integration assertions counted directly out of the report - the
+corrected number in ci.yml's comments is right and the old 37 was stale.
+
+THE CI ROUND WAS VERIFIED INDEPENDENTLY AND IN BOTH POLARITIES, not taken on the strength of the
+commit message. The mechanism was checked outside this repository entirely: under glibc
+`en_US.UTF-8`, `locale.strxfrm` orders the four migration names 001, 002, 003a, 003, and byte order
+gives the reverse pair. The precision worth keeping is that this is a GLIBC property and not a
+property of "en-US" - the same Postgres 16 asked for `en-US-x-icu` returns the byte order, because
+ICU's CLDR root treats punctuation as non-ignorable by default; `postgres:16` initdbs with glibc
+en_US.utf8, so CI is the glibc case. That clause is now in the docblock at
+`migrations.test.ts:appliedNames`. The fix itself was proved by controlled input rather than by
+reading: a C.UTF-8 database was made to return the exact en_US sequence with
+`ORDER BY regexp_replace(name, '[_.]', '', 'g')`, and the file was run twice against that same
+adversarial ordering - with the JS sort in place, 18 passed; with it removed, 3 failed / 15 passed,
+byte-for-byte the diff the commit quoted, on the same three A2 tests. Same input, old code red, new
+code green.
+
+CI on 6fda93f: run 32663016953, job "typecheck, lint, test", success, 1m 56s.
+`fileParallelism: false` confirmed at `apps/indexer/vitest.config.ts:42`; Q6's corrected claim
+holds as written. Verdict: every assertion holds, two gate rounds plus a CI round, NO FINDINGS -
+the first handoff in this project to come back from L2 with nothing to fix.
+```

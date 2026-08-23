@@ -218,6 +218,41 @@ export const rpcVinSchema = z
   })
   .passthrough();
 
+/**
+ * One JoinSplit description - the Sprout half, and the only pool whose movement
+ * is not a `valueBalance` field.
+ *
+ * DECLARED HERE RATHER THAN LEFT TO PASSTHROUGH, because "the schema does not
+ * mention it" and "the node did not send it" were the same observable until
+ * this schema existed. Sprout's contribution is `vpub_new - vpub_old` summed
+ * over these; the `Zat` suffixed fields are the integers and the unsuffixed
+ * pair are ZEC floats (Zebra 6.3.0, types/transaction.rs `JoinSplit`), so
+ * reading the wrong one is wrong by a factor of 100,000,000.
+ *
+ * EVERY FIELD IS OPTIONAL AND THAT IS DELIBERATE. This schema's job is to make
+ * the ARRAY's presence observable and its numbers well-formed, not to reject a
+ * node that spells one of the proof-carrying members differently. A JoinSplit
+ * whose `vpub_newZat` is absent contributes nothing and says so; a JoinSplit
+ * this schema rejected would take the whole transaction down with it, which is
+ * the opposite of the point. See `sprout-field.ts` for what absence means.
+ */
+export const rpcJoinSplitSchema = z
+  .object({
+    vpub_old: z.number().optional(),
+    vpub_new: z.number().optional(),
+    vpub_oldZat: z.number().optional(),
+    vpub_newZat: z.number().optional(),
+    anchor: hexLowerSchema.optional(),
+    nullifiers: z.array(hexLowerSchema).optional(),
+    commitments: z.array(hexLowerSchema).optional(),
+    onetimePubKey: hexLowerSchema.optional(),
+    randomSeed: hexLowerSchema.optional(),
+    macs: z.array(hexLowerSchema).optional(),
+    proof: hexLowerSchema.optional(),
+    ciphertexts: z.array(hexLowerSchema).optional(),
+  })
+  .passthrough();
+
 /** One transparent output. `value` is ZEC, `valueZat` is zatoshi; both are always present. */
 export const rpcVoutSchema = z
   .object({
@@ -340,6 +375,15 @@ export const rpcTransactionSchema = z
     weight: z.number().int().nonnegative().optional(),
     vin: z.array(rpcVinSchema),
     vout: z.array(rpcVoutSchema),
+    /**
+     * Sprout. Optional because Zebra omits it, and because Zebra below PR #9805
+     * (merged 22 Aug 2025) does not serialise it at all - which is a different
+     * fact from "this transaction has no JoinSplits" and must not collapse into
+     * it. `joinSplitObservability` in `sprout-field.ts` is what keeps the two
+     * apart; an empty array here is an answer, an absent key on a v2-v4
+     * transaction is not.
+     */
+    vjoinsplit: z.array(rpcJoinSplitSchema).optional(),
     vShieldedSpend: z.array(rpcSaplingSpendSchema).optional(),
     vShieldedOutput: z.array(rpcSaplingOutputSchema).optional(),
     valueBalance: z.number().optional(),

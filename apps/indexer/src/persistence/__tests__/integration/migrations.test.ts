@@ -205,6 +205,13 @@ async function poolChecks(sql: Sql): Promise<string[]> {
  *   C / C.UTF-8   `_` is 0x5F and `a` is 0x61, so 003_four_pools precedes 003a_gateway_cache
  *   en_US.utf8    punctuation is ignored at the primary level, so 003a_gateway_cache precedes 003_four_pools
  *
+ * THE SECOND ROW IS A PROPERTY OF GLIBC, NOT OF "en-US". The same Postgres 16
+ * asked for `en-US-x-icu` returns the BYTE order, because ICU's CLDR root
+ * treats punctuation as non-ignorable by default. `postgres:16` initdbs with
+ * glibc `en_US.utf8`, so CI is the glibc case and this fix is aimed correctly -
+ * but a reader who generalises the row above to "any en-US collation" will be
+ * surprised (L2 RESOLUTION - HANDOFF-06, verification note (a)).
+ *
  * The development container runs C.UTF-8 and the CI service container runs
  * en_US.utf8, so this file passed locally and failed on the runner with a diff
  * showing the same four names in a different order. Sorting both sides in the

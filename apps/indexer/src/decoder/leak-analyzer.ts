@@ -27,6 +27,7 @@ import { sproutValueBalanceZat } from "./sprout.js";
 import { AnchorRegistry } from "./anchor-depth.js";
 import { guessWallet, isZip317Conventional } from "./fingerprint.js";
 import { zip317LogicalActions } from "@zcashreveal/types";
+import { joinSplitObservability, type JoinSplitObservability } from "@zcashreveal/zebra-rpc";
 import {
   computeFeeZat,
   noPrevOutResolver,
@@ -209,6 +210,10 @@ export async function analyze(
     saplingSpends,
     saplingOutputs,
     orchard,
+    // Whether `sproutBalanceZat` above is a measurement or an assumption. It is
+    // `0n` in both the "no JoinSplits" case and the "node too old to serialise
+    // the field" case, and only this can tell them apart.
+    joinSplits: joinSplitObservability(tx),
   });
 
   const overallSeverity = highestSeverity(findings);
@@ -475,8 +480,28 @@ function collectFindings(input: {
   saplingSpends: unknown[];
   saplingOutputs: unknown[];
   orchard: { actions: unknown[]; anchor: string | null };
+  joinSplits: JoinSplitObservability;
 }): Finding[] {
   const out: Finding[] = [];
+
+  // THE SPROUT TERM MAY BE AN ASSUMPTION RATHER THAN A MEASUREMENT, AND THIS IS
+  // WHERE THAT IS SAID OUT LOUD. `sproutValueBalanceZat` returns `0n` both for a
+  // transaction with no JoinSplits and for one whose node never serialised the
+  // field - Zebra gained `vjoinsplit` on `getrawtransaction` only in PR #9805
+  // (merged 22 Aug 2025), and this repository's compose file still pins 4.4.1.
+  // Only versions 2 to 4 can carry a JoinSplit at all, so this fires on those
+  // and stays silent on v5 and v6, where absence is a fact about the format.
+  // INFO, not a warning: nothing is wrong with the transaction. See
+  // `sprout-field.ts` in packages/zebra-rpc.
+  if (input.joinSplits === "ABSENT_INDETERMINATE") {
+    out.push({
+      code: "SPROUT_FIELD_INDETERMINATE",
+      severity: "INFO",
+      message:
+        "Node did not serialise `vjoinsplit` on a transaction version that can carry JoinSplits - the Sprout value balance is unknown, not zero. Zebra >= 6.0.0 (or any node with ZcashFoundation/zebra PR #9805) reports it.",
+      field: "valueBalance",
+    });
+  }
 
   if (input.valueFlow.crossesPoolBoundary) {
     out.push({

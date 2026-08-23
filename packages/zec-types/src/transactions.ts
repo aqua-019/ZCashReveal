@@ -168,7 +168,20 @@ export interface RpcTransaction {
   weight?: number | undefined;
   vin: RpcVin[];
   vout: RpcVout[];
-  /** Sprout. Absent on every transaction that carries no JoinSplit, which is nearly all of them. */
+  /**
+   * Sprout.
+   *
+   * ABSENT FOR TWO DIFFERENT REASONS AND THEY MUST NOT COLLAPSE INTO ONE. The
+   * ordinary one: the transaction carries no JoinSplit, which is nearly all of
+   * them. The other: Zebra serialises this field only from
+   * ZcashFoundation/zebra PR #9805 (merged 22 Aug 2025), so a node older than
+   * that omits it on every transaction, including ones that DO carry
+   * JoinSplits. `undefined` therefore means "no JoinSplits" on a version that
+   * cannot carry them and "unknown" on versions 2 to 4.
+   *
+   * `joinSplitObservability` in `@zcashreveal/zebra-rpc` is the function that
+   * tells the two apart; do not decide it by reading this field's truthiness.
+   */
   vjoinsplit?: RpcJoinSplit[] | undefined;
   vShieldedSpend?: RpcSaplingSpend[] | undefined;
   vShieldedOutput?: RpcSaplingOutput[] | undefined;
