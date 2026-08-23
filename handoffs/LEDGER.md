@@ -1229,3 +1229,196 @@ FOLDS (apply in the RECONCILE commit):
 NOTE ON TRACK ORDER: 02, 03 and 04 have closed the Web track's first pass. HANDOFF-05 (Data) is the open handoff and this session owns it. HANDOFF-10 (Infra) is also open and unclaimed; if Aqua wants the Infra track running in parallel it needs its own session, told it owns HANDOFF-10.
 OPERATOR CLICKS OUTSTANDING: delete the stale remote branches per `docs/2.0/BRANCH-CLEANUP.md`. Deployment Protection is no longer worth toggling for L2's benefit (see Q3) - leave it as you prefer. If you want a deployed Lighthouse number on the record, take it in your own browser on `zecreveal-git-main-aquatic-17b9f112.vercel.app/beware` and paste the two figures; a session cannot.
 ```
+
+
+---
+
+## HANDOFF-05 — Gateway REST read API v2 + hardening (Zebra address-index RPCs with a cache)
+
+Branch `claude/gateway-api-handoff-05-12ogr3` (harness-designated) · shipped 23 Aug 2026 · gate rounds: 3
+
+```
+QUESTIONS (for the operator / L2):
+
+1. THE API PREFIX DISAGREES WITH ITSELF, AND I SHIPPED BOTH RATHER THAN PICK.
+   §3 of this handoff names `GET /api/search`, `/api/address/:addr` and the rest. HANDOFF-04
+   shipped `apps/web/src/lib/api/http-api.ts`, which requests `/v2/...`. One of the two is
+   wrong and neither is obviously the mistake: `/api` is what this handoff specifies and `/v2`
+   is what the only written client actually sends. Mounting one would have broken the other at
+   HANDOFF-11's cutover, in a way that looks like a network failure rather than a naming
+   disagreement, so every route is mounted at BOTH prefixes and the duplication is deliberate.
+   That is a decision to reverse, not a state to leave: two public prefixes for one API is
+   twice the surface to document, to rate-limit and to keep honest. Rule on which survives and
+   I will delete the other in HANDOFF-11 - my recommendation is `/v2`, because it versions the
+   API in the path and this is the second one, whereas `/api` will need a `/api/v3` eventually
+   and will then have the same problem with a worse name.
+
+2. `/api/pools` ANSWERS 503 AND NAMES WHAT IS MISSING. Confirm that is what you want.
+   The page has five blocks. One - the pool balances - is chain-derived and this handoff can
+   compute it. The other four are the turnstile ledger (HANDOFF-06), the deployment history
+   (07), the estimator panel (08) and the supply reconciliation (09), and NOTHING in this tree
+   carries them: not the indexer, not the corpus, not Zebra. The alternatives were to invent
+   plausible figures, to serve a 200 with four empty blocks, or to refuse. It refuses, with a
+   body naming each missing block and the handoff that owns it, and the half that is real is
+   served separately at `/api/pools/balances`. A 503 is a louder failure than an empty panel
+   and will look like a broken deployment to anyone who has not read this - which is the point,
+   but it is your call, not mine, and HANDOFF-11's cutover checklist needs to expect it.
+
+3. THE PROJECT'S OWN SPECIFICATION OF ZIP 317 IS AN APPROXIMATION, AND IT DIVERGES EXACTLY
+   WHERE THE SITE CARES MOST. `docs/2.0/TRACKING-MATH.md` §3.5, and the /method page that
+   renders it, give
+     L = max(t_in, t_out) + 2*nJoinSplit + max(nSpendsSapling, nOutputsSapling) + nActionsOrchard
+   which is ZIP 317's rule with its transparent term replaced by counts. The protocol's actual
+   transparent term is `max(ceil(inSize/150), ceil(outSize/34))` - Zebra implements exactly
+   that at `zebra-chain/src/transaction/unmined/zip317.rs:160-173`. The two agree while every
+   input and output is a standard P2PKH and diverge for anything larger. The largest script
+   this site discusses is the ZIP 271 lockbox, a 2-of-3 P2SH multisig whose inputs run well
+   past 150 bytes: two such inputs give ZIP 317 L=4 and a 20,000 zatoshi conventional fee,
+   against TRACKING-MATH's L=2 and 10,000. A page that says a lockbox disbursement did not pay
+   the conventional fee, when by the protocol it did, is a false statement about the one
+   address the project exists to track. The gateway follows the PROTOCOL and says so in
+   `views/context.ts`. I did not edit TRACKING-MATH or /method, because a specification another
+   track owns is not mine to correct silently. Ruling wanted: correct the document (my
+   recommendation - it is a Web-track edit to one section and one component, and the count form
+   can stay as a stated simplification with the exact rule beside it), or keep the count form
+   and have the gateway match it, in which case the divergence from Zebra needs a comment
+   saying it is deliberate.
+
+4. THE FEE IS NOT ON THE WIRE, AND TWO OF THE FIVE WALLET SIGNATURES ARE STILL BLIND.
+   Fixing the `expiryheight` casing revives two of the five - YWALLET and ZECWALLET_LITE, both
+   pinned by tests. NIGHTHAWK and ZCASHD_RUST stay inert, and for a second instance of exactly
+   the same defect: `leak-analyzer.ts:112` reads `tx.feeZat`, and no node sends one. Zebra's
+   `TransactionObject` has no fee field (types/transaction.rs:268-429, scanned in full) and
+   neither does zcashd's `getrawtransaction` - a fee is a property of the outputs a transaction
+   spends and those are not in the response. So `feeZat` coalesces to `0n`, and
+   `isZip317Conventional(0n, actions)` is false for every real transaction, because the
+   conventional fee has a floor of 10,000 zatoshi. Both signatures are SOUND - given a computed
+   fee they fire, which the tests show - and only their input is missing. Computing it is
+   analysis (HANDOFF-06/07/08), not a boundary fix, so I have not done it here. It needs an
+   owner before HANDOFF-08 freezes golden cases over an analyser that cannot see fees.
+
+5. A GATE THAT STOPS VERIFYING WITHOUT SAYING SO READS AS ONE THAT FINISHED.
+   The round-2 gate returned 39 findings, verified 10 against an internal cap, and reported the
+   other 19 HIGH/MID as unverified - in a log line at the end of the run, not in the findings.
+   It would have been very easy to treat the seven confirmed findings as the result and ship.
+   Round 3 exists because I read the 19: seventeen had already been fixed in rounds 1 and 2,
+   and TWO WERE STILL LIVE AND BOTH WERE REAL - one of them a DTO field carrying different
+   quantities in the gateway and in the fixture, under a rendered label that described only
+   one. If gates in this stack are going to cap verification, the cap belongs in the handoff's
+   §6 as a stated budget, and unverified findings belong in the report as work, not as a
+   footnote. I would rather a gate return 10 findings it verified and say "19 unread" in the
+   first line than return 39 and bury it.
+
+6. THE QUARANTINE PAGE IS OWED, AND THE COUNT IN BOTH LEDGERS IS WRONG.
+   Fold 5 and LEDGER-04 Q4 both say 24 of the 32 quarantined records render on no page, and
+   LEDGER-03 Q4 and LEDGER-04 Q4 both say four anchor on /flows and four on /network. Measured
+   from the prerendered HTML of a production build: TEN anchor - six on /flows, four on
+   /network - and TWENTY-TWO do not. The two allegations rows on /flows that own their anchors
+   are what the earlier count missed. Nothing about the fold changes: `surface` is nullable,
+   `permalink()` returns null, callers render plain text, and `requirePermalink()` exists for
+   the callers that genuinely must have one. Only the figure changes, and it changes here
+   rather than in your append-only block. The page for the 22 remains owed to a later Web
+   handoff, on your ruling that a quarantine nobody can read is indistinguishable from
+   suppression.
+
+INFERRED (non-empty inferences a worker made):
+
+- `chain-integrator` was told to read Zebra as the source of truth and inferred that "the
+  source of truth" means the SERIALISATION CODE rather than the doc comments. That inference is
+  load-bearing and it was right: four of Zebra's doc comments in `methods.rs` contradict its
+  own structs, including one that says `getaddressbalance` does not return `received` when the
+  struct returns it with no `serde(skip)`. A client written against the comments mis-parses.
+  `packages/zebra-rpc/src/schemas.ts` records each divergence beside the field.
+- I inferred that "labels/cases served from `packages/content`" (§4.2) means the gateway serves
+  the content package's OWN view of a label - the labeller and the precedence rank travelling
+  with every label, never the label alone. CLAUDE.md's precedence rule says the precedence is
+  always displayed, but §4.2 could be read as "serve the label strings". A bare label is an
+  attribution with no indication of who made it, which is the identity claim this site refuses.
+- `GATEWAY_TRUSTED_PROXIES` is not in §3's hardening list. I inferred it belongs to "rate
+  limiting per IP", because without it the limit is not per IP at all under the topology
+  HANDOFF-10 specifies. The list in §3 names the plugin, not the property; I implemented the
+  property.
+
+NOT-MATCHED (patterns handed over that did not apply):
+
+- §6's two-hop dispatch (`chain-integrator` writes the contract, `backend-api` executes it
+  after a PREFLIGHT) matched only in its first half. The contract was written by a spawned
+  `chain-integrator`; the execution was the lead's. No director was spawned, so Loop 1's
+  PREFLIGHT and Loop 3's spec-author review did not happen as separate steps - the spec author
+  and the executor were the same. Stated rather than glossed.
+- §6's `devops-deployer` "runs the test matrix in CI" did not apply: CI runs on push, and this
+  session stops at PR opened.
+- LEDGER-04's fold 3 named a line in CLAUDE.md's revolution protocol to append to. There was no
+  Lighthouse line in the revolution protocol to append to - the deployed-measurement rule had
+  never been written down there. The fold's intent is unambiguous, so a Lighthouse line was
+  ADDED carrying exactly the text the fold specifies, rather than the fold being reported as
+  inapplicable. Recorded because "appended to a line that did not exist" and "wrote a new line"
+  are different acts and only one of them is what you asked for.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+
+- `MempoolView.summary.conventionalFeeZat` had NO documentation at all, and two producers read
+  it two ways: `apps/web`'s fixture emits 10,000 (ZIP 317's fee at the grace minimum of two
+  logical actions) and the gateway emitted the SUM of the fees of the transactions that pay it.
+  /track renders whichever arrives under the subtitle "zat - ZIP 317 at 2 logical actions", so
+  the gateway's meaning made the label false - and only at the moment the gateway replaced the
+  fixture, which is HANDOFF-11's cutover. Resolved in favour of the label and the fixture; the
+  DTO now states the meaning. The general point is the one worth keeping: a zod field with a
+  name and no comment is a contract that two honest implementers can satisfy differently.
+- §5 A6 says "a second GET /api/address/... within the TTL performs 0 RPC calls". My first
+  implementation performed one and I wrote a justification for the divergence instead of
+  meeting the assertion - and the justification was backwards. Not ambiguous in hindsight;
+  recorded here because the pattern (a charitable reading of an assertion that literal
+  execution fails) is now four for four across three revolutions, and the assertion text was
+  never the problem.
+- §4.6 says "24 of the 32 quarantined records render on no page". The instruction is
+  unambiguous; the figure is wrong. See question 6.
+
+GATE ROUND COUNTS: 3. Round 1: lead review, 18 findings (7 HIGH, 5 MID, 3 LOW, 1 refuted by
+its own verification, 1 process, 1 recorded as not-a-finding), all with executed probes against
+the running server. Round 2: Workflow gate, four lenses (security, spec, facts, copy), ALL FAIL,
+39 raw findings, 10 verified adversarially - 7 confirmed, 3 refuted - and 19 HIGH/MID returned
+unverified against an undeclared cap. Round 3: the 2 of those 19 that were still live after
+rounds 1 and 2, both real. No finding reached a third round on ITSELF, so Loop 4's per-finding
+cap was never approached and nothing is NOT CONVERGING. Fingerprints (file · rule · severity)
+for all three rounds are in the handoff's §7.
+
+DEFERRED ASSUMPTIONS:
+
+- HANDOFF-08 MUST NOT CAPTURE ITS GOLDEN CASES BEFORE THIS MERGES. The expiry-height casing fix
+  changes what the analyser can see: `expiryDelta` goes from null for every transaction ever
+  processed to a real number, and `likelyWallet` goes from UNKNOWN_NONSTANDARD to YWALLET or
+  ZECWALLET_LITE for the transactions those signatures match. Golden cases captured against the
+  current main would freeze the blind answers as the expected ones, and the fix would then read
+  as a regression. This is a hard ordering dependency, not a preference.
+- HANDOFF-10'S MAINNET BLOCK FIXTURE MUST BE CAPTURED FROM A REAL RPC RESPONSE, not hand
+  written. The defect this handoff found was not a wrong value; it was a fixture that agreed
+  with the TypeScript interface and disagreed with the wire, which no test could catch because
+  every test read the same interface. `apps/indexer/src/decoder/__tests__/rpc-casing.test.ts`
+  now lints every transaction fixture for wire casing and requires each to carry
+  `expiryheight`, but a lint knows only the fields it was told about. A fixture captured from a
+  node is correct in the fields nobody has thought of yet.
+- REVERSE-PROXY ACCESS LOGS ARE THE THIRD COPY OF THE VIEWING-KEY EXPOSURE, and HANDOFF-10's
+  runbook owns them. A9 closes two: the response body and this process's own log lines.
+  cloudflared, nginx and every load balancer log full URLs by default, including the query
+  string, and no code inside this process can reach that configuration. The runbook needs to
+  turn it off or redact it at the proxy, and to say where those logs are shipped.
+- The indexer's `fingerprint.ts` computes ZIP 317's logical actions a third way - it sums
+  transparent inputs and outputs, and sums Sapling spends and outputs, where the protocol takes
+  the maximum of each pair. Its figure differs from the gateway's for any transaction with more
+  than one input. Correcting it is analysis and belongs to HANDOFF-08. Until then /track's rows
+  come from the indexer's count and /tx's come from the protocol's, and they can disagree.
+- Migration 003a has been applied to a local PostgreSQL 16 and its behaviour asserted there,
+  including a thirteen-digit zatoshi round-trip and a TTL evaluated against the database's own
+  clock. It has NOT been applied to the VPS database. That is an operator click.
+- No route has been exercised against a synced Zebra node or a populated mempool. Every route
+  test runs against a scripted RPC handler. Per LEDGER-04 Q3 a session cannot reach the VPS at
+  all, so the live check is the operator's or it does not happen - the same wall HANDOFF-11 has
+  to plan around.
+- `apps/gateway` still depends on `apps/indexer`'s TYPES (`LeakReport` and its neighbours)
+  through the workspace, which A8 permits - A8 forbids importing indexer SOURCES and the grep
+  proves none are imported. If those types are meant to live in `packages/zec-types`, that is a
+  move for a later Data handoff and it is not free: the indexer's analyser is their author.
+- The eslint no-unused-vars promotion and the unused `saplingSpend` in block-decoder.test.ts
+  remain deferred, as HANDOFF-00 through 04 all recorded. Still the only warning.
+```
