@@ -501,6 +501,13 @@ INFERRED (non-empty inferences a worker made):
   `Pool` from packages/zec-types, which is still the v0.2 pair. HANDOFF-06 owns
   widening Pool; when it does, content can switch, with transparent staying
   separate because it is not a pool.
+- Fold 8's diagnosis was right about the root vercel.json and incomplete about the
+  cause. The deployment on the deleting commit failed identically, because the same
+  settings are also stored on the zecreveal project. The available remedy in code is
+  to pin them in apps/web/vercel.json, which takes precedence over stored project
+  settings; a stored setting itself is an operator click, and no agent may touch it.
+  Worth folding back into whatever L2 tells the next session about Vercel: deleting
+  a config file does not undo a setting the dashboard already adopted from it.
 - Fold 8's premise, "apps/web has no workspace dependencies", is true at this commit
   and false at the next one: HANDOFF-03 makes apps/web depend on the very package
   this PR creates. With no root vercel.json and a bare Next.js preset, that build
@@ -623,6 +630,10 @@ DEFERRED ASSUMPTIONS:
   said apps/web/vercel.json "makes the outcome the same either way". L2's own build
   log disproved that, and the addendum's fold 8 supersedes all three deferrals. It
   is deleted in this PR.
+- The zecreveal project still stores the legacy dashboard's build command, install
+  command and output directory. apps/web/vercel.json overrides all three, so the
+  build no longer depends on them, but they are a trap for whoever next edits that
+  file. Clearing them is operator click one in docs/2.0/DEPLOY-2.0.md section 1.
 - `z-cash-reveal-dashboard2` will fail to build until an operator types the deleted
   file's six settings into that project. Accepted by fold 8, recorded in
   docs/2.0/DEPLOY-2.0.md section 1 and as row 02 of the operator table.

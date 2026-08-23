@@ -81,13 +81,51 @@ looked for the root file's `outputDirectory` at `/vercel/path0/apps/web/legacy/d
 `apps/web/vercel.json` was ignored entirely.
 
 The root file is read for **every** project in this repository and overrides the one inside the
-Root Directory. HANDOFF-02 therefore deleted it. `apps/web` has no workspace dependencies, so with
-it gone the Next.js preset builds `apps/web` with no custom command and `apps/web/vercel.json`
-(`{"framework": "nextjs"}`) is finally the file that applies. `scripts/check-vercel-config.mjs`
-runs in CI and fails if the root file ever comes back.
+Root Directory. HANDOFF-02 therefore deleted it. `scripts/check-vercel-config.mjs` runs in CI and
+fails if it ever comes back.
 
-**Operator click — move these into the `z-cash-reveal-dashboard2` project settings** so the legacy
-dashboard keeps building until the HANDOFF-11 cutover. These are the deleted file's exact values:
+### Deleting it was necessary but NOT sufficient
+
+The preview deployment on the very commit that deleted the root file
+(`dpl_DjyBB8byMZYASmu7TA65yg8Y1n6h`, commit `9cc2dca`) **failed the same way**. Its build log shows
+Vercel still running
+
+```
+Running "install" command: `pnpm install --frozen-lockfile`...
+Running "pnpm --filter=@zcashreveal/types build && pnpm --filter=@zcashreveal/dashboard build"
+Error: The Next.js output directory "legacy/dashboard/dist" was not found at
+       "/vercel/path0/apps/web/legacy/dashboard/dist".
+```
+
+with no root `vercel.json` in the tree at all. **The same six settings are also stored on the
+`zecreveal` project itself**, adopted when the project was imported from a repository that still
+had the root file. A file deletion cannot remove a stored project setting.
+
+`vercel.json` takes precedence over stored project settings, so `apps/web/vercel.json` now pins the
+build explicitly rather than trusting the project's settings to be clean:
+
+```json
+{
+  "framework": "nextjs",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "next build",
+  "outputDirectory": ".next"
+}
+```
+
+`outputDirectory` is the one that matters most: `.next` is what the Next.js builder wants, and
+`legacy/dashboard/dist` is what the stored setting was feeding it. `scripts/check-vercel-config.mjs`
+asserts all four, so a later edit cannot quietly hand control back to the dashboard.
+
+**Operator click, one — clear the stale build overrides on the `zecreveal` project.** Settings →
+Build & Development. `apps/web/vercel.json` overrides them so the build no longer depends on this,
+but leaving the legacy dashboard's build command stored on the new project is a trap for whoever
+next edits that file. Set Framework Preset to `Next.js` and turn the Build Command, Install Command
+and Output Directory overrides OFF.
+
+**Operator click, two — move these into the `z-cash-reveal-dashboard2` project settings** so the
+legacy dashboard keeps building until the HANDOFF-11 cutover. These are the deleted file's exact
+values:
 
 | Setting | Value |
 |---|---|
@@ -105,12 +143,13 @@ keep the new project broken.
 The root `.vercelignore` stays. It is a v0.2 artefact (it excludes `apps/indexer`, `apps/gateway`,
 `infra`) and does no work for `zecreveal`, but unlike `vercel.json` it does no harm either.
 
-> **A note for HANDOFF-03.** "`apps/web` has no workspace dependencies" is true today and stops
-> being true the moment `apps/web` takes `@zcashreveal/content` as a `workspace:*` dependency,
-> which is exactly what HANDOFF-03 does. At that point the bare Next.js preset must still build the
-> workspace package — either through `transpilePackages` in `next.config`, or by giving the
-> `zecreveal` project an explicit Build Command in its project settings, never by restoring a root
-> `vercel.json`. Verify the first `zecreveal` build after that dependency lands.
+> **A note for HANDOFF-03.** `buildCommand` above is plain `next build`, which is correct only
+> while `apps/web` has no workspace dependencies. HANDOFF-03 makes it depend on
+> `@zcashreveal/content`. At that point either add `transpilePackages: ["@zcashreveal/content"]` to
+> `next.config` and leave the command alone, or change `buildCommand` in `apps/web/vercel.json` to
+> `pnpm --filter @zcashreveal/content build && next build`. Update
+> `scripts/check-vercel-config.mjs` to match, since it pins the expected value. Never fix this by
+> restoring a root `vercel.json`, and never by editing the project settings in the dashboard.
 
 ---
 

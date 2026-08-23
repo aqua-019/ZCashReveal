@@ -13,6 +13,16 @@
  * framework itself. This check exists so the root file cannot come back by
  * accident: restoring it silently breaks production for apps/web.
  *
+ * Deleting the root file turned out to be necessary but not sufficient. The
+ * deployment on the commit that deleted it STILL ran the dashboard's build
+ * command and STILL died on "legacy/dashboard/dist", because the same settings
+ * are also stored on the zecreveal project itself, imported when the project was
+ * created. vercel.json takes precedence over stored project settings, so
+ * apps/web/vercel.json now pins buildCommand, installCommand and outputDirectory
+ * explicitly rather than relying on the project's settings being clean. This
+ * check asserts all of them, so a later edit cannot quietly hand control back to
+ * whatever is stored in the dashboard.
+ *
  * Run: node scripts/check-vercel-config.mjs
  */
 import { existsSync, readFileSync } from "node:fs";
@@ -42,15 +52,31 @@ if (!existsSync(webConfigPath)) {
   } catch (error) {
     failures.push(`apps/web/vercel.json is not valid JSON: ${error.message}`);
   }
-  if (webConfig && webConfig.framework !== "nextjs") {
-    failures.push(`apps/web/vercel.json framework is ${JSON.stringify(webConfig.framework)}, expected "nextjs".`);
+  if (webConfig) {
+    // Every one of these must be pinned in the repository. Leaving any of them to
+    // the project settings is what broke the build: the stored values there are
+    // the legacy dashboard's.
+    const required = {
+      framework: "nextjs",
+      installCommand: "pnpm install --frozen-lockfile",
+      buildCommand: "next build",
+      outputDirectory: ".next",
+    };
+    for (const [key, expected] of Object.entries(required)) {
+      if (webConfig[key] !== expected) {
+        failures.push(
+          `apps/web/vercel.json ${key} is ${JSON.stringify(webConfig[key])}, expected ${JSON.stringify(expected)}. ` +
+            "Unset here means the zecreveal project's stored setting wins, and that is the legacy dashboard's.",
+        );
+      }
+    }
   }
 }
 
 process.stdout.write("vercel config\n");
 process.stdout.write(`  root vercel.json      ${existsSync(rootConfig) ? "PRESENT" : "absent"}  (expected absent)\n`);
 process.stdout.write(
-  `  apps/web/vercel.json  ${existsSync(webConfigPath) ? "present" : "MISSING"}  (expected present, framework nextjs)\n`,
+  `  apps/web/vercel.json  ${existsSync(webConfigPath) ? "present" : "MISSING"}  (expected present, and pinning framework, install, build and output)\n`,
 );
 
 if (failures.length > 0) {
@@ -58,4 +84,4 @@ if (failures.length > 0) {
   for (const message of failures) process.stdout.write(`  ${message}\n`);
   process.exit(1);
 }
-process.stdout.write("\nOK  the root file is gone and apps/web declares nextjs\n");
+process.stdout.write("\nOK  the root file is gone and apps/web pins its own build settings\n");

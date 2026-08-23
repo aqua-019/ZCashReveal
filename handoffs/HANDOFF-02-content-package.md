@@ -257,6 +257,37 @@ A8  the Vercel configuration (LEDGER-01 addendum, fold 9). PASS (Executed):
       rc=1
     Reverted; the check returns rc=0 and the working tree is clean. The check runs
     in CI, so the root file cannot come back without turning the build red first.
+    FAIL b (Executed): drop the outputDirectory pin from apps/web/vercel.json ->
+      FAIL  1 problem
+        apps/web/vercel.json outputDirectory is undefined, expected ".next".
+        Unset here means the zecreveal project's stored setting wins, and that is
+        the legacy dashboard's.
+      rc=1
+    Restored; rc=0.
+
+DELETING THE ROOT FILE WAS NECESSARY BUT NOT SUFFICIENT (Executed, post-push):
+
+  The preview deployment on 9cc2dca, the commit that deleted the root vercel.json,
+  FAILED the same way: dpl_DjyBB8byMZYASmu7TA65yg8Y1n6h. Its build log shows Vercel
+  running `pnpm install --frozen-lockfile`, then
+  `pnpm --filter=@zcashreveal/types build && pnpm --filter=@zcashreveal/dashboard
+  build`, then dying on
+  `The Next.js output directory "legacy/dashboard/dist" was not found at
+  /vercel/path0/apps/web/legacy/dashboard/dist` -- with no root vercel.json in the
+  tree at all (`git show 9cc2dca:vercel.json` -> "does not exist in 9cc2dca").
+
+  So the same six settings are ALSO stored on the zecreveal project itself, adopted
+  when the project was imported from a repository that still had the root file. A
+  file deletion cannot remove a stored project setting, and no agent may edit one.
+
+  The fix that is available in code: vercel.json takes precedence over stored
+  project settings, and with the root file gone apps/web/vercel.json is the file
+  Vercel reads. It now pins framework, installCommand, buildCommand and
+  outputDirectory explicitly instead of trusting the project settings to be clean.
+  scripts/check-vercel-config.mjs asserts all four.
+
+  GitHub Actions CI is green on 9cc2dca (run 32611476921, conclusion success), so
+  this is a Vercel-only failure and the repository's own gate never went red.
 
 Deliverable 1, the operator click, stated as fold 8 requires (Read + UNVERIFIED):
 
@@ -408,6 +439,14 @@ ASSUMPTIONS (each: ACCEPTED / CORRECTED / DEFERRED -- reason):
 21. ACCEPTED. Fold 8 says "delete the file whether or not the operator has done it
     yet". Done, and the consequence is stated above rather than softened: the legacy
     dashboard project is broken until someone types six settings into a UI.
+21a. CORRECTED. Fold 8's stated mechanism was incomplete, and the deployment proved
+    it within a minute of the push: deleting the root file did not fix the build,
+    because the same settings are stored on the zecreveal project too. Pinned
+    framework, installCommand, buildCommand and outputDirectory in
+    apps/web/vercel.json, which takes precedence over stored project settings. This
+    is the repository's own prescribed remedy: DEPLOY-2.0.md already said "the fix
+    is an explicit apps/web/vercel.json, and that is a code change in a handoff, not
+    a UI override". No Vercel setting was touched by any agent.
 22. CORRECTED. Deleting the file made two documents wrong that fold 8 did not name.
     Root DEPLOY.md said the build command was "unset (UI override OFF, vercel.json
     drives it)" and legacy/dashboard/README.md said the project builds "from this
@@ -468,11 +507,12 @@ UNVERIFIED (labelled):
    the same commands CI invokes, and the run against the PR head is what proves
    them in CI. Its result is recorded on PR #33, not here.
  - Whether the operator has moved the deleted file's settings into
-   z-cash-reveal-dashboard2. No agent reads Vercel project settings. Assume not.
- - That deleting the root file actually fixes the zecreveal build. The cause is
-   established by L2's build log, and the fix follows from it, but only a fresh
-   deployment proves it and no agent deploys. Operator click 6 in
-   docs/2.0/DEPLOY-2.0.md section 8 is what closes this.
+   z-cash-reveal-dashboard2. Assume not.
+ - Whether pinning the four keys in apps/web/vercel.json actually makes the
+   zecreveal build succeed. Vercel documents vercel.json as taking precedence over
+   stored project settings, and the failure mode is now precisely understood, but
+   only a deployment proves it. Pushing this branch triggers one automatically; its
+   result is on PR #33, not here. No agent deployed anything.
 
 GATE ROUNDS: 4 · fingerprints (file · rule · severity)
 
@@ -646,6 +686,13 @@ INFERRED (non-empty inferences a worker made):
   `Pool` from packages/zec-types, which is still the v0.2 pair. HANDOFF-06 owns
   widening Pool; when it does, content can switch, with transparent staying
   separate because it is not a pool.
+- Fold 8's diagnosis was right about the root vercel.json and incomplete about the
+  cause. The deployment on the deleting commit failed identically, because the same
+  settings are also stored on the zecreveal project. The available remedy in code is
+  to pin them in apps/web/vercel.json, which takes precedence over stored project
+  settings; a stored setting itself is an operator click, and no agent may touch it.
+  Worth folding back into whatever L2 tells the next session about Vercel: deleting
+  a config file does not undo a setting the dashboard already adopted from it.
 - Fold 8's premise, "apps/web has no workspace dependencies", is true at this commit
   and false at the next one: HANDOFF-03 makes apps/web depend on the very package
   this PR creates. With no root vercel.json and a bare Next.js preset, that build
@@ -768,6 +815,10 @@ DEFERRED ASSUMPTIONS:
   said apps/web/vercel.json "makes the outcome the same either way". L2's own build
   log disproved that, and the addendum's fold 8 supersedes all three deferrals. It
   is deleted in this PR.
+- The zecreveal project still stores the legacy dashboard's build command, install
+  command and output directory. apps/web/vercel.json overrides all three, so the
+  build no longer depends on them, but they are a trap for whoever next edits that
+  file. Clearing them is operator click one in docs/2.0/DEPLOY-2.0.md section 1.
 - `z-cash-reveal-dashboard2` will fail to build until an operator types the deleted
   file's six settings into that project. Accepted by fold 8, recorded in
   docs/2.0/DEPLOY-2.0.md section 1 and as row 02 of the operator table.
