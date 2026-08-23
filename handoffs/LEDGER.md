@@ -1756,10 +1756,16 @@ QUESTIONS (for the operator / L2):
    agent, and gate round 1 left five probe files that their own agents removed before the
    run ended.
 
-6. THE INTEGRATION SUITE IS NOT SAFE AGAINST TWO CONCURRENT RUNS ON ONE POSTGRES, AND
-   THIS WILL BITE CI BEFORE IT BITES ANYONE ELSE. `fileParallelism: false` orders files
-   within a single process; every integration suite TRUNCATEs shared tables in
-   `beforeEach`. Two round-2 workers ran suites simultaneously against the one database
+6. THE INTEGRATION SUITE IS NOT SAFE AGAINST TWO CONCURRENT RUNS ON ONE POSTGRES.
+   CI IS SAFE AS CONFIGURED TODAY, AND THE FIRST DRAFT OF THIS QUESTION SAID OTHERWISE -
+   it claimed this would "bite CI before it bites anyone else", which I then checked
+   rather than left standing. `.github/workflows/ci.yml` runs ONE `vitest run` per
+   package and `fileParallelism: false` orders files within that process, so nothing in
+   CI shares the database concurrently. The exposure is real and it is elsewhere: two
+   agents or two developers running suites side by side, and CI itself the day anyone
+   parallelises integration files across processes to cut the wall clock.
+   `fileParallelism: false` orders files within a single process; every integration
+   suite TRUNCATEs shared tables in `beforeEach`. Two round-2 workers ran suites simultaneously against the one database
    and produced failures in BOTH directions - one worker's TRUNCATE wiping the other's
    rows mid-test, and foreign rows landing in a count - including a corrupted A6 balance
    assertion. Both workers proved it pre-existing by inducing it against `git show HEAD:`

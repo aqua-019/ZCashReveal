@@ -341,8 +341,9 @@ NOTICED (outside scope, not acted on):
 - The integration suite is not safe against two concurrent vitest processes on one
   Postgres. `fileParallelism: false` orders files within a run, not across runs, and
   every suite TRUNCATEs shared tables in `beforeEach`. Two round-2 workers collided on it
-  and produced failures in both directions. It will flake the moment CI runs two
-  integration files in separate processes.
+  and produced failures in both directions. CI is safe as configured - it runs one
+  `vitest run` per package - so this bites two agents or two developers working side by
+  side, and would bite CI only if integration files were ever split across processes.
 - The two migration rows in `apps/web`'s mempool fixture contradict their own fee: their
   value balances imply 500,000 zat where the row prints 10,000. Inherited from the
   mockup's arithmetic.
@@ -418,6 +419,18 @@ and making the migration class reachable made a direction-blind label and a
 self-contradicting crossing tile live. All three are fixed with both-polarity tests. No
 finding reached a third round on itself, so Loop 4's per-finding cap was never
 approached and nothing is NOT CONVERGING.
+
+CI AFTER THE PR OPENED: red on the first run, and it was environment dependence rather
+than flake. Three tests in `migrations.test.ts` compared `schema_migrations` read back
+with a SQL `ORDER BY name` against `migrationFiles()`, which is the runner's own
+JavaScript byte-order sort. Postgres orders by the DATABASE'S COLLATION: the development
+container is C.UTF-8, where `_` (0x5F) precedes `a` (0x61), and the CI service container
+is en_US.utf8, where punctuation is ignored at the primary level - so `003_four_pools`
+and `003a_gateway_cache` swap places. The migrations themselves applied in the right
+order, which the assertion over the runner's own `[migrate] apply` lines proved in the
+same red run. Reproduced locally before fixing by ordering on `replace(name, '_', '')`
+to make a C.UTF-8 server return the en_US sequence - identical diff, same three tests -
+and the fixed file passes against that probe. Both sides now sort in the same language.
 
 PREVIEW URL (if any): none. A session cannot reach a preview host - Deployment Protection
 returns 302 to SSO and this container's egress proxy refuses the CONNECT tunnel with 403
