@@ -54,7 +54,15 @@ Make the repository ready for a multi-session 2.0 build **without changing any r
 
 ## §5 ASSERTIONS — binary, machine-checkable, each needs a pass-state and a fail-state transcript
 
-- **A1.** `pnpm install --frozen-lockfile && pnpm -r test` exits 0 on a clean checkout of the branch. *(fail side: add a throwing test file, observe non-zero exit, remove it.)*
+- **A1.** `pnpm install --frozen-lockfile && pnpm build && pnpm -r test` exits 0 on a clean checkout of the
+  branch. *(fail side: add a throwing test file, observe non-zero exit, remove it.)*
+  <br>**Corrected in place by the HANDOFF-03 session (LEDGER-02 fold 1).** As originally written this
+  assertion omitted the build step and was false on a genuinely clean checkout: `apps/gateway`'s suite
+  imports the built `@zcashreveal/types`, so `pnpm -r test` fails with "Failed to resolve entry for
+  package @zcashreveal/types" until something has emitted `packages/zec-types/dist`. L2 reproduced it
+  deliberately on 23 Aug 2026 with `rm -rf packages/zec-types/dist && pnpm -r test`. HANDOFF-03
+  deliverable 1 makes the recursive task self-sufficient, so from that commit the bare
+  `pnpm -r test` form holds too; the command above is the one that has always been true.
 - **A2.** `pnpm typecheck` exits 0. *(fail side: introduce a type error in a scratch file under `packages/zec-types/src`, observe failure, revert.)*
 - **A3.** `pnpm lint` exits 0 and reports the `Math.random` rule as active (`pnpm lint` on a scratch file containing `Math.random()` reports an error).
 - **A4.** `.github/workflows/ci.yml` contains a `services: postgres` block and a step invoking `vitest run` for both `apps/indexer` and `apps/gateway`; the workflow passes on the PR (Executed: CI run URL in §7).
