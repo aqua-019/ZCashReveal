@@ -146,6 +146,17 @@ export interface RpcTransaction {
   feeZat?: number | undefined;
   blockhash?: Hex | undefined;
   confirmations?: number | undefined;
+  /**
+   * The height of the block containing this transaction.
+   *
+   * -1 for a transaction on a side chain, and ABSENT for one still in the
+   * mempool (Zebra 6.3.0, types/transaction.rs). Not coerced to 0 anywhere: a
+   * transaction recorded at height 0 would be recorded as being in the genesis
+   * block.
+   */
+  height?: number | undefined;
+  /** The containing block's time. Absent in the mempool, where `time` is the seen time. */
+  blocktime?: number | undefined;
 }
 
 export interface MempoolEntry {

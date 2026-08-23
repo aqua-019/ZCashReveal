@@ -1,134 +1,85 @@
 /**
- * Gateway server. Redis pub/sub -> WS fan-out + REST for historical queries.
+ * Gateway entry point: build the server from the real world and listen.
  *
- * Endpoints:
- *   GET  /healthz                       liveness
- *   GET  /api/mempool                   current mempool snapshot
- *   GET  /api/reports?limit=&class=     historical leak reports
- *   GET  /api/reports/:txid             single report by txid
- *   WS   /stream                        live mempool diff stream
+ * Everything that decides behaviour is in `server.ts`. This file exists to do
+ * the three things a test must not: read `process.env`, open sockets to
+ * Postgres, Redis and the node, and bind a port.
+ *
+ * Endpoints (both `/api/*` and `/v2/*` - see routes/index.ts for why two):
+ *   GET  /healthz                 liveness
+ *   GET  /api/search?q=           what a query string is, by shape alone
+ *   GET  /api/address/:addr       transparent address, from Zebra's address index
+ *   GET  /api/tx/:txid            transaction, plus the indexer's record if it has one
+ *   GET  /api/block/:height       block at a height, from getblock verbosity 2
+ *   GET  /api/pools/balances      live per-pool balances, and the lockbox
+ *   GET  /api/pools               503 until HANDOFF-09, naming what is missing
+ *   GET  /api/mempool             the indexer's live mempool
+ *   GET  /api/flows               the Tracking side of the Record's /flows
+ *   GET  /api/labels              address labels, from packages/content
+ *   GET  /api/cases               golden cases, from packages/content
+ *   GET  /api/snapshot            501 until HANDOFF-09
+ *   WS   /stream                  live mempool diff stream, capped
  */
-
-import Fastify from "fastify";
-import cors from "@fastify/cors";
-import websocket from "@fastify/websocket";
 import pino from "pino";
 import { Redis } from "ioredis";
 import postgres from "postgres";
-import { z } from "zod";
-import type { WebSocket } from "ws";
-import {
-  REDIS_CHANNELS,
-  REDIS_KEYS,
-  type LeakReport,
-} from "@zcashreveal/types";
+import { ZebraRpc } from "@zcashreveal/zebra-rpc";
 
 import { loadConfig } from "./config.js";
-import { WsBroker, snapshotFrame } from "./ws-broker.js";
+import { PgCache } from "./cache.js";
+import { buildServer } from "./server.js";
 
 const cfg = loadConfig();
 
 const log = pino({
   level: cfg.GATEWAY_LOG_LEVEL,
   ...(process.stdout.isTTY ? { transport: { target: "pino-pretty" } } : {}),
+  /**
+   * `q` is redacted everywhere it can appear in a log line.
+   *
+   * A viewing key must never leave the browser, and `apps/web` classifies
+   * locally so that it does not. But `/api/search` exists for other consumers,
+   * and if one ever sends a key here the one thing this gateway can still
+   * control is whether it is written down. Redaction is unconditional rather
+   * than per-route: a rule that only applies to the route someone remembered is
+   * not a rule.
+   */
+  redact: {
+    paths: ["req.query.q", "query.q", "req.url"],
+    censor: "[redacted]",
+  },
 });
 
 async function main() {
-  const app = Fastify({ loggerInstance: log });
-
-  await app.register(cors, { origin: cfg.GATEWAY_CORS_ORIGIN });
-  await app.register(websocket);
-
   const sql = postgres(cfg.DATABASE_URL, { max: 5 });
-  const subscriber = new Redis(cfg.REDIS_URL);
-  const reader = new Redis(cfg.REDIS_URL);
 
-  const broker = new WsBroker(log);
-
-  await subscriber.subscribe(REDIS_CHANNELS.mempool, REDIS_CHANNELS.tip);
-  subscriber.on("message", (channel, message) => {
-    broker.broadcast(broker.translate(channel, message));
+  const rpc = new ZebraRpc({
+    url: cfg.ZEBRAD_RPC_URL,
+    user: cfg.ZEBRAD_RPC_USER,
+    password: cfg.ZEBRAD_RPC_PASSWORD,
+    timeoutMs: cfg.ZEBRAD_RPC_TIMEOUT_MS,
+    retries: cfg.ZEBRAD_RPC_RETRIES,
   });
 
-  app.get("/healthz", async () => ({ ok: true, ts: Date.now() }));
-
-  app.get("/api/mempool", async () => {
-    const live = await reader.hgetall(REDIS_KEYS.mempoolLive);
-    const reports = Object.values(live)
-      .map((j) => safeJsonParse(j))
-      .filter((r): r is LeakReport => r !== null);
-    return { count: reports.length, reports };
+  const built = await buildServer({
+    cfg,
+    log,
+    rpc,
+    cache: new PgCache(sql),
+    sql,
+    redisFactory: (url, options) => new Redis(url, options ?? {}),
   });
 
-  const ReportsQuery = z.object({
-    limit: z.coerce.number().int().positive().max(500).default(100),
-    class: z.string().optional(),
-    severity: z.string().optional(),
-  });
-
-  app.get("/api/reports", async (req) => {
-    const q = ReportsQuery.parse(req.query);
-    const rows = await sql<{ report: LeakReport }[]>`
-      SELECT report
-      FROM leak_reports
-      WHERE ${q.class ? sql`leak_class = ${q.class}` : sql`TRUE`}
-        AND ${q.severity ? sql`overall_severity = ${q.severity}` : sql`TRUE`}
-      ORDER BY seen_at DESC
-      LIMIT ${q.limit}
-    `;
-    return rows.map((r) => r.report);
-  });
-
-  app.get<{ Params: { txid: string } }>(
-    "/api/reports/:txid",
-    async (req, reply) => {
-      const rows = await sql<{ report: LeakReport }[]>`
-        SELECT report FROM leak_reports WHERE txid = ${req.params.txid} LIMIT 1
-      `;
-      const row = rows[0];
-      if (!row) {
-        reply.code(404);
-        return { error: "not found" };
-      }
-      return row.report;
-    },
+  await built.app.listen({ host: cfg.GATEWAY_HOST, port: cfg.GATEWAY_PORT });
+  log.info(
+    { port: cfg.GATEWAY_PORT, network: cfg.GATEWAY_NETWORK, wsCap: cfg.GATEWAY_WS_MAX_CONNECTIONS },
+    "gateway listening",
   );
-
-  app.register(async (fastify) => {
-    fastify.get("/stream", { websocket: true }, async (socket: WebSocket) => {
-      const count = broker.add(socket);
-      log.info({ clientCount: count }, "client connected");
-
-      try {
-        const live = await reader.hgetall(REDIS_KEYS.mempoolLive);
-        const reports = Object.values(live)
-          .map((j) => safeJsonParse(j))
-          .filter((r): r is LeakReport => r !== null);
-        socket.send(JSON.stringify(snapshotFrame(reports)));
-      } catch (err) {
-        log.warn({ err }, "failed to send snapshot");
-      }
-
-      socket.on("close", () => {
-        const remaining = broker.remove(socket);
-        log.info({ clientCount: remaining }, "client disconnected");
-      });
-      socket.on("error", (err) => {
-        log.warn({ err }, "ws client error");
-        broker.remove(socket);
-      });
-    });
-  });
-
-  await app.listen({ host: cfg.GATEWAY_HOST, port: cfg.GATEWAY_PORT });
-  log.info({ port: cfg.GATEWAY_PORT }, "gateway listening");
 
   const shutdown = async () => {
     log.info("shutdown");
     try {
-      await app.close();
-      await subscriber.quit();
-      await reader.quit();
+      await built.close();
       await sql.end();
     } finally {
       process.exit(0);
@@ -136,14 +87,6 @@ async function main() {
   };
   process.on("SIGINT", () => void shutdown());
   process.on("SIGTERM", () => void shutdown());
-}
-
-function safeJsonParse(s: string): unknown {
-  try {
-    return JSON.parse(s);
-  } catch {
-    return null;
-  }
 }
 
 main().catch((err) => {

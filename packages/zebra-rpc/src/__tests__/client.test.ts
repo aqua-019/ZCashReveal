@@ -231,12 +231,12 @@ describe("failure classification and the retry policy", () => {
 
   it("classifies -8 as not-found and anything else as a real failure", async () => {
     const { rpc: a } = client([{ status: 500, body: { error: { code: -8, message: "block height not in best chain" } } }]);
-    const outOfRange = await a.getBlock({ height: 9_999_999 }).catch((e: unknown) => e as RpcError);
-    expect(outOfRange.isNotFound).toBe(true);
+    const outOfRange: unknown = await a.getBlock({ height: 9_999_999 }).catch((e: unknown) => e);
+    expect((outOfRange as RpcError).isNotFound).toBe(true);
 
     const { rpc: b } = client([{ status: 500, body: { error: { code: -1, message: "No blocks in state" } } }]);
-    const misc = await b.getBlock({ height: 1 }).catch((e: unknown) => e as RpcError);
-    expect(misc.isNotFound).toBe(false);
+    const misc: unknown = await b.getBlock({ height: 1 }).catch((e: unknown) => e);
+    expect((misc as RpcError).isNotFound).toBe(false);
   });
 
   it("times out an attempt rather than waiting on a hung node", async () => {
@@ -256,9 +256,10 @@ describe("failure classification and the retry policy", () => {
 
   it("names the method and the failing field in a schema error", async () => {
     const { rpc } = client([OK({ balance: 1.5, received: 2 })]);
-    const err = await rpc.getAddressBalance(["t1a"]).catch((e: unknown) => e as RpcSchemaError);
-    expect(err.message).toContain("getaddressbalance");
-    expect(err.issues[0]?.path).toBe("balance");
+    const err: unknown = await rpc.getAddressBalance(["t1a"]).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(RpcSchemaError);
+    expect((err as RpcSchemaError).message).toContain("getaddressbalance");
+    expect((err as RpcSchemaError).issues[0]?.path).toBe("balance");
   });
 });
 

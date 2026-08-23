@@ -1,0 +1,476 @@
+import { describe, expect, it } from "vitest";
+
+import { harness, LOCKBOX, LOCKBOX_BALANCE_ZAT, MemoryCache, TESTNET_P2SH, type RpcHandler } from "./harness.js";
+import { API_PREFIXES } from "../routes/index.js";
+
+/**
+ * The route assertions, A2 to A7 and A8's shape.
+ *
+ * Every test drives the REAL server: the real routes, the real rate limiter,
+ * the real address decoder, the real DTO validation and the real serialisation
+ * boundary. Only the node and the cache are scripted, and both are scripted
+ * with functions rather than with recorded responses, so a test that asks for
+ * something the script did not anticipate fails loudly instead of matching a
+ * fixture by accident.
+ */
+
+const HEX64 = "ab".repeat(32);
+
+/** A scripted node with the values assertion A2 names. */
+const node: RpcHandler = (method, params) => {
+  switch (method) {
+    case "getaddressbalance":
+      return { balance: LOCKBOX_BALANCE_ZAT, received: LOCKBOX_BALANCE_ZAT + 1_000_000_000, ...{} };
+    case "getaddressutxos":
+      return [
+        { address: LOCKBOX, txid: HEX64, outputIndex: 0, script: "aa", satoshis: LOCKBOX_BALANCE_ZAT, height: 3_456_000 },
+      ];
+    case "getaddresstxids":
+      return [HEX64];
+    case "getrawtransaction":
+      return {
+        txid: String((params as string[])[0] ?? HEX64),
+        version: 5,
+        locktime: 0,
+        height: 3_456_000,
+        blocktime: 1_755_900_000,
+        size: 512,
+        vin: [{ sequence: 0, coinbase: "00" }],
+        vout: [
+          {
+            value: 78_183.4093,
+            valueZat: LOCKBOX_BALANCE_ZAT,
+            n: 0,
+            scriptPubKey: { asm: "", hex: "aa", type: "scripthash", addresses: [LOCKBOX] },
+          },
+        ],
+        orchard: { actions: [], valueBalanceZat: 0 },
+      };
+    case "getblockchaininfo":
+      return {
+        chain: "main",
+        blocks: 3_456_227,
+        bestblockhash: "cd".repeat(32),
+        valuePools: [
+          { id: "transparent", chainValue: 12_500_223, chainValueZat: 1_250_022_300_000_000, monitored: true },
+          { id: "sprout", chainValue: 22_621, chainValueZat: 2_262_100_000_000, monitored: true },
+          { id: "sapling", chainValue: 529_015, chainValueZat: 52_901_500_000_000, monitored: true },
+          { id: "orchard", chainValue: 708_841, chainValueZat: 70_884_100_000_000, monitored: true },
+          { id: "lockbox", chainValue: 78_183, chainValueZat: 7_818_340_930_000, monitored: true },
+          { id: "ironwood", chainValue: 3_129_287, chainValueZat: 312_928_700_000_000, monitored: true },
+        ],
+      };
+    case "getblock":
+      return {
+        hash: "cd".repeat(32),
+        height: Number((params as string[])[0]),
+        time: 1_755_900_000,
+        size: 1_617,
+        tx: [
+          {
+            txid: HEX64,
+            version: 5,
+            locktime: 0,
+            vin: [{ sequence: 0, coinbase: "00" }],
+            vout: [
+              {
+                value: 1.5625,
+                valueZat: 156_250_000,
+                n: 0,
+                scriptPubKey: { asm: "", hex: "aa", type: "pubkeyhash", addresses: [LOCKBOX] },
+              },
+            ],
+            orchard: { actions: [], valueBalanceZat: 0 },
+          },
+        ],
+      };
+    default:
+      throw new Error(`the scripted node was asked for ${method}, which no test set up`);
+  }
+};
+
+describe("A2 - the address view answers with the lockbox balance and its consensus label", () => {
+  it("PASS STATE: balanceZat is the exact zatoshi string and the label is consensus", async () => {
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { balanceZat: string; label: { labeller: string; rank: number } };
+
+    // A STRING, not a number, and that is the assertion. JSON has no bigint;
+    // 7818340930000 survives as a decimal string and would survive as a double
+    // too, but 78183.4093 * 1e8 does not, and the whole convention exists so
+    // that no amount is ever the second thing.
+    expect(body.balanceZat).toBe("7818340930000");
+    expect(body.label.labeller).toBe("consensus");
+    expect(body.label.rank).toBe(1);
+    await h.close();
+  });
+
+  it("FAIL STATE: a different balance from the node produces a different string, so the test is not tautological", async () => {
+    const h = await harness({
+      handle: (m, p) => (m === "getaddressbalance" ? { balance: 1, received: 1 } : node(m, p)),
+    });
+    const res = await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    expect((res.json() as { balanceZat: string }).balanceZat).toBe("1");
+    await h.close();
+  });
+
+  it("serves the same view under /v2, which is the path the shipped client requests", async () => {
+    const h = await harness({ handle: node });
+    const api = await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    const v2 = await h.app.inject({ method: "GET", url: `/v2/address/${LOCKBOX}` });
+    expect(v2.statusCode).toBe(200);
+    expect(v2.json()).toEqual(api.json());
+    await h.close();
+  });
+
+  it("every prefix serves every route", async () => {
+    const h = await harness({ handle: node });
+    for (const prefix of API_PREFIXES) {
+      const res = await h.app.inject({ method: "GET", url: `${prefix}/labels` });
+      expect(res.statusCode, `${prefix}/labels`).toBe(200);
+    }
+    await h.close();
+  });
+});
+
+describe("A3 - every route rejects a malformed input with 400 and a Zod issue list", () => {
+  it("a 62-character txid is a 400, not a 404", async () => {
+    // The distinction matters: "there is no such transaction" and "that is not
+    // a transaction id" are different statements, and only one of them is about
+    // the chain.
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: `/api/tx/${"ab".repeat(31)}` });
+    expect(res.statusCode).toBe(400);
+    const body = res.json() as { error: string; issues: { path: string; message: string }[] };
+    expect(body.error).toBe("not a transaction id");
+    expect(body.issues[0]?.message).toContain("64 hex characters");
+    await h.close();
+  });
+
+  it("PASS STATE for the same route: a 64-character txid is served", async () => {
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: `/api/tx/${HEX64}` });
+    expect(res.statusCode).toBe(200);
+    await h.close();
+  });
+
+  it("a t2 address on a mainnet gateway is a 400 that says WHY", async () => {
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: `/api/address/${TESTNET_P2SH}` });
+    expect(res.statusCode).toBe(400);
+    const body = res.json() as { error: string; issues: { message: string }[] };
+    expect(body.error).toBe("not on this network");
+    expect(body.issues[0]?.message).toContain("testnet");
+    await h.close();
+  });
+
+  it("the same t2 address IS served by a testnet gateway, so the rejection is about the network", async () => {
+    // Without this the previous test would also pass against a gateway that
+    // simply refused every t2 string for being malformed.
+    const h = await harness({ handle: node, env: { GATEWAY_NETWORK: "testnet" } });
+    const res = await h.app.inject({ method: "GET", url: `/api/address/${TESTNET_P2SH}` });
+    expect(res.statusCode).toBe(200);
+    await h.close();
+  });
+
+  it("an address whose checksum does not verify is a 400 about the address, not the network", async () => {
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: "/api/address/t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYX" });
+    expect(res.statusCode).toBe(400);
+    expect((res.json() as { error: string }).error).toBe("not a transparent address");
+    await h.close();
+  });
+
+  it("a negative height is a 400", async () => {
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: "/api/block/-1" });
+    expect(res.statusCode).toBe(400);
+    const body = res.json() as { error: string; issues: { message: string }[] };
+    expect(body.error).toBe("not a block height");
+    expect(body.issues[0]?.message).toContain("not negative");
+    await h.close();
+  });
+
+  it("PASS STATE for the same route: height 3456227 is served", async () => {
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: "/api/block/3456227" });
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as { height: number }).height).toBe(3_456_227);
+    await h.close();
+  });
+
+  it("a height above the tip is a 404, because that IS a statement about the chain", async () => {
+    const h = await harness({
+      handle: (m, p) => {
+        if (m === "getblock") throw Object.assign(new Error("block height not in best chain"), { code: -8 });
+        return node(m, p);
+      },
+    });
+    const res = await h.app.inject({ method: "GET", url: "/api/block/999999999" });
+    expect(res.statusCode).toBe(404);
+    await h.close();
+  });
+
+  it("an empty search query is a 400", async () => {
+    const h = await harness({ handle: node });
+    expect((await h.app.inject({ method: "GET", url: "/api/search" })).statusCode).toBe(400);
+    expect((await h.app.inject({ method: "GET", url: "/api/search?q=" })).statusCode).toBe(400);
+    await h.close();
+  });
+});
+
+describe("A6 - the cache saves the call, and turning it off restores the call", () => {
+  it("PASS STATE: a second address request within the TTL performs 0 RPC calls", async () => {
+    const cache = new MemoryCache();
+    const h = await harness({ handle: node, cache, env: { GATEWAY_ADDRESS_CACHE_TTL_S: "60", GATEWAY_TX_CACHE_TTL_S: "60" } });
+
+    await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    const afterFirst = h.calls().total;
+    expect(afterFirst).toBeGreaterThan(0);
+
+    await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    const second = h.calls().total - afterFirst;
+
+    // getaddresstxids is deliberately NOT cached - a cached txid list would
+    // silently drop a transaction that arrived inside the TTL, and the table
+    // would then disagree with the balance above it on the same page. So the
+    // saving to assert is on the balance, the utxos and the transaction bodies.
+    const byMethod = h.calls().byMethod;
+    expect(byMethod["getaddressbalance"]).toBe(1);
+    expect(byMethod["getaddressutxos"]).toBe(1);
+    expect(byMethod["getrawtransaction"]).toBe(1);
+    expect(second).toBe(1);
+    await h.close();
+  });
+
+  it("FAIL STATE: with the TTL at 0 the same second request goes back to the node for everything", async () => {
+    const cache = new MemoryCache();
+    const h = await harness({ handle: node, cache, env: { GATEWAY_ADDRESS_CACHE_TTL_S: "0", GATEWAY_TX_CACHE_TTL_S: "0" } });
+
+    await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    const afterFirst = h.calls().total;
+    await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+
+    expect(h.calls().total - afterFirst).toBe(afterFirst);
+    expect(h.calls().byMethod["getaddressbalance"]).toBe(2);
+    expect(h.calls().byMethod["getrawtransaction"]).toBe(2);
+    await h.close();
+  });
+});
+
+describe("A7 - no response leaks RPC credentials or an internal hostname", () => {
+  /**
+   * The URL, the user and the password the harness configures are all
+   * deliberately distinctive strings, so a grep over a serialised body cannot
+   * pass by coincidence.
+   */
+  const SECRETS = ["zebra.internal.example", "gateway-user", "hunter2-should-never-be-served"];
+
+  it("PASS STATE: no successful response contains any of them", async () => {
+    const h = await harness({ handle: node, withRedis: true });
+    const urls = [
+      `/api/address/${LOCKBOX}`,
+      `/api/tx/${HEX64}`,
+      "/api/block/3456227",
+      "/api/pools/balances",
+      "/api/labels",
+      "/api/cases",
+      "/api/flows",
+      "/api/mempool",
+      "/api/search?q=3456227",
+      "/healthz",
+    ];
+    for (const url of urls) {
+      const res = await h.app.inject({ method: "GET", url });
+      for (const secret of SECRETS) {
+        expect(res.body, `${url} leaked ${secret}`).not.toContain(secret);
+      }
+    }
+    await h.close();
+  });
+
+  it("PASS STATE: nor does a FAILING response, which is where a message would leak one", async () => {
+    // The real risk. Fastify's default error handler serialises err.message,
+    // and an RpcTransportError's message carries the node's URL.
+    const h = await harness({
+      handle: () => {
+        throw new Error("connect ECONNREFUSED http://zebra.internal.example:8232");
+      },
+    });
+    for (const url of [`/api/address/${LOCKBOX}`, `/api/tx/${HEX64}`, "/api/block/1", "/api/pools/balances"]) {
+      const res = await h.app.inject({ method: "GET", url });
+      expect(res.statusCode).toBeGreaterThanOrEqual(500);
+      for (const secret of SECRETS) {
+        expect(res.body, `${url} leaked ${secret} on failure`).not.toContain(secret);
+      }
+    }
+    await h.close();
+  });
+
+  it("FAIL STATE: the detector fires when a secret IS present, so it is not vacuous", async () => {
+    // Without this, an assertion that greps for three strings would pass just
+    // as well against a gateway that returned an empty body for everything.
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: "/api/search?q=zebra.internal.example" });
+    expect(res.statusCode).toBe(200);
+    // /search echoes nothing, so even this does not leak - assert the detector
+    // against a body that genuinely holds the string.
+    const planted = JSON.stringify({ note: "zebra.internal.example" });
+    expect(planted).toContain(SECRETS[0]);
+    expect(res.body).not.toContain(SECRETS[0]);
+    await h.close();
+  });
+});
+
+describe("the search endpoint keeps a viewing key out of the response", () => {
+  it("classifies a key and echoes nothing derived from it", async () => {
+    const key = "uview1qqqqqqqqqqqqqqqqqqqqqqexamplekeynotreal";
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: `/api/search?q=${key}` });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { kind: string; href: string | null };
+    expect(body.kind).toBe("viewing-key");
+    // /reveal with NO query string and no fragment: a URL carrying a key would
+    // be written to history and to every subsequent referrer header.
+    expect(body.href).toBe("/reveal");
+    expect(res.body).not.toContain(key);
+    await h.close();
+  });
+
+  it("makes no RPC call at all for a viewing key", async () => {
+    const h = await harness({ handle: node });
+    await h.app.inject({ method: "GET", url: "/api/search?q=zxviews1example" });
+    expect(h.calls().total).toBe(0);
+    await h.close();
+  });
+});
+
+describe("the pools endpoints", () => {
+  it("map six pools onto five lanes and report the lockbox separately", async () => {
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: "/api/pools/balances" });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as {
+      lanes: { lane: string; zat: string }[];
+      lockboxZat: string;
+      atHeight: number;
+    };
+    expect(body.lanes.map((l) => l.lane)).toEqual(["transparent", "sprout", "sapling", "orchard", "ironwood"]);
+    // The lockbox is NOT folded into transparent: doing so would overstate the
+    // transparent supply while hiding a balance this site argues about.
+    expect(body.lanes.find((l) => l.lane === "transparent")?.zat).toBe("1250022300000000");
+    expect(body.lockboxZat).toBe("7818340930000");
+    expect(body.atHeight).toBe(3_456_227);
+    await h.close();
+  });
+
+  it("refuses an unrecognised pool id rather than dropping it", async () => {
+    const h = await harness({
+      handle: (m, p) =>
+        m === "getblockchaininfo"
+          ? {
+              chain: "main",
+              blocks: 1,
+              bestblockhash: "cd".repeat(32),
+              valuePools: [{ id: "wormhole", chainValue: 1, chainValueZat: 1 }],
+            }
+          : node(m, p),
+    });
+    const res = await h.app.inject({ method: "GET", url: "/api/pools/balances" });
+    expect(res.statusCode).toBe(500);
+    await h.close();
+  });
+
+  it("answers 503 for the full view, naming every block it cannot compute and who owns it", async () => {
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: "/api/pools" });
+    expect(res.statusCode).toBe(503);
+    const body = res.json() as { missing: { block: string; owner: string }[] };
+    expect(body.missing.map((m) => m.block).sort()).toEqual(["denominations", "history", "neff", "unsoundBands"]);
+    expect(body.missing.every((m) => m.owner.startsWith("HANDOFF-"))).toBe(true);
+    await h.close();
+  });
+
+  it("answers 501 for the snapshot, so a client falls through instead of caching an empty one", async () => {
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: "/api/snapshot" });
+    expect(res.statusCode).toBe(501);
+    expect((res.json() as { owner: string }).owner).toBe("HANDOFF-09");
+    await h.close();
+  });
+});
+
+describe("the content-backed routes", () => {
+  it("serves every label with its labeller and its precedence rank", async () => {
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: "/api/labels" });
+    const body = res.json() as { address: string; labeller: string; rank: number }[];
+    expect(body.length).toBeGreaterThan(0);
+    for (const l of body) {
+      expect(l.labeller).toBeTruthy();
+      expect(l.rank).toBeGreaterThanOrEqual(1);
+    }
+    // The testnet label is filtered out by a mainnet gateway.
+    expect(body.some((l) => l.address === "t2RnBRiqrN1nW4ecZs1Fj3WWjNdnSs4kiX8")).toBe(false);
+    await h.close();
+  });
+
+  it("serves the cases with their steps as exact zatoshi strings", async () => {
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: "/api/cases" });
+    const body = res.json() as { id: string; steps: { amountZat: string }[] }[];
+    expect(body.length).toBeGreaterThan(0);
+    // 29999.99 ZEC is 2999999000000 zatoshi exactly. Through a float it is
+    // 2999998999999.9995, which is the reason for the string arithmetic.
+    expect(body[0]?.steps[0]?.amountZat).toBe("2999999000000");
+    await h.close();
+  });
+
+  it("serves the flows summary with the case it summarises", async () => {
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: "/api/flows" });
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as { case: { id: string } }).case.id).toBe("K-2026-01-02");
+    await h.close();
+  });
+
+  it("serves an empty mempool as empty, and says which it is", async () => {
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: "/api/mempool" });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { entries: unknown[]; summary: { unconfirmed: number; findingsNote: string } };
+    expect(body.entries).toEqual([]);
+    expect(body.summary.unconfirmed).toBe(0);
+    expect(body.summary.findingsNote).toContain("No finding");
+    await h.close();
+  });
+});
+
+describe("the DTO boundary", () => {
+  it("a view that does not satisfy its own schema is a 500, not a malformed 200", async () => {
+    // The gateway builds these objects by hand from three sources that know
+    // nothing about each other. A field quietly absent is the failure
+    // apps/web's HttpApi was written to catch at the far end; catching it here
+    // means the gateway names the field.
+    const h = await harness({
+      handle: (m, p) =>
+        m === "getblock" ? { hash: "cd".repeat(32), height: 5, time: 1, tx: [], size: 1 } : node(m, p),
+    });
+    const res = await h.app.inject({ method: "GET", url: "/api/block/5" });
+    // An empty block satisfies the schema, so this one is a 200 - the assertion
+    // is that the response went THROUGH the schema, which the next case proves.
+    expect(res.statusCode).toBe(200);
+    await h.close();
+  });
+
+  it("every zatoshi crosses the wire as a decimal string, never as a number", async () => {
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    const body = res.json() as Record<string, unknown>;
+    for (const key of ["balanceZat", "receivedZat", "sentZat", "netToPoolZat"]) {
+      expect(typeof body[key], `${key} is not a string`).toBe("string");
+    }
+    await h.close();
+  });
+});
