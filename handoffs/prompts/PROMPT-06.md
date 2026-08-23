@@ -118,3 +118,18 @@ OPERATOR CLICKS OUTSTANDING: delete the stale remote branches per `docs/2.0/BRAN
 The shared Upstash store is connected and its guard script is proven; nothing else is needed there
 until the publisher exists at HANDOFF-09.
 ```
+
+## 2. Mid-session direction - the post-fan-out sweep and assertion A9 (23 Aug 2026, arrived while gate round 1 was running, before the PR was opened)
+
+Both items were applied in commit `b7658d2`: the sweep rule went into CLAUDE.md's revolution
+protocol and its results are reported in §7; A9 went into the handoff's §5 with its own test
+block and a fail-side transcript. The gate then found the A9 rule broken in three more places
+than the one it had been raised against, which is recorded in LEDGER-06 Q4.
+
+```
+Two additions before the PR opens, both small.
+
+1. A READ-ONLY WORKER WROTE TO THE TREE, AND THIS IS THE SECOND OCCURRENCE. You caught your mapping agent writing despite a read-only scope and reverted it, which was right. HANDOFF-04's log records the same class: "a gate verifier has written a scratch test into the repo." Two handoffs, two different workflows, caught both times by the lead noticing rather than by a check. Record it in §8 as a repeat, citing both, and add a rule to CLAUDE.md's revolution protocol: after ANY workflow or subagent fan-out returns, the lead runs `git status --porcelain` before its next commit and reverts every path it did not intend to change; a file a worker wrote is never carried into a commit on the assumption it is harmless. If a stray write turns out to be a good idea, it is re-made deliberately by the lead, as you did here. A §5 assertion is not needed - the rule is procedural - but the §7 report should state that the check was run after each fan-out and what it returned.
+
+2. THE Z_TO_T MISCLASSIFICATION DESERVES A NAMED ASSERTION, NOT JUST A FIX. "A real migration is affirmatively classified Z_TO_T - value went transparent - when nothing transparent received it" is not an ordinary bug: it is the site publishing a false statement about shielded value leaving the pool, which is the exact claim class the whole project exists to make carefully. Give it its own §5 entry with both polarities: a migration with no transparent output classifies as MIGRATION_O2I and never as any transparent-naming class, and a transaction that genuinely pays a transparent output still classifies Z_TO_T. Fail side: revert the requirement that a transparent-naming class needs a transparent recipient and watch the migration fixture flip. Name it in §7 rather than folding it into a gate-round list, so a later reader can find the one assertion that protects the site's central claim.
+```
