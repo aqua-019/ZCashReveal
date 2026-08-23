@@ -134,7 +134,7 @@ export function EstimateCell({ estimate, note }: { readonly estimate: Estimate |
   if (estimate === null) return <span className="cp">{note}</span>;
   return (
     <span className="cp" data-estimate-cell>
-      {`${count(estimate.candidates)} candidates after ${estimate.filters.length} filters. `}
+      {`${count(estimate.candidates)} ${estimate.candidates === 1n ? "candidate" : "candidates"} after ${estimate.filters.length} ${estimate.filters.length === 1 ? "filter" : "filters"}. `}
       <Chip {...toneProps(estimate.claim)}>{CLAIM_TEXT[estimate.claim]}</Chip>
       {estimate.grade === null ? null : <> {estimate.grade}</>}
       <span style={{ display: "block", marginTop: 4 }}>{note}</span>

@@ -68,6 +68,17 @@
   --p-orchard: #c94f8f;
   --p-ironwood: #8b7fe6;
 
+  /* Orchard, lifted for TEXT.
+     #c94f8f is the validated pool hue and stays the pool hue - it is a fill on
+     every chart and a swatch in every legend, where contrast is not the test.
+     As 9.5px text on --bg it measures 4.49:1, one hundredth under AA, which axe
+     flags serious. LEDGER-01 Q1 ruled that where a mockup value and AA for
+     normal text disagree, AA wins and the divergence is recorded; this is the
+     same ruling applied to a pool hue rather than to an ink. Same hue, same
+     saturation, value lifted until it clears with margin: 5.05:1 on --bg and
+     4.74:1 on --surface-2, the darkest ground it is painted on. */
+  --p-orchard-text: #d75499;
+
   /* -- ambience ------------------------------------------------------------ */
   --fog: rgba(237, 230, 216, 0.045);
 

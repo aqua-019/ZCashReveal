@@ -132,8 +132,14 @@ export function MempoolPanel({ initial }: { readonly initial: MempoolView }) {
                       setSelected(r.txid);
                     }}
                     aria-pressed={r.txid === detail?.txid}
+                    title={r.txid}
                   >
-                    {`${r.txid.slice(0, 8)}...${r.txid.slice(-6)}`}
+                    {/* The head alone. Ten columns of dense data have to fit
+                        the panel's half of the grid, and a head-and-tail
+                        elision costs seven characters of width in every row for
+                        a tail nobody reads off a table - the panel beside it
+                        prints the whole hash, and so does the title. */}
+                    {`${r.txid.slice(0, 8)}...`}
                   </button>
                 </td>
                 <td className="mono" style={{ color: "var(--ink-mute)" }}>

@@ -29,7 +29,7 @@ const OUT = join(REPO, "docs", "2.0", "screens");
 
 const base = process.argv[2] ?? "http://127.0.0.1:3311";
 
-/** The Record surfaces. The Instrument (/track) belongs to HANDOFF-04. */
+/** The Record surfaces, then the Instrument's - HANDOFF-04 deliverable 8. */
 const SCREENS = [
   { route: "/", name: "record-00-splash" },
   { route: "/beware", name: "record-01-beware" },
@@ -39,6 +39,20 @@ const SCREENS = [
   { route: "/method", name: "record-05-method" },
   { route: "/flows", name: "record-06-flows" },
   { route: "/sources", name: "record-07-sources" },
+  // The Tracking suite. `track-` rather than `record-`, because these are the
+  // Instrument: they read a chain rather than a corpus, and the mempool one
+  // carries a live panel whose badge is part of what the screenshot is for.
+  { route: "/track", name: "track-00-search" },
+  { route: "/address/t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo", name: "track-01-address" },
+  { route: "/tx/7ae8586467551b6a023cdc7ef0b851f3729ee3f25b21c86902f1438f23cacc1c", name: "track-02-tx" },
+  { route: "/block/3191051", name: "track-03-block" },
+  { route: "/pools", name: "track-04-pools" },
+  {
+    route:
+      "/reveal?addr=u1l8xunezsvhq8fgzfl7404m450nwnd76zshscn6nfys7vyz2ywyh4cc5daaq0c7q2su5lqfh23sp7fkf3kdvtd8dmk6vc3dnr7tqkmrpt7gqr7a5u",
+    name: "track-05-reveal",
+  },
+  { route: "/track/flows", name: "track-06-flows" },
 ];
 
 mkdirSync(OUT, { recursive: true });

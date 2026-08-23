@@ -17,9 +17,12 @@ import { asFrame } from "@/lib/api/stream";
 import { MEMPOOL_VIEW } from "@/lib/api/fixtures/mempool";
 
 /** The wire form: JSON cannot carry a bigint, so it travels as a decimal string. */
-function overWire(frame: unknown): unknown {
-  return JSON.parse(JSON.stringify(frame, (_k, v: unknown) => (typeof v === "bigint" ? v.toString() : v))) as unknown;
+function overWire(frame: unknown): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(frame, (_k, v: unknown) => (typeof v === "bigint" ? v.toString() : v))) as Record<string, unknown>;
 }
+
+/** The first mempool row, over the wire. The corpus always has one. */
+const ROW = (): Record<string, unknown> => overWire(MEMPOOL_VIEW.entries[0] ?? {});
 
 /** Every frame the fixture stream actually emits, in the order it emits them. */
 const REAL: readonly unknown[] = [
@@ -44,11 +47,11 @@ const MALFORMED: readonly (readonly [string, unknown])[] = [
   ["tip with an uppercase hash", { type: "tip", height: 1, hash: "A".repeat(64) }],
   ["tx_removed with a bad reason", { type: "tx_removed", txid: "a".repeat(64), reason: "vanished" }],
   ["tx_added with no entry", { type: "tx_added" }],
-  ["tx_added with an entry missing its fee", { type: "tx_added", entry: { ...overWire(MEMPOOL_VIEW.entries[0]), feeZat: undefined } }],
-  ["tx_added with a float zatoshi fee", { type: "tx_added", entry: { ...overWire(MEMPOOL_VIEW.entries[0]), feeZat: "1.5" } }],
-  ["tx_added with an unknown lane", { type: "tx_added", entry: { ...overWire(MEMPOOL_VIEW.entries[0]), lanes: ["bitcoin"] } }],
-  ["tx_added with an unknown severity", { type: "tx_added", entry: { ...overWire(MEMPOOL_VIEW.entries[0]), severity: "CRITICAL" } }],
-  ["tx_added with empty reasoning", { type: "tx_added", entry: { ...overWire(MEMPOOL_VIEW.entries[0]), reasoning: [] } }],
+  ["tx_added with an entry missing its fee", { type: "tx_added", entry: { ...ROW(), feeZat: undefined } }],
+  ["tx_added with a float zatoshi fee", { type: "tx_added", entry: { ...ROW(), feeZat: "1.5" } }],
+  ["tx_added with an unknown lane", { type: "tx_added", entry: { ...ROW(), lanes: ["bitcoin"] } }],
+  ["tx_added with an unknown severity", { type: "tx_added", entry: { ...ROW(), severity: "CRITICAL" } }],
+  ["tx_added with empty reasoning", { type: "tx_added", entry: { ...ROW(), reasoning: [] } }],
   ["snapshot with no view", { type: "snapshot" }],
   ["snapshot with a broken row", { type: "snapshot", view: { ...overWire(MEMPOOL_VIEW), entries: [{ txid: "nope" }] } }],
   ["snapshot with a missing summary", { type: "snapshot", view: { tipHeight: 1, entries: [] } }],
@@ -89,17 +92,17 @@ describe("the guard rejects everything the schema rejects", () => {
 
 describe("a zatoshi never arrives as a float", () => {
   it("the guard refuses a decimal string, rather than rounding it", () => {
-    const frame = { type: "tx_added", entry: { ...overWire(MEMPOOL_VIEW.entries[0]), feeZat: "10000.5" } };
+    const frame = { type: "tx_added", entry: { ...ROW(), feeZat: "10000.5" } };
     expect(asFrame(frame)).toBeNull();
   });
 
   it("the guard refuses a JSON number, which is a double", () => {
-    const frame = { type: "tx_added", entry: { ...overWire(MEMPOOL_VIEW.entries[0]), feeZat: 10_000 } };
+    const frame = { type: "tx_added", entry: { ...ROW(), feeZat: 10_000 } };
     expect(asFrame(frame)).toBeNull();
   });
 
   it("and accepts the decimal-integer string the wire format actually uses", () => {
-    const frame = { type: "tx_added", entry: { ...overWire(MEMPOOL_VIEW.entries[0]), feeZat: "10000" } };
+    const frame = { type: "tx_added", entry: { ...ROW(), feeZat: "10000" } };
     const out = asFrame(frame);
     expect(out?.type).toBe("tx_added");
     expect(out?.type === "tx_added" ? out.entry.feeZat : 0n).toBe(10_000n);

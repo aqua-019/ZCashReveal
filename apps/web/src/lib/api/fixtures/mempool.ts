@@ -50,6 +50,14 @@ const REASONING: Readonly<Record<MempoolRow["class"], readonly string[]>> = {
   ],
 };
 
+/**
+ * The pool initials the valueBalance column uses - O, I, S, P for Orchard,
+ * Ironwood, Sapling and Sprout - are the mockup's own abbreviation, and they
+ * are what let ten columns of dense data fit the panel's half of the grid
+ * without a horizontal scroll at the width the site is designed for. The lane
+ * swatches in the adjacent column carry the colour, and the detail panel spells
+ * the pool names out in full.
+ */
 interface Row {
   readonly txid: string;
   readonly ageSeconds: number;
@@ -74,7 +82,7 @@ const ROWS: readonly Row[] = [
     version: "v6",
     flow: "O to I",
     lanes: ["orchard", "ironwood"],
-    valueBalanceText: "+500.0000 Orchard - 499.9950 Ironwood",
+    valueBalanceText: "+500.0000 O - 499.9950 I",
     feeZat: 10_000n,
     logicalActions: 2,
     walletGuess: "Zodl 3.8",
@@ -103,7 +111,7 @@ const ROWS: readonly Row[] = [
     version: "v5",
     flow: "t to z",
     lanes: ["transparent", "ironwood"],
-    valueBalanceText: "-311.2000 Ironwood",
+    valueBalanceText: "-311.2000 I",
     feeZat: 15_000n,
     logicalActions: 3,
     walletGuess: "Zkool",
@@ -118,7 +126,7 @@ const ROWS: readonly Row[] = [
     version: "v5",
     flow: "z to t",
     lanes: ["sapling", "transparent"],
-    valueBalanceText: "+12.4000 Sapling",
+    valueBalanceText: "+12.4000 S",
     feeZat: 10_000n,
     logicalActions: 2,
     walletGuess: "Ywallet 1.15",
@@ -133,7 +141,7 @@ const ROWS: readonly Row[] = [
     version: "v6",
     flow: "mixed",
     lanes: ["transparent", "orchard", "ironwood"],
-    valueBalanceText: "+2.8000 Orchard - 2.7950 Ironwood",
+    valueBalanceText: "+2.8000 O - 2.7950 I",
     feeZat: 20_000n,
     logicalActions: 4,
     walletGuess: "Cake 6.4",
@@ -175,7 +183,7 @@ const ROWS: readonly Row[] = [
     version: "v5",
     flow: "t to z",
     lanes: ["transparent", "sapling"],
-    valueBalanceText: "-200.0000 Sapling",
+    valueBalanceText: "-200.0000 S",
     feeZat: 10_000n,
     logicalActions: 2,
     // The mockup reads "unknown - nonstandard fee". The fee in this row is
@@ -194,7 +202,7 @@ const ROWS: readonly Row[] = [
     version: "v6",
     flow: "z to t",
     lanes: ["ironwood", "transparent"],
-    valueBalanceText: "+2.8000 Ironwood",
+    valueBalanceText: "+2.8000 I",
     feeZat: 10_000n,
     logicalActions: 2,
     walletGuess: "Zingo 2.0",

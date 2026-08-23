@@ -190,6 +190,29 @@ p {
   text-decoration-color: currentColor;
 }
 
+/* Inline links in prose.
+   HANDOFF-03 hit this on `.src a` and its own comment said the rule belongs to
+   every inline link in the register, not just the one that was caught. This is
+   that generalisation. --blue-fn on --ink-dim prose is 1.38:1 against its
+   surroundings, well under the 3:1 that WCAG 1.4.1 asks of colour used as the
+   only distinguisher, so the link is underlined and the colour is a second
+   signal rather than the only one. */
+.note a,
+.dek a,
+.measure a,
+.tk-gap a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--line-strong);
+}
+
+.note a:hover,
+.dek a:hover,
+.measure a:hover,
+.tk-gap a:hover {
+  text-decoration-color: currentColor;
+}
+
 /* ---------- eyebrow ---------- */
 .eyebrow {
   font-family: var(--f-mono);
@@ -3478,7 +3501,10 @@ canvas[data-ui="fog"] {
 }
 
 .tk-dir.shield {
-  color: var(--p-orchard);
+  /* The text tint, not the pool hue: at 9.5px the fill value measures 4.49:1
+     and AA wants 4.5. See --p-orchard-text in tokens.css. The border keeps the
+     pool's own colour, because a 1px rule is not text. */
+  color: var(--p-orchard-text);
   border-color: rgba(201, 79, 143, 0.6);
 }
 
@@ -3511,7 +3537,7 @@ canvas[data-ui="fog"] {
 /* ---------- the mempool ---------- */
 .tk-mp-grid {
   display: grid;
-  grid-template-columns: 1.5fr 1fr;
+  grid-template-columns: 1.65fr 1fr;
   gap: 14px;
   align-items: start;
 }
@@ -3522,6 +3548,13 @@ canvas[data-ui="fog"] {
   }
 }
 
+/* The table scrolls inside its own card, on both axes.
+   Ten columns of dense data do not fit the 1.5fr half of this grid at any
+   viewport the site targets, and the design system's rule is that wide content
+   scrolls inside an overflow container rather than crushing its columns or
+   pushing the page sideways. Without the min-width the columns collapsed to a
+   few characters each, the last two were clipped by the card entirely, and the
+   findings column set a five-line row height for the whole table. */
 .tk-mp-scroll {
   max-height: 560px;
   overflow: auto;
@@ -3529,7 +3562,15 @@ canvas[data-ui="fog"] {
 
 .tk-mp {
   width: 100%;
+  min-width: 780px;
   border-collapse: collapse;
+}
+
+/* The two prose columns are bounded rather than free: unbounded, the findings
+   column set the row height for the whole table. */
+.tk-mp td.cp {
+  max-width: 16ch;
+  font-size: 10.5px;
 }
 
 .tk-mp th {
@@ -3541,7 +3582,15 @@ canvas[data-ui="fog"] {
 
 .tk-mp td {
   font-size: 12px;
-  padding: var(--inset-1);
+  /* Top, not the default middle. Two of the ten columns carry wrapping prose
+     and eight carry one line, so middle-aligning left a row's short cells
+     floating in the space the long ones needed and the eye lost the row. */
+  vertical-align: top;
+  /* The mockup's own cell inset, and NOT a rung of the card ladder: this is a
+     table cell rather than a panel, the ladder starts at 10px vertical, and a
+     ten-column table at this density is the one place on the site where two
+     pixels of vertical padding decide whether the last column is readable. */
+  padding: 9px 10px;
 }
 
 .tk-mp tr {
@@ -3929,7 +3978,7 @@ canvas[data-ui="fog"] {
 /* The opaque interval. Its endpoints are public and its middle is not, and the
    row says so by carrying no amount at all rather than a zero or a guess. */
 .tk-ledger.sh .d b {
-  color: var(--p-orchard);
+  color: var(--p-orchard-text);
 }
 
 .tk-ledger.sh .a {

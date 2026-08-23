@@ -17,7 +17,22 @@ import { expect, test } from "@playwright/test";
  * disabled.
  */
 
-const ROUTES = ["/beware", "/timeline", "/flows"];
+const ROUTES = [
+  "/beware",
+  "/timeline",
+  "/flows",
+  // The Tracking suite - HANDOFF-04. A10 puts accessibility at 95 with no
+  // exception on any surface, and these six carry every new pattern the
+  // handoff adds: a live table, an SVG Sankey, a fogged pane, a key field that
+  // is not inside a form, and four charts with table twins.
+  "/track",
+  "/address/t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo",
+  "/tx/7ae8586467551b6a023cdc7ef0b851f3729ee3f25b21c86902f1438f23cacc1c",
+  "/block/3191051",
+  "/pools",
+  "/reveal",
+  "/track/flows",
+];
 
 test.describe("A4 pass state - no serious or critical violations", () => {
   for (const route of ROUTES) {

@@ -67,7 +67,12 @@ export function BalanceStep({ points }: { readonly points: PoolsView extends nev
     d += ` L${X(i)},${Y(prev.balanceZat)} L${X(i)},${Y(cur.balanceZat)}`;
   }
 
-  const gridLines = [0, 0.25, 0.5, 0.75].map((f) => f * ceiling);
+  // Round gridlines, not fractions of a computed ceiling: 0.25 of 85,000 is
+  // 21,250, and an axis labelled 21k / 43k / 64k reads as noise rather than as
+  // a scale. Step to the nearest 25,000 under the ceiling.
+  const step = 25_000;
+  const gridLines: number[] = [];
+  for (let g = 0; g < ceiling; g += step) gridLines.push(g);
 
   return (
     <Chart
@@ -166,12 +171,17 @@ export function InteractionGraph({
         <text className="el" x="152" y="64">
           {interactions[0]?.label ?? ""}
         </text>
-        <path className="e pool" d="M355,102 C395,102 395,44 430,44" strokeWidth={widthFor(interactions[1]?.valueZat ?? 0n)} />
-        <text className="el" x="318" y="70">
+        {/* Both pool edges leave the address on the right. Their labels sit
+            clear of the node boxes rather than across them: the first above the
+            upper curve, the second below the lower one, both anchored at the
+            end so they grow leftward into empty space instead of into the pool
+            node. */}
+        <path className="e pool" d="M355,96 C392,96 392,50 428,50" strokeWidth={widthFor(interactions[1]?.valueZat ?? 0n)} />
+        <text className="el" x="424" y="36" textAnchor="end">
           {interactions[1]?.label ?? ""}
         </text>
-        <path className="e pool" d="M430,66 C395,66 395,124 355,124" strokeWidth={widthFor(interactions[2]?.valueZat ?? 0n)} />
-        <text className="el" x="372" y="150">
+        <path className="e pool" d="M428,62 C392,62 392,124 355,124" strokeWidth={widthFor(interactions[2]?.valueZat ?? 0n)} />
+        <text className="el" x="424" y="146" textAnchor="end">
           {interactions[2]?.label ?? ""}
         </text>
         <g className="n" transform="translate(14,20)">
@@ -192,7 +202,7 @@ export function InteractionGraph({
             lockbox
           </text>
         </g>
-        <g className="n" transform="translate(430,24)">
+        <g className="n" transform="translate(428,74)">
           <rect width="116" height="42" rx="3" />
           <text x="10" y="18">
             Orchard pool
@@ -575,14 +585,18 @@ export function ClaimDistribution({ view }: { readonly view: PoolsView }) {
         />
       }
     >
-      <svg viewBox="0 0 320 120" className="tk-svg" role="img" aria-label="Distribution of claim levels for Ironwood spends since activation">
+      {/* The label sits ABOVE its bar, so the first row's baseline has to clear
+          the top of the frame - at y = 4 it was clipped by the viewBox and the
+          strongest claim level on the chart was the one a reader could not
+          read. */}
+      <svg viewBox="0 0 320 128" className="tk-svg" role="img" aria-label="Distribution of claim levels for Ironwood spends since activation">
         {view.neff.rows.map((r, i) => (
           <g key={r.claim}>
-            <rect x="0" y={i * 30 + 8} width="320" height="12" fill="var(--surface-2)" />
-            <rect x="0" y={i * 30 + 8} width={(r.pct / 100) * 320} height="12" fill={TONE[r.claim]} data-claim={r.claim} />
-            <text x="0" y={i * 30 + 4} className="axis">
+            <text x="0" y={i * 31 + 10} className="axis">
               {`${r.label} - ${r.pct} percent`}
             </text>
+            <rect x="0" y={i * 31 + 15} width="320" height="12" fill="var(--surface-2)" />
+            <rect x="0" y={i * 31 + 15} width={(r.pct / 100) * 320} height="12" fill={TONE[r.claim]} data-claim={r.claim} />
           </g>
         ))}
       </svg>
