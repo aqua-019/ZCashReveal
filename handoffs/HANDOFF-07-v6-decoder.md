@@ -1,7 +1,7 @@
 ---
 handoff: 07
 title: Indexer: v6 / Ironwood decoder (module 7A.2) + migration detection
-status: queued
+status: in-progress
 branch: the session-designated branch (name it `feat/v2-07-v6-decoder` if you may choose)
 track: Data
 depends_on: 06

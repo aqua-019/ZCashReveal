@@ -1,7 +1,7 @@
 ---
 handoff: 06
 title: Indexer: four pools + migration 003 + post-NU6.3 invariants
-status: shipped
+status: closed
 branch: the session-designated branch (name it `feat/v2-06-four-pools` if you may choose)
 track: Data
 depends_on: 00
