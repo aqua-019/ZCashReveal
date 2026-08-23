@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { getBeware, getContradictions, getTimeline, permalink, resolveSources } from "@zcashreveal/content";
+import { getBeware, getContradictions, getTimeline, requirePermalink, resolveSources } from "@zcashreveal/content";
 
 import { BewareDeepDive } from "@/components/record/BewareDeepDive";
 import { BewareRow } from "@/components/record/BewareRow";
@@ -122,7 +122,7 @@ export default function BewarePage() {
             <div className="claim">
               {b2 === undefined ? null : (
                 <>
-                  <a className="anchor" href={permalink(b2.id)}>
+                  <a className="anchor" href={requirePermalink(b2.id)}>
                     {b2.id}
                   </a>
                   <Cite
@@ -135,7 +135,7 @@ export default function BewarePage() {
               )}
               {b1 === undefined ? null : (
                 <>
-                  <a className="anchor" href={permalink(b1.id)}>
+                  <a className="anchor" href={requirePermalink(b1.id)}>
                     {b1.id}
                   </a>
                   <Cite
@@ -159,7 +159,7 @@ export default function BewarePage() {
             afterwards narrows that span.
           </p>
           <span className="claim">
-            <a className="anchor" href={permalink(c2.id)}>
+            <a className="anchor" href={requirePermalink(c2.id)}>
               {c2.id}
             </a>
             <Cite
@@ -271,7 +271,7 @@ export default function BewarePage() {
                   remain inside it, in a pool whose supply is not yet verifiable.
                 </p>
                 <div className="claim">
-                  <a className="anchor" href={permalink(c3.id)}>
+                  <a className="anchor" href={requirePermalink(c3.id)}>
                     {c3.id}
                   </a>
                   <Cite
@@ -280,7 +280,7 @@ export default function BewarePage() {
                     confidence={c3.confidence}
                     sources={resolveSources(c3.sources)}
                   />
-                  <a className="anchor" href={permalink(c9.id)}>
+                  <a className="anchor" href={requirePermalink(c9.id)}>
                     {c9.id}
                   </a>
                   <Cite

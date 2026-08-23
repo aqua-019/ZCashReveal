@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { getCase, permalink, resolveSources, type Case, type CaseStep } from "@zcashreveal/content";
+import { getCase, requirePermalink, resolveSources, type Case, type CaseStep } from "@zcashreveal/content";
 
 import { Cite } from "@/components/record/Cite";
 import { Chip } from "@/components/ui/Chip";
@@ -93,7 +93,7 @@ const COLUMNS: readonly Column<GoldenRow>[] = [
       <>
         <b>{r.title}</b>
         <span className="claim">
-          <a className="anchor" href={permalink(r.source.id)}>
+          <a className="anchor" href={requirePermalink(r.source.id)}>
             {r.source.id}
           </a>
           <Cite

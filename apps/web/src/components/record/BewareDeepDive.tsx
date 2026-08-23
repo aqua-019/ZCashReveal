@@ -1,4 +1,4 @@
-import { permalink, resolveSources, type BewareEntry, type TimelineEvent } from "@zcashreveal/content";
+import { requirePermalink, resolveSources, type BewareEntry, type TimelineEvent } from "@zcashreveal/content";
 
 import { Cite } from "@/components/record/Cite";
 import { Eyebrow } from "@/components/ui/Eyebrow";
@@ -91,7 +91,7 @@ export function BewareDeepDive({
         </p>
 
         <div className="claim">
-          <a className="anchor" href={permalink(entry.id)}>
+          <a className="anchor" href={requirePermalink(entry.id)}>
             {entry.id}
           </a>
           <Cite
@@ -120,7 +120,7 @@ export function BewareDeepDive({
                   <b>{step.title}</b>
                   {step.summary === step.title ? null : <> {step.summary}</>}
                   <span className="claim">
-                    <a className="anchor" href={permalink(step.id)}>
+                    <a className="anchor" href={requirePermalink(step.id)}>
                       {step.id}
                     </a>
                     <Cite

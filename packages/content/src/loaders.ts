@@ -174,43 +174,83 @@ const ROUTES: ReadonlyArray<readonly [RegExp, string]> = [
   // whose surface is a property of the record rather than of its prefix, and
   // `permalink()` reads `surface` off the seed for it - see below. HANDOFF-03
   // had this pointing at "/sources", which rendered no U- id at all, so every
-  // quarantine citation dead-ended; the fix then was to point it at "/flows".
-  // LEDGER-03 Q4 gives the true partition and rules that the seed should say
-  // it: four records anchor on /flows, four on /network, and the remaining 24
-  // render nowhere at all. So the blanket "/flows" was right for at most five
-  // (the four plus U-arkham-174m-position-post, anchored in the allegations
-  // table) - a gate round corrected an earlier version of this comment, which
-  // claimed it was right for 28 of the 32. The `surface` field records where a
-  // record IS anchored; it does not make an unrendered record render, and a
-  // citation to one still resolves to a page rather than to an element.
+  // quarantine citation dead-ended; the fix then was to point it at "/flows",
+  // and HANDOFF-04 moved the fact into the seed as a required field.
+  //
+  // It is nullable from HANDOFF-05 (LEDGER-04 Q4, fold 5). A required surface
+  // made every record assert a page, including the 22 that appear on none, so
+  // `permalink()` returned an anchor that resolved to a page rather than to an
+  // element. It now returns null for those, and a caller renders plain text.
+  // Ten records are anchored: six on /flows and four on /network, counted from
+  // the prerendered HTML of a production build.
   [/^S-/, "/sources"],
 ];
 
 /**
  * The quarantine's surfaces, indexed by id, read once from the seed.
  *
- * `permalink()` has to stay synchronous and total, and it is called from render
- * paths that already hold the loaded corpus, so this memoises the lookup rather
- * than re-parsing 32 records per citation.
+ * `permalink()` has to stay synchronous, and it is called from render paths
+ * that already hold the loaded corpus, so this memoises the lookup rather than
+ * re-parsing 32 records per citation.
+ *
+ * The map distinguishes two absences that a caller must not confuse: an id
+ * that is NOT A KEY is not in the quarantine at all, and an id whose VALUE is
+ * null is quarantined and rendered nowhere. The first is a broken citation and
+ * throws; the second is a real state of the corpus and returns null.
  */
-const quarantineSurface = once<ReadonlyMap<string, string>>(() =>
+const quarantineSurface = once<ReadonlyMap<string, UnverifiedSurface | null>>(() =>
   new Map(getUnverified().map((u) => [u.id, u.surface] as const)),
 );
 
 /**
  * The canonical location of a claim: `permalink("B2")` is `/beware#B2`.
  *
+ * Returns `null` for a quarantined record that renders on no page - 22 of the
+ * 32 (LEDGER-04 Q4, fold 5). That is not a failure and callers must not treat
+ * it as one: they render the id as plain text where they would have rendered a
+ * link. A link that resolves to a page instead of to the claim is a worse lie
+ * than no link, which is the ruling this implements.
+ *
+ * An id in no family at all still THROWS, and the two must not be merged. A
+ * citation to a claim that does not exist is a defect in whatever wrote it; a
+ * citation to a claim that is held but not shown is the honest state of the
+ * corpus. Returning null for both would hide the first inside the second.
+ *
  * Pass `base` to get an absolute URL for a citation popover. Without it the
  * result is site-relative, which is what an anchor tag wants.
  */
-export function permalink(id: string, options: { base?: string } = {}): string {
-  // A quarantined record says where it renders; every other family is a prefix
-  // rule. An unknown U- id falls through to the throw below rather than
-  // guessing a surface, which is the honest answer: a citation to a claim that
-  // is not in the quarantine is a broken citation, not a claim on /flows.
-  const route = id.startsWith("U-") ? quarantineSurface().get(id) : ROUTES.find(([pattern]) => pattern.test(id))?.[1];
+export function permalink(id: string, options: { base?: string } = {}): string | null {
+  if (id.startsWith("U-")) {
+    const surfaces = quarantineSurface();
+    if (!surfaces.has(id)) throw new Error(`permalink: unrecognised claim id "${id}"`);
+    const surface = surfaces.get(id) ?? null;
+    return surface === null ? null : withBase(`${surface}#${id}`, options);
+  }
+  const route = ROUTES.find(([pattern]) => pattern.test(id))?.[1];
   if (route === undefined) throw new Error(`permalink: unrecognised claim id "${id}"`);
-  const path = `${route}#${id}`;
+  return withBase(`${route}#${id}`, options);
+}
+
+/**
+ * `permalink()` for the id families that always resolve.
+ *
+ * Every family except `U-` maps by prefix, so a permalink for one of them is
+ * total and a caller that has, say, a `BewareEntry` in hand should not be made
+ * to branch on a null it can never receive. This states that expectation and
+ * checks it at runtime rather than letting a `!` assertion state it and check
+ * nothing: if a future family ever becomes surface-dependent, this throws at
+ * the call site that assumed otherwise instead of rendering `null` into an
+ * `href`.
+ */
+export function requirePermalink(id: string, options: { base?: string } = {}): string {
+  const path = permalink(id, options);
+  if (path === null) {
+    throw new Error(`requirePermalink: "${id}" renders on no page, so it has no permalink`);
+  }
+  return path;
+}
+
+function withBase(path: string, options: { base?: string }): string {
   const { base } = options;
   return base === undefined ? path : `${base.replace(/\/+$/, "")}${path}`;
 }

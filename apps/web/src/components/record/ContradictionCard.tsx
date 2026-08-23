@@ -1,4 +1,4 @@
-import { permalink, resolveSources, type Contradiction } from "@zcashreveal/content";
+import { requirePermalink, resolveSources, type Contradiction } from "@zcashreveal/content";
 
 import { Cite } from "@/components/record/Cite";
 import { Conf } from "@/components/ui/Conf";
@@ -45,7 +45,7 @@ export function ContradictionCard({ entry }: { readonly entry: Contradiction }) 
       </div>
 
       <div className="claim">
-        <a className="anchor" href={permalink(entry.id)}>
+        <a className="anchor" href={requirePermalink(entry.id)}>
           {entry.id}
         </a>
         <Cite id={entry.id} lastVerified={entry.lastVerified} confidence={entry.confidence} sources={sources} />

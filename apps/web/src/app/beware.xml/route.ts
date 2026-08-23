@@ -1,4 +1,4 @@
-import { getBeware, permalink, resolveSources } from "@zcashreveal/content";
+import { getBeware, requirePermalink, resolveSources } from "@zcashreveal/content";
 
 import { SITE_URL, absolute } from "@/lib/site";
 
@@ -60,7 +60,7 @@ export function GET(): Response {
   );
 
   const items = entries.map((e) => {
-    const link = absolute(permalink(e.id));
+    const link = absolute(requirePermalink(e.id));
     const sources = resolveSources(e.sources);
     // The description is the claim, its window, whether it was ever detectable
     // and what it is sourced to - enough that a reader deciding whether to open

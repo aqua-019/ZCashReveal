@@ -4,7 +4,7 @@ import {
   getCase,
   getCases,
   getUnverified,
-  permalink,
+  requirePermalink,
   type Case,
   type CaseStep,
   type Confidence,
@@ -180,7 +180,7 @@ function claimedRows(): readonly ClaimedRow[] {
       id: arkham.id,
       // The record itself is anchored in the allegations table below; this row
       // cites it there rather than claiming the anchor for a second time.
-      href: permalink(arkham.id),
+      href: requirePermalink(arkham.id),
       sources: arkham.sources,
       // The quarantine carries a status rather than a confidence, and every
       // status in it means "not publishable as fact". Rendering it at low is

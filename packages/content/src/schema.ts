@@ -363,20 +363,39 @@ export const unverifiedStatusSchema = z.enum([
 ]);
 
 /**
- * Where a quarantined record renders.
+ * Where a quarantined record renders, or `null` where it renders nowhere.
  *
  * The quarantine is the one id family whose route is a property of the SUBJECT
  * rather than of the prefix: an unverified claim is shown beside the finding it
- * qualifies, so the promotion-network ones belong on `/network` and the rest on
- * `/flows`. `permalink()` maps a prefix to a route and cannot express that, so
- * HANDOFF-03 had to keep the split in a module inside `apps/web` - which meant
- * two files had to agree about a fact neither of them owned, and a unit test
- * existed only to keep them agreeing.
+ * qualifies, so the promotion-network ones belong on `/network` and the flows
+ * ones on `/flows`. `permalink()` maps a prefix to a route and cannot express
+ * that, so HANDOFF-03 had to keep the split in a module inside `apps/web` -
+ * which meant two files had to agree about a fact neither of them owned, and a
+ * unit test existed only to keep them agreeing. LEDGER-03 Q4 moved the fact
+ * into the seed, which is this field.
  *
- * LEDGER-03 Q4 rules that the seed should say where it renders. This is that
- * field. `permalink()` reads it, the module in `apps/web` is retired, and a new
- * quarantined record now carries its own route instead of needing an edit in a
- * second package.
+ * WHY IT IS NULLABLE (LEDGER-04 Q4, fold 5). HANDOFF-04 shipped it required,
+ * and the consequence was that every one of the 32 records asserted a surface
+ * while most of them appear on no page: `permalink()` then returned an anchor
+ * that resolves to a page rather than to an element, which is a worse answer
+ * than no link. L2's ruling: make it nullable and have `permalink()` refuse.
+ * A record carries a surface when, and only when, that page renders an element
+ * whose `id` is the record's id.
+ *
+ * THE PARTITION, MEASURED RATHER THAN ASSERTED. Ten of the 32 are anchored -
+ * six on `/flows` (four in the quarantine list, plus the TechLeaks24 theory and
+ * the unlocated Arkham post, which own their rows in the allegations table) and
+ * four on `/network`. The other 22 carry `null`. LEDGER-03 Q4 stated the split
+ * as four and four with 24 unrendered, and LEDGER-04 Q4 repeated the 24; the
+ * figures here are counted from the prerendered HTML of a production build
+ * rather than from either ledger, and the two allegations rows are what the
+ * earlier count missed. The correction is recorded in HANDOFF-05 section 7.
+ *
+ * A page for the 22 is owed to a later Web handoff: L2 has ruled that a
+ * quarantine nobody can read is indistinguishable from suppression, which is
+ * precisely the failure this site documents in others. Until that page exists,
+ * `null` is the honest value - it says the record is held and not shown, rather
+ * than pointing at a page that does not carry it.
  */
 export const unverifiedSurfaceSchema = z.enum(["/flows", "/network"]);
 export type UnverifiedSurface = z.infer<typeof unverifiedSurfaceSchema>;
@@ -389,8 +408,11 @@ export const unverifiedSchema = z
     why: z.string().min(1),
     /** May be empty: an unlocatable claim has nothing to cite. */
     sources: z.array(sourceRefSchema),
-    /** Which surface renders this record. See `unverifiedSurfaceSchema`. */
-    surface: unverifiedSurfaceSchema,
+    /**
+     * Which surface renders this record, or `null` where none does.
+     * See `unverifiedSurfaceSchema`.
+     */
+    surface: unverifiedSurfaceSchema.nullable(),
     lastVerified: isoDateSchema,
   })
   .strict();

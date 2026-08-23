@@ -33,8 +33,16 @@ import {
 export interface Citation {
   /** The claim id, e.g. "B2", "T2026-06-04", "N-grayscale". */
   readonly id: string;
-  /** Where it renders. */
-  readonly href: string;
+  /**
+   * Where it renders, or null where nothing renders it.
+   *
+   * Null is reachable only through the quarantine: 22 of the 32 unverified
+   * records appear on no page, so `permalink()` refuses rather than emitting an
+   * anchor to a page that does not carry the claim (LEDGER-04 Q4, fold 5).
+   * `/sources` prints the id as plain text for those, which is the honest
+   * rendering - the source is cited by a record the reader cannot yet open.
+   */
+  readonly href: string | null;
   /** Which collection it came from, for the reader's orientation. */
   readonly collection: string;
 }
@@ -50,7 +58,7 @@ export type CitationIndex = ReadonlyMap<SourceRef, readonly Citation[]>;
  */
 function hrefFor(id: string, fallback: string): string {
   try {
-    return permalink(id);
+    return permalink(id) ?? fallback;
   } catch {
     return fallback;
   }
@@ -90,6 +98,10 @@ export function citationIndex(): CitationIndex {
   // called into a module in apps/web that held the split by hand, and a unit
   // test existed only to keep that module agreeing with a second copy of the
   // same four ids in app/network/page.tsx.
+  //
+  // This is the ONE collection whose href can be null, and it is not routed
+  // through `hrefFor`: a fallback would put every unrendered record's citation
+  // on "/flows", which is the dead anchor LEDGER-04 fold 5 exists to remove.
   for (const u of getUnverified()) add(u.sources, { id: u.id, href: permalink(u.id), collection: "unverified" });
   add(getStats().sources, { id: "stats", href: "/#pools", collection: "stats" });
 
