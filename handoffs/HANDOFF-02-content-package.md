@@ -76,7 +76,7 @@ A typed content package the Record renders from: zod schemas for every claim typ
 ```
 STATUS: DONE-WITH-ASSUMPTIONS
 
-BRANCH / PR: claude/aqua-stack-v4-l2-resolution-7v7qvw (harness-designated) · PR __PR__
+BRANCH / PR: claude/aqua-stack-v4-l2-resolution-7v7qvw (harness-designated) · PR #33 (https://github.com/aqua-019/ZCashReveal/pull/33)
 
 DIRECTORS SPAWNED (lead names each + spawn mode proven):
 
