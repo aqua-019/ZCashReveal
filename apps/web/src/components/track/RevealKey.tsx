@@ -9,10 +9,11 @@ import { useId, useState } from "react";
  * `fetch`, no `XMLHttpRequest`, no `WebSocket`, no `navigator.sendBeacon`, no
  * form action and no `<form>` at all - the field is not inside one, so there is
  * nothing for a stray Enter to submit and nowhere for the browser to serialise
- * the value to. The key is held in React state in this tab, is never written to
- * `localStorage`, never put in a URL and never logged. The security review at
- * the gate checks exactly that, and `test/e2e/reveal.spec.ts` checks it from
- * outside by recording every request the page makes while a key is typed.
+ * the value to. The key is not held in React state at all - see the note on the
+ * component below - is never written to `localStorage`, never put in a URL and
+ * never logged. `test/e2e/reveal-key.spec.ts` checks that from outside the
+ * browser, by typing a real key into a real production build and recording
+ * every request the page makes.
  *
  * WHAT IT DOES DO is validate the PREFIX, client-side, and say what the key
  * would reveal. That is a real service and it is honest: recognising `uview1`
@@ -97,12 +98,33 @@ function classify(raw: string): Verdict {
 }
 
 export function RevealKey() {
-  const [key, setKey] = useState("");
+  /**
+   * THE VERDICT IS IN STATE. THE KEY IS NOT.
+   *
+   * The first draft held the key in `useState` and passed it back as
+   * `value={key}`, which makes the input CONTROLLED - and React renders a
+   * controlled input's value as a DOM ATTRIBUTE, not only as the live property.
+   * `test/e2e/reveal-key.spec.ts` caught it: after typing, the key was in
+   * `document.documentElement.outerHTML`, inside
+   * `<input ... value="uview1qqq...">`.
+   *
+   * That is not a transmission and the key had still not left the tab, but it
+   * is a real weakening of the promise. A value in an attribute is in the
+   * serialised document: anything that reads `innerHTML` on an ancestor, any
+   * extension that snapshots the DOM, any error reporter that captures markup,
+   * takes the key with it. A value in the input's live property is where a
+   * typed character inherently is and is not serialised by any of them.
+   *
+   * So the field is uncontrolled. React writes the `value` attribute once, at
+   * mount, as the empty string, and never again. The component keeps the
+   * classification and never the string it classified - the key exists in this
+   * component only for the duration of the change handler's stack frame.
+   */
+  const [verdict, setVerdict] = useState<Verdict>({ state: "empty" });
   const id = useId();
-  const verdict = classify(key);
 
   return (
-    <div className="tk-pane" data-ui="mode-a">
+    <div className="tk-pane" id="mode-a" data-ui="mode-a">
       <div className="eyebrow">
         <b>mode A</b> - viewing key - decrypted in your browser - never uploaded
       </div>
@@ -122,9 +144,12 @@ export function RevealKey() {
           autoCapitalize="off"
           spellCheck={false}
           placeholder="uview1... / zxviews1... / zivks1..."
-          value={key}
+          // Uncontrolled: no `value` prop, so React never writes the typed key
+          // into the `value` ATTRIBUTE and it is never serialised into the DOM.
+          // See the note at the head of the component.
+          defaultValue=""
           onChange={(e) => {
-            setKey(e.target.value);
+            setVerdict(classify(e.target.value));
           }}
         />
         <button type="button" disabled title="Decryption arrives in 2.1 - HANDOFF-13">

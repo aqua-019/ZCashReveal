@@ -1,3 +1,5 @@
+import type { ClaimLevel } from "@zcashreveal/types";
+
 import { Chip } from "@/components/ui/Chip";
 
 /**
@@ -20,16 +22,23 @@ import { Chip } from "@/components/ui/Chip";
  * "do not retune without calibration data".
  *
  * PROVENANCE. The four names are the `ClaimLevel` union in
- * `packages/zec-types/src/analysis.ts`; the thresholds are the doc comment
- * directly above it, restated in `docs/2.0/TRACKING-MATH.md` section 4. Neither
- * is in `packages/content`: they document this site's own procedure rather than
- * an external claim, so they carry a document reference and not a fabricated
- * `sources[]` entry. The union is restated here rather than imported because
- * `@zcashreveal/types` is not a dependency of `apps/web`; adding one is a
- * package.json edit outside this deliverable's file set, and it is recorded as
- * an assumption.
+ * `packages/zec-types`; the thresholds are the doc comment directly above it,
+ * restated in `docs/2.0/TRACKING-MATH.md` section 4. Neither is in
+ * `packages/content`: they document this site's own procedure rather than an
+ * external claim, so they carry a document reference and not a fabricated
+ * `sources[]` entry.
+ *
+ * The union is IMPORTED, not restated. HANDOFF-03 restated it here because
+ * `@zcashreveal/types` was not then a dependency of `apps/web`, and recorded
+ * that as an assumption; LEDGER-03 fold 1 makes the package a dependency and
+ * this the import. Two copies of a four-value union is exactly the shape of
+ * defect the de-duplication pass in this same handoff exists to remove, and a
+ * claim level is a worse thing to have two copies of than a CSS rule: the site
+ * caps every bounded number it publishes with one of these four words, and a
+ * fifth word appearing in one file and not the other would be a claim nobody
+ * had agreed to.
  */
-export type ClaimLevel = "aggregate_only" | "broad_candidate_set" | "small_heuristic_set" | "requires_disclosure";
+export type { ClaimLevel };
 
 interface Rung {
   readonly level: ClaimLevel;

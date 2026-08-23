@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 
 import { IconSearch } from "@/components/icons";
+import type { SearchKind } from "@zcashreveal/types";
+
 import { hrefFor, KIND_TEXT, searchKind } from "@/lib/api/kind";
 
 /**
@@ -29,13 +31,22 @@ import { hrefFor, KIND_TEXT, searchKind } from "@/lib/api/kind";
  */
 export function TrackSearch() {
   const router = useRouter();
-  const [value, setValue] = useState("");
+  /**
+   * UNCONTROLLED, for the same reason `RevealKey` is: this field can receive a
+   * viewing key, and React renders a controlled input's value as a DOM
+   * ATTRIBUTE, which puts it in the serialised document. The component keeps
+   * the CLASSIFICATION - which is what the badge and the submit button need -
+   * and reads the string itself from the DOM node only at the moment of
+   * submission, inside the handler. A key typed here is never in React state
+   * and never in an attribute.
+   */
+  const [kind, setKind] = useState<SearchKind>("unknown");
+  const [empty, setEmpty] = useState(true);
   const [held, setHeld] = useState(false);
+  const field = useRef<HTMLInputElement>(null);
   const id = useId();
 
-  const q = value.trim();
-  const kind = searchKind(q);
-  const badge = q === "" ? KIND_TEXT.unknown : KIND_TEXT[kind];
+  const badge = empty ? KIND_TEXT.unknown : KIND_TEXT[kind];
 
   return (
     <>
@@ -50,7 +61,8 @@ export function TrackSearch() {
             return;
           }
           setHeld(false);
-          const href = hrefFor(q);
+          // Read at the moment of use, from the node, and not retained.
+          const href = hrefFor(field.current?.value ?? "");
           if (href !== null) router.push(href);
         }}
       >
@@ -62,15 +74,19 @@ export function TrackSearch() {
         </label>
         <input
           id={id}
+          ref={field}
           // Not `name="q"`. An unnamed field is not serialised into a GET, which
           // is one more way a pasted key cannot end up in a URL by accident.
           type="text"
           autoComplete="off"
           spellCheck={false}
           placeholder="t1 or t3 address - zs1 or u1 address - txid - block height - viewing key (stays in your browser)"
-          value={value}
+          // Uncontrolled. See the note at the head of the component.
+          defaultValue=""
           onChange={(e) => {
-            setValue(e.target.value);
+            const raw = e.target.value.trim();
+            setEmpty(raw === "");
+            setKind(searchKind(raw));
             if (held) setHeld(false);
           }}
         />
