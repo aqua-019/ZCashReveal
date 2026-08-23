@@ -124,6 +124,9 @@ importers:
       '@zcashreveal/content':
         specifier: workspace:*
         version: link:../../packages/content
+      '@zcashreveal/types':
+        specifier: workspace:*
+        version: link:../../packages/zec-types
       next:
         specifier: 15.5.23
         version: 15.5.23(@opentelemetry/api@1.9.1)(@playwright/test@1.56.1)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -237,6 +240,10 @@ importers:
         version: 4.1.6(@opentelemetry/api@1.9.1)(@types/node@22.19.19)(vite@6.4.2(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.0))
 
   packages/zec-types:
+    dependencies:
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       typescript:
         specifier: ^5.6.3

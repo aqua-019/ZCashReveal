@@ -3,6 +3,7 @@ export * from "./shielded.js";
 export * from "./leaks.js";
 export * from "./realtime.js";
 export * from "./analysis.js";
+export * from "./views.js";
 
 export type WsServerMessage =
   | { type: "hello"; version: string; tipHeight: number }

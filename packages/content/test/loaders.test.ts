@@ -15,6 +15,7 @@ import {
   getStats,
   getTimeline,
   getUnverified,
+  getUnverifiedFor,
   permalink,
   resolveSources,
 } from "../src/loaders.js";
@@ -28,10 +29,15 @@ describe("permalink", () => {
     expect(permalink("N-cypherpunk-technologies")).toBe("/network#N-cypherpunk-technologies");
     expect(permalink("P-encrypted-bitcoin")).toBe("/network#P-encrypted-bitcoin");
     expect(permalink("K-2026-01-02")).toBe("/flows#K-2026-01-02");
-    // The quarantine renders on /flows, beside the allegations it refuses, so
-    // that is where a U- permalink must land. HANDOFF-03 corrected this from
-    // "/sources", which pointed at a page the claim is not on.
-    expect(permalink("U-korean-exchange-dominance")).toBe("/flows#U-korean-exchange-dominance");
+    // The quarantine is the one family whose surface is a property of the
+    // RECORD, not of the prefix: an unverified claim renders beside the finding
+    // it qualifies. HANDOFF-03 first sent U- to /sources, which renders no U-
+    // id at all, then to /flows - which is right for 28 of the 32 and wrong for
+    // the four the promotion network qualifies, including this one. Since
+    // HANDOFF-04 deliverable 9 the seed says, and permalink reads it
+    // (LEDGER-03 Q4).
+    expect(permalink("U-korean-exchange-dominance")).toBe("/network#U-korean-exchange-dominance");
+    expect(permalink("U-zooko-sold-for-taxes")).toBe("/flows#U-zooko-sold-for-taxes");
     expect(permalink("L-t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo")).toBe(
       "/flows#L-t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo",
     );
@@ -45,6 +51,21 @@ describe("permalink", () => {
   it("throws on an id no page owns, rather than emitting a dead link", () => {
     expect(() => permalink("B15")).toThrow(/unrecognised/);
     expect(() => permalink("nonsense")).toThrow(/unrecognised/);
+  });
+
+  it("throws on a U- id that is not in the quarantine, rather than guessing a surface", () => {
+    // The prefix rule used to answer "/flows" for any U- string at all, which
+    // is a link to a page that has no such element. A citation to a claim the
+    // quarantine does not hold is a broken citation and should say so.
+    expect(() => permalink("U-not-a-real-record")).toThrow(/unrecognised/);
+  });
+
+  it("partitions the quarantine by the field permalink reads, so the two cannot disagree", () => {
+    const onNetwork = getUnverifiedFor("/network");
+    const onFlows = getUnverifiedFor("/flows");
+    expect(onNetwork.length + onFlows.length).toBe(getUnverified().length);
+    for (const u of onNetwork) expect(permalink(u.id)).toBe(`/network#${u.id}`);
+    for (const u of onFlows) expect(permalink(u.id)).toBe(`/flows#${u.id}`);
   });
 });
 

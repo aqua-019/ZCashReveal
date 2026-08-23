@@ -4,6 +4,7 @@ import {
   getCase,
   getCases,
   getUnverified,
+  permalink,
   type Case,
   type CaseStep,
   type Confidence,
@@ -21,7 +22,6 @@ import {
   toZatoshi,
   utc,
 } from "@/components/record/FlowsAmount";
-import { quarantineHref } from "@/lib/quarantine";
 import { FlowsClaim } from "@/components/record/FlowsClaim";
 import { FlowsEnd } from "@/components/record/FlowsLabels";
 import { Chip } from "@/components/ui/Chip";
@@ -180,7 +180,7 @@ function claimedRows(): readonly ClaimedRow[] {
       id: arkham.id,
       // The record itself is anchored in the allegations table below; this row
       // cites it there rather than claiming the anchor for a second time.
-      href: quarantineHref(arkham.id),
+      href: permalink(arkham.id),
       sources: arkham.sources,
       // The quarantine carries a status rather than a confidence, and every
       // status in it means "not publishable as fact". Rendering it at low is
