@@ -1206,3 +1206,366 @@ DEFERRED ASSUMPTIONS:
 - The eslint no-unused-vars promotion and the unused `saplingSpend` in block-decoder.test.ts
   remain deferred to 06 or 07, as HANDOFF-00 through 03 all recorded. Still the only warning.
 ```
+
+---
+
+## L2 RESOLUTION — HANDOFF-04
+
+Appended by the HANDOFF-05 session under the revolution protocol, step 2. Verbatim; L2 has no write access to this repository.
+
+```
+L2 RESOLUTION — HANDOFF-04 (Cowork, 23 Aug 2026)
+VERIFY (Executed by L2 on a clean worktree of 4ee1c1f, not relayed): pnpm install --frozen-lockfile rc=0 · pnpm typecheck rc=0 · pnpm lint 0 errors, 1 pre-existing warning · check-no-emoji rc=0 · check-vercel-config rc=0 · Playwright 127 passed in 3.3 m · cold `pnpm -r test` with dist AND tsbuildinfo deleted: content 62, gateway 7, indexer 133 / 38 skipped, web 346, rc=0 - the tsbuildinfo move holds under exactly the condition it was written for. THE VERCEL FIX IS CONFIRMED FROM THE DEPLOYMENT RECORD: `pnpm turbo run build --filter=@zcashreveal/web` builds on Vercel. dpl_J5ryna, dpl_7H8zRa and dpl_2oH5aQ (the head, 4ee1c1f) are all READY. The branch went from ERROR to READY on the commit that changed the build command, and stayed READY for three consecutive deployments. THE KEY PROMISE, BROKEN ON PURPOSE BY L2. I did not accept the A11 suite on its own evidence. I planted the exact regression it exists to catch - added `value={probe}` with a `useState` echo, making the field controlled again - rebuilt from clean, and re-ran: test 2 of 14, "the key is in no attribute of any element in the serialised DOM", FAILED, and the other thirteen passed. Reverted, rebuilt, 14 passed. The suite detects the regression, it detects the RIGHT one, and it does not fire spuriously. That is the strongest evidence available short of a formal proof, and it is now on the record. The CSP was read rather than assumed: `connect-src 'self'` in fixture mode, `form-action 'none'`, `base-uri 'none'`, `object-src 'none'`, `frame-ancestors 'none'`, `font-src 'self'`. Between the uncontrolled field, `connect-src` and `form-action`, the promise is enforced by the browser and not only by the author. Verdict: every assertion holds. One gate round, 36 findings, converged. NO FINDINGS FROM L2.
+ANSWERS to the ledger questions: Q1 THE FOURTH GOLD JOB — you read the finding correctly and I agree with both of your calls. A consensus label is a claim about third parties, not the system's furniture: ink, with the precedence rank in words, is right. (a) The hover borders: gold is not a hover verb. Both `.entry:hover` and `.tk-examples a:hover` move to `--ink-dim`; the reviewer was right that the second followed precedent, and the precedent was the defect. Fold 1. (b) The unprovable-residual figure stays INK. Your reason is the correct one and I want it in the rule: gold marks a boundary crossing, not a magnitude, and a large gold number on a figure about unprovability reads as an accusation the site does not make. Fold 2 writes that sentence into CLAUDE.md so the next reader does not have to re-derive it. Q2 /address AT 94 — leave the assumptions in. An estimate that renders a claim chip without the assumptions that qualify it is the one thing this site cannot ship, and trading two tenths of a second of LCP for it is not a close call. Do not make the disclosure lazy. 94 stands under fold 3's container allowance, with this as the recorded reason. Q3 THE MEASUREMENT IS BLOCKED TWICE — this is the most useful thing in the ledger and it changes my instruction to the operator. I had been asking for Deployment Protection to come off; you have shown that would not be enough, because the session's own egress proxy refuses the CONNECT tunnel to the preview host with a 403 before SSO is ever reached. I reproduced the same class of refusal from L2's side. So the deployed measurement is not a thing a session can take at all, whatever the operator toggles. Ruling: the deployed Lighthouse number is the OPERATOR'S measurement, taken in a browser and pasted into the ledger, not a handoff deliverable; the container number remains the gate. Fold 4 rewrites the assertion accordingly, and HANDOFF-11 must plan for the same wall between a session and a live gateway - a session will never reach the VPS, so every live check there is either the operator's or it does not happen. Q4 `Unverified.surface` WITH 24 OF 32 RENDERING NOWHERE — make it nullable and have `permalink()` refuse rather than emit a dead anchor. A link that resolves to a page instead of the claim is a worse lie than no link. The editorial question - whether the other 24 should render at all - is mine and my answer is yes, eventually: a quarantine nobody can read is indistinguishable from suppression, which is precisely the failure this site documents in others. But it is a page, not a field, and it belongs to a later Web handoff. Fold 5 does the nullable half now and records the page as owed. Q5 `script-src 'unsafe-inline'` — ACCEPTED for now, on your reasoning, and I am ruling on it early exactly as you asked. A site with no user input, no database and no third-party script has little for an injected script to do, and the per-request nonce would cost the prerendering that the whole performance argument rests on. But your instinct about HANDOFF-13 is right and I am binding it now rather than leaving it to be rediscovered: when WASM decryption puts real note data in that tab, `unsafe-inline` is no longer acceptable, because the thing an injected script could then read is the user's own transaction history. Fold 6 writes that condition into HANDOFF-13 as a precondition of the plan. Q6 THE HEIGHT CORRECTION — accepted, and thank you for putting it in the right place rather than editing an append-only file. Three heights, three meanings, all three stated on /pools is the correct resolution.
+FOLDS (apply in the RECONCILE commit):
+
+1. `apps/web` - `.entry:hover` and `.tk-examples a:hover` use `--ink-dim`, not `--gold-dim`. Gold is not a hover verb (LEDGER-04 Q1a).
+2. CLAUDE.md, design system - append to the gold rule: "Gold marks a boundary crossing, never a magnitude. A large figure is not gold because it is large; a figure about unprovability is never gold, because size in the accent colour reads as an accusation this site does not make." (LEDGER-04 Q1b)
+3. CLAUDE.md, revolution protocol - append to the Lighthouse line: the deployed measurement is the operator's, taken in a browser and pasted into the ledger. A session cannot reach a preview host: Deployment Protection returns 302 to SSO, and the session egress proxy refuses the CONNECT tunnel with 403 before that. The container number is the gate (LEDGER-04 Q3).
+4. HANDOFF-11 §2 - add to the reading: a session cannot reach the VPS, the gateway or a preview host from inside its container. Every live check in that handoff is either the operator's, taken and pasted, or it is not taken. Plan the cutover checklist on that basis rather than discovering it at cutover (LEDGER-04 Q3).
+5. HANDOFF-05 §4 - add a deliverable: make `Unverified.surface` nullable in `packages/content` and have `permalink()` return null rather than a dead anchor when it is absent; callers render plain text where they would have rendered a link. Record in §8 that a page for the 24 unrendered quarantine records is owed to a later Web handoff (LEDGER-04 Q4).
+6. HANDOFF-13 §3 - add a precondition: Mode A may not ship while `script-src` carries `'unsafe-inline'`. Decrypted note data in the tab changes what an injected script could read, and the plan must cost the nonce-plus-middleware path against the prerendering it removes (LEDGER-04 Q5).
+
+NOTE ON TRACK ORDER: 02, 03 and 04 have closed the Web track's first pass. HANDOFF-05 (Data) is the open handoff and this session owns it. HANDOFF-10 (Infra) is also open and unclaimed; if Aqua wants the Infra track running in parallel it needs its own session, told it owns HANDOFF-10.
+OPERATOR CLICKS OUTSTANDING: delete the stale remote branches per `docs/2.0/BRANCH-CLEANUP.md`. Deployment Protection is no longer worth toggling for L2's benefit (see Q3) - leave it as you prefer. If you want a deployed Lighthouse number on the record, take it in your own browser on `zecreveal-git-main-aquatic-17b9f112.vercel.app/beware` and paste the two figures; a session cannot.
+```
+
+
+---
+
+## HANDOFF-05 — Gateway REST read API v2 + hardening (Zebra address-index RPCs with a cache)
+
+Branch `claude/gateway-api-handoff-05-12ogr3` (harness-designated) · shipped 23 Aug 2026 · gate rounds: 3
+
+```
+QUESTIONS (for the operator / L2):
+
+1. THE API PREFIX DISAGREES WITH ITSELF, AND I SHIPPED BOTH RATHER THAN PICK.
+   §3 of this handoff names `GET /api/search`, `/api/address/:addr` and the rest. HANDOFF-04
+   shipped `apps/web/src/lib/api/http-api.ts`, which requests `/v2/...`. One of the two is
+   wrong and neither is obviously the mistake: `/api` is what this handoff specifies and `/v2`
+   is what the only written client actually sends. Mounting one would have broken the other at
+   HANDOFF-11's cutover, in a way that looks like a network failure rather than a naming
+   disagreement, so every route is mounted at BOTH prefixes and the duplication is deliberate.
+   That is a decision to reverse, not a state to leave: two public prefixes for one API is
+   twice the surface to document, to rate-limit and to keep honest. Rule on which survives and
+   I will delete the other in HANDOFF-11 - my recommendation is `/v2`, because it versions the
+   API in the path and this is the second one, whereas `/api` will need a `/api/v3` eventually
+   and will then have the same problem with a worse name.
+
+2. `/api/pools` ANSWERS 503 AND NAMES WHAT IS MISSING. Confirm that is what you want.
+   The page has five blocks. One - the pool balances - is chain-derived and this handoff can
+   compute it. The other four are the turnstile ledger (HANDOFF-06), the deployment history
+   (07), the estimator panel (08) and the supply reconciliation (09), and NOTHING in this tree
+   carries them: not the indexer, not the corpus, not Zebra. The alternatives were to invent
+   plausible figures, to serve a 200 with four empty blocks, or to refuse. It refuses, with a
+   body naming each missing block and the handoff that owns it, and the half that is real is
+   served separately at `/api/pools/balances`. A 503 is a louder failure than an empty panel
+   and will look like a broken deployment to anyone who has not read this - which is the point,
+   but it is your call, not mine, and HANDOFF-11's cutover checklist needs to expect it.
+
+3. THE PROJECT'S OWN SPECIFICATION OF ZIP 317 IS AN APPROXIMATION, AND IT DIVERGES EXACTLY
+   WHERE THE SITE CARES MOST. `docs/2.0/TRACKING-MATH.md` §3.5, and the /method page that
+   renders it, give
+     L = max(t_in, t_out) + 2*nJoinSplit + max(nSpendsSapling, nOutputsSapling) + nActionsOrchard
+   which is ZIP 317's rule with its transparent term replaced by counts. The protocol's actual
+   transparent term is `max(ceil(inSize/150), ceil(outSize/34))` - Zebra implements exactly
+   that at `zebra-chain/src/transaction/unmined/zip317.rs:160-173`. The two agree while every
+   input and output is a standard P2PKH and diverge for anything larger. The largest script
+   this site discusses is the ZIP 271 lockbox, a 2-of-3 P2SH multisig whose inputs run well
+   past 150 bytes: two such inputs give ZIP 317 L=4 and a 20,000 zatoshi conventional fee,
+   against TRACKING-MATH's L=2 and 10,000. A page that says a lockbox disbursement did not pay
+   the conventional fee, when by the protocol it did, is a false statement about the one
+   address the project exists to track. The gateway follows the PROTOCOL and says so in
+   `views/context.ts`. I did not edit TRACKING-MATH or /method, because a specification another
+   track owns is not mine to correct silently. Ruling wanted: correct the document (my
+   recommendation - it is a Web-track edit to one section and one component, and the count form
+   can stay as a stated simplification with the exact rule beside it), or keep the count form
+   and have the gateway match it, in which case the divergence from Zebra needs a comment
+   saying it is deliberate.
+
+4. THE FEE IS NOT ON THE WIRE, AND TWO OF THE FIVE WALLET SIGNATURES ARE STILL BLIND.
+   Fixing the `expiryheight` casing revives two of the five - YWALLET and ZECWALLET_LITE, both
+   pinned by tests. NIGHTHAWK and ZCASHD_RUST stay inert, and for a second instance of exactly
+   the same defect: `leak-analyzer.ts:112` reads `tx.feeZat`, and no node sends one. Zebra's
+   `TransactionObject` has no fee field (types/transaction.rs:268-429, scanned in full) and
+   neither does zcashd's `getrawtransaction` - a fee is a property of the outputs a transaction
+   spends and those are not in the response. So `feeZat` coalesces to `0n`, and
+   `isZip317Conventional(0n, actions)` is false for every real transaction, because the
+   conventional fee has a floor of 10,000 zatoshi. Both signatures are SOUND - given a computed
+   fee they fire, which the tests show - and only their input is missing. Computing it is
+   analysis (HANDOFF-06/07/08), not a boundary fix, so I have not done it here. It needs an
+   owner before HANDOFF-08 freezes golden cases over an analyser that cannot see fees.
+
+5. A GATE THAT STOPS VERIFYING WITHOUT SAYING SO READS AS ONE THAT FINISHED.
+   The round-2 gate returned 39 findings, verified 10 against an internal cap, and reported the
+   other 19 HIGH/MID as unverified - in a log line at the end of the run, not in the findings.
+   It would have been very easy to treat the seven confirmed findings as the result and ship.
+   Round 3 exists because I read the 19: seventeen had already been fixed in rounds 1 and 2,
+   and TWO WERE STILL LIVE AND BOTH WERE REAL - one of them a DTO field carrying different
+   quantities in the gateway and in the fixture, under a rendered label that described only
+   one. If gates in this stack are going to cap verification, the cap belongs in the handoff's
+   §6 as a stated budget, and unverified findings belong in the report as work, not as a
+   footnote. I would rather a gate return 10 findings it verified and say "19 unread" in the
+   first line than return 39 and bury it.
+
+6. THE QUARANTINE PAGE IS OWED, AND THE COUNT IN BOTH LEDGERS IS WRONG.
+   Fold 5 and LEDGER-04 Q4 both say 24 of the 32 quarantined records render on no page, and
+   LEDGER-03 Q4 and LEDGER-04 Q4 both say four anchor on /flows and four on /network. Measured
+   from the prerendered HTML of a production build: TEN anchor - six on /flows, four on
+   /network - and TWENTY-TWO do not. The two allegations rows on /flows that own their anchors
+   are what the earlier count missed. Nothing about the fold changes: `surface` is nullable,
+   `permalink()` returns null, callers render plain text, and `requirePermalink()` exists for
+   the callers that genuinely must have one. Only the figure changes, and it changes here
+   rather than in your append-only block. The page for the 22 remains owed to a later Web
+   handoff, on your ruling that a quarantine nobody can read is indistinguishable from
+   suppression.
+
+INFERRED (non-empty inferences a worker made):
+
+- `chain-integrator` was told to read Zebra as the source of truth and inferred that "the
+  source of truth" means the SERIALISATION CODE rather than the doc comments. That inference is
+  load-bearing and it was right: four of Zebra's doc comments in `methods.rs` contradict its
+  own structs, including one that says `getaddressbalance` does not return `received` when the
+  struct returns it with no `serde(skip)`. A client written against the comments mis-parses.
+  `packages/zebra-rpc/src/schemas.ts` records each divergence beside the field.
+- I inferred that "labels/cases served from `packages/content`" (§4.2) means the gateway serves
+  the content package's OWN view of a label - the labeller and the precedence rank travelling
+  with every label, never the label alone. CLAUDE.md's precedence rule says the precedence is
+  always displayed, but §4.2 could be read as "serve the label strings". A bare label is an
+  attribution with no indication of who made it, which is the identity claim this site refuses.
+- `GATEWAY_TRUSTED_PROXIES` is not in §3's hardening list. I inferred it belongs to "rate
+  limiting per IP", because without it the limit is not per IP at all under the topology
+  HANDOFF-10 specifies. The list in §3 names the plugin, not the property; I implemented the
+  property.
+
+NOT-MATCHED (patterns handed over that did not apply):
+
+- §6's two-hop dispatch (`chain-integrator` writes the contract, `backend-api` executes it
+  after a PREFLIGHT) matched only in its first half. The contract was written by a spawned
+  `chain-integrator`; the execution was the lead's. No director was spawned, so Loop 1's
+  PREFLIGHT and Loop 3's spec-author review did not happen as separate steps - the spec author
+  and the executor were the same. Stated rather than glossed.
+- §6's `devops-deployer` "runs the test matrix in CI" did not apply: CI runs on push, and this
+  session stops at PR opened.
+- LEDGER-04's fold 3 named a line in CLAUDE.md's revolution protocol to append to. There was no
+  Lighthouse line in the revolution protocol to append to - the deployed-measurement rule had
+  never been written down there. The fold's intent is unambiguous, so a Lighthouse line was
+  ADDED carrying exactly the text the fold specifies, rather than the fold being reported as
+  inapplicable. Recorded because "appended to a line that did not exist" and "wrote a new line"
+  are different acts and only one of them is what you asked for.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+
+- `MempoolView.summary.conventionalFeeZat` had NO documentation at all, and two producers read
+  it two ways: `apps/web`'s fixture emits 10,000 (ZIP 317's fee at the grace minimum of two
+  logical actions) and the gateway emitted the SUM of the fees of the transactions that pay it.
+  /track renders whichever arrives under the subtitle "zat - ZIP 317 at 2 logical actions", so
+  the gateway's meaning made the label false - and only at the moment the gateway replaced the
+  fixture, which is HANDOFF-11's cutover. Resolved in favour of the label and the fixture; the
+  DTO now states the meaning. The general point is the one worth keeping: a zod field with a
+  name and no comment is a contract that two honest implementers can satisfy differently.
+- §5 A6 says "a second GET /api/address/... within the TTL performs 0 RPC calls". My first
+  implementation performed one and I wrote a justification for the divergence instead of
+  meeting the assertion - and the justification was backwards. Not ambiguous in hindsight;
+  recorded here because the pattern (a charitable reading of an assertion that literal
+  execution fails) is now four for four across three revolutions, and the assertion text was
+  never the problem.
+- §4.6 says "24 of the 32 quarantined records render on no page". The instruction is
+  unambiguous; the figure is wrong. See question 6.
+
+GATE ROUND COUNTS: 3. Round 1: lead review, 18 findings (7 HIGH, 5 MID, 3 LOW, 1 refuted by
+its own verification, 1 process, 1 recorded as not-a-finding), all with executed probes against
+the running server. Round 2: Workflow gate, four lenses (security, spec, facts, copy), ALL FAIL,
+39 raw findings, 10 verified adversarially - 7 confirmed, 3 refuted - and 19 HIGH/MID returned
+unverified against an undeclared cap. Round 3: the 2 of those 19 that were still live after
+rounds 1 and 2, both real. No finding reached a third round on ITSELF, so Loop 4's per-finding
+cap was never approached and nothing is NOT CONVERGING. Fingerprints (file · rule · severity)
+for all three rounds are in the handoff's §7.
+
+DEFERRED ASSUMPTIONS:
+
+- HANDOFF-08 MUST NOT CAPTURE ITS GOLDEN CASES BEFORE THIS MERGES. The expiry-height casing fix
+  changes what the analyser can see: `expiryDelta` goes from null for every transaction ever
+  processed to a real number, and `likelyWallet` goes from UNKNOWN_NONSTANDARD to YWALLET or
+  ZECWALLET_LITE for the transactions those signatures match. Golden cases captured against the
+  current main would freeze the blind answers as the expected ones, and the fix would then read
+  as a regression. This is a hard ordering dependency, not a preference.
+- HANDOFF-10'S MAINNET BLOCK FIXTURE MUST BE CAPTURED FROM A REAL RPC RESPONSE, not hand
+  written. The defect this handoff found was not a wrong value; it was a fixture that agreed
+  with the TypeScript interface and disagreed with the wire, which no test could catch because
+  every test read the same interface. `apps/indexer/src/decoder/__tests__/rpc-casing.test.ts`
+  now lints every transaction fixture for wire casing and requires each to carry
+  `expiryheight`, but a lint knows only the fields it was told about. A fixture captured from a
+  node is correct in the fields nobody has thought of yet.
+- REVERSE-PROXY ACCESS LOGS ARE THE THIRD COPY OF THE VIEWING-KEY EXPOSURE, and HANDOFF-10's
+  runbook owns them. A9 closes two: the response body and this process's own log lines.
+  cloudflared, nginx and every load balancer log full URLs by default, including the query
+  string, and no code inside this process can reach that configuration. The runbook needs to
+  turn it off or redact it at the proxy, and to say where those logs are shipped.
+- The indexer's `fingerprint.ts` computes ZIP 317's logical actions a third way - it sums
+  transparent inputs and outputs, and sums Sapling spends and outputs, where the protocol takes
+  the maximum of each pair. Its figure differs from the gateway's for any transaction with more
+  than one input. Correcting it is analysis and belongs to HANDOFF-08. Until then /track's rows
+  come from the indexer's count and /tx's come from the protocol's, and they can disagree.
+- Migration 003a has been applied to a local PostgreSQL 16 and its behaviour asserted there,
+  including a thirteen-digit zatoshi round-trip and a TTL evaluated against the database's own
+  clock. It has NOT been applied to the VPS database. That is an operator click.
+- No route has been exercised against a synced Zebra node or a populated mempool. Every route
+  test runs against a scripted RPC handler. Per LEDGER-04 Q3 a session cannot reach the VPS at
+  all, so the live check is the operator's or it does not happen - the same wall HANDOFF-11 has
+  to plan around.
+- `apps/gateway` still depends on `apps/indexer`'s TYPES (`LeakReport` and its neighbours)
+  through the workspace, which A8 permits - A8 forbids importing indexer SOURCES and the grep
+  proves none are imported. If those types are meant to live in `packages/zec-types`, that is a
+  move for a later Data handoff and it is not free: the indexer's analyser is their author.
+- The eslint no-unused-vars promotion and the unused `saplingSpend` in block-decoder.test.ts
+  remain deferred, as HANDOFF-00 through 04 all recorded. Still the only warning.
+```
+---
+
+## HANDOFF-05 §8 ADDENDUM — the managed Redis is connected, and it is SHARED
+
+Appended after PR #36 opened, under the L2 NOTE's own instruction ("apply this in your next commit
+if you are mid-session"). The note is archived verbatim at `handoffs/prompts/PROMPT-05.md` §4.
+
+```
+WHAT THE NOTE ESTABLISHED, AND WHY IT IS MORE THAN A CONSTRAINT:
+
+The Upstash store `upstash-kv-blue-garden` (ID 230ab52f-21d9-4a63-950e-ad265cc75902, Free plan)
+is connected to the `zecreveal` project, Production and Preview, with the custom variable prefix
+`SNAPSHOT_REDIS`. IT ALSO HOLDS THE LIVE DATA OF AN UNRELATED PRODUCTION PROJECT. That is a
+different class of fact from anything else in this ledger: every other rule here protects the
+accuracy of what this site says, and this one protects a third party's database from us. A wrong
+figure on a page is a wrong figure; a `FLUSHDB` there is an outage for someone who never agreed
+to run alongside us. The full rule set is `docs/2.0/SNAPSHOT.md`, which no later handoff may
+weaken, and it is now on the required reading in CLAUDE.md line 3 for any change touching Redis,
+a Vercel variable or the publisher.
+
+THE OPERATOR'S EXIT CONDITION, recorded as the note asks: the 500K commands/month allowance. When
+the shared total approaches it, ZECReveal moves to its own database - the Upstash free plan
+allows 10 per account, each with its own 256 MB and 500K commands, so the move costs nothing but
+a reconnect and a variable change. Until then the sharing is a deliberate accepted trade, not an
+accident to tidy up, and not a licence to treat the store as ours.
+
+THE NOTE ALSO CORRECTED THE REPOSITORY, WHICH IT DID NOT SET OUT TO DO. HANDOFF-10 §3 told a
+future session to read the injected variable names out of the Vercel UI and "record the result as
+an ASSUMPTION -> ACCEPTED/CORRECTED". The operator did exactly that, and the answer contradicts
+what this repository stated in thirteen places. The injected names are
+`SNAPSHOT_REDIS_KV_REST_API_URL`, `SNAPSHOT_REDIS_KV_REST_API_TOKEN`,
+`SNAPSHOT_REDIS_KV_REST_API_READ_ONLY_TOKEN`, `SNAPSHOT_REDIS_KV_URL` and
+`SNAPSHOT_REDIS_REDIS_URL`. The names the tree carried - `SNAPSHOT_REDIS_URL`,
+`SNAPSHOT_REDIS_REST_URL`, `SNAPSHOT_REDIS_REST_TOKEN` - are injected by NOTHING. The failure
+mode is the quiet kind: HANDOFF-11's SnapshotStore resolution order keys `redis-rest` on two of
+those names, so code built to that spec would have read `undefined`, fallen through to the
+gateway or the bundled fixture, rendered a stale site and reported no fault. `DEPLOY-2.0.md`'s
+instruction to "map them onto the three names above rather than teaching the code a second
+spelling" is withdrawn: on Vercel, mapping means hand-copying secrets the integration rotates and
+the copies do not.
+
+QUESTIONS (for the operator / L2):
+
+7. WHO OWNS THE READ SIDE OF THE BUDGET, AND WHAT IS IT?
+   The note's arithmetic - 3 commands per tip, ~105K/month, ~21% of the shared allowance - counts
+   only what the PUBLISHER WRITES. `apps/web` reads are commands too, and they are the unbounded
+   half: they scale with traffic, with the number of Vercel regions serving a page, and with the
+   revalidation interval, none of which the publisher controls. One `GET` per 60-second
+   revalidation across three regions is already ~4,300/day, MORE than the publisher's entire
+   budget. I have written the two rules that follow into HANDOFF-11 §3 (fetch once per render at
+   module scope, prefer a cached value inside its staleness window) and added assertion A10 to
+   measure it, and `SNAPSHOT.md` §5 now says plainly that the combined share is unknown and
+   larger than 21% rather than carrying a number nobody measured. What I cannot do from here is
+   see the OTHER project's consumption. The ceiling protects our share; it cannot tell us how
+   much of the allowance is already spent, and only you can read that in the Upstash console. If
+   the other project is already heavy, 150000 may be the wrong default.
+
+8. `@upstash/ratelimit` WAS SPECIFIED ON THAT STORE, AND I HAVE WITHDRAWN IT. RULE, PLEASE.
+   HANDOFF-11 §3 said: "if any proxy route exists it uses `@upstash/ratelimit` on the REST
+   credentials". That is a PER-REQUEST WRITER, using the READ-WRITE token, writing keys under its
+   own prefix - outside `zecreveal:` - into a database holding another company's production data.
+   It breaks four of the note's rules at once and would have looked like a sensible reuse of
+   credentials that were already there. I struck it and pointed the requirement at the gateway's
+   own per-IP limiter, which HANDOFF-05 shipped with a trusted-proxy list and which runs on the
+   VPS. Confirm that is the disposition you want; the alternative is an in-memory or edge limiter
+   in `apps/web`, and either is fine, but it must not be that store.
+
+9. THE STORE IS CONNECTED TO PREVIEW AS WELL AS PRODUCTION. IS THAT WHAT YOU WANT?
+   Every preview deployment can therefore read the shared store, and its reads land in the shared
+   budget. I have closed the one hole I could reach - `apps/web`'s Playwright config now blanks
+   all five variables for the build it starts, so no test run can resolve past the bundled
+   fixture - but a Vercel PREVIEW build is not something a session can configure. The choice is
+   yours: leave Preview connected and accept its reads in the budget, or disconnect Preview and
+   let previews render from the fixture. My recommendation is to disconnect Preview once
+   HANDOFF-11 lands, because a preview that reads production snapshots is also a preview whose
+   failure mode is indistinguishable from production's.
+
+10. THE NAMES ARE NOW CANONICAL IN CODE. CONFIRM YOU DO NOT WANT THE ALIASES.
+    I have taken the injected names as the ones the code reads, everywhere, and withdrawn the
+    "map them onto the repo names" instruction. The cost is that the repository's variable names
+    are now chosen by an integration rather than by us, and if you ever reconnect the store with
+    a different prefix - or move to a provider with different name shapes - the code changes with
+    it. The benefit is that nothing is hand-copied and nothing desynchronises on a rotation. If
+    you would rather own the names, the honest way is a single mapping module read at startup,
+    not three hand-created Vercel variables.
+
+INFERRED (non-empty inferences made applying the note):
+
+- The note says "record the two-server topology ... in `docs/2.0/SNAPSHOT.md`". That file did not
+  exist; HANDOFF-09 deliverable 1 commissions it. I created it carrying the SAFETY half only, and
+  marked the schema half as owed, rather than either waiting for 09 or writing 09's content. The
+  inference is that "record it in SNAPSHOT.md" means "create SNAPSHOT.md now" when the store is
+  already connected and the rules are already binding.
+- The note forbids specific commands. I inferred that the list is a class and not an enumeration,
+  which the adversarial review then confirmed twice over: `UNLINK` is `DEL` under another name and
+  defeated rule 4 by one word, and `redis-cli --scan / --bigkeys / --hotkeys / --memkeys / --rdb`
+  enumerate or dump the whole keyspace without ever spelling `KEYS` or `SCAN` - and those flags
+  are the form a runbook actually uses. Both are in the rules and in the guard.
+- I inferred a seventh rule the note does not state: never issue a command whose RESULT is not
+  scoped to a `zecreveal:` key. Rules 1-6 are all about keys, so `MONITOR`, `RANDOMKEY`, `DBSIZE`
+  and `INFO keyspace` - which name no key and report on the other tenant anyway - fell outside all
+  of them. Sharing a database is a confidentiality problem in BOTH directions, and nothing about
+  the arrangement entitles us to look at their data. If you consider that overreach, it is one
+  rule and one detector to remove.
+
+NOT-MATCHED:
+
+- The note says "otherwise carry it into the handoff that first touches the managed store". Not
+  applicable: this session was mid-flight, so the first branch applied and the whole note is
+  in this commit.
+- The note asks for the §5 assertion "wherever the publisher lands". The publisher does not land
+  in this handoff, so the assertion is written into HANDOFF-09 §5 as A10 (exactly three commands
+  per tip, counted by a spy rather than read off the code), A11 (every key begins `zecreveal:`)
+  and A12 (refuses to start over the ceiling) rather than executed here.
+
+WHAT WAS DONE, beyond writing the rules down:
+
+- `scripts/check-redis-safety.mjs`, run in CI and by `pnpm check`. Twenty detectors, self-tested
+  in both polarities on every run, exiting 2 rather than 0 if either direction breaks - so it
+  cannot decay into a scan that reports a clean tree having detected nothing. It caught its own
+  wiring comment in `ci.yml` on the first run, which is the evidence it is not vacuous.
+- `packages/zec-types/src/redis-topology.ts`: the two prefixes as constants, the snapshot key
+  builders, and `assertNotManagedStore`. The `zecreveal:` namespace existed only as hand-typed
+  literals in prose, waiting to be retyped by two more apps, one letter away from the VPS one.
+- The gateway and the indexer now REFUSE TO START if a Redis URL they would dial is the managed
+  store - by host, and by exact value match against any `SNAPSHOT_REDIS_*` variable in the
+  environment, which catches the copy-paste case whatever the host. `RATE_LIMIT_REDIS_URL` was an
+  unvalidated string handed straight to `new Redis(...)`, feeding a limiter that writes a key per
+  request: one pasted URL and it would have worked, quietly.
+- `.gitignore` widened from `.env` and `.env.local` to `.env*` with the examples excepted. The
+  read-write token would live in one of the variants that were committable.
+- The three static guards moved ABOVE install and build in CI. None needs either, and a PR whose
+  build broke never got its verdict on the guard that protects another project's database.
+
+DEFERRED / NOTICED:
+
+- `docker-compose.yml` publishes the VPS Redis on every interface with no password, while this
+  repository states as fact that that instance never leaves the box. HANDOFF-10 owns compose and
+  the runbook; it is recorded here rather than fixed, because the file is that handoff's
+  deliverable and the fix is a bind address plus a password in the same edit.
+- Rule 1 - the `zecreveal:` key namespace - is not mechanically enforced, because no code speaks
+  to the managed store yet. It lands with HANDOFF-09's A11. Rule 6, the read-only token, lands
+  with HANDOFF-11's A8. Both gaps are stated in `SNAPSHOT.md` §7 rather than left to be found.
+- `apps/web/README.md` still describes the gold accent as "exactly three things". LEDGER-03 Q2
+  licensed a fourth (the system-identity register). Unrelated to this note and not swept with it;
+  a one-line fix for whoever next touches that file.
+```

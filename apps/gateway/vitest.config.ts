@@ -22,7 +22,11 @@ export default defineConfig({
     // very error L2's finding F-02-1 asked HANDOFF-03 to eliminate.
     //
     // With the alias, `pnpm -r test` needs no build at all and cannot race.
-    alias: { "@zcashreveal/types": resolve(HERE, "../../packages/zec-types/src/index.ts") },
+    alias: {
+      "@zcashreveal/types": resolve(HERE, "../../packages/zec-types/src/index.ts"),
+      "@zcashreveal/zebra-rpc": resolve(HERE, "../../packages/zebra-rpc/src/index.ts"),
+      "@zcashreveal/content": resolve(HERE, "../../packages/content/src/index.ts"),
+    },
   },
   test: {
     include: ["src/**/__tests__/**/*.test.ts"],

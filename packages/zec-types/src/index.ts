@@ -2,6 +2,7 @@ export * from "./transactions.js";
 export * from "./shielded.js";
 export * from "./leaks.js";
 export * from "./realtime.js";
+export * from "./redis-topology.js";
 export * from "./analysis.js";
 export * from "./views.js";
 

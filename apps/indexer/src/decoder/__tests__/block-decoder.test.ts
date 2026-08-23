@@ -12,7 +12,7 @@ import {
   type RpcOrchardBundle,
 } from "@zcashreveal/types";
 import { decodeBlock } from "../block-decoder.js";
-import type { RpcBlock } from "../../zebrad-rpc.js";
+import type { RpcBlock } from "@zcashreveal/zebra-rpc";
 
 // ── Fixtures-as-code ────────────────────────────────────────────────────────
 // 64-hex-char value from a seed; uniqueness is per-test and irrelevant to the

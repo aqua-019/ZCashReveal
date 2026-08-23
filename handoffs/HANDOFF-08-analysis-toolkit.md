@@ -21,6 +21,17 @@ Implement the process-of-elimination toolkit from TRACKING-MATH §1, §3, §4 as
 
 ## §2 READING (state before you start)
 
+> **PRECONDITION FROM HANDOFF-05 (23 Aug 2026).** Do not capture a golden baseline until
+> HANDOFF-05 is merged. Until then the wallet fingerprint is INERT rather than merely
+> approximate: `RpcTransaction` declared `expiryHeight` while zcashd and Zebra serialise
+> `expiryheight`, so `leak-analyzer.ts` computed `expiryDelta = null` for every transaction that
+> ever came off a node, and `fingerprint.ts` gates three of its five signatures on
+> `expiryDelta !== null`. A baseline captured in that state freezes the bug into the artefact
+> that is supposed to detect it. HANDOFF-05 maps the wire spelling at the RPC boundary; two
+> signatures (YWALLET, ZECWALLET_LITE) become reachable and two (NIGHTHAWK, ZCASHD_RUST) do not,
+> because they also gate on a ZIP-317 conventional fee and the wire carries no fee field at all -
+> computing that fee is this handoff's, and it must be done before those two are baselined.
+
 - `CLAUDE.md` (2.0 conventions + the stack contracts)
 - `docs/2.0/ZECREVEAL-2.0-PLAN.md` (§§1–6, 9, 10)
 - `docs/2.0/TRACKING-MATH.md`

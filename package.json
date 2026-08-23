@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rm -rf node_modules",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "check": "./scripts/check-no-emoji.sh && node scripts/check-vercel-config.mjs && node scripts/check-redis-safety.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -72,6 +72,29 @@ export default defineConfig({
       // reachable (A4) and window.__zr installed (A5) in a PRODUCTION build,
       // so those assertions test shipped output. Never set on Vercel.
       NEXT_PUBLIC_ENABLE_DEV_SURFACES: "1",
+
+      /*
+       * THE MANAGED STORE IS BLANKED FOR THIS BUILD, DELIBERATELY.
+       *
+       * docs/2.0/SNAPSHOT.md rule 5 says tests, local development and BUILDS never
+       * point at the Vercel-managed Redis, because it is shared with an unrelated
+       * production project. This is the one config in the repository that starts a
+       * real Next.js build, so it is the one place where that rule needs a
+       * mechanism rather than a promise: a developer or a CI runner with the five
+       * variables in its ambient environment would otherwise produce a build whose
+       * SnapshotStore resolves to `redis-rest` and reads the live shared store on
+       * every render of the suite.
+       *
+       * Empty strings rather than `undefined`, because Playwright merges this over
+       * process.env and only a present-but-empty value reliably overrides an
+       * inherited one. HANDOFF-11's resolution order treats empty as absent and
+       * falls through to the bundled fixture, which is what an e2e run should read.
+       */
+      SNAPSHOT_REDIS_KV_REST_API_URL: "",
+      SNAPSHOT_REDIS_KV_REST_API_TOKEN: "",
+      SNAPSHOT_REDIS_KV_REST_API_READ_ONLY_TOKEN: "",
+      SNAPSHOT_REDIS_KV_URL: "",
+      SNAPSHOT_REDIS_REDIS_URL: "",
     },
   },
 });

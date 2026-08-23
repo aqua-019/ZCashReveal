@@ -64,11 +64,22 @@ function SourceRow({
       <span className="u">{source.url}</span>
       {citations.length === 0 ? null : (
         <span className="by">
-          {citations.map((c) => (
-            <a key={c.id} href={c.href} title={`${c.id} in ${c.collection}`}>
-              {c.id}
-            </a>
-          ))}
+          {citations.map((c) =>
+            // A quarantined record that renders on no page has no href, and
+            // gets plain text rather than an anchor to a page that does not
+            // carry it (LEDGER-04 Q4, fold 5). The title says why, so the
+            // reader is told the claim exists and is not yet published rather
+            // than left wondering why one id is not a link.
+            c.href === null ? (
+              <span key={c.id} title={`${c.id} in ${c.collection} - held in the quarantine, rendered on no page`}>
+                {c.id}
+              </span>
+            ) : (
+              <a key={c.id} href={c.href} title={`${c.id} in ${c.collection}`}>
+                {c.id}
+              </a>
+            ),
+          )}
         </span>
       )}
     </li>

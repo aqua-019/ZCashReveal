@@ -1379,7 +1379,11 @@ canvas[data-ui="fog"] {
 }
 
 .entry:hover {
-  border-color: var(--gold-dim);
+  /* Gold is not a hover verb (LEDGER-04 Q1a, fold 1). The four licensed jobs
+     are the primary action, the active state, value crossing a pool boundary
+     and the system-identity register; a hover border is none of them. The dim
+     verb is the whole hover language, so the border dims with everything else. */
+  border-color: var(--ink-dim);
   background-color: var(--surface-2);
   text-decoration: none;
 }
@@ -3364,7 +3368,9 @@ canvas[data-ui="fog"] {
 }
 
 .tk-examples a:hover {
-  border-color: var(--gold-dim);
+  /* Same rule, same reason as `.entry:hover` above (LEDGER-04 Q1a, fold 1).
+     This one followed that precedent, and the precedent was the defect. */
+  border-color: var(--ink-dim);
   text-decoration: none;
 }
 

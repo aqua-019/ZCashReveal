@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@zcashreveal/types": "workspace:*",
+    "@zcashreveal/zebra-rpc": "workspace:*",
     "ioredis": "^5.4.1",
     "pino": "^9.5.0",
     "pino-pretty": "^11.3.0",

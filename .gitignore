@@ -5,8 +5,12 @@ build/
 .turbo/
 *.log
 *.tsbuildinfo
-.env
-.env.local
+# Every .env variant, not just two. The managed store's READ-WRITE token would live
+# in one of these, and .env.production / .env.development.local were committable
+# before this widened. docs/2.0/SNAPSHOT.md.
+.env*
+!.env.example
+!apps/web/.env.example
 .DS_Store
 coverage/
 .vscode/

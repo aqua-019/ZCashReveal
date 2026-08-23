@@ -36,9 +36,15 @@ export function decodeOrchardBundle(
   }));
   return {
     actions,
-    anchor: bundle.anchor,
+    // Zebra omits `anchor`, `flags`, `proof` and `bindingSig` when the
+    // transaction has no Orchard bundle, and emits the `orchard` object itself
+    // unconditionally - so this branch is reached for ordinary transparent
+    // transactions, where the absent fields must read as null and not as
+    // undefined. `RpcOrchardBundle` declared them required until HANDOFF-05,
+    // which is what hid this; the stored value is unchanged, only its spelling.
+    anchor: bundle.anchor ?? null,
     valueBalanceZat: BigInt(bundle.valueBalanceZat),
-    flags: bundle.flags,
+    flags: bundle.flags ?? null,
   };
 }
 

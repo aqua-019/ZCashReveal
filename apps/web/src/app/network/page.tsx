@@ -7,7 +7,7 @@ import {
   getStats,
   getTimeline,
   getUnverifiedFor,
-  permalink,
+  requirePermalink,
   resolveSources,
   type NetworkEdge,
   type SourceRef,
@@ -706,7 +706,7 @@ export default function NetworkPage() {
                   <p className="cl">{u.claim}</p>
                   <p className="why">{u.why}</p>
                   <span className="claim">
-                    <a className="anchor" href={permalink(u.id)}>
+                    <a className="anchor" href={requirePermalink(u.id)}>
                       {u.id}
                     </a>
                     <Conf level="low" />

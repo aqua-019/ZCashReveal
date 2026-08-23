@@ -39,6 +39,7 @@ Produce a design and risk assessment for client-side viewing-key decryption (`pa
 - Provenance on every claim in §7: Executed (output shown) / Read (file + commit cited) / UNVERIFIED (labelled). Stale or fabricated claims are a gate failure.
 - The key never leaves the tab; no telemetry; strict CSP; results never stored; Mode B copy unchanged.
 - The plan names every assumption and marks each ACCEPTED / CORRECTED / DEFERRED for the operator.
+- **PRECONDITION (LEDGER-04 Q5).** Mode A may not ship while `script-src` carries `'unsafe-inline'`. HANDOFF-04 shipped that directive deliberately, on the reasoning that a site with no user input, no database and no third-party script gives an injected script little to do, and that a per-request nonce needs middleware and costs the whole site its prerendering. Decrypted note data in the tab changes what an injected script could read - the user's own transaction history - so the reasoning expires here. The plan must cost the nonce-plus-middleware path against the prerendering it removes and state which routes stop being static.
 
 ## §4 DELIVERABLES
 

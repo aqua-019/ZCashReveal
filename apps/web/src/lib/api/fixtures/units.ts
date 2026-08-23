@@ -3,9 +3,18 @@
  *
  * Every amount in the fixture corpus is written the way the research and the
  * mockup write it - "50000.5541" - and converted here, once, by string
- * arithmetic. Nothing in this corpus ever passes through a float: `50000.5541 *
- * 1e8` is 5000055409999.999 in IEEE 754, which would put the round-trip case
- * off by a zatoshi and quietly falsify the delta the whole /tx page is about.
+ * arithmetic.
+ *
+ * THE REASON, CORRECTED. This comment used to say `50000.5541 * 1e8` is
+ * 5000055409999.999 in IEEE 754. It is not: that product is exactly
+ * 5,000,055,410,000, and so are the other figures this corpus happens to hold.
+ * The claim was false and HANDOFF-05 corrected it here and in the four other
+ * places the tree restated it. The true reason is that surviving a double is a
+ * property of the particular decimal rather than of the conversion:
+ * `163.17 * 1e8` is 16,316,999,999.999998, two zatoshi short, and
+ * `69.93 * 1e8` is 6,993,000,000.000001. A conversion that is exact for
+ * today's corpus and wrong for tomorrow's is not one a site about arithmetic
+ * can use.
  */
 
 const ZAT_PER_ZEC = 100_000_000n;

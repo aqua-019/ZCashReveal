@@ -1,4 +1,4 @@
-import { permalink, resolveSources, type BewareEntry } from "@zcashreveal/content";
+import { requirePermalink, resolveSources, type BewareEntry } from "@zcashreveal/content";
 
 import { Cite } from "@/components/record/Cite";
 import { Conf } from "@/components/ui/Conf";
@@ -96,7 +96,7 @@ export function BewareRow({ entry }: { readonly entry: BewareEntry }) {
       </div>
       <div className="bw-claimline">
         <span className="claim">
-          <a className="anchor" href={permalink(entry.id)}>
+          <a className="anchor" href={requirePermalink(entry.id)}>
             {entry.id}
           </a>
           <Cite

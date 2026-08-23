@@ -31,7 +31,7 @@
       "S-sec-edgar-000119312526361075-zcsh-20260821",
       "S-sec-edgar-000119312526361067-zec-s-3-amendment-5"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -43,7 +43,7 @@
       "S-zcash-community-forum-shielded-labs-an-independe",
       "S-zcash-foundation-changing-of-the-guard"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -54,7 +54,7 @@
     "sources": [
       "S-the-block-268219-zcash-founder-zooko-wilcox-step"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -65,7 +65,7 @@
     "sources": [
       "S-pr-newswire-news-releases-leap-therapeutics-rebr"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -76,7 +76,7 @@
     "sources": [
       "S-coindesk-13-zcash-completes-powers-of-tau-privac"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -87,7 +87,7 @@
     "sources": [
       "S-coindesk-20-south-koreas-upbit-becomes-latest-ex"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -109,7 +109,7 @@
     "sources": [
       "S-electric-coin-company-continued-funding-and-tran"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -141,7 +141,7 @@
     "sources": [
       "S-zecsec-zecsec"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -176,7 +176,7 @@
     "sources": [
       "S-zcash-improvement-proposals-zip-2006"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -187,7 +187,7 @@
     "sources": [
       "S-protos-zcash-vs-bitcoin-debate-exposes-naval-rav"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -198,7 +198,7 @@
     "sources": [
       "S-the-daily-hodl-02-crypto-giant-bitwise-files-for"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -211,7 +211,7 @@
       "S-cointribune-zcash-anthropics-claude-mythos-detec",
       "S-crypto-briefing-zcash-anthropic-audit-no-serious"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -233,7 +233,7 @@
     "sources": [
       "S-coindesk-research-inside-zcash-encrypted-money-a"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -242,7 +242,7 @@
     "status": "not-verified",
     "why": "The Messari report page returned a 403 error on every fetch attempt in this research pass, so its sponsorship status could not be checked directly. Do not claim it was sponsored; the title's similarity to the disclosed-sponsored CoinDesk piece is suggestive but not evidence.",
     "sources": [],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -254,7 +254,7 @@
       "S-zcash-improvement-proposals-zip-0255",
       "S-zcash-upgrade-nu6-1"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -274,7 +274,7 @@
     "sources": [
       "S-sec-edgar-000119312526361075-zcsh-20260821"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -286,7 +286,7 @@
       "S-the-block-403791-zcash-selloff-extends-past-50-a",
       "S-coingecko-coins-zcash"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -298,7 +298,7 @@
       "S-coingecko-coins-zcash",
       "S-bitmex-com-zec-crash-2026"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -310,7 +310,7 @@
       "S-bitcoinfoundation-org-blockchain-news-zcash-bloc",
       "S-coincentral-com-zcash-block-halt-freezes-deposit"
     ],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -319,7 +319,7 @@
     "status": "not-verified",
     "why": "No documented campaign, origin or amplifier chain for the phrase '#ZecToTheMoon' was found anywhere in this research pass. It does not meet the bar for the phrase catalogue and must not be published as a real Zcash slogan.",
     "sources": [],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -328,7 +328,7 @@
     "status": "not-verified",
     "why": "No discrete first-party use of 'the privacy layer of the internet' as a Zcash slogan was located. The closest documented relative is cypherpunk.com's own phrasing about advancing technologies that guarantee privacy for humans on the internet, which is not the same phrase and should not be conflated with it.",
     "sources": [],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {
@@ -337,7 +337,7 @@
     "status": "not-verified",
     "why": "No sourced first-party use of 'the only true private cryptocurrency' by Zcash, Electric Coin Company or the Zcash Foundation was located. Comparisons to Monero exist in third-party commentary, but attributing this exact phrase to Zcash as a self-description is not supported.",
     "sources": [],
-    "surface": "/flows",
+    "surface": null,
     "lastVerified": "2026-08-22"
   },
   {

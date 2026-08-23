@@ -17,6 +17,14 @@ import { SITE_URL } from "@/lib/site";
  *
  * The canonical URL is absolute. A citation that only resolves relative to the
  * page it was copied from is not a citation.
+ *
+ * A claim can have NO canonical URL: `permalink()` returns null for the 22
+ * quarantined records that render on no page (LEDGER-04 Q4, fold 5). The
+ * popover then states that rather than linking, because an anchor that lands
+ * on a page which does not carry the claim tells the reader it is there when
+ * it is not. The id, the date, the confidence and the sources all still
+ * render - the record is held and citable, it just has no address on this
+ * site yet.
  */
 export function Cite({
   id,
@@ -33,7 +41,7 @@ export function Cite({
   readonly href?: string;
 }) {
   const path = href ?? permalink(id);
-  const canonical = `${SITE_URL}${path}`;
+  const canonical = path === null ? null : `${SITE_URL}${path}`;
   return (
     <details className="cite" data-cite={id}>
       <summary>
@@ -49,7 +57,11 @@ export function Cite({
           <div style={{ display: "contents" }}>
             <dt className="k">canonical</dt>
             <dd className="v">
-              <a href={path}>{canonical}</a>
+              {path === null || canonical === null ? (
+                <span className="note">held in the quarantine; no page renders it yet</span>
+              ) : (
+                <a href={path}>{canonical}</a>
+              )}
             </dd>
           </div>
           <div style={{ display: "contents" }}>

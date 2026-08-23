@@ -28,11 +28,11 @@ export function isHex(s: string): s is Hex {
 export type Zatoshi = bigint;
 
 export interface RpcVin {
-  txid?: Hex;
-  vout?: number;
-  scriptSig?: { asm: string; hex: Hex };
+  txid?: Hex | undefined;
+  vout?: number | undefined;
+  scriptSig?: { asm: string; hex: Hex } | undefined;
   sequence: number;
-  coinbase?: Hex;
+  coinbase?: Hex | undefined;
 }
 
 export interface RpcVout {
@@ -42,9 +42,9 @@ export interface RpcVout {
   scriptPubKey: {
     asm: string;
     hex: Hex;
-    reqSigs?: number;
+    reqSigs?: number | undefined;
     type: string;
-    addresses?: string[];
+    addresses?: string[] | undefined;
   };
 }
 
@@ -77,45 +77,91 @@ export interface RpcOrchardAction {
   spendAuthSig: Hex;
 }
 
+/**
+ * An Orchard-shaped bundle as `getrawtransaction` and `getblock` verbosity 2
+ * render it.
+ *
+ * FOUR FIELDS ARE OPTIONAL BECAUSE ZEBRA OMITS THEM. `flags`, `anchor`, `proof`
+ * and `bindingSig` all carry `skip_serializing_if = "Option::is_none"` on
+ * Zebra's `Orchard` struct (zebra-rpc/src/methods/types/transaction.rs, 6.3.0
+ * at 1c9b245), and Zebra emits the `orchard` key UNCONDITIONALLY - with an
+ * empty action list and zero balances - even for a pre-NU5 coinbase. So the
+ * presence of the bundle says nothing, only `actions.length` does, and for the
+ * majority of transactions these four are simply absent.
+ *
+ * They were declared required until HANDOFF-05, which is how `decodeOrchardBundle`
+ * came to read `undefined` out of `anchor` and assign it to a field it types as
+ * `Hex | null`. Correcting the declaration is what made that visible; the
+ * decoder now coalesces. Nothing in the analysis changed - the value it stored
+ * for such a transaction was already absent, it was merely spelled `undefined`
+ * where the type said `null`.
+ */
 export interface RpcOrchardBundle {
   actions: RpcOrchardAction[];
-  flags: {
-    enableSpends: boolean;
-    enableOutputs: boolean;
-  };
+  flags?:
+    | {
+        enableSpends: boolean;
+        enableOutputs: boolean;
+      }
+    | undefined;
   valueBalanceZat: number;
-  anchor: Hex;
-  proof: Hex;
-  bindingSig: Hex;
+  anchor?: Hex | undefined;
+  proof?: Hex | undefined;
+  bindingSig?: Hex | undefined;
 }
 
 export interface RpcTransaction {
   txid: Hex;
-  hash?: Hex;
+  hash?: Hex | undefined;
   version: number;
-  versionGroupId?: Hex;
+  /** The wire spells this `versiongroupid`; mapped at the RPC boundary, as `expiryHeight` is. */
+  versionGroupId?: Hex | undefined;
   locktime: number;
-  expiryHeight?: number;
-  size: number;
-  vsize?: number;
-  weight?: number;
+  /**
+   * ZIP 203 expiry height.
+   *
+   * THE WIRE SPELLS THIS `expiryheight`, ALL LOWERCASE. zcashd and Zebra both
+   * do (Zebra 6.3.0, types/transaction.rs `expiry_height` renamed to
+   * `expiryheight`), and this camelCase name has never matched a byte of a real
+   * response - so `leak-analyzer.ts` read `undefined` here for every
+   * transaction, and every fingerprint that keys on the expiry delta was dead
+   * against a node. `packages/zebra-rpc` now maps the wire spelling onto this
+   * name at the RPC boundary, which is the only place that knows both. See
+   * HANDOFF-05 section 7.
+   */
+  expiryHeight?: number | undefined;
+  /** Optional because Zebra marks it so; nothing in 2.0 reads it. */
+  size?: number | undefined;
+  vsize?: number | undefined;
+  weight?: number | undefined;
   vin: RpcVin[];
   vout: RpcVout[];
-  vShieldedSpend?: RpcSaplingSpend[];
-  vShieldedOutput?: RpcSaplingOutput[];
-  valueBalanceZat?: number;
-  bindingSig?: Hex;
-  orchard?: RpcOrchardBundle;
-  time?: number;
-  fee?: number;
-  feeZat?: number;
-  blockhash?: Hex;
-  confirmations?: number;
+  vShieldedSpend?: RpcSaplingSpend[] | undefined;
+  vShieldedOutput?: RpcSaplingOutput[] | undefined;
+  valueBalanceZat?: number | undefined;
+  bindingSig?: Hex | undefined;
+  orchard?: RpcOrchardBundle | undefined;
+  time?: number | undefined;
+  fee?: number | undefined;
+  feeZat?: number | undefined;
+  blockhash?: Hex | undefined;
+  confirmations?: number | undefined;
+  /**
+   * The height of the block containing this transaction.
+   *
+   * -1 for a transaction on a side chain, and ABSENT for one still in the
+   * mempool (Zebra 6.3.0, types/transaction.rs). Not coerced to 0 anywhere: a
+   * transaction recorded at height 0 would be recorded as being in the genesis
+   * block.
+   */
+  height?: number | undefined;
+  /** The containing block's time. Absent in the mempool, where `time` is the seen time. */
+  blocktime?: number | undefined;
 }
 
 export interface MempoolEntry {
   txid: Hex;
   seenAt: number;
-  height?: number;
+  height?: number | undefined;
   raw: RpcTransaction;
 }

@@ -204,31 +204,53 @@ correctness setting rather than an urgent one.
 
 ## 3. Environment variables — SERVER-ONLY (never `NEXT_PUBLIC_`)
 
-These arrive with HANDOFF-09 (the publisher writes) and HANDOFF-11 (`apps/web` reads).
-**Nothing in `apps/web` reads any of them today.** They are listed so the names are reserved and
-so nobody invents a `NEXT_PUBLIC_` alias for them later.
+These are read by HANDOFF-09 (the publisher writes) and HANDOFF-11 (`apps/web` reads).
+**Nothing in `apps/web` reads any of them today.** The store itself is already connected.
+
+**These names are the ones the integration injects, read out of the Vercel project by the
+operator on 23 August 2026 — not names this repository chose.** The store
+`upstash-kv-blue-garden` is connected to `zecreveal` for Production and Preview with the custom
+variable prefix `SNAPSHOT_REDIS`; the prefix is deliberate, because an unprefixed connect injects
+a bare `REDIS_URL`, which is already this repository's name for the VPS Redis.
 
 | Variable | Read by | Set on Vercel? |
 | --- | --- | --- |
-| `SNAPSHOT_REDIS_REST_URL` | `apps/web`, server-side only (RSC / route handlers) | Yes, from HANDOFF-11: Production and Preview |
-| `SNAPSHOT_REDIS_REST_TOKEN` | `apps/web`, server-side only | Yes, from HANDOFF-11: Production and Preview |
-| `SNAPSHOT_REDIS_URL` | `apps/publisher`, running on the VPS | **No.** This one is never set on Vercel. |
+| `SNAPSHOT_REDIS_KV_REST_API_URL` | `apps/web`, server-side only (RSC / route handlers) | Yes — injected, Production and Preview |
+| `SNAPSHOT_REDIS_KV_REST_API_READ_ONLY_TOKEN` | `apps/web`, server-side only. **This is the one `apps/web` uses.** | Yes — injected, Production and Preview |
+| `SNAPSHOT_REDIS_KV_REST_API_TOKEN` | nothing on Vercel — it is read-write, and the only writer is the publisher, which does not run on Vercel | Yes — injected, but unused there |
+| `SNAPSHOT_REDIS_KV_URL` | `apps/publisher`, running on the VPS | Injected, but the publisher reads it from the VPS `.env` |
+| `SNAPSHOT_REDIS_REDIS_URL` | `apps/publisher` — Upstash injects both TCP spellings | Injected, same |
 
-If the Marketplace Redis integration is added through the Vercel dashboard it may inject its own
-variable names. Map them onto the three names above rather than teaching the code a second
-spelling, and never accept an injected name that carries a `NEXT_PUBLIC_` prefix.
+**This corrects an earlier instruction in this file.** It previously listed the names as
+`SNAPSHOT_REDIS_REST_URL`, `SNAPSHOT_REDIS_REST_TOKEN` and `SNAPSHOT_REDIS_URL`, and told the
+operator to "map them onto the three names above rather than teaching the code a second spelling".
+Those three names are injected by nothing. The instruction is withdrawn for a concrete reason: on
+Vercel, "mapping" means adding three more variables by hand holding copies of the integration's
+secrets, and the integration rotates its own variables while hand-made copies do not rotate with
+them. **The injected names are canonical and the code reads them.** Never accept an injected name
+carrying a `NEXT_PUBLIC_` prefix, which is unchanged.
 
 ### The two Redis instances, which are never the same instance
 
 - **VPS Redis (`REDIS_URL`)** is the hot path: pub/sub, `zcashreveal:mempool:live`, the anchor
   registry. It is per-transaction traffic and it **never leaves the box**. It is not reachable
   from Vercel and no Vercel variable points at it.
-- **Vercel-managed Marketplace Redis** holds exactly one thing: `zecreveal:snapshot:*`. The
-  publisher on the VPS writes it over the REST endpoint on a slow cadence; `apps/web` reads it
-  server-side so the public site still renders when the VPS or the tunnel is down.
+- **Vercel-managed Marketplace Redis** holds exactly one thing OF OURS, `zecreveal:snapshot:*` — and the live data of an unrelated production project alongside it (see below). The
+  publisher on the VPS writes it on a slow cadence; `apps/web` reads it server-side so the public
+  site still renders when the VPS or the tunnel is down.
 
 No per-transaction traffic ever touches the managed Redis. If a design needs that, the design is
 wrong.
+
+### The managed store is SHARED, and that is not a detail
+
+The other project's data sits beside ours in that database, and the operator accepted that trade
+deliberately on the free tier. It changes what may be run there: every key of ours begins
+`zecreveal:`, the destructive commands are forbidden outright, the enumerating ones expose their
+keys as well as ours, and the 500K monthly command allowance is spent by both of us. Full rules
+are in [`SNAPSHOT.md`](SNAPSHOT.md), enforced in CI by `scripts/check-redis-safety.mjs`, and no
+handoff may weaken them. **Read that file before running anything against this store by hand** —
+including a read, because a command that enumerates does not have to name a key to expose one.
 
 ---
 
@@ -303,7 +325,12 @@ Two consequences worth stating, because three handoffs of ledger reasoned around
    that project was deleted on 23 Aug 2026 rather than repaired.**
 4. Set the four `NEXT_PUBLIC_*` variables from section 2, with `NEXT_PUBLIC_DATA_MODE=snapshot`
    in Production and Preview.
-5. Leave every variable in section 3 unset for now; they arrive with HANDOFF-09/11.
+5. ~~Leave every variable in section 3 unset for now.~~ **Done differently, 23 Aug 2026:** the
+   store `upstash-kv-blue-garden` is connected to `zecreveal` for Production and Preview under the
+   variable prefix `SNAPSHOT_REDIS`, so Vercel injects all five names in the section 3 table
+   automatically and there is nothing to set, and nothing to leave unset, by hand. No code reads
+   them until HANDOFF-09/11. **Do not hand-create variables alongside them** — the integration
+   rotates its own and hand-made copies do not rotate with it. See [`SNAPSHOT.md`](SNAPSHOT.md) §3.
 6. Redeploy `zecreveal`, then walk the section 5 checklist. The first build failed with
    `NEXT_OUTPUT_DIR_MISSING`; the cause is fixed in code and a fresh build is needed to prove it.
 7. Promote to Production by hand once the checklist passes.

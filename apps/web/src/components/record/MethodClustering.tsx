@@ -2,7 +2,7 @@ import {
   LABELLER_PRECEDENCE,
   getCase,
   getLabels,
-  permalink,
+  requirePermalink,
   resolveSources,
   type AddressLabel,
   type Labeller,
@@ -48,7 +48,7 @@ const LABELLER_LABEL: Record<Labeller, string> = {
 function LabelClaim({ label }: { readonly label: AddressLabel }) {
   return (
     <span className="claim">
-      <a className="anchor" href={permalink(label.id)}>
+      <a className="anchor" href={requirePermalink(label.id)}>
         {label.id.slice(0, 10)}...
       </a>
       <Chip>{LABELLER_LABEL[label.labeller]}</Chip>
@@ -184,7 +184,7 @@ export function MethodClustering() {
           )}
           {janCase === undefined ? null : (
             <span className="claim">
-              <a className="anchor" href={permalink(janCase.id)}>
+              <a className="anchor" href={requirePermalink(janCase.id)}>
                 {janCase.id}
               </a>
               <Cite

@@ -27,6 +27,11 @@ import { Conf } from "@/components/ui/Conf";
  * reader can see which figures the schema has checked and which it has not.
  * Their ids are the `R-` family, which `permalink()` does not route: they are
  * page-local, so every one passes `href` explicitly.
+ *
+ * A third case arrived with LEDGER-04 fold 5: `permalink()` returns null for a
+ * quarantined record that renders on no page. The id then renders as plain
+ * text rather than as an anchor - the record is still cited, with its sources
+ * and its confidence, but nothing pretends there is a place to go and read it.
  */
 export function FlowsClaim({
   id,
@@ -51,14 +56,14 @@ export function FlowsClaim({
   const path = href ?? permalink(id);
   return (
     <span className="claim">
-      <a className="anchor" href={path}>
-        {id}
-      </a>
-      {(also ?? []).map((other) => (
-        <a className="anchor" key={other} href={permalink(other)}>
-          {other}
+      {path === null ? (
+        <span className="anchor">{id}</span>
+      ) : (
+        <a className="anchor" href={path}>
+          {id}
         </a>
-      ))}
+      )}
+      {(also ?? []).map((other) => <ClaimAnchor key={other} id={other} />)}
       <Conf level={confidence} />
       {unbound ? (
         <Chip title="Stated and sourced by the 22 August 2026 research pass, but not yet carried as a schema-validated record in packages/content.">
@@ -86,5 +91,21 @@ export function FlowsClaim({
         />
       )}
     </span>
+  );
+}
+
+/**
+ * One `also` id: an anchor where it resolves, plain text where it does not.
+ *
+ * Extracted rather than inlined because the null branch needs a real element
+ * and a ternary inside a `.map` that returns two different tags is the shape
+ * that gets mis-edited later.
+ */
+function ClaimAnchor({ id }: { readonly id: string }) {
+  const path = permalink(id);
+  return path === null ? <span className="anchor">{id}</span> : (
+    <a className="anchor" href={path}>
+      {id}
+    </a>
   );
 }

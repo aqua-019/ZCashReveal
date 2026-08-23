@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { getSource, permalink, type SourceRef } from "@zcashreveal/content";
+import { getSource, requirePermalink, type SourceRef } from "@zcashreveal/content";
 
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { Pill } from "@/components/ui/Pill";
@@ -331,7 +331,7 @@ function LineageCell({ entries }: { readonly entries: readonly Lineage[] }) {
         }
         return (
           <div key={e.ref}>
-            <a href={permalink(source.id)} title={`${source.publisher} - accessed ${source.accessed}`}>
+            <a href={requirePermalink(source.id)} title={`${source.publisher} - accessed ${source.accessed}`}>
               <b>{source.title}</b>
             </a>
             {e.note === undefined ? null : <span className="mt-internal"> {e.note}</span>}

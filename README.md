@@ -85,8 +85,10 @@ pnpm install --frozen-lockfile
 pnpm build          # turbo, topological
 pnpm typecheck      # all packages
 pnpm lint           # eslint flat config; Math.random is banned repo-wide
-pnpm -r test        # 178 tests: indexer 171, gateway 7
-./scripts/check-no-emoji.sh
+pnpm -r test        # every workspace suite
+pnpm check          # the three static guards CI runs: no emoji, Vercel config,
+                    # and shared-Redis safety (docs/2.0/SNAPSHOT.md - the managed
+                    # store holds another production project's live data)
 ```
 
 37 of the indexer's tests are Postgres-backed integration tests. They gate themselves on a
