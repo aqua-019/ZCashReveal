@@ -225,11 +225,27 @@ const P2PKH_STANDARD_OUTPUT_SIZE = 34;
  * multisig input is larger than a standard one and costs more than one action,
  * which is precisely the case the site's own subject matter is full of.
  *
- * `apps/indexer/src/decoder/fingerprint.ts` computes this a fourth way - it
- * sums the transparent input and output counts - so the indexer's figure and
- * this one disagree for any transaction with more than one input or output.
- * Correcting the indexer is analysis and belongs to HANDOFF-08; the divergence
- * is recorded in the section 8 ledger.
+ * THREE OTHER PLACES IN THIS PROJECT STATE A DIFFERENT L, and one of them is a
+ * specification rather than an implementation.
+ *
+ *   `apps/indexer/src/decoder/fingerprint.ts` SUMS the transparent input and
+ *   output counts and sums Sapling's spends and outputs. Wrong twice over, and
+ *   its figure differs from this one for any transaction with more than one
+ *   input. Correcting it is analysis and belongs to HANDOFF-08.
+ *
+ *   `docs/2.0/TRACKING-MATH.md` section 3.5 and the `/method` page that renders
+ *   it both give `L = max(t_in, t_out) + 2*nJoinSplit + max(sapling) + orchard`
+ *   - the count-based form. That is ZIP 317's rule with its transparent term
+ *   APPROXIMATED: the real one is `max(ceil(inSize/150), ceil(outSize/34))`,
+ *   and the two agree exactly when every input and output is a standard P2PKH.
+ *   They diverge for larger scripts - and the largest script on this site is
+ *   the ZIP 271 lockbox, a 2-of-3 P2SH multisig whose inputs run well past 150
+ *   bytes. So the one address the project cares most about is the one where its
+ *   own stated formula and the protocol disagree.
+ *
+ * This function follows the protocol, and the divergence from TRACKING-MATH is
+ * a question for L2 in the section 8 ledger rather than a silent correction to
+ * a document this handoff does not own.
  */
 export function zip317LogicalActions(tx: RpcTransaction): number {
   const inSize = tx.vin.reduce((acc, v) => acc + transparentInputSize(v), 0);
