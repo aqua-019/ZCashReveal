@@ -1,7 +1,7 @@
 ---
 handoff: 00
 title: Housekeeping, docs import, CI runs tests, CLAUDE.md
-status: shipped
+status: closed
 branch: claude/aqua-stack-v4-1-handoff-818gb3 (session-designated; see LEDGER question 1)
 track: Foundation — first
 depends_on: —

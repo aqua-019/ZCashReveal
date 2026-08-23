@@ -82,6 +82,14 @@ jobs:
       - name: Test - apps/gateway (vitest run)
         run: pnpm --filter @zcashreveal/gateway exec vitest run
 
+      # apps/web arrives in HANDOFF-01. Its unit suite covers the seeded RNG,
+      # the zatoshi formatters and assertion A2's token check, and none of it
+      # was gated before this step existed: pnpm build, typecheck and lint do
+      # not run vitest. The Playwright suite carrying A4-A7 needs a browser
+      # download and is not wired in here; see the HANDOFF-01 ledger block.
+      - name: Test - apps/web (vitest run)
+        run: pnpm --filter @zcashreveal/web exec vitest run
+
       # packages/content arrives in HANDOFF-02; until then this step reports and passes.
       - name: Validate content package
         run: |

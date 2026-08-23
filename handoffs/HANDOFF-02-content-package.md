@@ -2,7 +2,7 @@
 handoff: 02
 title: `packages/content` — zod schemas + research seeds
 status: queued
-branch: feat/v2-02-content
+branch: the session-designated branch (name it `feat/v2-02-content-package` if you may choose)
 track: Web
 depends_on: 00
 written_by: L2 (Cowork) · 22 Aug 2026

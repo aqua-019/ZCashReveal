@@ -210,7 +210,7 @@ The live half of 2.0 is now an **explorer**, not a dashboard. Spec: `TRACKING-MA
 
 **Keep** (the moat): `apps/indexer` (analysis, state machine, persistence, decoder, 171 tests), `apps/gateway`, `packages/zec-types`, `RESEARCH.md`, git history, AGPL licence, the public GitHub ↔ Vercel link.
 **Retire** after harvesting: `apps/dashboard` → `legacy/dashboard` for one release (harvest `tokens.ts`, `formatters.ts`, `parsers.ts`, `icons.tsx`, the panel logic into `apps/web` islands), then delete. Root `vercel.json` goes with it (the new Vercel project points at `apps/web`).
-**Delete now**: 22 stale `claude/*` branches + the two merged `feat/*` branches; the orphan Vercel project.
+**Delete now**: 20 stale `claude/*` branches (19 merged, 1 not) + the 2 merged `feat/*` branches; the orphan Vercel project. Corrected from 22 by HANDOFF-01: `docs/2.0/BRANCH-CLEANUP.md` is generated from live git and is authoritative (LEDGER-00 Q3).
 **Add**: `apps/web` (Next.js App Router, React 19, Tailwind v4), `apps/publisher` (snapshot), `packages/content`, `docs/2.0/` (this plan, the dossier, `TRACKING-MATH.md`, handoff), an updated `CLAUDE.md` (2.0 conventions: content schema, label provenance, halt-before-merge, SVG-only), a rewritten `README.md`.
 **New Vercel project**: yes — `zecreveal` with Root Directory `apps/web`, Framework Next.js, env `NEXT_PUBLIC_API_URL` / `NEXT_PUBLIC_WS_URL`; keep `z-cash-reveal-dashboard2` in mock mode until cutover, then delete.
 **Do not** start a fresh repository: the tests and module history are exactly what a Claude Code session needs as ground truth, and the repo is already public under the right licence.

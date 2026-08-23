@@ -2,7 +2,7 @@
 handoff: 13
 title: Mode A — viewing-key decryption in the browser (2.1; PLAN ONLY, stop for approval)
 status: queued
-branch: feat/v2-13-mode-a (plan only)
+branch: the session-designated branch (name it `feat/v2-13-mode-a-wasm` if you may choose)
 track: 2.1 — plan only
 depends_on: 04, 11
 written_by: L2 (Cowork) · 22 Aug 2026

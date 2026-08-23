@@ -20,3 +20,7 @@ docker-compose.override.yml
 
 # vitest JSON report consumed by scripts/assert-no-skipped-integration.mjs in CI
 indexer-results.json
+
+# Playwright run artefacts (apps/web). The suite is reproducible; its output is not committed.
+test-results/
+playwright-report/
