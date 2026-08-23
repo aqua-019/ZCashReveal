@@ -251,7 +251,7 @@
       "kind": "person",
       "title": "Arthur Hayes",
       "role": "BitMEX co-founder; Maelstrom CIO; built a large ZEC position through Maelstrom, publicly called a $10,000 ZEC price target, then liquidated the entire position after the Orchard bug disclosure and disclosed the exit.",
-      "exposure": "Maelstrom ZEC position (Arkham estimate ~$174M, became second-largest holding after Bitcoin); exited entirely 4-5 Jun 2026",
+      "exposure": "Maelstrom ZEC position, size never disclosed; research 03 records it as the family office's second-largest holding after Bitcoin. Exited entirely 4-5 Jun 2026, self-disclosed.",
       "summary": "The most prominent ZEC promoter to exit publicly and explain why, which cuts against a simple coordinated-pump reading of the network.",
       "confidence": "high",
       "lastVerified": "2026-08-22",
@@ -264,7 +264,8 @@
         "S-yahoo-finance-arthur-hayes-10-000-zec",
         "S-coindesk-arthur-hayes-liquidated-his-entire-zec",
         "S-cryptopolitan-com-cryptopolitan-2"
-      ]
+      ],
+      "body": "The reported $174M ZEC position that Arkham described losing over half its value on 5 June 2026 is NOT this one. Research 04 section 2 records it as an unnamed holder, a party distinct from Hayes, at low confidence, and section 7 records the underlying Arkham post as unlocatable. The corpus contradicts itself here: research 03's holders table attaches the $174M figure to Maelstrom, while research 04, the pass that examined this figure directly, separates them. The quarantine entry U-arkham-174m-position-post holds the unattributed claim; this record states only what Hayes disclosed himself, which is that he liquidated the entire position because exploitation could not be cryptographically proven impossible."
     },
     {
       "id": "N-josh-swihart",
@@ -541,7 +542,7 @@
       "kind": "vehicle",
       "title": "Grayscale Zcash Trust (ZCSH)",
       "role": "OTC trust holding ZEC in Coinbase Custody, sponsored by Grayscale; registering to convert into a spot ETF on NYSE Arca with a 2.5% sponsor fee and BNY Mellon as transfer agent.",
-      "exposure": "391,103.89 ZEC (~$99.4M), 31 Mar 2026; more than $260M AUM, 22 Aug 2026",
+      "exposure": "388,673.68359943 ZEC at 30 Jun 2026 (Q2 10-Q, fair value $155,252k, NAV per share $32.15); 391,103.89 ZEC at 31 Mar 2026; more than $260M in assets claimed 22 Aug 2026.",
       "summary": "The institutional ZEC vehicle that, once converted to an ETF, will hold the token in fully transparent custody -- no privacy passes through to shareholders.",
       "confidence": "med",
       "lastVerified": "2026-08-22",
@@ -553,8 +554,10 @@
       "sources": [
         "S-crypto-news-the-first-privacy-coin-etf-inside-gr",
         "S-the-block-the-block-grayscale-moves-closer-to-fi",
-        "S-cryptoslate-grayscales-zcash-etf-regulated-priva"
-      ]
+        "S-cryptoslate-grayscales-zcash-etf-regulated-priva",
+        "S-sec-edgar-grayscale-zcash-trust-10-q-period-ende"
+      ],
+      "body": "The ZEC count is the one figure in this graph the corpus states three different ways. Research 04's SEC EDGAR table is itemised by filing date and is the primary record: 392,723.58934327 at 2024-12-31, 392,728.70106678 at 2025-06-30, 393,522.33134026 at 2025-12-31, and 388,673.68359943 at 2026-06-30 against total assets of $155,252k. Research 01 and the dossier's section E.3 both attach the 393,522.33 figure to the Q2 10-Q, but that figure is the 2025-12-31 line in the same table, and the $155,252k it is paired with belongs to the 388,673.68 line. The most recent primary figure is used here and the others are carried alongside it rather than silently dropped."
     },
     {
       "id": "N-zcash-protocol",
