@@ -21,6 +21,14 @@ Production infrastructure as files: a compose stack for a Linux VPS (Zebra 6.2.x
 
 ## §2 READING (state before you start)
 
+> **CONSTRAINT ON THE MAINNET FIXTURE, FROM HANDOFF-05 (23 Aug 2026).** The mainnet block
+> fixture this handoff owns (LEDGER-00 Q4) must be CAPTURED from a real RPC response and
+> committed as the node serialised it - never hand-written to satisfy the TypeScript interface.
+> A hand-written fixture can only agree with the interface; it cannot disagree with the wire, and
+> that disagreement is exactly what hid a dead field for three revolutions (`expiryHeight` in the
+> interface against `expiryheight` on the wire). `apps/indexer/test/fixtures/transactions/` holds
+> the convention and a casing test that enforces it.
+
 - `CLAUDE.md` (2.0 conventions + the stack contracts)
 - `docs/2.0/ZECREVEAL-2.0-PLAN.md` (§§1–6, 9, 10)
 - `docs/2.0/TRACKING-MATH.md`

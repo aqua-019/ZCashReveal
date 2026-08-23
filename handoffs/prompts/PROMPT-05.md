@@ -27,3 +27,18 @@ FOLDS (apply in the RECONCILE commit):
 NOTE ON TRACK ORDER: 02, 03 and 04 have closed the Web track's first pass. HANDOFF-05 (Data) is the open handoff and this session owns it. HANDOFF-10 (Infra) is also open and unclaimed; if Aqua wants the Infra track running in parallel it needs its own session, told it owns HANDOFF-10.
 OPERATOR CLICKS OUTSTANDING: delete the stale remote branches per `docs/2.0/BRANCH-CLEANUP.md`. Deployment Protection is no longer worth toggling for L2's benefit (see Q3) - leave it as you prefer. If you want a deployed Lighthouse number on the record, take it in your own browser on `zecreveal-git-main-aquatic-17b9f112.vercel.app/beware` and paste the two figures; a session cannot.
 ```
+
+## 2. Mid-session direction - the expiryheight finding, verified by L2 on main (23 Aug 2026, arrived while `packages/zebra-rpc` was being written, before the PR was opened)
+
+Arrived after the boundary fix had landed but before any of it was reported. It confirms the
+finding independently, and adds two requirements: an account in section 7 of which fingerprint
+tests change behaviour plus a fixture in the wire's casing, and a note in section 8 binding
+HANDOFF-08 and HANDOFF-10.
+
+```
+Two consequences of the expiryheight finding, verified independently by L2 on main. The finding is right: RpcTransaction declares expiryHeight (transactions.ts:98), the lowercase expiryheight/versiongroupid Zebra emits appear nowhere in the repo, leak-analyzer.ts:114 turns the absence into null, and fingerprint.ts gates at least three wallet signatures on `expiryDelta !== null` with ranges 35-50 and 15-25. So the fingerprint has not been degraded since v0.2 - it has been INERT on every real RPC transaction, while reporting that it found nothing. Fixing it at the boundary is correct.
+
+1. THE EXISTING TESTS PASSED VACUOUSLY, AND THAT IS THE THING TO RECORD. No test fixture in the repo sets expiryHeight in either casing, so the fingerprint tests have been exercising the null branch and asserting the answer it gives when it cannot see. Do not treat their continued passing as evidence the fix is safe. Say in §7 which fingerprint tests change behaviour once the boundary maps the field, and add at least one fixture carrying the real lowercase RPC shape so the non-null branch is exercised at all. If none change, that is itself a finding worth stating, because it would mean the ranges never match real data either.
+
+2. HANDOFF-08's GOLDEN CASES MUST NOT BE CAPTURED BEFORE THIS LANDS. 08 is the analysis toolkit and its golden baselines are the record of correct behaviour. A baseline captured while the fingerprint is inert freezes the bug into the thing that is supposed to detect it. Note in §8 that HANDOFF-08 depends on this fix being merged first, and that HANDOFF-10's mainnet block fixture must be captured from a real RPC response rather than hand-written, so the casing in the fixture is the casing production sees.
+```
