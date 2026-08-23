@@ -193,18 +193,40 @@ async function poolChecks(sql: Sql): Promise<string[]> {
   return rows.map((r) => `${r.tbl}|${r.conname}|${r.def}`);
 }
 
+/**
+ * The migrations a database records as applied, ordered BY JAVASCRIPT.
+ *
+ * THE SORT DELIBERATELY DOES NOT HAPPEN IN SQL, and this cost a red CI run to
+ * learn. These names are compared against `migrationFiles()`, which is the
+ * runner's own `readdir().sort()` - a byte-order sort. `ORDER BY name` in
+ * Postgres sorts by the DATABASE'S COLLATION instead, and the two disagree on
+ * exactly the pair this project has:
+ *
+ *   C / C.UTF-8   `_` is 0x5F and `a` is 0x61, so 003_four_pools precedes 003a_gateway_cache
+ *   en_US.utf8    punctuation is ignored at the primary level, so 003a_gateway_cache precedes 003_four_pools
+ *
+ * The development container runs C.UTF-8 and the CI service container runs
+ * en_US.utf8, so this file passed locally and failed on the runner with a diff
+ * showing the same four names in a different order. Sorting both sides in the
+ * same language removes the dependency rather than pinning a collation the next
+ * environment may not have - and the ORDER migrations were applied in is
+ * asserted separately and better, from the runner's own `[migrate] apply` lines.
+ */
 async function appliedNames(sql: Sql): Promise<string[]> {
   const rows = await sql<{ name: string }[]>`
-    SELECT name FROM schema_migrations ORDER BY name
+    SELECT name FROM schema_migrations
   `;
-  return rows.map((r) => r.name);
+  return rows.map((r) => r.name).sort();
 }
 
+/** As `appliedNames`, sorted in JavaScript for the same reason. */
 async function appliedStamps(sql: Sql): Promise<string[]> {
   const rows = await sql<{ name: string; applied_at: Date }[]>`
-    SELECT name, applied_at FROM schema_migrations ORDER BY name
+    SELECT name, applied_at FROM schema_migrations
   `;
-  return rows.map((r) => `${r.name}|${r.applied_at.toISOString()}`);
+  return rows
+    .map((r) => `${r.name}|${r.applied_at.toISOString()}`)
+    .sort((a, b) => (a.split("|")[0]! < b.split("|")[0]! ? -1 : 1));
 }
 
 // ---------------------------------------------------------------------------
