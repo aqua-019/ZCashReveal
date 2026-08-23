@@ -1,1 +1,436 @@
-[]
+[
+  {
+    "id": "B1",
+    "title": "Sprout counterfeiting — BCTV14 soundness (CVE-2019-7167)",
+    "summary": "A soundness flaw in Sprout's BCTV14 zk-SNARK let a cheating prover skip a consistency check and mint unlimited counterfeit shielded ZEC; it was found in March 2018, kept to four people at Electric Coin Company for eleven months, and fixed silently by the October 2018 Sapling upgrade before the public was told in February 2019.",
+    "body": "Ariel Gabizon discovered the flaw on 1 March 2018 at the Financial Cryptography conference; Sean Bowe confirmed it the same day. For the next eleven months exactly four people on earth knew: Gabizon, Bowe, Zooko Wilcox and Nathan Wilcox. The original multi-party-computation ceremony transcript was quietly pulled from public availability during this period and later reconstructed from DVDs. The bug itself sat in BCTV14 key generation, which emitted unused \"bypass\" polynomial elements in the proving key; a cheating prover could use those elements to convert a valid proof of one statement into a valid-looking proof of a different, false statement, and so mint shielded value with no corresponding input.\n\nThe fix shipped on 28 October 2018 as the Sapling network upgrade at block 419,200, migrating the circuit to Groth16 over BLS12-381 — publicly framed as a performance and efficiency release, not a security fix. Horizen and Komodo, which had forked the Sprout code, were notified under a 90-day embargo on 13 November 2018. The Zcash Foundation, co-holder of the project's trademark and consensus veto, was told on 4 February 2019 — one day before the public disclosure on 5 February 2019.\n\nZIP 209 (the chain value pool \"turnstile\") was deployed afterward to reject any block that would drive Sprout's on-chain balance negative, bounding future outflow to what had provably entered the pool. It cannot retroactively prove the pool is clean, and the Sprout pool has never emptied — it still held roughly 22,000-25,000 ZEC as of this corpus — so the question the bug raised has never been closed. The Zcash Foundation put it this way on 5 February 2019: \"it's impossible to know if it's been exploited... until Sprout addresses are deprecated\"",
+    "sources": [
+      "S-electric-coin-company-ecc-zcash-counterfeiting-v",
+      "S-zcash-foundation-zf-concerning-the-sprout-vulner",
+      "S-zcash-improvement-proposals-zip-209-prohibit-out"
+    ],
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "counterfeiting",
+      "sprout",
+      "soundness",
+      "zk-snark",
+      "turnstile"
+    ],
+    "discovered": "1 Mar 2018",
+    "disclosed": "5 Feb 2019 (341 days later)",
+    "fixed": "28 Oct 2018 (Sapling, block 419,200, silently)",
+    "discoverer": "Ariel Gabizon (ECC); confirmed same day by Sean Bowe",
+    "rootCause": "BCTV14 key generation emitted extra unused \"bypass\" polynomial elements in the proving key, letting a cheating prover skip a consistency check and convert a proof of one statement into a valid-looking proof of another, false statement -> unlimited counterfeit shielded value with no corresponding input",
+    "detectable": "no",
+    "window": {
+      "from": "28 Oct 2016",
+      "to": "28 Oct 2018"
+    },
+    "severity": "crit",
+    "cve": [
+      "CVE-2019-7167"
+    ]
+  },
+  {
+    "id": "B2",
+    "title": "Orchard Action circuit soundness — missing copy constraint (CVE-2026-54496)",
+    "summary": "A single missing equality constraint in the halo2 scalar-multiplication gadget left the Orchard Action circuit's key-to-nullifier binding unenforced for four years, letting a malicious prover forge nullifiers and spend authorisations; Taylor Hornby, working with Anthropic's Claude Opus 4.8, built a working exploit that generated unlimited undetectable counterfeit ZEC in regtest one day after the model's release.",
+    "body": "The bug went live with NU5/Orchard activation at block 1,687,104 on 31 May 2022. On 29 May 2026 at 23:53, Taylor Hornby of Defuse Security — contracted by Shielded Labs and also a Zcash Foundation board member — found the flaw using an AI-assisted auditing framework built on Anthropic's Claude Opus 4.8, released the day before. ZODL engineers confirmed it after midnight on 30 May; private coordination with miners and exchanges began the evening of 31 May. An emergency soft fork at block 3,363,426 (around 02:00 UTC on 2 June) disabled Orchard transactions network-wide; the NU6.2 hard fork at block 3,364,600 on 3 June shipped the corrected circuit. Public disclosure followed on 4 June via a forum post from Zooko Wilcox, Jason McGee and Taylor Hornby; the formal GHSA-ww9q-8r59-xv46 / CVE-2026-54496 advisory, rated CVSS 9.3 Critical, was published 15 June.\n\nThe root cause: in halo2_gadgets/src/ecc/chip/mul/incomplete.rs, lines 309-310, the variable-base scalar-multiplication gadget assigned the base-point coordinates into the incomplete double-and-add loop using assign_advice(), which merely creates a witness cell, instead of copy_advice(), which creates an equality constraint binding that cell to the real input. The circuit therefore never enforced pk_d = [ivk]·g_d. A malicious prover could substitute an arbitrary base point and the proof would still verify, breaking the binding from spending key to nullifier and permitting repeat spends of the same note under distinct, valid-looking nullifiers, plus forged spend authorisations.\n\nShielded Labs, quoted by The Block, confirmed the exploit was not theoretical: Hornby, with Opus 4.8's help, \"wrote a complete exploit which, when he tested it in a local regtest environment, generated unlimited, undetectable counterfeit ZEC.\" ZEC fell from roughly $545 on 29 May to a $624 peak on 4 June and then to $309 on 5 June — about 50% in under 48 hours — as holders including Arthur Hayes exited positions they could not have cryptographically proven clean. No security advisory for this class of defect was ever published in the zcash/orchard or zcash/halo2 repositories where the defective code actually lives; the advisory exists only in ZcashFoundation/zebra and zcash/zcash. Bruce Schneier's assessment stood as the plainest statement of the underlying problem: \"there's no way of knowing if anyone exploited the vulnerability to steal money.\"",
+    "sources": [
+      "S-github-ghsa-ww9q-8r59-xv46-cve-2026-54496-orchar",
+      "S-zodl-zodl-orchard-vulnerability-successfully-rem",
+      "S-zcash-community-forum-note-the-asymmetry-the-iro",
+      "S-schneier-on-security-schneier-on-security-critic"
+    ],
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "counterfeiting",
+      "orchard",
+      "soundness",
+      "halo2",
+      "cve-2026-54496"
+    ],
+    "discovered": "29 May 2026, 23:53",
+    "disclosed": "4 Jun 2026 (forum); GHSA/CVE 15 Jun 2026",
+    "fixed": "soft fork 2 Jun 2026 (block 3,363,426); NU6.2 hard fork 3 Jun 2026 (block 3,364,600)",
+    "discoverer": "Taylor Hornby (Defuse Security, Shielded Labs engagement) with Anthropic's Claude Opus 4.8",
+    "rootCause": "halo2_gadgets/src/ecc/chip/mul/incomplete.rs lines 309-310 used assign_advice() instead of copy_advice() for the base-point coordinates in the incomplete double-and-add loop, so the loop's base was never bound to the real diversified base g_d and pk_d = [ivk]·g_d went unenforced -> forged nullifier keys, repeat spends, forged spend authorisations",
+    "detectable": "no",
+    "window": {
+      "from": "31 May 2022",
+      "to": "1 Jun 2026 (4 years, 1 day)"
+    },
+    "severity": "crit",
+    "cve": [
+      "CVE-2026-54496",
+      "GHSA-ww9q-8r59-xv46"
+    ]
+  },
+  {
+    "id": "B3",
+    "title": "PING and REJECT remote side-channels (CVE-2019-16930, CVE-2019-17048)",
+    "summary": "Two remote timing and behavioural side-channels in zcashd's networking and wallet code let a remote attacker learn whether a node controlled a given shielded address and map that address to an IP, without breaking any cryptography.",
+    "body": "Florian Tramèr, Dan Boneh and Kenneth Paterson published the attacks as \"Remote Side-Channel Attacks on Anonymous Transactions\" at USENIX Security 2020. REJECT (CVE-2019-16930) exploited an unhandled exception in wallet transaction-processing code: sending a crafted transaction to a target node caused it to drop its P2P connection, revealing that the node controlled a specific Sapling shielded address and, combined with standard peer-discovery techniques, its IP address. PING (CVE-2019-17048) exploited the fact that wallet trial-decryption ran inline with the network thread, so the delay before a node answered a ping was a timing oracle revealing whether the peer held the relevant viewing key; this affected both Sprout and Sapling wallets since launch.\n\nNeither attack leaves any trace distinguishable from ordinary network activity, and neither requires breaking the underlying zero-knowledge proofs — they defeat the shielded pool by attacking the node software's observable behaviour instead. Both were fixed in zcashd 2.0.7-3, released 24 September 2019.",
+    "sources": [
+      "S-electric-coin-company-fixed-zcashd-2-0-7-3-relea",
+      "S-usenix-paper-florian-trame-r-dan-boneh-kenneth-g"
+    ],
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "deanonymization",
+      "side-channel",
+      "sprout",
+      "sapling",
+      "networking"
+    ],
+    "discovered": "2019",
+    "disclosed": "24 Sep 2019",
+    "fixed": "zcashd 2.0.7-3",
+    "discoverer": "Florian Tramèr, Dan Boneh, Kenneth G. Paterson (Stanford/ETH, USENIX Security 2020)",
+    "rootCause": "REJECT: an unhandled exception in wallet transaction-processing code drops the P2P connection when a node controls the targeted shielded address, leaking address-to-node and address-to-IP mappings. PING: wallet trial-decryption runs inline with the network thread, so response latency to a ping is a timing oracle for whether the peer holds the relevant viewing key",
+    "detectable": "no",
+    "window": {
+      "from": "Launch",
+      "to": "Sep 2019 (Sprout + Sapling)"
+    },
+    "severity": "high",
+    "cve": [
+      "CVE-2019-16930",
+      "CVE-2019-17048"
+    ]
+  },
+  {
+    "id": "B4",
+    "title": "Sandblasting spam attack (Sapling Woodchipper)",
+    "summary": "An attacker exploited zcashd's flat 1,000-zatoshi fee to flood the mempool with roughly 1,100-output transactions for about $10 a day, roughly tripling chain size and degrading light wallets for close to a year until ZIP 317's proportional fee shipped.",
+    "body": "The attack began roughly mid-June 2022, about two weeks after NU5/Orchard activated, and was public knowledge by October 2022. Because zcashd charged the same flat 1,000-zatoshi fee no matter how many outputs a transaction carried, an attacker could build transactions with around 1,100 outputs and pay the same fee as an ordinary two-output transaction, saturating 2 MB blocks roughly every 75 seconds for an estimated $10 a day. Chain size roughly tripled, from about 30 GB to over 100 GB, by October 2022. Full nodes and exchanges took four to six weeks to stabilise; mobile and other light wallets took roughly twelve months to fully recover, and lightwalletd would hang for up to ten minutes at a time. The attacker's identity was never established; the community's own retrospective concluded it was \"not worth speculating\" on attribution.\n\nThe fix, ZIP 317 (\"Proportional Transfer Fee Mechanism\", authored by Daira-Emma Hopwood, Kris Nuttycombe and Jack Grigg), replaced the flat fee with a formula proportional to the number of logical actions in a transaction; it became the zcashd default in v5.5.0, April 2023, and spam stopped entering the mempool around November 2023. The retrospective explicitly frames this as a previously theoretical, documented weakness — nicknamed the \"Sapling Woodchipper\" — that sat unfixed until someone actually used it.",
+    "sources": [
+      "S-protos-chain-bloat-30-gb-100-gb-tripled-by-octob",
+      "S-github-start-mid-june-2022-roughly-two-weeks-aft",
+      "S-zcash-improvement-proposals-mechanism-a-flat-1-0"
+    ],
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "spam",
+      "denial-of-service",
+      "fees",
+      "sapling"
+    ],
+    "discovered": "~mid-Jun 2022",
+    "disclosed": "public by Oct 2022",
+    "fixed": "ZIP 317 (default in zcashd v5.5.0, Apr 2023); spam stopped entering the mempool ~Nov 2023",
+    "discoverer": "unknown attacker; publicised by the community (Jameson Lopp among others)",
+    "rootCause": "A flat 1,000-zatoshi fee regardless of transaction size let an attacker build ~1,100-output transactions paying the same fee as a 2-output transaction, saturating blocks for about $10/day -- a previously theorised, documented design weakness (\"Sapling Woodchipper\") left unfixed until exploited",
+    "detectable": "yes",
+    "window": {
+      "from": "Jun 2022",
+      "to": "Nov 2023"
+    },
+    "severity": "mid"
+  },
+  {
+    "id": "B5",
+    "title": "zcashd skipped Sprout proof verification for 5.7 years",
+    "summary": "An optimisation in zcashd's block-validation cache meant Sprout zk-SNARK proofs were never actually checked from mid-2020 until March 2026, so a zcashd node would have accepted a block containing an invalid Sprout spend.",
+    "body": "The bug traced back to zcashd v3.1.0 (28 July 2020), where an optimisation set the CBlock::fChecked cache flag on a block's first validation pass; on any later pass CheckBlock returned early because of that cached flag, and the Sprout proof-verification step was never actually executed. The condition persisted through roughly v6.11.x, a span of about 5.7 years, and was reported by Alex \"Scalar\" Sol (working with AI assistance) on 23 March 2026 and disclosed 31 March 2026; it was fixed in zcashd 6.12.0.\n\nBecause Zebra, the independent Rust implementation, verified Sprout proofs correctly throughout, an attempt to actually exploit the gap on zcashd would have produced a visible chain fork between the two implementations rather than a silent loss -- which is why the corpus marks this only partially undetectable rather than fully covert.",
+    "sources": [
+      "S-zodl-zodl-zcashd-sprout-verification-vulnerabili",
+      "S-decrypt-decrypt-zcash-devs-patch-vulnerability-m"
+    ],
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "consensus",
+      "sprout",
+      "validation-bug",
+      "zcashd"
+    ],
+    "discovered": "23 Mar 2026 (reported)",
+    "disclosed": "31 Mar 2026",
+    "fixed": "zcashd 6.12.0",
+    "discoverer": "Alex \"Scalar\" Sol (AI-assisted)",
+    "rootCause": "CBlock::fChecked was set on the first validation pass, so CheckBlock returned early on later passes and Sprout proofs were never verified at all, from zcashd v3.1.0 (28 Jul 2020) through v6.11.x",
+    "detectable": "partial",
+    "window": {
+      "from": "Jul 2020",
+      "to": "Mar 2026"
+    },
+    "severity": "high"
+  },
+  {
+    "id": "B6",
+    "title": "Turnstile accounting bypass via duplicate block header",
+    "summary": "A misplaced function call let a duplicate block header silently reset zcashd's tracked pool balances, disabling turnstile enforcement -- the one mechanism meant to bound the damage from a counterfeiting-class bug like B1 or B2 -- during ordinary peer-to-peer operation.",
+    "body": "Alex \"Scalar\" Sol reported the bug on 4 April 2026; it was disclosed around 17 April 2026 and fixed in zcashd v6.12.1. The defect was a misplaced SetChainPoolValues call inside AcceptBlock: it ran before the already-seen-header check, so a duplicate block header could silently reset the node's tracked chain-value-pool balances to an unset state, disabling the ZIP 209 turnstile check on subsequent blocks.\n\nThe dossier's own summary table gives the affected range as zcashd v5.0.0 through v6.12.0; the underlying research dossier's detailed entry instead cites v5.10.0 through v6.12.0 -- the two corpus documents disagree by roughly a minor-version range and neither is corrected against the other here. Whether the bug was ever actually triggered outside the reporter's own testing is not established in either source, which is why detectability is recorded as unclear (partial) rather than yes or no.",
+    "sources": [
+      "S-zodl-zodl-several-zcash-vulnerabilities-remediat"
+    ],
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "turnstile",
+      "consensus",
+      "zcashd",
+      "accounting"
+    ],
+    "discovered": "4 Apr 2026",
+    "disclosed": "~17 Apr 2026",
+    "fixed": "zcashd 6.12.1",
+    "discoverer": "Alex \"Scalar\" Sol",
+    "rootCause": "SetChainPoolValues was called in AcceptBlock before the already-seen-header check, so a duplicate block header silently reset tracked pool balances to an unset state, disabling ZIP 209 turnstile enforcement on subsequent blocks (dossier states affected range zcashd v5.0.0 -> v6.12.0; research/03's detailed entry states v5.10.0 -> v6.12.0 -- the two corpus documents disagree and are reported here as found)",
+    "detectable": "partial",
+    "window": {
+      "from": "zcashd v5.0.0",
+      "to": "v6.12.0"
+    },
+    "severity": "high"
+  },
+  {
+    "id": "B7",
+    "title": "Orchard identity-rk crash, identity-epk consensus gap and signed-overflow pool accounting (Apr 2026)",
+    "summary": "Three of the four vulnerabilities disclosed alongside B6: a crafted Orchard action could crash both zcashd and Zebra via an identity-point randomized key, zcashd failed to enforce that ephemeral keys were not the identity point (a rule Zebra did enforce, creating chain-split risk), and a signed-integer overflow in C++ pool-balance accounting was undefined behaviour on crafted blocks.",
+    "body": "Alex \"Scalar\" Sol reported all three, alongside B6, on 4 April 2026; ZODL disclosed them around 17 April 2026 and they were fixed in zcashd 6.12.1 and Zebra 4.3.1+. The identity-rk crash (GHSA-452v-w3gx-72wg, rated Critical) let a maliciously crafted Orchard action, whose randomized key rk encoded the Pallas identity point, panic both implementations. Separately, zcashd failed to enforce the \"epk is not the identity point\" consensus rule that Zebra did enforce, which is a chain-split risk rather than a crash: the two implementations could accept different sets of blocks as valid. The third bug was a signed-integer overflow -- C++ undefined behaviour -- in pool-balance accounting, triggerable by a maliciously crafted block.\n\nAll three were visibly detectable, either as a node crash or a chain fork, unlike the covert counterfeiting bugs (B1, B2) or the silent accounting bypass (B6) disclosed alongside them.",
+    "sources": [
+      "S-zodl-zodl-several-zcash-vulnerabilities-remediat"
+    ],
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "consensus",
+      "denial-of-service",
+      "orchard",
+      "zcashd",
+      "zebra"
+    ],
+    "discovered": "4 Apr 2026",
+    "disclosed": "~17 Apr 2026",
+    "fixed": "zcashd 6.12.1 / Zebra 4.3.1+",
+    "discoverer": "Alex \"Scalar\" Sol",
+    "rootCause": "An Orchard action whose randomized key rk encodes the Pallas identity point crashes both implementations (GHSA-452v-w3gx-72wg); zcashd did not enforce that the ephemeral key epk is not the identity point, a rule Zebra enforced, creating chain-split risk; a signed integer overflow (C++ undefined behaviour) in pool-balance accounting was triggerable on crafted blocks",
+    "detectable": "yes",
+    "window": {
+      "from": "zcashd v5.0.0 / Zebra v1.0.0",
+      "to": "zcashd v6.12.0 / Zebra v4.3.0"
+    },
+    "severity": "high",
+    "cve": [
+      "GHSA-452v-w3gx-72wg"
+    ]
+  },
+  {
+    "id": "B8",
+    "title": "Viewing-key leak via memo Reply-To",
+    "summary": "Two shielded wallets, ECC's own iOS reference wallet and Nighthawk, offered a memo field that could carry the sender's full viewing key instead of an address; anyone who received such a memo gained permanent, irrevocable read access to the sender's entire wallet history.",
+    "body": "Nighthawk Wallet's team disclosed the bug on 13 July 2021. Affected wallets inserted the sender's full viewing key -- a string beginning zxview... -- into the memo field where a return address was intended. A recipient who kept that memo could decrypt the sender's entire past and future shielded transaction history, and because the chain is immutable, any memo already broadcast could never be retracted.\n\nThe bug was detectable only by the victim, by noticing a memo beginning zxview, and affected the ECC iOS reference wallet from build 0.3.7-105 (6 May 2021) onward and Nighthawk 1.9 and later; it was fixed in subsequent wallet updates.",
+    "sources": [
+      "S-electric-coin-company-ecc-privacy-leak-bug-in-ni"
+    ],
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "privacy-leak",
+      "viewing-key",
+      "wallet",
+      "memo"
+    ],
+    "discovered": "Jul 2021",
+    "disclosed": "13 Jul 2021",
+    "fixed": "wallet updates (post-0.3.7-105 ECC iOS reference wallet; post-1.9 Nighthawk)",
+    "discoverer": "Nighthawk Wallet team",
+    "rootCause": "Wallets inserted the sender's full viewing key into the memo field instead of a return address, giving any recipient permanent, irrevocable read access to the sender's entire wallet history once broadcast to the immutable chain",
+    "detectable": "partial",
+    "window": {
+      "from": "ECC iOS ref wallet 0.3.7-105 (6 May 2021)",
+      "to": "Nighthawk 1.9+"
+    },
+    "severity": "mid"
+  },
+  {
+    "id": "B9",
+    "title": "Linkability research: round-trips, anonymity-set shrinkage and mining fingerprints",
+    "summary": "Three peer-reviewed studies (Quesnelle 2017, Kappos et al. 2018, Biryukov and Feher 2019) showed that Zcash's shielded pool was substantially linkable in practice through usage patterns rather than any cryptographic weakness -- round-trip shield/deshield transactions, the Founders' Reward's fixed withdrawal amount, and mining-pool timing correlations.",
+    "body": "Jeffrey Quesnelle (arXiv:1712.01210, 4 Dec 2017) found that 31.5% of all coins ever sent to shielded addresses were involved in \"round-trip\" transactions -- shielded then deshielded in the identical amount -- with 10,075 matching pairs covering 919,220 of 2,911,734 coins, 96% of which matched within two hours. George Kappos, Haaroon Yousaf, Mary Maller and Sarah Meiklejohn (USENIX Security 2018) showed simple heuristics reduced the effective anonymity set by 69.1%; only 0.3% of transactions were fully private (shielded to shielded); and a specific heuristic -- any shielded-to-transparent transaction carrying exactly 250.0001 ZEC -- identified Founders' Reward withdrawals, tagging 1,953 such transactions of which 1,943 (99.5%) also matched a 6-10 block timing pattern, turning the \"private\" pool's largest structural flow into its most legible fingerprint. Alex Biryukov and Daniel Feher (IEEE CNS 2019) linked 84% of shielded transaction volume to mining pools and concluded that 95.5% of all Zcash transactions were potentially linkable to public addresses simply by observing mining activity, writing that \"even if a blockchain is theoretically safe, bad use practices and an intermix of hidden and public transactions can lead to considerable information leakage defeating the very strong cryptographic privacy features.\"\n\nNone of these findings implicate the underlying zero-knowledge cryptography; they are usage-pattern findings, which is precisely why they cannot be fixed by a protocol upgrade the way B1, B2, B5, B6 and B7 were. Shielded-pool share has since grown -- 3.6% at Kappos' 2018 measurement, 7.4% in 2021, roughly 26-27% by 22 August 2026 -- but the underlying behavioural patterns these studies identified remain a live, ongoing property of how the pool is actually used, not something later fixed by any upgrade.",
+    "sources": [
+      "S-arxiv-quesnelle-on-the-linkability-of-zcash-tran",
+      "S-usenix-kappos-yousaf-maller-meiklejohn-an-empiri",
+      "S-orbilu-uni-lu-biryukov-feher-privacy-and-linkabi"
+    ],
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "linkability",
+      "privacy-research",
+      "anonymity-set",
+      "founders-reward"
+    ],
+    "discovered": "2017-2019",
+    "disclosed": "2017-2019",
+    "fixed": "not applicable -- usage-pattern research findings, not a software defect with a patch",
+    "discoverer": "Jeffrey Quesnelle (academia, 2017); George Kappos, Haaroon Yousaf, Mary Maller, Sarah Meiklejohn (UCL, USENIX Security 2018); Alex Biryukov, Daniel Feher (Univ. of Luxembourg, IEEE CNS 2019)",
+    "rootCause": "Usage, not cryptography: round-trip shield/deshield transactions of identical amounts, the Founders' Reward's fixed 250.0001 ZEC withdrawal amount matched to timing, and heavy correlation of shielded volume with mining-pool activity",
+    "detectable": "n/a",
+    "window": {
+      "from": "ongoing",
+      "to": "ongoing"
+    },
+    "severity": "mid"
+  },
+  {
+    "id": "B10",
+    "title": "The 2026 advisory wave -- 41 Zebra advisories in five months",
+    "summary": "Between March and August 2026 Zebra published 41 security advisories (12 Critical, 6 High) and zcashd published 9 more (2 Critical) -- several fixes, including the sigop undercount and V5 SIGHASH_SINGLE handling, had to be re-fixed after an initial patch proved incomplete -- and zcashd's own advisories were released after the codebase had already been archived.",
+    "body": "The wave spans consensus-divergence, denial-of-service and chain-stall classes of bug. Two sequences stand out as their own indictment of the fix process: GHSA-gf9r-m956-97qx (Critical, 29 May 2026, sigop undercount, CVE-2026-52735) was followed by GHSA-2prc-cj5x-4443 (Critical, 1 Jun 2026) stating the first fix was incomplete, which was itself followed by a third \"incomplete sigops fix\" advisory in zcashd on 13 July 2026. Separately, GHSA-cwfq-rfcr-8hmp (SIGHASH_SINGLE divergence, Critical, 2 May 2026) was followed two days later by GHSA-pvmv-cwg8-v6c8 stating Zebra \"still\" accepted V5 SIGHASH_SINGLE transactions without a corresponding output. Named CVEs inside the wave include CVE-2026-34377 (27 Mar), CVE-2026-41583 (17 Apr, CVSS 9.3), CVE-2026-44497 (2 May, CVSS 9.3) and CVE-2026-52735 (29 May).\n\nThe timing compounds the risk: zcashd reached an automatic, unrestartable end-of-life at block 3,417,100 on 18 July 2026, and zcash/zcash was archived on GitHub the next day, 19 July 2026 -- yet zcashd's own nine advisories (including two rated Critical) were published in a burst on 8 May and 13/19 July 2026, meaning several were disclosed only after the code they described was already dead and unpatchable. Zcash entered NU6.3 (28 July 2026) with a single consensus implementation, Zebra, ten days after its cross-checking predecessor was switched off and immediately after the densest run of Critical consensus advisories in the project's history; the cross-implementation divergence checking that had previously caught B6's and B7's zcashd-only bugs no longer exists. The Zcash Foundation has since announced Zakura, a second node built from the Zebra codebase itself -- a fork of the same code, not independent implementation diversity.",
+    "sources": [
+      "S-github-zcash-zcash-security-disclosures",
+      "S-github-zcashfoundation-zebra-advisories-pages-1",
+      "S-zcash-z-cash-zcashd-deprecation-eol"
+    ],
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "node-security",
+      "zebra",
+      "zcashd",
+      "consensus",
+      "advisories"
+    ],
+    "discovered": "Mar-Aug 2026",
+    "disclosed": "Mar-Aug 2026",
+    "fixed": "various point releases across zcashd and Zebra, Mar-Aug 2026; several required a second or third re-fix",
+    "discoverer": "various",
+    "rootCause": "Consensus divergence, denial-of-service and chain-stall classes across 41 Zebra advisories (12 Critical, 6 High) and 9 zcashd advisories (2 Critical); several fixes, including the sigop undercount and V5 SIGHASH_SINGLE handling, had to be re-fixed after the first patch proved incomplete; zcashd's own advisories were published in a burst on 8 May and 13/19 Jul 2026, after zcash/zcash was archived 19 Jul 2026",
+    "detectable": "yes",
+    "window": {
+      "from": "Mar 2026",
+      "to": "Aug 2026"
+    },
+    "severity": "high",
+    "cve": [
+      "CVE-2026-34377",
+      "CVE-2026-41583",
+      "CVE-2026-44497",
+      "CVE-2026-52735"
+    ]
+  },
+  {
+    "id": "B11",
+    "title": "ViaBTC 53% hashrate concentration",
+    "summary": "A single mining pool, ViaBTC, briefly held 53% of Zcash's total hashrate, crossing the threshold associated with a 51%-class double-spend or reorganisation attack; Coinbase responded by raising confirmation requirements and moving to limit-only trading rather than waiting for a protocol fix.",
+    "body": "The concentration was disclosed on 15 September 2023. Coinbase's response was to raise the number of confirmations it required before crediting a ZEC deposit from 40 to 110, and to restrict Zcash trading to limit orders only, reducing the exchange's own exposure to a chain reorganisation without requiring any change to Zcash's mining ecosystem itself.\n\nThe underlying risk -- that a pool controlling a majority of hashrate can, in principle, rewrite recent history and double-spend confirmed transactions -- is a well-understood property of proof-of-work chains and was visible on public hashrate-distribution data rather than hidden in any code path.",
+    "sources": [
+      "S-crypto-news-crypto-news-coinbase-limits-zcash-tr"
+    ],
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "hashrate",
+      "mining",
+      "centralization",
+      "fifty-one-percent"
+    ],
+    "discovered": "not separately dated in the corpus",
+    "disclosed": "15 Sep 2023",
+    "fixed": "Coinbase raised confirmations from 40 to 110 and moved to limit-only trading; no protocol-level fix",
+    "discoverer": "Coinbase",
+    "rootCause": "A single mining pool, ViaBTC, held 53% of Zcash's hashrate, crossing the threshold associated with a 51%-class double-spend or chain-reorganisation attack",
+    "detectable": "yes",
+    "window": {
+      "from": "Sep 2023",
+      "to": "Sep 2023"
+    },
+    "severity": "high"
+  },
+  {
+    "id": "B12",
+    "title": "Ledger drops v1 (pre-Sapling) transaction support",
+    "summary": "Ledger hardware wallets removed support for v1 (pre-Sapling) transactions, leaving ZEC held in pre-October-2018 UTXOs unspendable; Ledger then applied for a Zcash Foundation grant to restore the functionality its own firmware update had removed.",
+    "body": "Users, among them Jameson Lopp, reported the loss of support on 15-16 November 2025. Any ZEC still sitting in a v1-format UTXO -- meaning it had not moved since before the Sapling upgrade in October 2018 -- became unspendable on Ledger devices, visibly and directly, with no workaround available to the holder. A partial fix arrived around July 2026, when Ledger Live added the ability to send funds from a shielded input to a transparent address, though this did not fully restore the original v1 spending path. Ledger's own remedy for a regression it introduced was to apply for a grant from the Zcash Foundation.",
+    "sources": [
+      "S-the-defiant-the-defiant-ledger-draws-heat-as-pre"
+    ],
+    "confidence": "med",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "wallet",
+      "ledger",
+      "hardware-wallet",
+      "vendor-support"
+    ],
+    "discovered": "not separately dated in the corpus",
+    "disclosed": "15-16 Nov 2025",
+    "fixed": "partial: Ledger Live added shielded-input-to-transparent sending ~Jul 2026",
+    "discoverer": "users (Jameson Lopp among others)",
+    "rootCause": "Ledger's firmware removed support for v1 (pre-Sapling) transactions, leaving pre-October-2018 ZEC UTXOs unspendable; Ledger then sought a Zcash Foundation grant to restore functionality it had itself removed",
+    "detectable": "yes",
+    "window": {
+      "from": "Nov 2025",
+      "to": "2026"
+    },
+    "severity": "mid"
+  },
+  {
+    "id": "B13",
+    "title": "Pre-launch trio: InternalH collision, Faerie Gold, proof error",
+    "summary": "Three design flaws were found and fixed before Zcash's mainnet launch: a birthday-attack collision in the commitment hash (Hornby), a duplicate-nullifier trick that could fake a spendable note (Wilcox), and a non-exploitable gap in a security proof (Hopwood); all three were disclosed together on 26 April 2016, before any of them ever went live.",
+    "body": "InternalH, found by Taylor Hornby, was a 128-bit internal hash in the commitment scheme vulnerable to a birthday-bound collision at roughly 2^64 work, which would have allowed an attacker to double-spend to themselves -- a counterfeiting-class flaw. It was fixed by replacing the hash with SHA256(0xB0 concatenated with a_pk, v, rho, r). Faerie Gold, found by Zooko Wilcox, was a duplicate-nullifier trick that could make a recipient believe they had received multiple spendable notes when in fact only one was genuinely spendable. The third flaw, found by Daira-Emma Hopwood, was a non-exploitable error in a security proof: notes sent to specially crafted addresses could in principle be double-spendable if the underlying pseudorandom functions had lacked collision resistance, which they did not in practice.\n\nElectric Coin Company disclosed all three together on 26 April 2016, before mainnet launch on 28 October 2016, so none of them were ever exploitable against a live chain.",
+    "sources": [
+      "S-electric-coin-company-ecc-fixing-vulnerabilities"
+    ],
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "pre-launch",
+      "counterfeiting",
+      "design-flaw",
+      "sprout"
+    ],
+    "discovered": "2016 (pre-launch)",
+    "disclosed": "26 Apr 2016",
+    "fixed": "pre-launch, before mainnet (28 Oct 2016)",
+    "discoverer": "Taylor Hornby (InternalH); Zooko Wilcox (Faerie Gold); Daira-Emma Hopwood (proof error); disclosed via ECC",
+    "rootCause": "InternalH: birthday-bound collision (~2^64 work) in a 128-bit commitment hash enabling double-spend-to-self, fixed by moving to SHA256(0xB0 concatenated with a_pk, v, rho, r). Faerie Gold: a duplicate-nullifier trick could fake multiple spendable notes from one genuine note. Proof error: a non-exploitable gap meant notes to crafted addresses could be double-spendable only if the PRFs lacked collision resistance",
+    "detectable": "n/a",
+    "window": {
+      "from": "not applicable",
+      "to": "not applicable"
+    },
+    "severity": "mid"
+  },
+  {
+    "id": "B14",
+    "title": "Trusted setups still load-bearing: the 2016 Ceremony and 2018 Powers of Tau",
+    "summary": "Sprout's 2016 parameter ceremony and Sapling's 2018 Powers of Tau both rest on a 1-of-N honesty assumption -- if every participant in either ceremony colluded, undetectable unlimited counterfeiting would be possible -- and Sprout's roughly 22,000-25,000 ZEC still sit under the 2016 parameters, having never moved out through the turnstile.",
+    "body": "The Sprout parameter ceremony (\"The Ceremony\") ran on 23 October 2016 across six locations with six participants: Zooko Wilcox, Andrew Miller, Peter Van Valkenburgh, Derek Hinch of NCC Group (using the alias Moses Spears), Peter Todd (using the alias Fabrice Renault), and a sixth participant using the alias \"John Dobbertin\", revealed in April 2022 to have been Edward Snowden. The security model requires only that at least one of the six genuinely destroyed their portion of the toxic waste; if all six had colluded, they could have produced valid-looking proofs for counterfeit Sprout value with no way for anyone to detect it. Sapling's Powers of Tau ceremony, completed 13 April 2018, spread the same 1-of-N assumption across nearly ninety participants -- a much larger N, but the identical structural risk. Halo 2, which underlies Orchard (NU5, 31 May 2022) and Ironwood, removes the trusted-setup requirement entirely through recursive proof composition -- but, as B2 demonstrates, removing the trusted setup removed only one class of counterfeiting risk, not the other; a missing circuit constraint produced the same unlimited-counterfeiting outcome by a different route.\n\nPeter Todd, one of the six 2016 participants, put the residual trust assumption on the record at the time: \"Nothing you will read below changes the fact that you're trusting me and five other participants not to collude.\" Greg Slepak, the ceremony's most prominent 2016 critic, wrote in the same piece that if people priced ZEC on the assumption of a 21-million cap, \"those fake tokens get imbued with that price\" -- a description that anticipated both the 2019 Sprout and 2026 Orchard disclosures. Sprout's ZEC has never moved through the ZIP 209 turnstile in a way that would let anyone confirm the ceremony's assumption held; it remains, nearly a decade on, an open trust question rather than a settled one.",
+    "sources": [
+      "S-electric-coin-company-ecc-the-design-of-the-cere",
+      "S-coindesk-coindesk-zcash-and-the-art-of-security",
+      "S-coindesk-coindesk-zcash-completes-powers-of-tau",
+      "S-wikipedia-wikipedia-zcash"
+    ],
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "tags": [
+      "trusted-setup",
+      "ceremony",
+      "sprout",
+      "sapling",
+      "toxic-waste"
+    ],
+    "discovered": "2016 / 2018",
+    "disclosed": "2016 / 2018 (Snowden's participation revealed Apr 2022)",
+    "fixed": "not applicable -- ongoing trust assumption; Sprout and Sapling still rest on the 2016/2018 ceremony parameters",
+    "discoverer": "not applicable -- a structural trust assumption disclosed as part of the ceremony design, not a discovered bug",
+    "rootCause": "1-of-N honesty assumption: at least one of six 2016 Sprout ceremony participants, or of roughly ninety 2018 Powers of Tau participants, must have genuinely destroyed their share of the toxic waste, or undetectable unlimited counterfeiting is possible within that pool. Halo 2/Orchard (NU5, 31 May 2022) removed the need for a trusted setup on new value, but Sprout (~22-25k ZEC) and Sapling (~529k ZEC) still rest on the 2016/2018 ceremony parameters",
+    "detectable": "n/a",
+    "window": {
+      "from": "2016",
+      "to": "ongoing"
+    },
+    "severity": "high"
+  }
+]

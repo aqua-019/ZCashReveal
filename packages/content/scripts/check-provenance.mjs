@@ -36,7 +36,7 @@ function normalise(url) {
 const corpus = new Set();
 for (const file of FILES) {
   const text = readFileSync(join(RESEARCH, file), "utf8");
-  for (const match of text.matchAll(/https?:\/\/[^\s)>\]",'`]+/g)) {
+  for (const match of text.matchAll(/https?:\/\/[^\s>\]",'`]+/g)) {
     let url = match[0];
     while (/[.,;:!?*_`]$/.test(url)) url = url.slice(0, -1);
     while (url.endsWith(")") && (url.match(/\(/g) ?? []).length < (url.match(/\)/g) ?? []).length) url = url.slice(0, -1);

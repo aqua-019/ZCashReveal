@@ -28,7 +28,11 @@ const FILES = [
 /** The dossiers were compiled and fetched on this date; every source is accessed-as-of it. */
 const ACCESSED = "2026-08-22";
 
-const URL_RE = /https?:\/\/[^\s)>\]",'`]+/g;
+// ")" is admitted rather than excluded: one corpus url is
+// .../Zcash_Miner_Linking%20(2).pdf, and stopping at the first ")" truncates it.
+// cleanUrl() then trims a trailing ")" only when it is unbalanced, which is what a
+// markdown link's own closing paren always is.
+const URL_RE = /https?:\/\/[^\s>\]",'`]+/g;
 
 /** Trailing punctuation that belongs to the prose, not the URL. */
 function cleanUrl(raw) {
@@ -238,9 +242,9 @@ function trimTitle(text) {
   for (let i = 0; i < 6; i += 1) {
     const before = out;
     out = out
-      .replace(/\[\[?[^\[\]]*\]\(\s*$/, "")
-      .replace(/[[(\s\u2013\u2014:,;.\-]+$/, "")
-      .replace(/^[[(\s\u2013\u2014:,;.\-]+/, "")
+      .replace(/\[\[?[^[\]]*\]\(\s*$/, "")
+      .replace(/[-[(\s\u2013\u2014:,;.]+$/, "")
+      .replace(/^[-[(\s\u2013\u2014:,;.]+/, "")
       .trim();
     if (out === before) break;
   }

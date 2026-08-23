@@ -90,14 +90,17 @@ jobs:
       - name: Test - apps/web (vitest run)
         run: pnpm --filter @zcashreveal/web exec vitest run
 
-      # packages/content arrives in HANDOFF-02; until then this step reports and passes.
+      - name: Test - packages/content (vitest run)
+        run: pnpm --filter @zcashreveal/content exec vitest run
+
+      # The gate on the seeds themselves: counts, schema, source resolution,
+      # lastVerified bounds and quarantine leakage. Unconditional since HANDOFF-02.
       - name: Validate content package
-        run: |
-          if [ -d packages/content ]; then
-            pnpm --filter @zcashreveal/content validate
-          else
-            echo "packages/content does not exist yet (arrives in HANDOFF-02); skipping validation."
-          fi
+        run: pnpm --filter @zcashreveal/content validate
+
+      # No source may be cited that is not in docs/2.0/research.
+      - name: Content provenance
+        run: pnpm --filter @zcashreveal/content check:provenance
 
       - name: Upload test report
         if: always()
