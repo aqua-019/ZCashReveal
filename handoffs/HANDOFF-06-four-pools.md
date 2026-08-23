@@ -76,7 +76,8 @@ Widen the pool model to `sprout | sapling | orchard | ironwood` across types, st
 ```
 STATUS: DONE-WITH-ASSUMPTIONS
 
-BRANCH / PR: claude/new-session-s4er6f (harness-designated) -> PR opened, stopped there.
+BRANCH / PR: claude/new-session-s4er6f (harness-designated) -> PR #37, opened as a draft
+and stopped there.
 Four commits: dfc926a RECONCILE + folds · ac7af6e the widening · b7658d2 A9 and the
 post-fan-out rule · 42e94cd two gate rounds.
 
