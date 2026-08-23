@@ -20,6 +20,10 @@ const ConfigSchema = z.object({
 
   /** ZIP-317 conventional fee floor in zatoshi per logical action. */
   ZIP317_MARGINAL_FEE_ZAT: z.coerce.number().int().positive().default(5000),
+
+  /** Per-attempt Zebra RPC timeout, and how many transport failures to retry. */
+  ZEBRAD_RPC_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+  ZEBRAD_RPC_RETRIES: z.coerce.number().int().nonnegative().default(2),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;

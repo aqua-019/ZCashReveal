@@ -20,7 +20,7 @@ import type {
 
 import { decodeSaplingSpends, decodeSaplingOutputs } from "./sapling.js";
 import { decodeOrchardBundle } from "./orchard.js";
-import type { RpcBlock } from "../zebrad-rpc.js";
+import type { RpcBlock } from "@zcashreveal/zebra-rpc";
 
 /**
  * A block-level note-commitment-tree root, captured from the block header's

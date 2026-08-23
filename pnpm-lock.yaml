@@ -81,6 +81,9 @@ importers:
       '@zcashreveal/types':
         specifier: workspace:*
         version: link:../../packages/zec-types
+      '@zcashreveal/zebra-rpc':
+        specifier: workspace:*
+        version: link:../../packages/zebra-rpc
       ioredis:
         specifier: ^5.4.1
         version: 5.10.1
@@ -244,6 +247,28 @@ importers:
       tsx:
         specifier: ^4.19.2
         version: 4.22.0
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.6
+        version: 4.1.6(@opentelemetry/api@1.9.1)(@types/node@22.19.19)(jsdom@30.0.1)(vite@6.4.2(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.0))
+
+  packages/zebra-rpc:
+    dependencies:
+      '@zcashreveal/types':
+        specifier: workspace:*
+        version: link:../zec-types
+      undici:
+        specifier: ^6.21.0
+        version: 6.25.0
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.19.19
       typescript:
         specifier: ^5.6.3
         version: 5.9.3

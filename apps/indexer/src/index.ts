@@ -11,7 +11,7 @@
 import pino from "pino";
 import { Redis } from "ioredis";
 import { loadConfig } from "./config.js";
-import { ZebradRpc } from "./zebrad-rpc.js";
+import { ZebraRpc } from "@zcashreveal/zebra-rpc";
 import { ZebradZmqSubscriber } from "./zmq-subscriber.js";
 import { MempoolState, type MempoolDiff } from "./mempool-state.js";
 import { createDb, persistLeakReport } from "./persistence/index.js";
@@ -29,7 +29,16 @@ const log = pino(
 async function main() {
   log.info("ZCashReveal indexer starting");
 
-  const rpc = new ZebradRpc(cfg);
+  // The client moved to packages/zebra-rpc in HANDOFF-05 and no longer reads
+  // the indexer's Config object: a shared package that imports one app's
+  // configuration is not shared. Every field it needs is passed explicitly.
+  const rpc = new ZebraRpc({
+    url: cfg.ZEBRAD_RPC_URL,
+    user: cfg.ZEBRAD_RPC_USER,
+    password: cfg.ZEBRAD_RPC_PASSWORD,
+    timeoutMs: cfg.ZEBRAD_RPC_TIMEOUT_MS,
+    retries: cfg.ZEBRAD_RPC_RETRIES,
+  });
   const sql = createDb(cfg.DATABASE_URL);
   const redis = new Redis(cfg.REDIS_URL, { lazyConnect: false });
   const anchorRegistry = new AnchorRegistry(redis, sql);
