@@ -238,11 +238,11 @@ bound** rather than reporting a number computed from a subset.
     { "pool": "orchard",     "deltaZat": "-3000000000000" }
   ],
   "metrics": [
-    { "label": "fee", "value": "0.00000000 ZEC", "accent": false,
+    { "label": "fee", "value": "0.00015000 ZEC", "accent": false,
       "note": "Computed from the outputs this transaction spends. No node reports a fee on getrawtransaction." },
     { "label": "logical actions", "value": "3", "accent": false,
       "note": "ZIP 317: the greater of the serialised input bytes over 150 and the serialised output bytes over 34, each rounded up, plus twice the joinsplits, plus the greater of the Sapling spends and outputs, plus every Orchard and Ironwood action." },
-    { "label": "conventional fee", "value": "no", "accent": false,
+    { "label": "conventional fee", "value": "yes", "accent": false,
       "note": "ZIP 317 would price this at 0.00015000 ZEC." },
     { "label": "across the boundary", "value": "30,000.0000 ZEC", "accent": true,
       "note": "Value entered a shielded pool." }
@@ -250,11 +250,27 @@ bound** rather than reporting a number computed from a subset.
   "publishes": [ { "k": "expiry height", "v": "3,456,040", "muted": false }, "..." ],
   "estimate": null,
   "roundTrip": [],
-  "feeZat": "0",
+  "feeZat": "15000",
   "logicalActions": 3,
-  "conventionalFee": false
+  "conventionalFee": true
 }
 ```
+
+**`feeZat` AND `conventionalFee` ARE BOTH NULLABLE, and this example is the case
+where they are known.** No node reports a fee: it is the difference between the
+outputs a transaction spends and what it pays out, and the spent outputs are not
+in the response. The gateway resolves them, and that resolution can fail - an
+unsynced node, a parent still propagating, a v6 bundle this build cannot decode.
+When it does, `feeZat` is `null`, `conventionalFee` is `null`, and the two
+metric tiles read "not priced" and "cannot say".
+
+A client must render an absence rather than a zero. This example used to show
+`"feeZat": "0"` with `"conventionalFee": false`, annotated as a computed figure,
+and it was neither: ZIP 317's conventional fee has a floor of 10,000 zatoshi, so
+a transaction that genuinely paid nothing would be remarkable rather than
+routine, and `false` there was a verdict derived from a measurement never taken.
+The example now shows a transaction that paid the conventional fee for its three
+logical actions.
 
 **The two deltas mirror each other.** `poolDeltaSchema` fixes the sign as
 "positive leaves the pool", so a shield shows the transparent lane losing what

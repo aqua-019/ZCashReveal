@@ -50,7 +50,16 @@ export function buildMempoolView(
   const shielded = entries.filter((e) => e.class === "shielded").length;
   const migrations = entries.filter((e) => e.class === "migration").length;
   const transparent = entries.filter((e) => e.class === "transparent").length;
-  const crossings = entries.filter((e) => e.class === "shield" || e.class === "deshield");
+  // A MIGRATION CROSSES A POOL BOUNDARY, so it belongs in this count. It was
+  // `shield || deshield` only, which was consistent while the migration class
+  // was unreachable and became a self-contradiction the moment the ordering
+  // above was fixed: `crossingZat` sums `perPoolZat` over EVERY row, so a
+  // mempool of two migrations printed a gold-accented "0.0002 ZEC" tile above
+  // the subtitle "Nothing in the mempool crosses a pool boundary." The tile and
+  // its own caption have to be counted over the same set.
+  const crossings = entries.filter(
+    (e) => e.class === "shield" || e.class === "deshield" || e.class === "migration",
+  );
 
   // SUMMED OVER `perPoolZat`, NOT OVER TWO NAMED FIELDS. These read
   // `saplingValueBalanceZat + orchardValueBalanceZat`, so a JoinSplit moving
@@ -136,6 +145,7 @@ export function buildMempoolView(
        * varies.
        */
       conventionalFeeZat: conventionalFeeZat(ZIP317_GRACE_ACTIONS),
+      pricedCount: priced.length,
       conventionalCount: conventional.length,
       findingsHigh,
       findingsNote:
@@ -151,26 +161,64 @@ export function buildMempoolView(
  * The flow label for a migration, named after the pools that actually moved.
  *
  * IT WAS THE LITERAL `"S to O"`, for every migration, whichever pools were
- * involved. That was true while Sapling to Orchard was the only crossing this
- * project could see, and NU6.3 made it false: an Orchard-to-Ironwood migration
- * rendered on /track as "S to O", which is a specific wrong statement about a
- * specific transaction on the page the site exists to publish. The fixture
- * corpus already spelled the right thing - `apps/web`'s mempool fixture says
- * "O to I" - so the two also disagreed with each other.
+ * involved - and, as the gate found, for NO migration, because the branch that
+ * reached it was unreachable. Both halves of that are worth stating: the label
+ * was wrong for any crossing that is not Sapling to Orchard, AND the reason
+ * nobody had noticed is that `summary.migrations` was permanently zero and no
+ * row ever carried it. Fixing the ordering above is what makes this function
+ * live, so the label had to be right before the branch could be opened.
  *
- * Initials, matching the fixture's spelling: Sprout, Sapling, Orchard,
- * Ironwood. Sprout and Sapling both begin with S, so Sprout takes "Sp".
+ * The fixture corpus already spelled the right thing - `apps/web`'s mempool
+ * fixture says "O to I" - so the producer and the fixture disagreed as well.
  */
-function migrationFlowText(pools: readonly ShieldedPool[]): string {
-  const from = pools.filter((p, i) => pools.indexOf(p) === i);
-  if (from.length < 2) return "migration";
-  return from.map(poolInitial).join(" to ");
+function migrationFlowText(deltas: ReadonlyArray<{ pool: ShieldedPool; deltaZat: bigint }>): string {
+  // DIRECTION COMES FROM THE SIGN, NOT FROM THE ORDER OF THE LIST. `perPoolZat`
+  // is built in canonical pool order - sprout, sapling, orchard - regardless of
+  // which side of the crossing each pool is on, so reading the label off that
+  // order printed "S to O" for a transaction moving value from Orchard INTO
+  // Sapling. That is the same class of false statement as the hardcoded
+  // "S to O" this function replaced, arrived at by a different route, and it
+  // was invisible until the ordering fix above made the branch reachable.
+  //
+  // Positive means value LEFT the pool, so positives are sources and negatives
+  // are sinks.
+  const from = deltas.filter((d) => d.deltaZat > 0n).map((d) => d.pool);
+  const to = deltas.filter((d) => d.deltaZat < 0n).map((d) => d.pool);
+  if (from.length === 0 || to.length === 0) return "migration";
+  // More than one pool on a side is a shape this label cannot describe without
+  // inventing a grammar for it, and "P to S to O" is not a flow. Say the
+  // number instead of guessing the story.
+  if (from.length > 1 || to.length > 1) return `${from.length + to.length} pools`;
+  return `${poolInitial(from[0]!)} to ${poolInitial(to[0]!)}`;
 }
 
+/**
+ * One pool, one letter, in the abbreviation the corpus already settled on.
+ *
+ * SPROUT AND SAPLING BOTH BEGIN WITH S, so one of them cannot have its own
+ * initial and something has to say which. This function used to answer "Sp",
+ * which is a coinage: grep the tree and it appears in no other file, no
+ * fixture and no mockup. The corpus had already written the mapping down -
+ * `apps/web/src/lib/api/fixtures/mempool.ts` states "O, I, S, P for Orchard,
+ * Ironwood, Sapling and Sprout" over the column that prints these same four
+ * pools - so Sapling keeps S and SPROUT IS P, which is not a typo.
+ *
+ * Taking the mapping from there rather than inventing one is the whole point.
+ * The flow column and the value-balance column sit beside each other in one
+ * table, and a pool abbreviated two ways across two columns of one row is a
+ * second spelling of the same concept, which is a defect this session has
+ * already fixed once. The fixture's `flow: "O to I"` is what this function has
+ * to reproduce, and it does.
+ *
+ * Spelling the pools out in full would also be legible - the cell has no
+ * nowrap and the table lays out automatically - but it would put "orchard to
+ * ironwood" in the gateway's flow column against "O to I" in the fixture's,
+ * which is the disagreement this is avoiding rather than a fix for it.
+ */
 function poolInitial(pool: ShieldedPool): string {
   switch (pool) {
     case "sprout":
-      return "Sp";
+      return "P";
     case "sapling":
       return "S";
     case "orchard":
@@ -205,13 +253,32 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
   // existed before NU6.3.
   const movedPools = r.valueFlow.perPoolZat.map((p) => p.pool);
 
+  /**
+   * ASSERTION A9, APPLIED HERE TOO. The indexer's `LeakClass` learned that a
+   * class naming the transparent side requires a transparent side; this is the
+   * same rule for the same reason on the row /track actually renders, and the
+   * two must not diverge - a reader comparing /tx with /track would otherwise
+   * see one page call a transaction a migration and the other call it a shield.
+   *
+   * TWO DEFECTS ARE FIXED BY THE ORDER OF THESE TESTS. `direction` was tested
+   * FIRST, and every transaction that moves a pool at all has a `direction` of
+   * DEPOSIT or WITHDRAWAL - so the migration branch below it was UNREACHABLE
+   * for every input, `summary.migrations` was permanently zero, and a
+   * Sapling-to-Orchard migration was published as `class: "shield"`,
+   * `flow: "t to z"` while the same row printed "no net crossing". The row
+   * contradicted itself and made a transparent-side claim about a transaction
+   * with no transparent side.
+   *
+   * So the migration test goes first, and shield and deshield now require the
+   * transparent half they name.
+   */
   const klass: MempoolRow["class"] =
-    r.valueFlow.direction === "DEPOSIT"
-      ? "shield"
-      : r.valueFlow.direction === "WITHDRAWAL"
-        ? "deshield"
-        : movedPools.length > 1
-          ? "migration"
+    movedPools.length > 1
+      ? "migration"
+      : r.valueFlow.direction === "DEPOSIT" && r.transparent.vin.length > 0
+        ? "shield"
+        : r.valueFlow.direction === "WITHDRAWAL" && r.transparent.vout.length > 0
+          ? "deshield"
           : hasSprout || hasSapling || hasOrchard
             ? "shielded"
             : "transparent";
@@ -230,7 +297,7 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
         : klass === "deshield"
           ? "z to t"
           : klass === "migration"
-            ? migrationFlowText(movedPools)
+            ? migrationFlowText(r.valueFlow.perPoolZat)
             : klass === "shielded"
               ? "shielded"
               : "t to t",

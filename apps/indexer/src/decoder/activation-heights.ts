@@ -6,11 +6,18 @@
  * root for the not-yet-active pool, and "the field was missing" and "the pool
  * did not exist yet" are different facts that must not be conflated.
  *
- * PROVENANCE. Every mainnet height below is corroborated inside this repository
- * at `high` confidence, cited per constant. The two pre-NU6 values were already
- * here and are sourced by the file's original author to the Zcash protocol spec
- * and `zcashd` chainparams, which are not in this tree - they are marked as
- * such rather than given a citation they do not have.
+ * PROVENANCE. Every height NU6 and later carries a citation to the line in
+ * `docs/2.0/research/` that corroborates it, each at `high` confidence.
+ *
+ * The four pre-NU6 values - Sapling and NU5, mainnet and testnet - were already
+ * here and carry no per-constant citation. The two MAINNET ones are corroborated
+ * in this repository (Sapling 419,200 and NU5 1,687,104 both appear across the
+ * research corpus); the two TESTNET ones appear nowhere in this tree, and the
+ * file's original author sourced all four to the Zcash protocol spec and
+ * `zcashd` chainparams, which are not here either. That sourcing is restated
+ * rather than dropped: this file deliberately omits `NU6_ACTIVATION_TESTNET`
+ * because nothing corroborates it, so it cannot quietly leave two other testnet
+ * constants standing with no provenance statement at all.
  *
  * WHY THIS FILE HAS NO NETWORK ENUM OF ITS OWN BEYOND `Network`: it is a leaf
  * module with no imports, which is what lets `state/` depend on it without a
@@ -35,8 +42,15 @@ export type PoolName = "sprout" | "sapling" | "orchard" | "ironwood";
  *
  * It is not a historical curiosity. Sprout still holds roughly 22,621 ZEC as of
  * block 3,456,227 (docs/2.0/RESEARCH-2026-08-DOSSIER.md) and has never emptied
- * in eight years, which is why the turnstile audit opened after the 2018
- * disclosure has never concluded.
+ * in eight years - which matters because the Sprout turnstile can only settle
+ * the CVE-2019-7167 counterfeiting question by emptying, and it never has.
+ *
+ * The dates, since this file gets them wrong easily: 1 March 2018 is the
+ * DISCOVERY, kept to four people; 28 October 2018 the silent fix; 5 February
+ * 2019 the public DISCLOSURE (docs/2.0/research/03-history-exploits-governance.md,
+ * and the site's own /beware page states the same). The repository could not
+ * source any published, dated turnstile-audit result, so this comment does not
+ * claim one was opened.
  */
 export const SPROUT_ACTIVATION_MAINNET = 0;
 
@@ -110,10 +124,17 @@ export const NU6_3_ACTIVATION_MAINNET = 3_428_143;
 /** Sprout: genesis, as on mainnet. */
 export const SPROUT_ACTIVATION_TESTNET = 0;
 
-/** Sapling activated on testnet at this height. */
+/**
+ * Sapling activated on testnet at this height.
+ *
+ * UNCORROBORATED IN THIS REPOSITORY - the value appears in no research file.
+ * Pre-existing, sourced by the file's original author to the protocol spec and
+ * `zcashd` chainparams. Stated so rather than left to look as sourced as the
+ * heights above it.
+ */
 export const SAPLING_ACTIVATION_TESTNET = 280_000;
 
-/** NU5 (Orchard) activated on testnet at this height. */
+/** NU5 (Orchard) activated on testnet. UNCORROBORATED here, as Sapling's is. */
 export const NU5_ACTIVATION_TESTNET = 1_842_420;
 
 /**

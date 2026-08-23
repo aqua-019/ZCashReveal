@@ -66,15 +66,35 @@ export async function buildTxView(
    * run through the identity - the identity would report the block subsidy as
    * a negative fee.
    */
-  const feeZat = isCoinbase ? 0n : indexed?.feeZat ?? inputZat + boundary - outputZat;
+  /**
+   * The fee, or `null` when it cannot be computed.
+   *
+   * THE `unresolved` GUARD IS LOAD-BEARING AND WAS NOT HERE. This read
+   * `indexed?.feeZat ?? inputZat + boundary - outputZat`, and `inputZat` sums
+   * only the inputs that RESOLVED - so an unresolved input was counted as an
+   * input worth nothing, and the identity returned the negative of whatever the
+   * transaction paid out. It was unreachable while `leak_reports.fee_zat` was
+   * `NOT NULL DEFAULT 0`, because `indexed.feeZat` was then always `0n` and the
+   * coalesce never fell through. Migration 003 made that column nullable, which
+   * is correct and which opened this path: /tx would have rendered a fee of
+   * MINUS one ZEC for an ordinary transaction whose parent this node had not
+   * indexed.
+   *
+   * A partial sum is not a lower bound either, despite the note that used to
+   * call it one: omitting an input makes the result too SMALL, and a fee
+   * "bounded below" by a negative number bounds nothing.
+   */
+  const feeZat: bigint | null = isCoinbase
+    ? 0n
+    : (indexed?.feeZat ?? (unresolved ? null : inputZat + boundary - outputZat));
 
   // ZIP 317's own definition, from Zebra's implementation of it - not a count
   // of inputs and outputs. See `zip317LogicalActions` in
   // `packages/zec-types/src/zip317.ts`, which both apps now compute L through.
   const logicalActions = zip317LogicalActions(tx);
-  const conventional = feeZat === conventionalFeeZat(logicalActions);
-  /** True where the fee above is admittedly incomplete, so no verdict rests on it. */
-  const feeIsBounded = !isCoinbase && indexed?.feeZat == null && unresolved;
+  /** `null` where there is no fee to judge. Unknown is not the same claim as false. */
+  const conventional: boolean | null =
+    feeZat === null ? null : feeZat === conventionalFeeZat(logicalActions);
 
   const height = typeof tx.height === "number" && tx.height >= 0 ? tx.height : 0;
   const stamp =
@@ -146,7 +166,7 @@ export async function buildTxView(
     metrics: [
       {
         label: "fee",
-        value: zecText(feeZat, 8),
+        value: feeZat === null ? "not priced" : zecText(feeZat, 8),
         // ORDER MATTERS. The indexer's figure is exact and is checked FIRST: an
         // earlier version tested `unresolved` first, so a transaction whose fee
         // came straight from `leak_reports` was labelled "a lower bound"
@@ -157,7 +177,7 @@ export async function buildTxView(
           : indexed?.feeZat != null
             ? "As the indexer recorded it when this transaction was in the mempool."
             : unresolved
-              ? "A lower bound: at least one input could not be resolved to the output it spends, so the input total is incomplete."
+              ? "Not priced: at least one input could not be resolved to the output it spends, so the difference this fee is computed from is unavailable. An incomplete input total does not give a lower bound - it gives a number that is too small by an unknown amount."
               : "Computed from the outputs this transaction spends. No node reports a fee on getrawtransaction.",
         accent: false,
       },
@@ -175,11 +195,11 @@ export async function buildTxView(
         // "no" on a fee that is itself a lower bound would be a verdict derived
         // from an admittedly incomplete number - the page would say the fee is
         // incomplete in one tile and rule on it in the next.
-        value: isCoinbase ? "not priced" : feeIsBounded ? "cannot say" : conventional ? "yes" : "no",
+        value: isCoinbase ? "not priced" : conventional === null ? "cannot say" : conventional ? "yes" : "no",
         note: isCoinbase
           ? "ZIP 317 prices the transactions a wallet builds. A coinbase is built by the consensus rules and pays nothing."
-          : feeIsBounded
-            ? `The fee above is a lower bound, so whether it meets ZIP 317's ${zecText(conventionalFeeZat(logicalActions), 8)} cannot be decided from it.`
+          : conventional === null
+            ? `The fee above could not be computed, so whether it meets ZIP 317's ${zecText(conventionalFeeZat(logicalActions), 8)} cannot be decided.`
             : `ZIP 317 would price this at ${zecText(conventionalFeeZat(logicalActions), 8)}.`,
         accent: false,
       },
@@ -228,10 +248,11 @@ export async function buildTxView(
         : "A round trip needs the pool side, which needs the estimators HANDOFF-08 ships. This transaction's public half is above.",
     feeZat,
     logicalActions,
-    // False where the fee is a lower bound: the field is a boolean and cannot
-    // say "cannot say", and asserting `true` from an incomplete number would be
-    // the wrong half of the pair to guess.
-    conventionalFee: !feeIsBounded && conventional,
+    // `null` where the fee could not be computed. The DTO field is nullable as
+    // of HANDOFF-06 for exactly this: it used to be a boolean, so an unknown
+    // fee had to be published as `false` - "this transaction did not pay the
+    // conventional fee" - which is a verdict, not an absence.
+    conventionalFee: conventional,
   };
 }
 

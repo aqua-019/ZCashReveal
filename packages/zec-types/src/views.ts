@@ -510,7 +510,8 @@ export const txViewSchema = z.object({
   roundTrip: z.array(ledgerLineSchema),
   roundTripNote: z.string().min(1).nullable(),
   /**
-   * The fee, or `null` when it could not be computed.
+   * The fee, or `null` when it could not be computed. THE CONTRACT NOTE FOR
+   * BOTH VIEWS THAT CARRY A FEE - `mempoolRowSchema.feeZat` points here.
    *
    * NULLABLE SINCE HANDOFF-06 BECAUSE THE FEE IS NOT ON THE WIRE. No node sends
    * one - the fee is the difference between the outputs a transaction spends
@@ -687,18 +688,11 @@ export const mempoolRowSchema = z.object({
   /**
    * The fee, or `null` when it could not be computed.
    *
-   * NULLABLE SINCE HANDOFF-06 BECAUSE THE FEE IS NOT ON THE WIRE. No node sends
-   * one - the fee is the difference between the outputs a transaction spends
-   * and what it pays out, and the spent outputs are not in the response - so it
-   * is computed by resolving them, and that computation can fail: an unsynced
-   * node, a parent still propagating, a v6 bundle this build cannot decode.
-   *
-   * A NON-NULLABLE FIELD FORCED THE PRODUCER TO INVENT A NUMBER, and it did:
-   * every transaction this project ever analysed was recorded as paying `0n`.
-   * A renderer must therefore print an absence here rather than a zero - "not
-   * priced", not "0 zat" - because ZIP 317's conventional fee has a floor of
-   * 10,000 zatoshi and a transaction that truly paid nothing would be
-   * remarkable rather than routine.
+   * THE REASONING IS ON `txViewSchema.feeZat` ABOVE AND IS NOT REPEATED HERE.
+   * It was, word for word, in both places - and two copies of one contract are
+   * how the two come to disagree, which on this field would mean /tx and
+   * /track telling a reader different things about the same absent fee. The
+   * rule a renderer needs, in one line: print an absence, never a zero.
    */
   feeZat: zatSchema.nullable(),
   logicalActions: countSchema,
@@ -734,7 +728,19 @@ export const mempoolViewSchema = z.object({
      * at 2 logical actions". The count beside it is the quantity that varies.
      */
     conventionalFeeZat: zatSchema,
-    /** How many of `unconfirmed` pay the conventional fee for their own action count. */
+    /**
+     * How many transactions could be PRICED at all - the denominator
+     * `conventionalCount` is out of.
+     *
+     * NOT `unconfirmed`. The fee is not on the wire and the gateway computes
+     * it, and that computation can fail, so a mempool of twelve transactions
+     * may have three with a known fee. `conventionalCount` counts within those
+     * three. Rendering "3 of 12 conventional" would be a claim about nine
+     * transactions nobody priced - the same shape of statement that made
+     * `feeZat: 0n` a lie, moved into a denominator.
+     */
+    pricedCount: countSchema,
+    /** How many of `pricedCount` pay the conventional fee for their own action count. */
     conventionalCount: countSchema,
     findingsHigh: countSchema,
     findingsNote: z.string().min(1),

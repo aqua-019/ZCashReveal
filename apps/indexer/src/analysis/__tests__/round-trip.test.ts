@@ -119,6 +119,10 @@ function makeReport(opts: {
       outputCount: 0,
       spendCount: 0,
       outputPadded: false,
+      // The protocol figure, carried on the report since HANDOFF-06 so the view
+      // layer does not fall back to the count approximation. RoundTripIndex
+      // does not read it; it is here because the type requires it.
+      logicalActions: 2,
       // Null, not 0n. HANDOFF-06 made the fee nullable precisely because 0n was
       // the value every transaction carried while the analyser read a field no
       // node sends; a fixture that keeps writing 0n keeps that shape alive.

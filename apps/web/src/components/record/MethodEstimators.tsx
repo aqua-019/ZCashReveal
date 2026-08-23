@@ -173,7 +173,9 @@ const ESTIMATORS: readonly Estimator[] = [
           nActionsIronwood
         </span>
         , is that rule with its byte term replaced by counts. It agrees with the protocol while every transparent input
-        and output is a standard P2PKH, which is nearly every transaction on the chain, and diverges for anything larger:
+        and output is a standard P2PKH and the counts stay small - nearly every transaction on the chain - though not
+        quite exactly even there, since a standard input serialises at 148 bytes against the 150 ZIP 317 rounds up to, so
+        from 75 inputs the byte form falls one action behind. It diverges properly for anything larger:
         the ZIP 271 lockbox is a 2-of-3 P2SH multisig whose inputs serialise at 297 bytes each, so two of them paying one
         P2PKH output give the protocol <span className="mono">L = 4</span> and a 20,000 zat conventional fee where the
         count form gives <span className="mono">L = 2</span> and 10,000.

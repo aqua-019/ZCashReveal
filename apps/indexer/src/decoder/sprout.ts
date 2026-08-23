@@ -13,12 +13,15 @@
  * convention every other pool uses here (positive means value LEFT the pool for
  * the transparent side), is `vpub_new - vpub_old` summed over the JoinSplits.
  *
- * WHAT OMITTING IT COST, MEASURED RATHER THAN GUESSED. The gateway shipped
- * without this term in HANDOFF-05 and it was a HIGH gate finding there: a
- * Sprout transaction had a boundary of exactly zero, so it was classified
- * "transparent throughout", the pool it actually moved value out of did not
- * appear in its deltas, and its fee was computed without the term that balances
- * it. Sprout holds the residual this site's central argument is about - roughly
+ * WHAT OMITTING IT COST, MEASURED RATHER THAN GUESSED. The gateway's first cut
+ * of `poolValueBalanceZat` omitted this term, and it was a HIGH gate finding
+ * inside HANDOFF-05 - raised and fixed in that handoff, so main has carried the
+ * corrected version since PR #36. While it was absent, a Sprout transaction had
+ * a boundary of exactly zero, so it was classified "transparent throughout",
+ * the pool it actually moved value out of did not appear in its deltas, and its
+ * fee was computed without the term that balances it. The INDEXER was still
+ * missing it until this handoff, which is why the same defect had to be fixed
+ * twice in two places. Sprout holds the residual this site's central argument is about - roughly
  * 22,621 ZEC that has never left in eight years - so it is the last pool that
  * should have been silently absent.
  *

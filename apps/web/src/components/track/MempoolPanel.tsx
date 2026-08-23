@@ -33,9 +33,18 @@ const LANE_VAR: Readonly<Record<string, string>> = {
  * conventional fee has a floor of 10,000 zatoshi, so a transaction that really
  * paid nothing would be remarkable, and a table full of them reads as a finding
  * about Zcash instead of a gap in our indexer.
+ *
+ * AND THE ABSENCE MAY NOT BORROW THE CONNECTOR. A gate round found the first
+ * draft printing "not priced to 2" in a column headed "fee to L", among rows
+ * reading "10,000 to 2" - where the connector belongs to the fee that is not
+ * there, so the cell parses as a fee priced TO something. That is the claim the
+ * null exists to refuse, made by punctuation. The absence takes the site's own
+ * separator instead and names L the way the panel beside it already does. It
+ * has to read correctly alone: this table carries no sr-only twin, so the cell
+ * text and the caption are the whole of what a screen reader is given.
  */
 function fmtFeeAndActions(feeZat: bigint | null, logicalActions: number): string {
-  if (feeZat === null) return `not priced to ${logicalActions}`;
+  if (feeZat === null) return `not priced - L = ${logicalActions}`;
   return `${fmtInt(Number(feeZat))} to ${logicalActions}`;
 }
 

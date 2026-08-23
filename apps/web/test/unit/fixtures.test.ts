@@ -222,13 +222,25 @@ describe("the mempool summary is its own rows", () => {
     expect(s.shielded + s.migrations + s.transparent).toBe(s.unconfirmed);
   });
 
-  it("the conventional-fee count is ZIP 317 applied to the rows", () => {
-    // The mockup says nine of twelve. By 5,000 zat times max(2, L) it is eleven,
-    // and the one exception is the mining-pool payout at 5,000 with L = 1.
-    const conventional = e.filter((r) => r.feeZat === conventionalFeeZat(r.logicalActions));
+  it("the conventional-fee count is ZIP 317 applied to the rows that could be priced", () => {
+    // The mockup says nine of twelve. Eleven of the twelve carry a fee at all -
+    // one row is deliberately unpriced, because the fee is not on the wire and
+    // a corpus in which every row has one leaves the "not priced" path with no
+    // committed example - and by 5,000 zat times max(2, L) ten of those eleven
+    // are conventional. The one priced exception is the mining-pool payout at
+    // 5,000 with L = 1.
+    //
+    // THE DENOMINATOR IS `priced`, NOT EVERY ROW. An unpriced transaction is
+    // not one that underpaid: "did not pay the conventional fee" is a claim
+    // about a fee somebody measured, and counting the unmeasured ones into the
+    // denominator is the same false statement `feeZat: 0n` used to make.
+    const priced = e.filter((r) => r.feeZat !== null);
+    expect(s.pricedCount).toBe(priced.length);
+    expect(priced).toHaveLength(11);
+    const conventional = priced.filter((r) => r.feeZat === conventionalFeeZat(r.logicalActions));
     expect(s.conventionalCount).toBe(conventional.length);
-    expect(s.conventionalCount).toBe(11);
-    const odd = e.filter((r) => r.feeZat !== conventionalFeeZat(r.logicalActions));
+    expect(s.conventionalCount).toBe(10);
+    const odd = priced.filter((r) => r.feeZat !== conventionalFeeZat(r.logicalActions));
     expect(odd).toHaveLength(1);
     expect(odd[0]?.logicalActions).toBe(1);
     expect(odd[0]?.feeZat).toBe(5_000n);

@@ -62,6 +62,25 @@ ALTER TABLE pool_boundary_flows ADD CONSTRAINT pool_boundary_flows_pool_check
 -- is summed over vjoinsplit rather than read off a decoded bundle, because
 -- Sprout has no bundle to decode - see apps/indexer/src/decoder/sprout.ts.
 --
+-- IT IS NULLABLE WITH NO DEFAULT, AND THE ARGUMENT IS NARROWER THAN IT LOOKS.
+--
+-- A first draft added it NOT NULL DEFAULT 0, matching sapling_value_balance_zat
+-- and orchard_value_balance_zat in 001. The counter-argument for that is real
+-- and was made at the gate: it is this table's existing convention, and unlike
+-- a fee, a value balance of 0 IS a measurement - sproutValueBalanceZat returns
+-- 0n for a transaction with no JoinSplit, which is true and worth recording.
+-- Both points are correct FOR ROWS WRITTEN FROM NOW ON, and for those the
+-- default never fires anyway, because persistLeakReport always supplies the
+-- column.
+--
+-- The rows it decides are the ones already written. Every one of those was
+-- produced by an analyser that could not see Sprout at all, so backfilling 0
+-- would assert that those transactions moved no Sprout value when nothing ever
+-- looked. NULL is the only value that distinguishes "measured, and it did not
+-- move" from "never examined", and this migration is the exact moment the two
+-- populations meet. Divergence from the 001 convention is the price of that
+-- distinction, and it is stated here rather than left to be rediscovered.
+--
 -- fee_zat LOSES BOTH NOT NULL AND ITS DEFAULT OF 0. No node sends a fee: Zebra's
 -- TransactionObject has no such field and neither does zcashd's
 -- getrawtransaction. Until this handoff every row here therefore recorded a fee
@@ -74,9 +93,27 @@ ALTER TABLE pool_boundary_flows ADD CONSTRAINT pool_boundary_flows_pool_check
 -- that omits the column.
 
 ALTER TABLE leak_reports
-  ADD COLUMN IF NOT EXISTS sprout_value_balance_zat NUMERIC(20,0) NOT NULL DEFAULT 0;
+  ADD COLUMN IF NOT EXISTS sprout_value_balance_zat NUMERIC(20,0);
 ALTER TABLE leak_reports ALTER COLUMN fee_zat DROP NOT NULL;
 ALTER TABLE leak_reports ALTER COLUMN fee_zat DROP DEFAULT;
+
+-- AND THE ROWS ALREADY WRITTEN ARE CORRECTED, not just the column.
+--
+-- Dropping the constraint changes what a 0 MEANS in this column: after this
+-- migration, 0 says "measured, and it paid nothing". Every row written before
+-- it carries a 0 that means "never measured", because the analyser read
+-- `tx.feeZat` and no node sends one. Leaving them would take a column full of
+-- absences and silently reclassify all of them as observations - the exact
+-- error this file spends two paragraphs above condemning, committed to the
+-- data instead of to the schema.
+--
+-- The rewrite is lossless and total for the same reason it is necessary: the
+-- old expression was `BigInt(tx.feeZat ?? 0)` and the field never arrives, so
+-- EVERY pre-003 row is a false zero without exception. There is no genuine
+-- measurement here to lose. Rows written after 003 come from `computeFeeZat`
+-- and are unaffected, because this runs once, inside the transaction that
+-- applies this file.
+UPDATE leak_reports SET fee_zat = NULL WHERE fee_zat = 0;
 
 -- ---------------------------------------------------------------------------
 -- (b) pool_snapshots: S^p_h, one row per pool per height.

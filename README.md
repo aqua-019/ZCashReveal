@@ -86,9 +86,10 @@ pnpm build          # turbo, topological
 pnpm typecheck      # all packages
 pnpm lint           # eslint flat config; Math.random is banned repo-wide
 pnpm -r test        # every workspace suite
-pnpm check          # the three static guards CI runs: no emoji, Vercel config,
-                    # and shared-Redis safety (docs/2.0/SNAPSHOT.md - the managed
-                    # store holds another production project's live data)
+pnpm check          # the four static guards CI runs: no emoji, Vercel config,
+                    # shared-Redis safety (docs/2.0/SNAPSHOT.md - the managed
+                    # store holds another production project's live data), and
+                    # no stale two-pool unions (the pool model is four pools)
 ```
 
 37 of the indexer's tests are Postgres-backed integration tests. They gate themselves on a

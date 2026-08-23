@@ -7,9 +7,12 @@
  *   `apps/gateway/src/views/context.ts` followed the protocol.
  *   `apps/indexer/src/decoder/fingerprint.ts` SUMMED the transparent input and
  *     output counts and SUMMED Sapling's spends and outputs, where the protocol
- *     takes the maximum of each pair. Its figure differed from the gateway's
- *     for any transaction with more than one input, so `/track`'s rows and
- *     `/tx`'s rows could state two different action counts for one transaction.
+ *     takes the maximum of each pair. The two diverge whenever a transaction has
+ *     BOTH a transparent input and a transparent output, or both Sapling spends
+ *     and Sapling outputs - a sum and a maximum agree only when one side is
+ *     zero - so a shielding transaction with no transparent change agreed and an
+ *     ordinary payment did not. `/track`'s rows and `/tx`'s rows could therefore
+ *     state two different action counts for one transaction.
  *   `docs/2.0/TRACKING-MATH.md` section 3.5 and the `/method` page gave a
  *     count-based transparent term, which is the protocol's rule only while
  *     every input and output is a standard P2PKH.
@@ -114,8 +117,14 @@ export function isConventionalFee(feeZat: Zatoshi, logicalActions: number | bigi
  * `L = max(t_in, t_out) + 2*nJoinSplit + max(saplingSpends, saplingOutputs)
  *      + nActionsOrchard + nActionsIronwood`
  *
- * Correct if and only if every transparent input and output is a standard
- * P2PKH. Never use it to decide whether a fee was conventional.
+ * Correct while every transparent input and output is a standard P2PKH AND the
+ * counts are small. It is not an exact iff: ZIP 317 rounds each side UP against
+ * a standard SIZE, and a standard P2PKH input is 148 bytes against a standard of
+ * 150, so the byte form falls behind the count form from 75 such inputs
+ * (ceil(75 * 148 / 150) = 74). Seventy-five inputs is an ordinary exchange
+ * consolidation, so the approximation is slightly worse than it looks even on
+ * the shapes it was written for. Never use it to decide whether a fee was
+ * conventional.
  */
 export function zip317LogicalActionsP2pkhApproximation(tx: RpcTransaction): number {
   const transparent = Math.max(tx.vin.length, tx.vout.length);

@@ -130,6 +130,21 @@ export interface FingerprintAnnotation {
   feeZat: Zatoshi | null;
   /** `null` when `feeZat` is null - unknown, which is neither true nor false. */
   isZip317ConventionalFee: boolean | null;
+  /**
+   * ZIP 317 logical actions, by the PROTOCOL rule - the byte-based transparent
+   * term, not the count approximation.
+   *
+   * CARRIED ON THE REPORT SO THE VIEW LAYER DOES NOT HAVE TO GUESS. The
+   * analyser holds the whole `RpcTransaction` and can measure the serialised
+   * script sizes ZIP 317 actually divides by; a `LeakReport` holds counts and
+   * script TYPES, so anything downstream of it could only reach the count
+   * approximation. That is what /track was doing: deciding whether a fee was
+   * conventional from the approximation, which the site's own /method page
+   * states in as many words must never decide it - "whether a fee is
+   * conventional is settled by the byte form or left unsettled". /tx used the
+   * protocol rule, so the two pages could disagree about one transaction.
+   */
+  logicalActions: number;
   expiryDelta: number | null;
   hasMemo: boolean;
   likelyWallet: WalletGuess;
@@ -141,8 +156,28 @@ export type WalletGuess =
   | "YWALLET"
   | "NIGHTHAWK"
   | "EDGE"
+  /** Not one of the five signatures, but it paid ZIP 317's conventional fee. */
   | "UNKNOWN_BUT_STANDARD"
-  | "UNKNOWN_NONSTANDARD";
+  /** Not one of the five, and its fee was MEASURED and found non-conventional. */
+  | "UNKNOWN_NONSTANDARD"
+  /**
+   * Not one of the five, and there is not enough evidence to say which of the
+   * two above it is.
+   *
+   * ADDED IN HANDOFF-06 BECAUSE IGNORANCE WAS BEING PUBLISHED AS A VERDICT.
+   * `UNKNOWN_BUT_STANDARD` and `UNKNOWN_NONSTANDARD` are both claims about the
+   * fee - one says it was conventional, the other says it was not - and with no
+   * fee at all the guesser returned the second, so a transaction whose parent
+   * this node could not resolve was published as having underpaid. The row then
+   * contradicted itself one column apart: "not priced" in the fee cell and
+   * `UNKNOWN_NONSTANDARD` in the wallet cell.
+   *
+   * This is assertion A9's rule in a second field. `feeZat` and
+   * `isZip317ConventionalFee` were made nullable so they could admit an
+   * absence; this member is what lets `likelyWallet` admit the same one instead
+   * of overriding them.
+   */
+  | "UNKNOWN_UNPRICED";
 
 export interface TransparentInput {
   index: number;

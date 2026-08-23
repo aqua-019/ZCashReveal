@@ -78,7 +78,14 @@ describe("the RPC boundary maps the wire's casing onto the names the decoder rea
 
     const report = await analyze(tx, context(3_456_200));
     expect(report.fingerprint.expiryDelta).toBeNull();
-    expect(report.fingerprint.likelyWallet).toBe("UNKNOWN_NONSTANDARD");
+    // UNKNOWN_UNPRICED, not UNKNOWN_NONSTANDARD. This suite has no prevout
+    // resolver, so the fee is null - and the two NONSTANDARD/BUT_STANDARD
+    // answers are both claims ABOUT the fee, which is why neither is available
+    // without one. The assertion said NONSTANDARD until a gate round found that
+    // it was pinning the conflation rather than the blindness this test is
+    // about: the expiry delta is what is missing here, and the wallet answer
+    // must not smuggle in a verdict on a fee nobody computed.
+    expect(report.fingerprint.likelyWallet).toBe("UNKNOWN_UNPRICED");
   });
 
   it("the mapping is ADDITIVE, and a camelCase key would survive - which is why the casing is linted", async () => {
@@ -191,10 +198,17 @@ describe("which wallet signatures the fix actually revives, and which stay inert
   });
 
   it("NIGHTHAWK cannot fire on an unknown fee, and does fire on a computed one", () => {
-    // Expiry delta of 90 satisfies its own gate; the conventional-fee gate is
-    // what refuses when the fee is not known. Before `computeFeeZat` that was
-    // every transaction; now it is only the ones with an unresolvable input.
-    expect(guessWallet({ ...base, expiryDelta: 90, feeZat: 0n })).toBe("UNKNOWN_NONSTANDARD");
+    // THE UNKNOWN FEE IS `null`, NOT `0n`. This assertion passed `0n` and was
+    // titled as if it tested the unknown case - a gate round showed the two are
+    // not the same test at all, because `0n` is a KNOWN fee that happens to be
+    // non-conventional, which is the very value HANDOFF-06 exists to abolish.
+    // Swapping one for the other left the file green, so the old assertion was
+    // not evidence for its own title.
+    //
+    // Three states, three answers. Expiry delta of 90 satisfies NIGHTHAWK's own
+    // gate throughout; only the fee differs.
+    expect(guessWallet({ ...base, expiryDelta: 90, feeZat: null })).toBe("UNKNOWN_UNPRICED");
+    expect(guessWallet({ ...base, expiryDelta: 90, feeZat: 1n })).toBe("UNKNOWN_NONSTANDARD");
     // With the fee `computeFeeZat` now supplies, it fires - so the signature
     // itself is sound and it was only ever its input that was missing.
     expect(guessWallet({ ...base, expiryDelta: 90, feeZat: 10_000n })).toBe("NIGHTHAWK");
@@ -210,7 +224,8 @@ describe("which wallet signatures the fix actually revives, and which stay inert
       hasOrchardBundle: false,
       logicalActions: 2,
     };
-    expect(guessWallet({ ...zcashd, expiryDelta: 40, feeZat: 0n })).toBe("UNKNOWN_NONSTANDARD");
+    expect(guessWallet({ ...zcashd, expiryDelta: 40, feeZat: null })).toBe("UNKNOWN_UNPRICED");
+    expect(guessWallet({ ...zcashd, expiryDelta: 40, feeZat: 1n })).toBe("UNKNOWN_NONSTANDARD");
     expect(guessWallet({ ...zcashd, expiryDelta: 40, feeZat: 10_000n })).toBe("ZCASHD_RUST");
   });
 });

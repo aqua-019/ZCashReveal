@@ -195,6 +195,7 @@ export async function analyze(
     // never did. Null when the fee is unknown: unknown is not false.
     isZip317ConventionalFee:
       feeZat === null ? null : isZip317Conventional(feeZat, logicalActions),
+    logicalActions,
     expiryDelta,
     hasMemo: false,
     likelyWallet: wallet,
@@ -520,9 +521,14 @@ function collectFindings(input: {
     }
   }
 
+  // The three UNKNOWN_* members are not signatures, so none of them raises a
+  // WALLET_FINGERPRINT finding. UNKNOWN_UNPRICED is new in HANDOFF-06 and had to
+  // be added here as well: without it, "we could not price this transaction"
+  // would have been reported to the reader as a matched wallet signature.
   if (
     input.fingerprint.likelyWallet !== "UNKNOWN_BUT_STANDARD" &&
-    input.fingerprint.likelyWallet !== "UNKNOWN_NONSTANDARD"
+    input.fingerprint.likelyWallet !== "UNKNOWN_NONSTANDARD" &&
+    input.fingerprint.likelyWallet !== "UNKNOWN_UNPRICED"
   ) {
     out.push({
       code: "WALLET_FINGERPRINT",
@@ -532,6 +538,10 @@ function collectFindings(input: {
     });
   }
 
+  // FEE_OUTLIER requires a fee that was MEASURED and found non-conventional.
+  // UNKNOWN_UNPRICED deliberately does not raise it: a finding that says
+  // "non-ZIP-317 fee" about a transaction whose fee nobody computed is the
+  // published form of the same conflation UNKNOWN_UNPRICED exists to end.
   if (input.fingerprint.likelyWallet === "UNKNOWN_NONSTANDARD") {
     out.push({
       code: "FEE_OUTLIER",

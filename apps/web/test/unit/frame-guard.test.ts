@@ -24,6 +24,10 @@ function overWire(frame: unknown): Record<string, unknown> {
 /** The first mempool row, over the wire. The corpus always has one. */
 const ROW = (): Record<string, unknown> => overWire(MEMPOOL_VIEW.entries[0] ?? {});
 
+/** The whole view, over the wire, with its summary reachable as an object. */
+const VIEW = (): Record<string, unknown> & { readonly summary: Record<string, unknown> } =>
+  overWire(MEMPOOL_VIEW) as Record<string, unknown> & { readonly summary: Record<string, unknown> };
+
 /** Every frame the fixture stream actually emits, in the order it emits them. */
 const REAL: readonly unknown[] = [
   { type: "hello", tipHeight: MEMPOOL_VIEW.tipHeight },
@@ -49,12 +53,14 @@ const MALFORMED: readonly (readonly [string, unknown])[] = [
   ["tx_added with no entry", { type: "tx_added" }],
   ["tx_added with an entry missing its fee", { type: "tx_added", entry: { ...ROW(), feeZat: undefined } }],
   ["tx_added with a float zatoshi fee", { type: "tx_added", entry: { ...ROW(), feeZat: "1.5" } }],
+  ["tx_added with a fee that is not a number at all", { type: "tx_added", entry: { ...ROW(), feeZat: "abc" } }],
   ["tx_added with an unknown lane", { type: "tx_added", entry: { ...ROW(), lanes: ["bitcoin"] } }],
   ["tx_added with an unknown severity", { type: "tx_added", entry: { ...ROW(), severity: "CRITICAL" } }],
   ["tx_added with empty reasoning", { type: "tx_added", entry: { ...ROW(), reasoning: [] } }],
   ["snapshot with no view", { type: "snapshot" }],
   ["snapshot with a broken row", { type: "snapshot", view: { ...overWire(MEMPOOL_VIEW), entries: [{ txid: "nope" }] } }],
   ["snapshot with a missing summary", { type: "snapshot", view: { tipHeight: 1, entries: [] } }],
+  ["snapshot with a summary missing its priced count", { type: "snapshot", view: { ...VIEW(), summary: { ...VIEW().summary, pricedCount: undefined } } }],
 ];
 
 describe("the guard accepts every frame the stream emits", () => {
@@ -106,5 +112,90 @@ describe("a zatoshi never arrives as a float", () => {
     const out = asFrame(frame);
     expect(out?.type).toBe("tx_added");
     expect(out?.type === "tx_added" ? out.entry.feeZat : 0n).toBe(10_000n);
+  });
+});
+
+/**
+ * AN UNPRICED ROW IS DATA. IT IS NOT A MALFORMED ONE.
+ *
+ * The fee is not on the wire - it is the difference between the outputs a
+ * transaction spends and what it pays out, and an input whose parent the node
+ * does not hold leaves that sum unfinished - so `feeZat` is nullable since
+ * HANDOFF-06 and `asRow` reads a null fee as a row to KEEP.
+ *
+ * It did not always. The guard's zatoshi helper collapsed "the field was null"
+ * and "the field was rubbish" onto the same answer, and `feeZat === null` is
+ * how `asRow` says reject, so every transaction the producer could not price
+ * would have been dropped from the live panel rather than shown without a fee.
+ * A dropped row does not look like a bug from the outside; it looks like a
+ * quiet mempool. `asNullableZat` fixed that and nothing in this repository
+ * asserted it, which is why this block exists.
+ *
+ * Both polarities, because one of them alone is not evidence: null is kept AND
+ * kept null, and anything in that field which is not a decimal-integer string
+ * is still refused.
+ */
+describe("a fee that could not be computed is an answer, not a broken row", () => {
+  const nullFee = (): Record<string, unknown> => ({ type: "tx_added", entry: { ...ROW(), feeZat: null } });
+
+  it("the guard accepts the row, and leaves the fee null", () => {
+    const out = asFrame(nullFee());
+    expect(out, "the guard dropped a row whose fee could not be computed").not.toBeNull();
+    expect(out?.type).toBe("tx_added");
+    expect(out?.type === "tx_added" ? out.entry.feeZat : 0n, "a null fee arrived as something other than null").toBeNull();
+  });
+
+  it("the schema accepts it too, and the two produce the same row", () => {
+    expect(zecFrameSchema.safeParse(nullFee()).success, "the schema rejected a null fee").toBe(true);
+    expect(overWire(asFrame(nullFee()) as ZecFrame)).toEqual(overWire(zecFrameSchema.parse(nullFee())));
+  });
+
+  it("but rubbish in the same field is still refused, by both", () => {
+    const bad: readonly (readonly [string, unknown])[] = [
+      ["a decimal string", "1.5"],
+      ["a word", "abc"],
+      ["an empty string", ""],
+      ["nothing at all", undefined],
+    ];
+    for (const [what, feeZat] of bad) {
+      const frame = { type: "tx_added", entry: { ...ROW(), feeZat } };
+      expect(asFrame(frame), `the guard accepted ${what} as a fee`).toBeNull();
+      expect(zecFrameSchema.safeParse(frame).success, `the schema accepted ${what} as a fee`).toBe(false);
+    }
+  });
+
+  it("and the committed corpus carries one, so the stream exercises this without help", () => {
+    // Without this the three checks above are all synthetic frames, and the
+    // "not priced" cell would still be a render path nobody has ever seen.
+    const unpriced = MEMPOOL_VIEW.entries.filter((r) => r.feeZat === null);
+    expect(unpriced.length, "no fixture row is unpriced").toBeGreaterThan(0);
+  });
+});
+
+/**
+ * `pricedCount` is a DENOMINATOR, and a guard that let it through absent would
+ * hand the tile on /track a hole to divide by.
+ *
+ * The field was added to the summary in HANDOFF-06: /track renders
+ * "N of M priced pay it", where M is how many transactions could be priced at
+ * all rather than how many are waiting - "N of 12" would be a claim about the
+ * transactions nobody priced. It is required, so a summary without it is not a
+ * summary, and the malformed table above holds both the guard and the schema to
+ * refusing one. This is the other polarity: the guard carries the real value
+ * through rather than dropping the field on the floor.
+ */
+describe("the summary's priced count reaches the panel", () => {
+  it("the guard carries it through, unchanged", () => {
+    const out = asFrame(overWire({ type: "snapshot", view: MEMPOOL_VIEW }));
+    expect(out?.type).toBe("snapshot");
+    expect(out?.type === "snapshot" ? out.view.summary.pricedCount : -1).toBe(MEMPOOL_VIEW.summary.pricedCount);
+  });
+
+  it("and the count it carries is the corpus's own rows, not its row count", () => {
+    const priced = MEMPOOL_VIEW.entries.filter((r) => r.feeZat !== null).length;
+    expect(MEMPOOL_VIEW.summary.pricedCount).toBe(priced);
+    expect(MEMPOOL_VIEW.summary.pricedCount, "every row is priced, so the denominator is untested").toBeLessThan(
+      MEMPOOL_VIEW.entries.length,
+    );
   });
 });

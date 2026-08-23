@@ -303,6 +303,7 @@ function asView(v: unknown): MempoolView | null {
     !isCount(sum["transparent"]) ||
     !isCount(sum["bytes"]) ||
     !isCount(sum["nextBlockSeconds"]) ||
+    !isCount(sum["pricedCount"]) ||
     !isCount(sum["conventionalCount"]) ||
     !isCount(sum["findingsHigh"]) ||
     !isText(sum["crossingSplit"]) ||
@@ -324,6 +325,7 @@ function asView(v: unknown): MempoolView | null {
       crossingZat,
       crossingSplit: sum["crossingSplit"],
       conventionalFeeZat,
+      pricedCount: sum["pricedCount"],
       conventionalCount: sum["conventionalCount"],
       findingsHigh: sum["findingsHigh"],
       findingsNote: sum["findingsNote"],

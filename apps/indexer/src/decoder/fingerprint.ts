@@ -56,11 +56,17 @@ export function isZip317Conventional(feeZat: Zatoshi, totalActions: bigint | num
 }
 
 export function guessWallet(i: FingerprintInputs): WalletGuess {
-  // UNKNOWN, NOT FALSE. With no fee there is no evidence either way, so the two
-  // signatures that require a conventional fee cannot fire and the two that do
-  // not require one are unaffected.
-  const conventionalFee =
-    i.feeZat === null ? false : isConventionalFee(i.feeZat, i.logicalActions);
+  // UNKNOWN, NOT FALSE - AND THE FALLTHROUGH HAS TO KNOW THE DIFFERENCE. With no
+  // fee there is no evidence either way, so the two signatures that require a
+  // conventional fee cannot fire and the two that do not require one are
+  // unaffected. That much was right in the first version of this comment, and
+  // it missed a third consumer: the fallthrough at the bottom of this function
+  // chooses between UNKNOWN_BUT_STANDARD and UNKNOWN_NONSTANDARD on this
+  // boolean, and both of those are claims ABOUT THE FEE. Collapsing null to
+  // false therefore published "this transaction did not pay the conventional
+  // fee" about every transaction whose fee could not be computed.
+  const feeIsUnknown = i.feeZat === null;
+  const conventionalFee = feeIsUnknown ? false : isConventionalFee(i.feeZat!, i.logicalActions);
 
   if (
     i.hasOrchardBundle &&
@@ -104,5 +110,8 @@ export function guessWallet(i: FingerprintInputs): WalletGuess {
   }
 
   if (conventionalFee) return "UNKNOWN_BUT_STANDARD";
+  // Both remaining answers are claims about the fee, so neither is available
+  // without one. See UNKNOWN_UNPRICED in packages/zec-types/src/leaks.ts.
+  if (feeIsUnknown) return "UNKNOWN_UNPRICED";
   return "UNKNOWN_NONSTANDARD";
 }

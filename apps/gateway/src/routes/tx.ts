@@ -57,7 +57,7 @@ async function readIndexedLeak(deps: RouteDeps, txid: string): Promise<IndexedLe
   if (deps.sql === null) return null;
   try {
     const rows = await deps.sql<
-      { leak_class: string; overall_severity: string; fee_zat: string; likely_wallet: string | null }[]
+      { leak_class: string; overall_severity: string; fee_zat: string | null; likely_wallet: string | null }[]
     >`
       SELECT leak_class, overall_severity, fee_zat, likely_wallet
       FROM leak_reports WHERE txid = ${txid} LIMIT 1
@@ -75,7 +75,15 @@ async function readIndexedLeak(deps: RouteDeps, txid: string): Promise<IndexedLe
     return {
       leakClass: row.leak_class,
       severity,
-      feeZat: BigInt(row.fee_zat),
+      // NULL SINCE MIGRATION 003, AND `BigInt(null)` THROWS. `fee_zat` lost its
+      // NOT NULL because no node sends a fee and the computed one can be
+      // unavailable, so this row type had to widen with it. Left as it was, the
+      // throw landed in this function's own catch, which returns null and logs
+      // "leak_reports lookup failed" - so a transaction with an unresolvable
+      // input lost its leakClass, its severity AND its wallet guess from /tx,
+      // and blamed a lookup that had in fact succeeded. `pnpm typecheck` cannot
+      // see it: postgres.js row types are asserted by the caller, not inferred.
+      feeZat: row.fee_zat === null ? null : BigInt(row.fee_zat),
       likelyWallet: row.likely_wallet,
     };
   } catch (err) {

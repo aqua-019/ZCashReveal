@@ -59,6 +59,18 @@ export type FeeUnavailableReason =
   /** At least one input's previous output could not be resolved. */
   | "unresolved-inputs"
   /**
+   * The identity produced a NEGATIVE fee, which consensus forbids.
+   *
+   * A block that reached consensus cannot contain one, so a negative result
+   * means a term is missing on our side - most likely a pool this build cannot
+   * decode - and the honest answer is that the fee is unknown. Publishing the
+   * number would be worse than refusing it: `fee_zat` is `NUMERIC(20,0)` and
+   * accepts negatives, and a renderer would print "-1.00000000 ZEC" as this
+   * transaction's fee. That is the same class of statement as `0n`, with a
+   * minus sign to make it look deliberate.
+   */
+  | "negative-fee"
+  /**
    * A v6 transaction may carry an Ironwood bundle whose value balance is a term
    * in the conservation identity above, and decoding v6 is HANDOFF-07's
    * deliverable. Omitting a term would not produce an approximate fee, it would
@@ -204,9 +216,24 @@ export async function computeFeeZat(
 
   const pools = poolContributionZat(tx);
   const transparentOut = sumTransparentOut(tx);
+  const feeZat = spentZat + pools - transparentOut;
+
+  // Consensus forbids a negative fee, so a negative result is a statement about
+  // this decoder rather than about the transaction. Refused for the same reason
+  // `0n` was: a wrong number that types as an answer outlives a null.
+  if (feeZat < 0n) {
+    return {
+      feeZat: null,
+      reason: "negative-fee",
+      isCoinbase: false,
+      inputsResolved: resolved,
+      inputsUnresolved: 0,
+      ...REFUSED,
+    };
+  }
 
   return {
-    feeZat: spentZat + pools - transparentOut,
+    feeZat,
     reason: null,
     isCoinbase: false,
     inputsResolved: resolved,

@@ -33,6 +33,20 @@ export function createDb(url: string): Sql {
  * decoded bundle - see decoder/sprout.ts.
  */
 export async function persistLeakReport(sql: Sql, r: LeakReport): Promise<void> {
+  // THE ON CONFLICT LIST REFRESHES EVERY RECOMPUTED COLUMN, AND IT DID NOT.
+  // `fetchAndAnalyze` re-runs on every ZMQ announcement of a transaction, so one
+  // transaction is analysed repeatedly - and since HANDOFF-06 the fee
+  // legitimately CHANGES between those analyses: null while a parent is still
+  // propagating, a real number once it lands. The list refreshed the JSONB
+  // `report` and not the columns, so the blob learned the new fee and the column
+  // kept the first answer, and one row published two different fees for one
+  // transaction. The gateway reads the COLUMN. Harmless before this handoff only
+  // because `fee_zat` was always 0 and could not change.
+  //
+  // (This reasoning lives here rather than as a `--` comment inside the query:
+  // the SQL is a tagged template literal, so a backtick in it terminates the
+  // template. That is not a hypothetical - it is how this comment was first
+  // written, and `tsc` rejected the file.)
   await sql`
     INSERT INTO leak_reports (
       txid, seen_at, tip_height_at_seen, tx_version,
@@ -66,6 +80,14 @@ export async function persistLeakReport(sql: Sql, r: LeakReport): Promise<void> 
     ON CONFLICT (txid) DO UPDATE SET
       tip_height_at_seen = EXCLUDED.tip_height_at_seen,
       overall_severity = EXCLUDED.overall_severity,
+      fee_zat = EXCLUDED.fee_zat,
+      sprout_value_balance_zat = EXCLUDED.sprout_value_balance_zat,
+      sapling_value_balance_zat = EXCLUDED.sapling_value_balance_zat,
+      orchard_value_balance_zat = EXCLUDED.orchard_value_balance_zat,
+      value_flow_direction = EXCLUDED.value_flow_direction,
+      leak_class = EXCLUDED.leak_class,
+      expiry_delta = EXCLUDED.expiry_delta,
+      likely_wallet = EXCLUDED.likely_wallet,
       report = EXCLUDED.report
   `;
 }

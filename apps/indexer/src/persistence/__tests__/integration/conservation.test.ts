@@ -72,12 +72,23 @@ type TestPool = (typeof POOLS)[number];
  * `ValuePool.apply` throws ExitOnlyViolation for any negative Orchard delta,
  * so a generator drawing heights freely would spend its runs failing on the
  * consensus rule instead of testing the property. The base height is therefore
- * drawn from two bands - one wholly below the activation, one straddling it -
- * and the single thing `planDeltas` suppresses is Orchard ENTRY at or above
- * that height, which is exactly what consensus forbids and nothing more. Every
- * other pool-direction-height combination is generated, and the coverage
- * counters at the end of the property assert that the straddling band actually
- * produced Orchard rows above the activation rather than merely being able to.
+ * drawn from three bands - see `baseHeight` - and the single thing `planDeltas`
+ * suppresses is Orchard ENTRY at or above that height, which is exactly what
+ * consensus forbids and nothing more. Every other pool-direction-height
+ * combination is generated, and the coverage counters at the end of the
+ * property assert that the interesting region was actually REACHED rather than
+ * merely being reachable.
+ *
+ * AND "REACHED" CANNOT MEAN A ROW. This guard used to count Orchard rows at or
+ * above the activation, which the generator cannot fail to produce: a
+ * suppressed Orchard entry stays in the plan as a ZERO delta rather than being
+ * dropped (see `planDeltas`), and a zero delta moves nothing across the
+ * boundary. Measured over 1000 seeds of 200 runs, the two-band generator this
+ * file used to carry produced a median of 93 such rows and a median of 13
+ * non-zero ones, with a worst seed at 1 - so `rows > 0` was carried by the
+ * no-ops, and suppressing every real Orchard exit above the activation left it
+ * green. The counter below counts non-zero deltas, which are the only rows that
+ * reach the exit-only branch of `ValuePool.apply` on replay.
  */
 const ORCHARD_EXIT_ONLY = orchardExitOnlyFrom("mainnet");
 
@@ -123,6 +134,15 @@ const baseHeight = fc.oneof(
   // A band straddling NU6.3. A plan spans at most 3 x 24 = 72 blocks, so a
   // base drawn here can sit wholly below, across, or wholly above activation.
   fc.integer({ min: ORCHARD_EXIT_ONLY - 40, max: ORCHARD_EXIT_ONLY + 8 }),
+  // A band that puts the activation INSIDE nearly every plan. The band above
+  // is allowed to do that and mostly does not: fast-check biases arrays toward
+  // their minimum length and `heightStep` toward 0, so a typical plan spans a
+  // handful of blocks rather than the 72 its bounds permit, and a base drawn 40
+  // blocks below the activation usually never arrives. Twelve to two blocks
+  // below leaves room for Orchard to take an entry first and still cross while
+  // steps remain, which is the only shape that generates a non-zero Orchard
+  // exit above the activation at all.
+  fc.integer({ min: ORCHARD_EXIT_ONLY - 12, max: ORCHARD_EXIT_ONLY - 2 }),
 );
 
 /**
@@ -234,7 +254,7 @@ describe.skipIf(!reachable)("A6: replay and rollback conserve balances across fo
     // likely. Asserted after fc.assert so that a generator which quietly
     // stopped reaching one of these fails loudly instead of passing narrow.
     const poolsExercised = new Set<TestPool>();
-    let orchardRowsAfterExitOnly = 0;
+    let orchardExitsAfterExitOnly = 0;
     let cutsOnAPopulatedHeight = 0;
     let rowsDeleted = 0;
 
@@ -253,8 +273,12 @@ describe.skipIf(!reachable)("A6: replay and rollback conserve balances across fo
           const planned = planDeltas(base, steps);
           for (const d of planned) {
             poolsExercised.add(d.pool);
-            if (d.pool === "orchard" && d.height >= ORCHARD_EXIT_ONLY) {
-              orchardRowsAfterExitOnly += 1;
+            if (
+              d.pool === "orchard" &&
+              d.height >= ORCHARD_EXIT_ONLY &&
+              d.deltaZat !== 0n
+            ) {
+              orchardExitsAfterExitOnly += 1;
             }
             await writePoolBoundaryFlow(
               { pool: d.pool, txid: d.txid, height: d.height, deltaZat: d.deltaZat },
@@ -298,7 +322,15 @@ describe.skipIf(!reachable)("A6: replay and rollback conserve balances across fo
     );
 
     expect([...poolsExercised].sort()).toEqual([...POOLS].sort());
-    expect(orchardRowsAfterExitOnly).toBeGreaterThan(0);
+    // Eight, not one. Over 1000 seeds of 200 runs the three-band generator's
+    // worst seed produced 17 and its median 41, so eight is roughly half the
+    // worst case: high enough that a generator which lost most of this coverage
+    // fails, low enough that ordinary seed variance cannot. One would be
+    // satisfied by a generator reaching the region once by luck - and 171 of
+    // those 1000 seeds would have fallen short of eight under the two-band
+    // generator, which is the measurement that says the band and the threshold
+    // are one change and not two.
+    expect(orchardExitsAfterExitOnly).toBeGreaterThanOrEqual(8);
     expect(cutsOnAPopulatedHeight).toBeGreaterThan(0);
     expect(rowsDeleted).toBeGreaterThan(0);
     // 200 runs of roughly 60 round trips each; the suite-wide 20s default is
