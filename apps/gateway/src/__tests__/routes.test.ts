@@ -232,15 +232,40 @@ describe("A6 - the cache saves the call, and turning it off restores the call", 
     await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
     const second = h.calls().total - afterFirst;
 
-    // getaddresstxids is deliberately NOT cached - a cached txid list would
-    // silently drop a transaction that arrived inside the TTL, and the table
-    // would then disagree with the balance above it on the same page. So the
-    // saving to assert is on the balance, the utxos and the transaction bodies.
+    // ZERO, which is what A6 says. The first version of this cache kept the
+    // balance and re-fetched the txid list every time, so the second request
+    // cost one call - and the reason given for that was backwards: the balance
+    // was ALREADY a TTL old, so refreshing only the list is what made the page
+    // inconsistent. Both now live in one cache entry written at one instant.
+    expect(second).toBe(0);
     const byMethod = h.calls().byMethod;
     expect(byMethod["getaddressbalance"]).toBe(1);
     expect(byMethod["getaddressutxos"]).toBe(1);
+    expect(byMethod["getaddresstxids"]).toBe(1);
     expect(byMethod["getrawtransaction"]).toBe(1);
-    expect(second).toBe(1);
+    await h.close();
+  });
+
+  it("the cached response is byte-identical to the first, which is what caching both halves together buys", async () => {
+    const cache = new MemoryCache();
+    const h = await harness({ handle: node, cache, env: { GATEWAY_ADDRESS_CACHE_TTL_S: "60", GATEWAY_TX_CACHE_TTL_S: "60" } });
+    const first = await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    const second = await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    // The PROVENANCE legitimately differs - the second answer says it came from
+    // the cache, in the balance note and in the reasoning panel - and every
+    // figure must not. Stripping the two provenance strings and comparing the
+    // rest is the assertion: a page served from cache states the same numbers
+    // as the page served from the node, which is only true because the balance
+    // and the transaction list come from one entry written at one instant.
+    const strip = (b: string): unknown => {
+      const o = JSON.parse(b) as Record<string, unknown>;
+      delete o["balanceNote"];
+      delete o["reasoning"];
+      return o;
+    };
+    expect(strip(second.body)).toEqual(strip(first.body));
+    expect((JSON.parse(first.body) as { balanceNote: string }).balanceNote).toContain("node's address index");
+    expect((JSON.parse(second.body) as { balanceNote: string }).balanceNote).toContain("cache");
     await h.close();
   });
 

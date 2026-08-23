@@ -52,6 +52,11 @@ CREATE TABLE IF NOT EXISTS address_cache (
   -- address's. NULL where the address has no transactions at all.
   first_seen    INTEGER,
   last_seen     INTEGER,
+  -- The address's transaction ids, cached WITH the balance and never apart from
+  -- it. A balance refreshed on a TTL beside a transaction list refreshed on
+  -- every request is the shape that makes a page contradict itself: the totals
+  -- would be a minute old and the table current. One row, one instant.
+  txids         JSONB         NOT NULL DEFAULT '[]'::jsonb,
   refreshed_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
 );
 

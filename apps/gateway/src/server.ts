@@ -194,6 +194,29 @@ export async function buildServer(options: BuildServerOptions): Promise<BuiltSer
    * hostname to whoever triggered it. The full error goes to the log, where it
    * belongs and where a reader cannot see it.
    */
+  /**
+   * An unmatched route, WITHOUT the query string.
+   *
+   * `setErrorHandler` does not cover this: Fastify routes an unmatched request
+   * to `setNotFoundHandler`, whose default body is
+   * `Route ${method}:${request.url} not found` with the URL verbatim - query
+   * string included. Executed before this handler existed:
+   *
+   *   GET /api/nope?q=uview1SECRETKEYMATERIAL -> 404
+   *   {"message":"Route GET:/api/nope?q=uview1SECRETKEYMATERIAL not found", ...}
+   *
+   * `/api/search` is built so that a viewing key which arrives is neither
+   * logged nor echoed. This was the same leak through the back door, reachable
+   * by a typo or by a client built against a different API version. The method
+   * and the PATH are enough to tell a caller what happened; the query string
+   * never is.
+   */
+  app.setNotFoundHandler((req, reply) => {
+    const path = req.url.split("?")[0] ?? req.url;
+    void reply.code(404);
+    return reply.send({ error: "no such route", detail: `${req.method} ${path}` });
+  });
+
   app.setErrorHandler((err, req, reply) => {
     // A rate-limit rejection is Fastify's own and already carries the right
     // status; passing it through this mapper would turn every 429 into a 500.

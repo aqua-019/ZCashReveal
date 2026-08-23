@@ -68,8 +68,14 @@ describe.skipIf(!HAVE_DB)("PgCache against migration 003a", () => {
         utxo_count INTEGER NOT NULL,
         first_seen INTEGER,
         last_seen INTEGER,
+        txids JSONB NOT NULL DEFAULT '[]'::jsonb,
         refreshed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      -- For a database where 003a was applied before the txids column existed.
+      -- The migration itself is not yet merged, so a developer's local database
+      -- may hold the earlier shape and the runner will not re-apply a file it
+      -- has already recorded.
+      ALTER TABLE address_cache ADD COLUMN IF NOT EXISTS txids JSONB NOT NULL DEFAULT '[]'::jsonb;
     `);
     cache = new PgCache(sql);
   });
@@ -90,12 +96,32 @@ describe.skipIf(!HAVE_DB)("PgCache against migration 003a", () => {
       utxoCount: 3,
       firstSeen: 3_400_000,
       lastSeen: 3_456_000,
+      txids: ["aa".repeat(32), "bb".repeat(32)],
     });
     const back = await cache.getAddress("test-lockbox", 60);
     expect(back?.balanceZat).toBe(LOCKBOX_ZAT);
     expect(back?.receivedZat).toBe(LOCKBOX_ZAT + 1n);
     expect(back?.utxoCount).toBe(3);
     expect(back?.firstSeen).toBe(3_400_000);
+  });
+
+  it("round-trips the txid list in the SAME row as the balance", async () => {
+    // The point of the column: the balance and the list are written at one
+    // instant and read back together, so a page cannot show a minute-old total
+    // above a current table.
+    const ids = ["cc".repeat(32), "dd".repeat(32), "ee".repeat(32)];
+    await cache.putAddress("test-txids", {
+      balanceZat: 42n,
+      receivedZat: 42n,
+      spentZat: 0n,
+      utxoCount: 1,
+      firstSeen: 1,
+      lastSeen: 2,
+      txids: ids,
+    });
+    const back = await cache.getAddress("test-txids", 60);
+    expect(back?.txids).toEqual(ids);
+    expect(back?.balanceZat).toBe(42n);
   });
 
   it("upserts rather than raising a unique violation", async () => {
@@ -106,6 +132,7 @@ describe.skipIf(!HAVE_DB)("PgCache against migration 003a", () => {
       utxoCount: 1,
       firstSeen: null,
       lastSeen: null,
+      txids: [],
     });
     await cache.putAddress("test-upsert", {
       balanceZat: 2n,
@@ -114,6 +141,7 @@ describe.skipIf(!HAVE_DB)("PgCache against migration 003a", () => {
       utxoCount: 2,
       firstSeen: 10,
       lastSeen: 20,
+      txids: [],
     });
     const back = await cache.getAddress("test-upsert", 60);
     expect(back?.balanceZat).toBe(2n);
@@ -128,6 +156,7 @@ describe.skipIf(!HAVE_DB)("PgCache against migration 003a", () => {
       utxoCount: 0,
       firstSeen: null,
       lastSeen: null,
+      txids: [],
     });
     // Fresh under a generous TTL.
     expect(await cache.getAddress("test-ttl", 3600)).not.toBeNull();
@@ -146,6 +175,7 @@ describe.skipIf(!HAVE_DB)("PgCache against migration 003a", () => {
       utxoCount: 0,
       firstSeen: null,
       lastSeen: null,
+      txids: [],
     });
     expect(await cache.getAddress("test-zero", 0)).toBeNull();
   });

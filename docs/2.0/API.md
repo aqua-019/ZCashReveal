@@ -47,6 +47,7 @@ whichever survives, one line in `src/routes/index.ts` removes the other.
 | **CORS** | `GATEWAY_CORS_ORIGIN`, a comma-separated allow list or `*`. `*` is accepted: this is a read-only public API and some deployments legitimately want it. |
 | **Rate limit** | Per IP, `GATEWAY_RATE_LIMIT_MAX` requests per `GATEWAY_RATE_LIMIT_WINDOW_MS` (default 100 / 10 s). Over it: `429`, with `x-ratelimit-*` and `retry-after` headers. |
 | **Request id** | Echoed as `x-request-id` on every response. A caller-supplied one is honoured, so a trace can span the tunnel between the site and the VPS — the one hop nobody can watch from either end. |
+| **Logging** | The request serialiser writes the method, the request id and the **path**. The query string is dropped entirely and any viewing-key-shaped run is replaced, in the path and in error messages alike. `authorization` and `cookie` headers are removed rather than censored: a censored line still records that a credential was presented and how long it was. |
 
 ### Status codes, and the distinction that matters
 
@@ -66,6 +67,12 @@ No error body carries a node URL, a credential or an internal hostname. That is
 assertion A7, and it is checked on failing responses as well as successful ones,
 because a message is where one would leak.
 
+A `404` for an unmatched route names the method and the **path only**. Fastify's
+default not-found body is `Route ${method}:${request.url} not found` with the URL
+verbatim, query string included, so `GET /api/nope?q=uview1...` returned the
+viewing key in the body — the same leak `/api/search` is built to avoid,
+reachable by a typo.
+
 ---
 
 ## `GET /healthz`
@@ -82,11 +89,18 @@ What a query string is, by shape alone. No network call, and no database lookup.
 > `ZecApi.searchKind` is synchronous and local precisely so that recognising a
 > viewing key involves no network at all, and `apps/web` classifies in the
 > browser and never calls this. The endpoint exists for non-browser consumers.
-> A key that arrives here anyway is never logged (`q` is redacted in the logger
-> config, unconditionally, not per-route) and is never echoed in the response —
-> but nothing can un-send it: it is already in the client's history and in any
-> proxy's access log. **No client of this site should ever call this endpoint
-> with a viewing key.**
+> A key that arrives here anyway is not echoed in the response and is not
+> written to the log: the request serialiser records the method and the PATH,
+> drops the query string entirely, and replaces any key-shaped run anywhere in
+> what remains. That is assertion A9, checked on the body, the headers and every
+> emitted log line, with the fail side restoring Fastify's default serialiser to
+> prove the assertion can fail.
+>
+> **Two things this cannot do.** It cannot un-send the key: it is already in the
+> client's history and its referrer headers. And it cannot reach a reverse proxy
+> — `cloudflared`, nginx and every load balancer log full URLs by default, which
+> is a third copy of the exposure that belongs to the VPS runbook (HANDOFF-10).
+> **No client of this site should ever call this endpoint with a viewing key.**
 
 ```
 GET /api/search?q=t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo -> 200
@@ -123,6 +137,21 @@ address ever touched and the lockbox has thousands. The view reads the most
 recent `GATEWAY_ADDRESS_TX_LIMIT` (default 50) and `note` says so; every total
 above the table is for the whole history.
 
+**`netToPoolZat` is what CROSSED, not what the address spent.** A shield that
+spends a 120,552.69 output to put 30,000 into a pool takes 90,552.69 straight
+back as change; summing the gross debit would report the larger figure and
+overstate a headline number four-fold. The quantity is the pools' own value
+balance, negated.
+
+**A balance the transactions do not account for is SHOWN, not absorbed.** The
+opening point of the balance chart is worked backwards from the current balance
+less every movement in the window - it has to be, because the window holds the
+most recent transactions and there is no way to read what came before it. When
+the window *is* the whole history that opening balance must be zero, and when it
+is not, the node and the arithmetic disagree about this address. The chart says
+so in the point's `event` rather than drawing the difference as a starting
+balance.
+
 ```json
 {
   "address": "t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo",
@@ -145,6 +174,7 @@ above the table is for the whole history.
   "netToPoolZat": "0",
   "balanceNote": "Unspent output total across 1 UTXO, read from the node's address index.",
   "sentNote": "Received less balance. Derived, not summed from the window below.",
+  "netToPoolNote": "No transaction in the window moved value across a pool boundary.",
   "balances": [ { "height": 3455999, "balanceZat": "0", "event": null, "crossing": false }, "..." ],
   "transactions": [ "..." ],
   "reasoning": [
@@ -196,30 +226,53 @@ bound** rather than reporting a number computed from a subset.
 
 ```json
 {
-  "txid": "abab...abab",
+  "txid": "2222...2222",
   "version": "v5",
   "height": 3456000,
   "stamp": { "text": "2025-08-22 22:00:00", "precision": "second", "sortMs": 1755900000000 },
   "leakClass": "NOT_CLASSIFIED",
   "severity": "INFO",
-  "summary": "Coinbase at height 3,456,000. Protocol issuance and the ZIP 1014 and ZIP 271 splits, crossing no pool boundary.",
-  "deltas": [{ "pool": "transparent", "deltaZat": "7818340930000" }],
+  "summary": "30,000.0000 ZEC entered orchard.",
+  "deltas": [
+    { "pool": "transparent", "deltaZat": "3000000000000" },
+    { "pool": "orchard",     "deltaZat": "-3000000000000" }
+  ],
   "metrics": [
     { "label": "fee", "value": "0.00000000 ZEC", "accent": false,
-      "note": "A coinbase pays no fee. Its outputs are created by issuance rather than by spending, so there is no input total to take a difference from." },
-    { "label": "logical actions", "value": "1", "accent": false, "note": "ZIP 317: ..." },
-    { "label": "conventional fee", "value": "not priced", "accent": false,
-      "note": "ZIP 317 prices the transactions a wallet builds. A coinbase is built by the consensus rules and pays nothing." },
-    { "label": "across the boundary", "value": "none", "accent": false, "note": "..." }
+      "note": "Computed from the outputs this transaction spends. No node reports a fee on getrawtransaction." },
+    { "label": "logical actions", "value": "3", "accent": false,
+      "note": "ZIP 317: the greater of the serialised input bytes over 150 and the serialised output bytes over 34, each rounded up, plus twice the joinsplits, plus the greater of the Sapling spends and outputs, plus every Orchard and Ironwood action." },
+    { "label": "conventional fee", "value": "no", "accent": false,
+      "note": "ZIP 317 would price this at 0.00015000 ZEC." },
+    { "label": "across the boundary", "value": "30,000.0000 ZEC", "accent": true,
+      "note": "Value entered a shielded pool." }
   ],
   "publishes": [ { "k": "expiry height", "v": "3,456,040", "muted": false }, "..." ],
   "estimate": null,
   "roundTrip": [],
   "feeZat": "0",
-  "logicalActions": 1,
+  "logicalActions": 3,
   "conventionalFee": false
 }
 ```
+
+**The two deltas mirror each other.** `poolDeltaSchema` fixes the sign as
+"positive leaves the pool", so a shield shows the transparent lane losing what
+the orchard lane gains. An earlier version computed the transparent delta as
+`outputs - inputs`, which rendered both lanes NEGATIVE for a shield and both
+POSITIVE for a deshield - two pools each receiving, or each losing, the same
+30,000 ZEC in a transaction that moved it from one to the other. The fee is not
+in this figure: it leaves the transparent lane for a miner without crossing a
+pool boundary, and it is its own metric.
+
+**`logicalActions` is ZIP 317's definition, taken from Zebra's implementation
+of it** (`zebra-chain/src/transaction/unmined/zip317.rs`), not a count of inputs
+and outputs. Sapling contributes the *maximum* of its spends and outputs, not
+their sum; joinsplits count double; and the transparent side is measured in
+bytes against a standard size, so a P2SH multisig input costs more than one
+action. `apps/indexer/src/decoder/fingerprint.ts` computes it a fourth way and
+the two disagree for any transaction with more than one input or output -
+correcting the indexer is HANDOFF-08's, and the divergence is in the §8 ledger.
 
 `accent: true` appears on exactly one metric and only when value actually crossed
 a pool boundary — gold's third licensed job. A magnitude that crossed nothing is

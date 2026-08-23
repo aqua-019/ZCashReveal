@@ -26,9 +26,10 @@ import {
   resolveInputs,
   shieldedActionCount,
   versionText,
+  zip317LogicalActions,
   type ReadContext,
 } from "./context.js";
-import { countText, stampAtHeight, stampFromUnix, zecText } from "./units.js";
+import { countText, stampFromUnix, stampNoTime, zecText } from "./units.js";
 
 /** What the indexer recorded about this transaction, if anything. */
 export interface IndexedLeak {
@@ -75,7 +76,9 @@ export async function buildTxView(
    */
   const feeZat = isCoinbase ? 0n : indexed?.feeZat ?? inputZat + boundary - outputZat;
 
-  const logicalActions = Math.max(tx.vin.length, tx.vout.length) + shieldedActionCount(tx);
+  // ZIP 317's own definition, from Zebra's implementation of it - not a count
+  // of inputs and outputs. See `zip317LogicalActions`.
+  const logicalActions = zip317LogicalActions(tx);
   const conventional = feeZat === conventionalFeeZat(logicalActions);
 
   const height = typeof tx.height === "number" && tx.height >= 0 ? tx.height : 0;
@@ -84,14 +87,31 @@ export async function buildTxView(
       ? stampFromUnix(tx.blocktime)
       : typeof tx.time === "number"
         ? stampFromUnix(tx.time)
-        : stampAtHeight(height);
+        : stampNoTime(height);
 
   const lanes = lanesTouched(tx);
   const shieldedLanes = lanes.filter((l) => l !== "transparent");
 
+  /**
+   * Per-pool deltas, in the sign the DTO fixes: POSITIVE LEAVES THE POOL.
+   *
+   * The transparent lane's delta is the MIRROR IMAGE of what the pools did -
+   * `-boundary` - and not `outputs - inputs`, which was the first version and
+   * was wrong twice over. It had the sign inverted, so a shield rendered
+   * transparent and orchard both NEGATIVE, saying two pools each received the
+   * same 30,000 ZEC in a transaction that moved it from one to the other; and a
+   * deshield rendered both POSITIVE, saying both lost it. It also measured a
+   * different quantity from `views/block.ts`, which sums `-boundary` for the
+   * same transactions, so one transaction had two different transparent deltas
+   * depending on which page a reader was on.
+   *
+   * The fee is not in this figure and should not be: it leaves the transparent
+   * lane for a miner without crossing any pool boundary, and it is reported as
+   * its own metric below.
+   */
   const deltas: { pool: LedgerLane; deltaZat: bigint }[] = [];
   if (tx.vin.length > 0 || tx.vout.length > 0) {
-    deltas.push({ pool: "transparent", deltaZat: outputZat - inputZat });
+    deltas.push({ pool: "transparent", deltaZat: -boundary });
   }
   if ((tx.vShieldedSpend?.length ?? 0) + (tx.vShieldedOutput?.length ?? 0) > 0) {
     deltas.push({ pool: "sapling", deltaZat: BigInt(tx.valueBalanceZat ?? 0) });
@@ -139,7 +159,8 @@ export async function buildTxView(
       {
         label: "logical actions",
         value: countText(logicalActions),
-        note: "ZIP 317: the greater of the transparent input and output counts, plus every shielded action.",
+        note:
+          "ZIP 317: the greater of the serialised input bytes over 150 and the serialised output bytes over 34, each rounded up, plus twice the joinsplits, plus the greater of the Sapling spends and outputs, plus every Orchard and Ironwood action.",
         accent: false,
       },
       {

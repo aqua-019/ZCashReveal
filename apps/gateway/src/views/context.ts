@@ -122,7 +122,13 @@ export async function resolveInputs(ctx: ReadContext, tx: RpcTransaction): Promi
       continue;
     }
     const funding = await ctx.tx(vin.txid);
-    const vout = funding?.vout[vin.vout];
+    // BY `n`, NOT BY ARRAY POSITION. An input names the output index it spends,
+    // and `vout` is a JSON array that a node happens to emit in index order.
+    // Those coincide for every well-formed response and diverge the moment one
+    // is filtered, paginated or hand-written - which is exactly how this
+    // project's own example fixture silently reported a shield as a transparent
+    // transfer, because its single output carried `n: 1` at position 0.
+    const vout = funding?.vout.find((o) => o.n === vin.vout);
     if (vout === undefined) {
       out.push(null);
       continue;
@@ -160,6 +166,84 @@ export function shieldedActionCount(tx: RpcTransaction): number {
   return (
     (tx.vShieldedSpend?.length ?? 0) + (tx.vShieldedOutput?.length ?? 0) + (tx.orchard?.actions.length ?? 0) + ironwood
   );
+}
+
+/* ==========================================================================
+   ZIP 317 logical actions
+   ========================================================================== */
+
+/** ZIP 317's standard sizes, in bytes. */
+const P2PKH_STANDARD_INPUT_SIZE = 150;
+const P2PKH_STANDARD_OUTPUT_SIZE = 34;
+
+/**
+ * The number of logical actions ZIP 317 assigns to a transaction.
+ *
+ * TAKEN FROM THE CANONICAL IMPLEMENTATION, not from a summary of it: Zebra
+ * 6.3.0, `zebra-chain/src/transaction/unmined/zip317.rs:160-173`, at commit
+ * 1c9b245.
+ *
+ *   logical = max(ceil(inSize / 150), ceil(outSize / 34))
+ *           + 2 * joinsplits
+ *           + max(saplingSpends, saplingOutputs)
+ *           + orchardActions
+ *           + ironwoodActions
+ *
+ * THREE THINGS ARE EASY TO GET WRONG HERE AND THIS PROJECT GOT ALL THREE
+ * WRONG in its first pass. Sapling contributes the MAXIMUM of its spends and
+ * outputs, not their sum. Joinsplits count double. And the transparent side is
+ * measured in BYTES against a standard size, not in inputs and outputs: a P2SH
+ * multisig input is larger than a standard one and costs more than one action,
+ * which is precisely the case the site's own subject matter is full of.
+ *
+ * `apps/indexer/src/decoder/fingerprint.ts` computes this a fourth way - it
+ * sums the transparent input and output counts - so the indexer's figure and
+ * this one disagree for any transaction with more than one input or output.
+ * Correcting the indexer is analysis and belongs to HANDOFF-08; the divergence
+ * is recorded in the section 8 ledger.
+ */
+export function zip317LogicalActions(tx: RpcTransaction): number {
+  const inSize = tx.vin.reduce((acc, v) => acc + transparentInputSize(v), 0);
+  const outSize = tx.vout.reduce((acc, o) => acc + transparentOutputSize(o), 0);
+  const transparent = Math.max(divCeil(inSize, P2PKH_STANDARD_INPUT_SIZE), divCeil(outSize, P2PKH_STANDARD_OUTPUT_SIZE));
+
+  const joinsplits = (tx as unknown as { vjoinsplit?: unknown[] }).vjoinsplit?.length ?? 0;
+  const sapling = Math.max(tx.vShieldedSpend?.length ?? 0, tx.vShieldedOutput?.length ?? 0);
+  const orchard = tx.orchard?.actions.length ?? 0;
+  const ironwood = (tx as unknown as { ironwood?: { actions?: unknown[] } }).ironwood?.actions?.length ?? 0;
+
+  return transparent + 2 * joinsplits + sapling + orchard + ironwood;
+}
+
+/**
+ * The serialised size of one transparent input, from what the RPC gives.
+ *
+ * 32 bytes of previous txid, 4 of previous index, a compact-size script length,
+ * the script itself, and 4 of sequence. A coinbase input carries its script in
+ * `coinbase` rather than in `scriptSig`, and is the same size otherwise.
+ */
+function transparentInputSize(vin: RpcTransaction["vin"][number]): number {
+  const scriptHex = vin.scriptSig?.hex ?? vin.coinbase ?? "";
+  const scriptLen = scriptHex.length >>> 1;
+  return 32 + 4 + compactSize(scriptLen) + scriptLen + 4;
+}
+
+/** 8 bytes of value, a compact-size script length, and the script. */
+function transparentOutputSize(vout: RpcTransaction["vout"][number]): number {
+  const scriptLen = vout.scriptPubKey.hex.length >>> 1;
+  return 8 + compactSize(scriptLen) + scriptLen;
+}
+
+/** Bitcoin's compact-size encoding width for a length. */
+function compactSize(n: number): number {
+  if (n < 253) return 1;
+  if (n <= 0xffff) return 3;
+  if (n <= 0xffff_ffff) return 5;
+  return 9;
+}
+
+function divCeil(a: number, b: number): number {
+  return Math.ceil(a / b);
 }
 
 /** Which lanes a transaction touches, in the site's five-lane vocabulary. */

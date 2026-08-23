@@ -28,6 +28,14 @@ Production infrastructure as files: a compose stack for a Linux VPS (Zebra 6.2.x
 > that disagreement is exactly what hid a dead field for three revolutions (`expiryHeight` in the
 > interface against `expiryheight` on the wire). `apps/indexer/test/fixtures/transactions/` holds
 > the convention and a casing test that enforces it.
+>
+> **THE THIRD COPY OF THE VIEWING-KEY EXPOSURE IS YOURS (HANDOFF-05 A9).** The gateway now drops
+> the query string and redacts key-shaped runs before writing a log line, and refuses to echo
+> either to a caller. Neither control reaches a reverse proxy: `cloudflared`, nginx and every load
+> balancer log full URLs by default, so a viewing key that arrives at
+> `https://api.../api/search?q=uview1...` is written to the proxy's access log whatever the
+> gateway does. The runbook must configure the tunnel and anything in front of it to log paths
+> without query strings, and say so where an operator will read it.
 
 - `CLAUDE.md` (2.0 conventions + the stack contracts)
 - `docs/2.0/ZECREVEAL-2.0-PLAN.md` (§§1–6, 9, 10)

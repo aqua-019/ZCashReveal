@@ -20,35 +20,26 @@
  *   GET  /api/snapshot            501 until HANDOFF-09
  *   WS   /stream                  live mempool diff stream, capped
  */
-import pino from "pino";
 import { Redis } from "ioredis";
 import postgres from "postgres";
 import { ZebraRpc } from "@zcashreveal/zebra-rpc";
 
 import { loadConfig } from "./config.js";
 import { PgCache } from "./cache.js";
+import { createGatewayLogger } from "./logger.js";
 import { buildServer } from "./server.js";
 
 const cfg = loadConfig();
 
-const log = pino({
-  level: cfg.GATEWAY_LOG_LEVEL,
-  ...(process.stdout.isTTY ? { transport: { target: "pino-pretty" } } : {}),
-  /**
-   * `q` is redacted everywhere it can appear in a log line.
-   *
-   * A viewing key must never leave the browser, and `apps/web` classifies
-   * locally so that it does not. But `/api/search` exists for other consumers,
-   * and if one ever sends a key here the one thing this gateway can still
-   * control is whether it is written down. Redaction is unconditional rather
-   * than per-route: a rule that only applies to the route someone remembered is
-   * not a rule.
-   */
-  redact: {
-    paths: ["req.query.q", "query.q", "req.url"],
-    censor: "[redacted]",
-  },
-});
+/**
+ * The logger, with the viewing-key serialisers.
+ *
+ * `createGatewayLogger` is a factory rather than an inline `pino({...})` so
+ * that the assertion in `__tests__/log-redaction.test.ts` exercises the SAME
+ * serialisers this process uses, over a capturing stream. See `logger.ts` for
+ * why the whole url is not simply redacted.
+ */
+const log = createGatewayLogger({ level: cfg.GATEWAY_LOG_LEVEL, pretty: process.stdout.isTTY });
 
 async function main() {
   const sql = postgres(cfg.DATABASE_URL, { max: 5 });

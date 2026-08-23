@@ -25,6 +25,21 @@ export interface CachedAddress {
   readonly utxoCount: number;
   readonly firstSeen: number | null;
   readonly lastSeen: number | null;
+  /**
+   * The address's transaction ids, cached WITH the balance and never apart from
+   * it.
+   *
+   * The first version cached the balance and re-fetched the list every time, on
+   * the reasoning that a cached list would silently drop a transaction that
+   * arrived inside the TTL and the table would then disagree with the balance
+   * above it. That reasoning was backwards. The balance is ALREADY up to one
+   * TTL old, so refreshing only the list is exactly what makes the two
+   * disagree: a balance from a minute ago beside a list from now. Caching both
+   * in one entry, written at one instant, makes the page internally consistent
+   * - and it is what assertion A6 asks for literally, which the first version
+   * did not satisfy.
+   */
+  readonly txids: readonly string[];
 }
 
 export interface CacheStore {
@@ -121,9 +136,10 @@ export class PgCache implements CacheStore {
         utxo_count: number;
         first_seen: number | null;
         last_seen: number | null;
+        txids: unknown;
       }[]
     >`
-      SELECT balance_zat, received_zat, spent_zat, utxo_count, first_seen, last_seen
+      SELECT balance_zat, received_zat, spent_zat, utxo_count, first_seen, last_seen, txids
       FROM address_cache
       WHERE addr = ${addr}
         AND refreshed_at > NOW() - MAKE_INTERVAL(secs => ${ttlSeconds})
@@ -140,12 +156,13 @@ export class PgCache implements CacheStore {
       utxoCount: row.utxo_count,
       firstSeen: row.first_seen,
       lastSeen: row.last_seen,
+      txids: Array.isArray(row.txids) ? (row.txids as string[]) : [],
     };
   }
 
   async putAddress(addr: string, value: CachedAddress): Promise<void> {
     await this.sql`
-      INSERT INTO address_cache (addr, balance_zat, received_zat, spent_zat, utxo_count, first_seen, last_seen, refreshed_at)
+      INSERT INTO address_cache (addr, balance_zat, received_zat, spent_zat, utxo_count, first_seen, last_seen, txids, refreshed_at)
       VALUES (
         ${addr},
         ${value.balanceZat.toString()},
@@ -154,6 +171,7 @@ export class PgCache implements CacheStore {
         ${value.utxoCount},
         ${value.firstSeen},
         ${value.lastSeen},
+        ${this.sql.json([...value.txids] as never)},
         NOW()
       )
       ON CONFLICT (addr) DO UPDATE SET
@@ -163,6 +181,7 @@ export class PgCache implements CacheStore {
         utxo_count = EXCLUDED.utxo_count,
         first_seen = EXCLUDED.first_seen,
         last_seen = EXCLUDED.last_seen,
+        txids = EXCLUDED.txids,
         refreshed_at = NOW()
     `;
   }

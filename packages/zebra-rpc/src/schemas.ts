@@ -445,3 +445,32 @@ export type BlockHeader = z.infer<typeof blockHeaderSchema>;
 
 /** `getrawmempool` with verbose=false: a flat array of txids. */
 export const rawMempoolSchema = z.array(hash32Schema);
+
+/**
+ * One entry of `getrawmempool` with verbose=true.
+ *
+ * ZEBRA'S DOC COMMENT IS WRONG ABOUT THE FEE. `MempoolObject.fee`
+ * (types/get_raw_mempool.rs:38) is documented "Transaction fee in zatoshi" and
+ * is typed `Zec<NonNegative>`, which serialises through
+ * `#[serde(into = "f64")]` - a lossy ZEC FLOAT, not zatoshi. `descendantfees`
+ * is the one field in that struct that genuinely is zatoshi.
+ *
+ * Only `size` is read here, and it is what makes the mempool view's byte total
+ * a measurement rather than a zero. `fee` is declared so that a future caller
+ * finds this comment before trusting the name.
+ */
+export const mempoolEntrySchema = z
+  .object({
+    size: z.number().int().nonnegative(),
+    /** ZEC, as a float, despite the upstream doc comment. Never zatoshi. */
+    fee: z.number().optional(),
+    /** Genuinely zatoshi, unlike `fee`. */
+    descendantfees: z.number().optional(),
+    time: z.number().int().optional(),
+    height: heightSchema.optional(),
+    depends: z.array(hash32Schema).optional(),
+  })
+  .passthrough();
+
+/** `getrawmempool` with verbose=true: an object keyed by txid. */
+export const rawMempoolVerboseSchema = z.record(z.string(), mempoolEntrySchema);

@@ -42,3 +42,21 @@ Two consequences of the expiryheight finding, verified independently by L2 on ma
 
 2. HANDOFF-08's GOLDEN CASES MUST NOT BE CAPTURED BEFORE THIS LANDS. 08 is the analysis toolkit and its golden baselines are the record of correct behaviour. A baseline captured while the fingerprint is inert freezes the bug into the thing that is supposed to detect it. Note in §8 that HANDOFF-08 depends on this fix being merged first, and that HANDOFF-10's mainnet block fixture must be captured from a real RPC response rather than hand-written, so the casing in the fixture is the casing production sees.
 ```
+
+
+## 3. Mid-session direction - the log is the third copy of the viewing-key exposure (23 Aug 2026, arrived after the 404 handler was fixed, before the PR was opened)
+
+A follow-on to a finding this session made and reported: the 404 handler echoed the query string
+back to the caller. L2 verified the fix against main and pointed out that it is incomplete,
+because stopping the echo does not stop the write to disk. It adds an assertion to section 5.
+
+```
+Follow-on to your own 404 finding, verified by L2 against main. The fix to the 404 body is correct and incomplete.
+
+apps/gateway/src/index.ts constructs Fastify({ loggerInstance: log }) with a pino instance that sets no `redact` and no custom `req` serializer. Fastify's default serializer logs req.url including the query string on every request, and again on the error path. So the exact scenario your 404 finding describes - a viewing key reaching the gateway in a path or query - still writes that key to the gateway log, where it persists on VPS disk and in anything the logs are shipped to. Stopping the echo to the caller does not stop the write to disk, and the log is the worse of the two because it is durable and is read by people who are not the caller.
+
+Add to this handoff:
+- A pino `serializers.req` that logs method, request id and the PATH ONLY with the query string dropped, and that replaces any run matching the viewing-key prefixes (uview1, zxviews1, zivks1, secret-extended-key, and the unified full/incoming forms) with "[redacted]" before the line is written. Same treatment on the error serializer. Add `redact` for req.headers.authorization and req.headers.cookie with remove: true while you are there.
+- A §5 assertion, both polarities: issue a request whose path and query contain a well-formed viewing key, capture the pino output stream in-process, and assert no fragment of the key appears in any emitted log line, nor in the response body, nor in the response headers. Fail side: restore the default serializer and watch the same assertion fail. The A11 suite in apps/web proves the key never leaves the browser; this is the same promise on the other side of the wire, and right now nothing tests it.
+- Note in §8 that reverse-proxy access logs are the third copy of this exposure. cloudflared and anything in front of the gateway log full URLs by default, and that belongs to HANDOFF-10's runbook rather than here.
+```

@@ -21,7 +21,23 @@ import { countText, zecText } from "./units.js";
 /** Zcash's 75-second target under NU6, used only to word the "next block" figure. */
 const TARGET_BLOCK_SECONDS = 75;
 
-export function buildMempoolView(reports: readonly LeakReport[], tipHeight: number, now: number): MempoolView {
+export function buildMempoolView(
+  reports: readonly LeakReport[],
+  tipHeight: number,
+  now: number,
+  /**
+   * Serialised size per txid, from `getrawmempool` verbose.
+   *
+   * A SEPARATE ARGUMENT because the indexer's report does not carry a size and
+   * the first version therefore emitted `bytes: 0` - which `apps/web`'s
+   * /track page renders as "0.0 kB" beside a table of transactions. A zero is
+   * not a missing value; it is a claim that the mempool is empty of bytes, and
+   * it is the same class of defect as the fabricated pool blocks this handoff
+   * refused to ship. Empty here means the node could not be asked, and the
+   * summary says which.
+   */
+  sizes: Readonly<Record<string, { size: number }>> = {},
+): MempoolView {
   const entries = reports.map((r) => mempoolRow(r, now));
 
   const shielded = entries.filter((e) => e.class === "shielded").length;
@@ -49,10 +65,12 @@ export function buildMempoolView(reports: readonly LeakReport[], tipHeight: numb
       shielded,
       migrations,
       transparent,
-      // The indexer's report does not carry a serialised size, so this is a
-      // count of transactions rather than a byte total dressed up as one. A
-      // fabricated byte figure would be worse than an honest zero.
-      bytes: 0,
+      bytes: reports.reduce((acc, r) => acc + (sizes[r.txid]?.size ?? 0), 0),
+      // The TARGET interval, and that is the right answer to "how long until
+      // the next block" rather than a lazy one. Block arrival is a Poisson
+      // process, so the expected remaining wait is the mean interval however
+      // long has already elapsed - the memorylessness is what makes a constant
+      // correct here. Zcash's target has been 75 s since Blossom.
       nextBlockSeconds: TARGET_BLOCK_SECONDS,
       crossingZat: intoPool + outOfPool,
       crossingSplit:
@@ -67,9 +85,11 @@ export function buildMempoolView(reports: readonly LeakReport[], tipHeight: numb
           ? "No finding in the current mempool is rated HIGH."
           : `${countText(findingsHigh)} HIGH ${findingsHigh === 1 ? "finding" : "findings"} across the transactions below.`,
       feeWeather:
-        conventional.length === entries.length
-          ? "Every transaction in the mempool pays the ZIP 317 conventional fee."
-          : `${countText(conventional.length)} of ${countText(entries.length)} pay the ZIP 317 conventional fee.`,
+        entries.length === 0
+          ? "Nothing is waiting."
+          : conventional.length === entries.length
+            ? "Every transaction in the mempool pays the ZIP 317 conventional fee."
+            : `${countText(conventional.length)} of ${countText(entries.length)} pay the ZIP 317 conventional fee.`,
     },
   };
 }

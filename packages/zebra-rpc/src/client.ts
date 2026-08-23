@@ -23,6 +23,7 @@ import {
   blockHeaderSchema,
   blockchainInfoSchema,
   rawMempoolSchema,
+  rawMempoolVerboseSchema,
   rpcBlockSchema,
   rpcTransactionSchema,
   type AddressBalance,
@@ -221,6 +222,17 @@ export class ZebraRpc {
 
   getRawMempool(): Promise<Hex[]> {
     return this.call("getrawmempool", [false], rawMempoolSchema);
+  }
+
+  /**
+   * `getrawmempool` with verbose=true: one entry per transaction, keyed by txid.
+   *
+   * `verbose` here genuinely is a JSON bool, unlike `getrawtransaction`'s
+   * verbosity, which is a `u8`. The two are inconsistent in Zebra and a client
+   * that assumed either shape for both would fail on one of them.
+   */
+  getRawMempoolVerbose(): Promise<Record<string, { size: number }>> {
+    return this.call("getrawmempool", [true], rawMempoolVerboseSchema);
   }
 
   getRawTransaction(txid: Hex): Promise<RpcTransaction> {

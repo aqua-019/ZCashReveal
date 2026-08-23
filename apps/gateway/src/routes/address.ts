@@ -44,12 +44,18 @@ export function registerAddressRoute(app: GatewayApp, deps: RouteDeps): void {
       ]);
     }
 
+    // From here on the CANONICAL address, never `raw`. The decoder trims, so a
+    // request for "%20t3ev...%20" validates and would then have queried the node
+    // for the padded string, cached under it, and printed it back as the address
+    // this view answered for.
+    const address = decoded.address;
+
     const ctx = new ReadContext(deps.rpc, deps.cache, deps.cfg);
     try {
-      const projection = await buildAddressView(ctx, raw, decoded);
+      const projection = await buildAddressView(ctx, address, decoded);
       // Written back AFTER the view is built, so a request that failed halfway
       // does not leave a half-true cache entry behind.
-      if (!projection.fromCache) await deps.cache.putAddress(raw, projection.cacheable);
+      if (!projection.fromCache) await deps.cache.putAddress(address, projection.cacheable);
       return respond("/address", addressViewSchema, projection.view);
     } catch (err) {
       deps.log.warn({ err: String(err) }, "address view failed");

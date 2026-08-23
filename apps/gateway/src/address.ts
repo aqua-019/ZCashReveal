@@ -29,6 +29,15 @@ export type Network = "mainnet" | "testnet";
 export interface DecodedAddress {
   readonly script: AddressScript;
   readonly network: Network;
+  /**
+   * The address as decoded, which is what every caller must use from here on.
+   *
+   * NOT the string that came in. Decoding trims surrounding whitespace, and a
+   * caller that keeps the raw input then asks the node about `" t3ev... "`,
+   * caches under it, and prints it back to the reader as the address it
+   * answered for. One canonical value, returned by the thing that validated it.
+   */
+  readonly address: string;
   /** The 20-byte hash the address commits to, lowercase hex. */
   readonly hash: string;
 }
@@ -54,8 +63,28 @@ const VERSIONS: ReadonlyArray<readonly [number, number, AddressScript, Network]>
 export function decodeAddress(raw: string): DecodedAddress | null {
   const address = raw.trim();
   if (address.length === 0) return null;
+  // A length ceiling before the decode, not after.
+  //
+  // `base58Decode` is a big-integer accumulation and therefore quadratic in the
+  // input length: 10,000 characters costs about 17 ms and 100,000 about 1.1 s.
+  // Fastify's `maxParamLength` defaults to 100 and rejects a longer path
+  // parameter with a 404 before this is ever reached - measured: 100 characters
+  // routes, 101 does not - so the route is already protected. This guard is
+  // here because that protection is an undocumented framework default that a
+  // future configuration change could raise, and because this function is
+  // exported and may be called from somewhere with no such ceiling.
+  if (address.length > MAX_ADDRESS_LENGTH) return null;
   return decodeBase58Check(address) ?? decodeTex(address);
 }
+
+/**
+ * The longest string that can be a transparent address.
+ *
+ * A t-address is 35 characters. A TEX address is bech32m with a `tex` prefix
+ * and a 20-byte payload, comfortably under 60. 120 leaves room for a longer
+ * human-readable part without leaving room for a denial of service.
+ */
+const MAX_ADDRESS_LENGTH = 120;
 
 function decodeBase58Check(address: string): DecodedAddress | null {
   const bytes = base58Decode(address);
@@ -69,7 +98,7 @@ function decodeBase58Check(address: string): DecodedAddress | null {
 
   const found = VERSIONS.find(([a, b]) => payload[0] === a && payload[1] === b);
   if (found === undefined) return null;
-  return { script: found[2], network: found[3], hash: payload.subarray(2).toString("hex") };
+  return { script: found[2], network: found[3], address, hash: payload.subarray(2).toString("hex") };
 }
 
 function base58Decode(s: string): Buffer | null {
@@ -130,7 +159,9 @@ function decodeTex(address: string): DecodedAddress | null {
 
   const bytes = convertBits(data.slice(0, -6), 5, 8, false);
   if (bytes === null || bytes.length !== 20) return null;
-  return { script: "tex", network, hash: Buffer.from(bytes).toString("hex") };
+  // The lowercased form: bech32m is case-insensitive but not mixed-case, and
+  // the canonical rendering is lower.
+  return { script: "tex", network, address: lower, hash: Buffer.from(bytes).toString("hex") };
 }
 
 function hrpExpand(hrp: string): number[] {

@@ -19,15 +19,88 @@ import { buildServer } from "../src/server.js";
 const LOCKBOX = "t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo";
 const TXID = "ab".repeat(32);
 
+/**
+ * A SHIELD AND A DESHIELD, not only a coinbase.
+ *
+ * The first version of this script captured a coinbase and nothing else, and
+ * three HIGH defects survived it: the transparent pool delta's sign was
+ * inverted, `netToPoolZat` summed gross debits instead of what crossed, and the
+ * ZIP 317 action count was wrong. None of the three is visible on a coinbase,
+ * because a coinbase has no inputs, crosses no boundary and pays no fee. An
+ * example corpus that only exercises the trivial case is an example corpus that
+ * certifies the trivial case.
+ */
+const HOT = "t1PKBiv7mtzD9bNafYaqyxaENeiNDbpKxxQ";
+const FUND = "11".repeat(32);
+const SHIELD = "22".repeat(32);
+
+const shieldTx = {
+  txid: SHIELD,
+  version: 5,
+  locktime: 0,
+  expiryheight: 3_456_040,
+  height: 3_456_000,
+  blocktime: 1_755_900_000,
+  size: 2_698,
+  vin: [{ txid: FUND, vout: 1, sequence: 0, scriptSig: { asm: "", hex: "48".repeat(72) } }],
+  vout: [
+    {
+      value: 90_552.69,
+      valueZat: 9_055_269_000_000,
+      n: 0,
+      scriptPubKey: { asm: "", hex: "76a914".padEnd(50, "0"), type: "pubkeyhash", addresses: [HOT] },
+    },
+  ],
+  vShieldedSpend: [],
+  vShieldedOutput: [],
+  orchard: {
+    actions: [
+      { cv: "1f".repeat(32), nullifier: "2a".repeat(32), rk: "3b".repeat(32), cmx: "4c".repeat(32), ephemeralKey: "5d".repeat(32), encCiphertext: "6e".repeat(580), spendAuthSig: "7f".repeat(64), outCiphertext: "80".repeat(80) },
+      { cv: "81".repeat(32), nullifier: "92".repeat(32), rk: "a3".repeat(32), cmx: "b4".repeat(32), ephemeralKey: "c5".repeat(32), encCiphertext: "d6".repeat(580), spendAuthSig: "e7".repeat(64), outCiphertext: "f8".repeat(80) },
+    ],
+    valueBalance: -30_000,
+    valueBalanceZat: -3_000_000_000_000,
+    flags: { enableSpends: true, enableOutputs: true },
+    anchor: "09".repeat(32),
+    proof: "aa".repeat(64),
+    bindingSig: "bb".repeat(64),
+  },
+};
+
+const fundingTx = {
+  txid: FUND,
+  version: 5,
+  locktime: 0,
+  height: 3_400_000,
+  blocktime: 1_750_000_000,
+  vin: [{ sequence: 0, coinbase: "03c0bb34" }],
+  vout: [
+    { value: 0, valueZat: 0, n: 0, scriptPubKey: { asm: "", hex: "6a", type: "nulldata" } },
+    { value: 120_552.69, valueZat: 12_055_269_000_000, n: 1, scriptPubKey: { asm: "", hex: "76a914".padEnd(50, "0"), type: "pubkeyhash", addresses: [HOT] } },
+  ],
+  orchard: { actions: [], valueBalanceZat: 0 },
+};
+
 const handle = (method: string, params: readonly unknown[]): unknown => {
+  const arg = (params as Array<{ addresses?: string[] }>)[0];
+  const who = arg?.addresses?.[0];
+  const id = String((params as string[])[0] ?? "");
   switch (method) {
     case "getaddressbalance":
-      return { balance: 7_818_340_930_000, received: 7_818_340_930_000 };
+      return who === HOT
+        ? { balance: 9_055_269_000_000, received: 12_055_269_000_000 }
+        : { balance: 7_818_340_930_000, received: 7_818_340_930_000 };
     case "getaddressutxos":
-      return [{ address: LOCKBOX, txid: TXID, outputIndex: 0, script: "aa", satoshis: 7_818_340_930_000, height: 3_456_000 }];
+      return who === HOT
+        ? [{ address: HOT, txid: SHIELD, outputIndex: 0, script: "76a914", satoshis: 9_055_269_000_000, height: 3_456_000 }]
+        : [{ address: LOCKBOX, txid: TXID, outputIndex: 0, script: "aa", satoshis: 7_818_340_930_000, height: 3_456_000 }];
     case "getaddresstxids":
-      return [TXID];
+      return who === HOT ? [FUND, SHIELD] : [TXID];
+    case "getrawmempool":
+      return params[0] === true ? {} : [];
     case "getrawtransaction":
+      if (id === SHIELD) return shieldTx;
+      if (id === FUND) return fundingTx;
       return {
         txid: String((params as string[])[0] ?? TXID),
         version: 5,
@@ -107,6 +180,8 @@ const built = await buildServer({
 
 const urls = [
   "/healthz",
+  `/api/address/${HOT}`,
+  `/api/tx/${SHIELD}`,
   "/api/search?q=t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo",
   "/api/search?q=3456227",
   `/api/address/${LOCKBOX}`,

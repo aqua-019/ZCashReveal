@@ -36,7 +36,7 @@ import type { DecodedAddress } from "../address.js";
 import type { CachedAddress } from "../cache.js";
 import { labelFor } from "./labels.js";
 import { lanesTouched, poolValueBalanceZat, resolveInputs, type ReadContext } from "./context.js";
-import { countText, stampAtHeight, stampFromUnix, zecText } from "./units.js";
+import { countText, stampBefore, stampFromUnix, stampNoTime, zecText } from "./units.js";
 
 const SCRIPT_TEXT: Readonly<Record<DecodedAddress["script"], string>> = {
   p2pkh: "P2PKH - pay to public key hash",
@@ -62,17 +62,21 @@ export async function buildAddressView(
   let balanceZat: bigint;
   let receivedZat: bigint;
   let utxoCount: number;
+  let txids: string[];
   if (cached !== null) {
     ({ balanceZat, receivedZat, utxoCount } = cached);
+    txids = [...cached.txids];
   } else {
-    ctx.countRpc(2);
-    const [balance, utxos] = await Promise.all([
+    ctx.countRpc(3);
+    const [balance, utxos, ids] = await Promise.all([
       ctx.rpc.getAddressBalance([address]),
       ctx.rpc.getAddressUtxos([address]),
+      ctx.rpc.getAddressTxIds([address]),
     ]);
     balanceZat = balance.balance;
     receivedZat = balance.received;
     utxoCount = utxos.length;
+    txids = [...ids];
   }
   // `received` includes change, so what an address has SPENT is the difference.
   // Deriving it rather than summing the window is deliberate: a window sum
@@ -83,20 +87,22 @@ export async function buildAddressView(
 
   /* ------------------------------------------------------------- the window */
 
-  // The txid list is NOT cached alongside the balances, deliberately. A cached
-  // balance is a number that is at most one TTL stale; a cached txid list would
-  // silently drop a transaction that arrived inside the TTL, and the table
-  // would then disagree with the balance above it on the same page.
-  ctx.countRpc(1);
-  const txids = [...(await ctx.rpc.getAddressTxIds([address]))];
+  // The txid list came from the same cache entry as the balance, written at one
+  // instant - see `CachedAddress.txids` for why the two must not be refreshed
+  // independently.
   const total = txids.length;
   const window = txids.slice(Math.max(0, total - ctx.cfg.GATEWAY_ADDRESS_TX_LIMIT));
 
   const rows: AddressTx[] = [];
+  // The signed value each row moved across the shielded boundary, kept beside
+  // the rows because `AddressTx` has no field for it and `netToPoolZat` is a
+  // sum of exactly this.
+  const crossings: bigint[] = [];
   for (const txid of window) {
     const tx = await ctx.tx(txid);
     if (tx === null) continue;
     rows.push(await addressRow(ctx, address, tx));
+    crossings.push(poolValueBalanceZat(tx));
   }
   // Newest first, which is the order the table renders and the opposite of the
   // chain order `getaddresstxids` returns.
@@ -108,7 +114,18 @@ export async function buildAddressView(
 
   /* ------------------------------------------------------------- the shapes */
 
-  const netToPoolZat = rows.reduce<bigint>((acc, r) => (r.direction === "t-to-z" ? acc + r.debitZat : acc), 0n);
+  /**
+   * Net value this address put into the pools and has not seen come back.
+   *
+   * THE VALUE THAT CROSSED, not the value this address SPENT. The first version
+   * summed each shielding transaction's gross debit, which counts the change
+   * that came straight back to the same address: an address that shielded
+   * 30,000 ZEC by spending a 120,552.69 output and taking 90,552.69 back
+   * reported 120,552.69 - a four-fold overstatement of a headline figure. The
+   * quantity the DTO names is the pools' own value balance, negated, because
+   * `boundary` is positive when value LEAVES a pool.
+   */
+  const netToPoolZat = crossings.reduce<bigint>((acc, b) => acc - b, 0n);
 
   const view: AddressView = {
     address,
@@ -120,14 +137,18 @@ export async function buildAddressView(
     receivedZat,
     sentZat,
     netToPoolZat,
-    balanceNote: `Unspent output total across ${countText(utxoCount)} ${utxoCount === 1 ? "UTXO" : "UTXOs"}, read from the node's address index.`,
+    balanceNote: `Unspent output total across ${countText(utxoCount)} ${utxoCount === 1 ? "UTXO" : "UTXOs"}, ${
+      cached === null
+        ? "read from the node's address index."
+        : `from the gateway's cache, at most ${countText(ctx.cfg.GATEWAY_ADDRESS_CACHE_TTL_S)} seconds old.`
+    }`,
     receivedNote: "Gross value paid to this address over its whole history, change included.",
     sentNote: "Received less balance. Derived, not summed from the window below.",
     netToPoolNote:
-      rows.length === 0
-        ? "No transaction in the window put value into a shielded pool."
-        : `Value this address put into a pool across the ${countText(rows.length)} ${rows.length === 1 ? "transaction" : "transactions"} in the window below. A figure about the window, not about the whole history.`,
-    balances: balancePoints(rows, balanceZat),
+      netToPoolZat === 0n
+        ? "No transaction in the window moved value across a pool boundary."
+        : `Net value across the shielded boundary over the ${countText(rows.length)} ${rows.length === 1 ? "transaction" : "transactions"} in the window below - what crossed, not what this address spent, so change coming back to itself is not counted twice. A figure about the window, not about the whole history.`,
+    balances: balancePoints(rows, balanceZat, total === rows.length),
     interactions: interactionsFor(rows),
     interactionNote:
       rows.length === 0
@@ -144,7 +165,7 @@ export async function buildAddressView(
 
   return {
     view,
-    cacheable: { balanceZat, receivedZat, spentZat: sentZat, utxoCount, firstSeen, lastSeen },
+    cacheable: { balanceZat, receivedZat, spentZat: sentZat, utxoCount, firstSeen, lastSeen, txids },
     fromCache: cached !== null,
   };
 }
@@ -181,7 +202,7 @@ async function addressRow(ctx: ReadContext, address: string, tx: Parameters<type
       ? stampFromUnix(tx.blocktime)
       : typeof tx.time === "number"
         ? stampFromUnix(tx.time)
-        : stampAtHeight(height);
+        : stampNoTime(height);
 
   const counterparty = counterpartyFor(tx, address, funded, direction);
 
@@ -206,9 +227,11 @@ async function addressRow(ctx: ReadContext, address: string, tx: Parameters<type
     // required field is not a reason to invent an audit trail.
     estimate: null,
     poolNote:
-      direction === "t-to-z" || direction === "z-to-t"
-        ? `Value crossed the boundary into or out of ${lanes.filter((l) => l !== "transparent").join(" and ") || "a shielded pool"}. What it became on the other side is not estimated here: the estimators are HANDOFF-08's, and an estimate without its audit trail is not an estimate.`
-        : "Transparent throughout. There is no pool side to estimate.",
+      direction === "t-to-z"
+        ? `Value entered ${lanes.filter((l) => l !== "transparent").join(" and ") || "a shielded pool"}. What it became inside is not estimated here: the estimators are HANDOFF-08's, and an estimate without its audit trail is not an estimate.`
+        : direction === "z-to-t"
+          ? `Value left ${lanes.filter((l) => l !== "transparent").join(" and ") || "a shielded pool"}. Where it came from inside is not estimated here: the estimators are HANDOFF-08's, and an estimate without its audit trail is not an estimate.`
+          : "Transparent throughout. There is no pool side to estimate.",
     exactness: direction === "t-to-t" || direction === "coinbase" ? "exact" : "bounded",
   };
 }
@@ -259,26 +282,46 @@ function counterpartyFor(
  * so a running total from the oldest one in it would start at whatever the
  * balance was before the window and there is no way to read that directly. The
  * opening point is therefore the balance implied by the current balance less
- * every movement in the window, and it is labelled as an opening balance rather
- * than presented as a zero.
+ * every movement in the window.
+ *
+ * WHEN THE WINDOW IS THE WHOLE HISTORY, THAT OPENING BALANCE MUST BE ZERO, and
+ * if it is not, the node's balance and the transaction arithmetic disagree
+ * about this address. The first version drew the difference as an opening
+ * balance, which is the one thing it definitely is not - it is a contradiction,
+ * and a chart that absorbs a contradiction into a starting value has hidden
+ * exactly what a reader of this site is here to see. `event` says so instead.
  *
  * `crossing` is set from the transaction's DIRECTION, never from whether the
  * balance rose. A gate round in HANDOFF-04 caught the chart keying that colour
  * off the sign, which painted a protocol-issuance coinbase - crossing nothing -
  * in the accent (LEDGER-04: gold marks a boundary crossing, never a magnitude).
  */
-function balancePoints(rows: readonly AddressTx[], balanceZat: bigint): BalancePoint[] {
+function balancePoints(rows: readonly AddressTx[], balanceZat: bigint, windowIsWholeHistory: boolean): BalancePoint[] {
   const oldestFirst = [...rows].sort((a, b) => a.height - b.height || a.stamp.sortMs - b.stamp.sortMs);
   const moved = oldestFirst.reduce<bigint>((acc, r) => acc + r.amountZat, 0n);
   const opening = balanceZat - moved;
-
   const first = oldestFirst[0];
+
+  // An address with no movements at all. Two points are required and there is
+  // nothing to plot between them, so both say that in words rather than
+  // drawing the genesis block twice, which is what the first version did.
+  if (first === undefined) {
+    const nowhere = stampNoTime(0);
+    return [
+      { height: 0, stamp: nowhere, balanceZat, event: "no movements in this window", crossing: false },
+      { height: 0, stamp: nowhere, balanceZat, event: "no movements in this window", crossing: false },
+    ];
+  }
+
+  const contradiction = windowIsWholeHistory && opening !== 0n;
   const points: BalancePoint[] = [
     {
-      height: first === undefined ? 0 : Math.max(0, first.height - 1),
-      stamp: first === undefined ? stampAtHeight(0) : stampAtHeight(Math.max(0, first.height - 1)),
+      height: Math.max(0, first.height - 1),
+      stamp: stampBefore(first.stamp),
       balanceZat: opening,
-      event: null,
+      event: contradiction
+        ? `The node reports a balance that these transactions do not account for, by ${zecText(opening)}. This window is the address's whole history, so the two should agree; they are both shown rather than reconciled.`
+        : null,
       crossing: false,
     },
   ];
@@ -294,16 +337,18 @@ function balancePoints(rows: readonly AddressTx[], balanceZat: bigint): BalanceP
       crossing: r.direction === "t-to-z" || r.direction === "z-to-t" || r.direction === "migration",
     });
   }
-
-  // The DTO requires at least two points. An address with no transactions in
-  // the window still has an opening and a closing, and they are the same
-  // number - which is the honest picture of an address that has not moved.
-  if (points.length === 1) {
-    points.push({ height: points[0]?.height ?? 0, stamp: points[0]?.stamp ?? stampAtHeight(0), balanceZat: balanceZat, event: null, crossing: false });
-  }
   return points;
 }
 
+/**
+ * The interaction graph, every edge on ONE base.
+ *
+ * Each edge carries the NET value moved between this address and that
+ * counterparty, summed over the window. The first version mixed bases - a
+ * coinbase edge carried the gross credit while a pool edge carried the net -
+ * so two edges on one diagram measured different things and the picture
+ * compared them as if they did not.
+ */
 function interactionsFor(rows: readonly AddressTx[]): AddressView["interactions"] {
   const edges = new Map<string, { kind: "coinbase" | "pool" | "transparent"; from: string; to: string; label: string; valueZat: bigint }>();
   for (const r of rows) {

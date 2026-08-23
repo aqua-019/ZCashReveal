@@ -18,7 +18,12 @@ export function registerMempoolRoute(app: GatewayApp, deps: RouteDeps): void {
     try {
       const info = await deps.rpc.getBlockchainInfoFull();
       const reports = await readLiveReports(deps);
-      const view = buildMempoolView(reports, info.blocks, Date.now());
+      // One extra call, and it is what makes `summary.bytes` a measurement:
+      // getrawmempool verbose returns a size per entry in a single request.
+      // A failure here degrades the byte total to zero rather than failing the
+      // whole view, and the summary says the mempool is empty only when it is.
+      const sizes = await readSizes(deps);
+      const view = buildMempoolView(reports, info.blocks, Date.now(), sizes);
       return respond("/mempool", mempoolViewSchema, view);
     } catch (err) {
       deps.log.warn({ err: String(err) }, "mempool view failed");
@@ -41,4 +46,13 @@ async function readLiveReports(deps: RouteDeps): Promise<LeakReport[]> {
     }
   }
   return out;
+}
+
+async function readSizes(deps: RouteDeps): Promise<Record<string, { size: number }>> {
+  try {
+    return await deps.rpc.getRawMempoolVerbose();
+  } catch (err) {
+    deps.log.warn({ err: String(err) }, "mempool sizes unavailable; the byte total will be zero");
+    return {};
+  }
 }

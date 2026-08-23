@@ -63,6 +63,7 @@ Extend the existing Fastify gateway with the read API the Tracking UI needs, bac
 - **A6.** Cache: a second `GET /api/address/...` within the TTL performs 0 RPC calls (mock call counter) *(fail side: set TTL to 0 → RPC called again)*.
 - **A7.** No response leaks RPC credentials or internal hostnames (test greps serialised responses for `ZEBRAD_` values).
 - **A8.** `grep -rn "from '../../indexer" apps/gateway` is empty — the gateway depends on packages, never on indexer sources.
+- **A9.** *(added mid-session by the operator, 23 Aug 2026, following the 404 finding.)* A viewing key that reaches the gateway is written NOWHERE. Issue requests whose path and query carry a well-formed viewing key, capture the pino output stream in-process, and assert that no fragment of the key appears in any emitted log line, in any response body, or in any response header *(fail side: restore Fastify's default request serialiser and watch the same assertion fail)*. The log is the surface that matters most: a caller who sends a key already has it, and a log line persists on VPS disk and in anything the logs are shipped to. The `apps/web` A11 suite proves the key never leaves the browser; this is the same promise on the other side of the wire.
 
 ## §6 DISPATCH HINTS (director-build decides; these are L2's routing suggestions)
 
