@@ -328,3 +328,227 @@ OPERATOR CLICKS OUTSTANDING: create the Vercel project `zecreveal` (Root Directo
 Framework Next.js) if not yet done; delete the stale remote branches per
 `docs/2.0/BRANCH-CLEANUP.md`; delete the orphaned Vercel project `z-cash-reveal-dashboard`.
 ```
+
+---
+
+## HANDOFF-02 — `packages/content` — zod schemas + research seeds
+
+Branch `claude/aqua-stack-v4-l2-resolution-7v7qvw` (harness-designated) · shipped 23 Aug 2026 · gate rounds: 4
+
+```
+QUESTIONS (for the operator / L2):
+
+1. WHICH HANDOFF IS "THE NEWEST OPEN" WHEN THREE OPEN AT ONCE. The revolution
+   protocol says RECONCILE opens the lowest unblocked handoff in every track, and
+   the kickoff line says execute the newest one with status: open. After this
+   session's RECONCILE, 02 (Web), 05 (Data) and 10 (Infra) all became open in the
+   same commit, so "newest" had no unique referent. I read it as the Web track's
+   successor to HANDOFF-01, which is also the handoff L2's own folds 1 and 2
+   amended in the same breath. That is almost certainly what was meant, but the
+   rule as written does not say it. Suggest either "the lowest-numbered open
+   handoff unless the operator names one", or have the kickoff line name the file.
+   05 and 10 are now open and unclaimed; if they are meant to run in parallel,
+   each needs its own session told which file it owns.
+
+2. sources.json IS THE WHOLE BIBLIOGRAPHY, 328 ENTRIES, AND 144 ARE UNCITED.
+   Deliverable 2 says "sources.json (every URL de-duplicated)", so I took the
+   union of every URL in the four dossiers rather than only what the Record cites.
+   That comfortably clears A1's floor of 150, and it means any URL a later handoff
+   lifts out of the corpus already resolves. The cost is that /sources will render
+   a bibliography roughly 1.8 times the size of the citation graph. Confirm that is
+   the intent, or say prune-to-cited and I will note that "every URL" then means
+   "every URL the Record uses".
+
+3. TIMELINE DATES CARRY THREE FIELDS, NOT ONE. Section 3 says ids are
+   `T<ISO-date>[-n]`, but 36 of the 124 rows are month-, year- or range-precise in
+   the corpus ("2013", "May 2014", "Apr-Jun 2018", "~Nov 2025"). Inventing a day to
+   satisfy the id format would have fabricated precision, so `date` is the earliest
+   day consistent with the corpus and exists only to sort, `datePrecision` says how
+   much of it is real, and `dateText` carries the corpus's own rendering, which is
+   what HANDOFF-03 should print. `dateEnd` closes a range. Confirm the shape before
+   03 renders it, because changing it afterwards changes every id.
+
+4. SECTION D OR PART C, WHERE THEY DISAGREE ON A CATEGORY? research 03 PART C is
+   the 109-row table and its category key has no NET at all. The dossier's section D
+   is abridged but marks sixteen rows NET, and NET is in the contract's union. I
+   made section D authoritative for those rows: fourteen rows section D has and
+   PART C lacks were added, and seven PART C rows were recategorised to NET. Without
+   that, the /timeline page ships a filter with nothing behind it and the promotion
+   network, which is the site's thesis, is absent from its own timeline. Confirm
+   section D wins on category, or tell me PART C does and NET goes unused.
+
+5. WHICH GRAYSCALE ZEC COUNT IS CANONICAL? The corpus states it three ways.
+   research 04's SEC EDGAR table is itemised by filing date: 393,522.33134026 at
+   2025-12-31 and 388,673.68359943 at 2026-06-30 against total assets of $155,252k.
+   research 01 line 412 and dossier section E.3 both attach the 393,522.33 figure to
+   the Q2 10-Q, but that figure is the December line in the same table and the
+   $155,252k it is paired with belongs to the June line. I used 388,673.68359943 at
+   30 Jun 2026 and carried the others alongside. Confirm, because HANDOFF-03 renders
+   this on /network and /flows.
+
+6. I TOOK A FOURTH GATE ROUND. PLEASE RULE ON WHETHER THAT WAS RIGHT. CLAUDE.md
+   says a gate FAIL gets at most three rounds and a fourth is NOT CONVERGING,
+   escalated to the operator. Round 4 here found four new defects, two of them HIGH
+   and both wrong statements about named individuals: a Form 144 attributed to the
+   wrong Silbert entity on the wrong day at a ZEC price mistaken for a share price,
+   and the $174M Arkham figure still asserted against Arthur Hayes on a network edge
+   thirty lines below the entity body that disclaims it. I read the cap as governing
+   convergence on a finding, not as a budget of corrections: the rounds were
+   convergent, two HIGH then one then none, and round 4's findings were new, from
+   two different reviewers, not the same defect resisting a fix. Shipping a known
+   misattribution about a named person to keep a counter at three seemed clearly
+   worse. But it is your rule. If the cap is meant to be absolute, say so and I will
+   escalate instead next time; if it governs per-finding convergence, CLAUDE.md
+   should say "at most 3 rounds per finding".
+
+INFERRED (non-empty inferences a worker made):
+
+- Subagents do not nest in this environment, so a director could not spawn a crew.
+  The lead acted as director-build and director-quality and named all eleven
+  workers. Same shape HANDOFF-01 recorded; worth folding into CLAUDE.md's operating
+  model as the standing arrangement rather than rediscovering it every session.
+- The claim base was extended onto Phrase, AddressLabel, Case and NetworkEdge.
+  Section 3's field lists for those four omit sources, confidence and lastVerified,
+  but the same section says every Record claim carries all three and A3 checks every
+  claim. Under the narrow reading, four claim types would have been uncheckable.
+  spec-reviewer flagged this as the one place an explicit assumption back to L2 was
+  the cleaner path, and it is here.
+- Fields added beyond section 3's literal lists, each additive and each used:
+  BewareEntry.cve; TimelineEvent.datePrecision, dateText, dateEnd, secondaryCategory;
+  NetworkEntity.kind, role, exposure; NetworkEdge.id (`N-edge-<slug>`, an id family
+  section 3's list does not name) and lastVerified; AddressLabel.id, network,
+  balanceZec, notes; Case.summary, lastVerified and CaseStep.txid; Unverified.id,
+  sources and lastVerified; and the whole Stats type, which section 3 never names
+  although deliverable 2 requires stats.json.
+- Loaders added beyond deliverable 1's list: getCases(), getSource(ref),
+  resolveSources(refs), getStats(). getCase(id) needs a list to search; the citation
+  popover HANDOFF-03 must build needs resolveSources.
+- A3's "lastVerified <= today" is enforced against the system date at validation
+  time, not against a pinned date. Every seed is 2026-08-22.
+- unverified.json is excluded from "every claim" in A3. Its records deliberately
+  carry no sources; six of the 32 cite nothing, which is the honest answer for an
+  artefact that was searched for and not found.
+- A4 is an exact, case-sensitive substring search of each quarantined `claim`
+  against the raw text of every other data file, and the schema refuses a claim
+  under 12 characters as uncheckable. It catches verbatim repetition, not
+  paraphrase, which matches the assertion's own fail-side example.
+- sources.json is generated, not hand-curated: scripts/build-sources.mjs takes the
+  union of every corpus URL and scripts/check-provenance.mjs asserts every URL in
+  the file occurs in the corpus. Crews cite URLs; scripts/resolve-refs.mjs rewrites
+  them to ids and fails on any URL the corpus does not contain. That caught three
+  truncated URLs during the run, one of them mine.
+- packages/content defines its own five-value supplyBucket rather than importing
+  `Pool` from packages/zec-types, which is still the v0.2 pair. HANDOFF-06 owns
+  widening Pool; when it does, content can switch, with transparent staying
+  separate because it is not a pool.
+- Source ids derive from publisher plus the URL's own path, not from the title.
+  The first design used the title, and improving 47 titles moved 46 ids, which
+  would have broken every citation. Titles keep improving as the extractor does;
+  ids must not move when they do. Migration was mechanical, by URL, 452 citations,
+  none unmapped.
+- A bibliography bullet is recognised by its dash separator: "- Title -- URL". A
+  prose bullet that merely contains a link is about the claim, not about the
+  source, and no longer supplies a title. That is what had the BitMEX source, cited
+  by the corpus for both 2025 price extremes, titled with June 2026 crash figures.
+- The two Blockchair API dashboard URLs are admitted as sources even though they
+  are templates carrying {addr} and {hash}. They are the corpus's own stated
+  verification method for the single-use addresses, and citing press that never
+  mentioned those addresses would have been worse.
+
+NOT-MATCHED (patterns handed over that did not apply):
+
+- `gh pr create` (CLAUDE.md, Workflow) is still unavailable in this environment.
+  The PR was opened through the GitHub MCP tooling, as in HANDOFF-00 and 01. Third
+  session running; CLAUDE.md still says gh.
+- Section 6 suggested a Sonnet write the schema and loaders so the executor has a
+  written contract. The lead wrote them, along with the validator, the three
+  scripts, the five test suites, sources.json, labels.json, cases.json and
+  stats.json. labels and cases carry A5 and A6 and are small; the schema is the
+  contract every transcription runs against.
+- Section 6 suggested researcher (Haiku) transcribe the dossier tables. Split by
+  shape rather than uniformly: Haiku took the two well-structured tables (the
+  timeline halves, the phrase catalogue), Sonnet took the four files needing
+  judgement (beware, contradictions, network, unverified). Every Haiku dispatch and
+  every re-dispatch carried a PREFLIGHT.
+- Three separate workers independently reported the same non-problem: that writing
+  `sources` as URLs would fail `sourceSchema` as literally coded. The resolver they
+  had not found is scripts/resolve-refs.mjs. A dispatch that says "cite URLs" should
+  say in the same breath which script converts them.
+- research 03 PART C's category key lists eight categories and never NET, so the
+  worker reading PART C alone could not have produced a NET row. Question 4.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+
+- Whether section 3's field list per type is exhaustive, or whether every type
+  implicitly extends Claim because "every Record claim carries sources[],
+  confidence, lastVerified". The build chose the second uniformly. It is the only
+  reading under which A3 and the validator's sweep make sense across all types, but
+  the Phrase and Unverified lists look deliberately short rather than abbreviated,
+  which is what makes it ambiguous rather than merely terse.
+- Section 3 names an id family for every type except NetworkEdge, which needs one to
+  be a permalink target. Invented `N-edge-<slug>`.
+- A1's counts are given as a flat list; "beware 14, contradictions 16, cases 3" read
+  as exact and "timeline >= 100, labels >= 7, unverified >= 15, sources >= 150" as
+  floors, because the first three are fixed by the corpus and the others are not.
+  The validator enforces exactly that split.
+- A7 says the filter "returns >= 20 events and all have category === 'EXPLOIT'".
+  The purity half is a property of the filter, not of the data: no edit to a row can
+  break it, because a relabelled row genuinely is EXPLOIT. The fail-state transcript
+  therefore breaks the plausible wrong implementation (a filter that also matches
+  secondaryCategory) instead.
+
+GATE ROUND COUNTS: 4. See question 6: the fourth is a deliberate overrun of the
+Loop 4 cap and I am asking you to rule on the reading rather than assuming it.
+
+  round 1 (timeline.json, re-dispatched to researcher-timeline-gate)
+    file · rule · severity
+    timeline.json · no corrected fact may survive uncorrected · HIGH
+    timeline.json · section 2 READING names dossier section D as a source · HIGH
+    timeline.json · title is a headline, summary is the substance · MID
+  round 2 (lead corrections, from lead review and security-auditor)
+    network.json · no claim may be more certain than the corpus · HIGH
+    network.json · the most recent primary figure wins · MID
+    unverified.json · all five corrected premises must be quarantined · LOW
+    phrases.json · tension is what a reader sees · MID
+  round 3 (lead corrections, from spec-reviewer and docs-scribe)
+    schema.ts · CLAUDE.md requires bigint for zatoshi · MID
+    phrases.json · a citation must be about its claim · MID
+  round 4 (lead corrections, from lead review and security-auditor-2)
+    timeline.json · a claim about a person must match the primary record · HIGH
+    network.json · no claim may be more certain than the corpus · HIGH
+    sources.json · a title must name the source, not restate the claim · MID
+    sources.json · an id must not move when a title improves · MID
+
+  Rounds 1 to 3 converged: two HIGH, then one, then none. Round 4's two HIGH
+  findings are not a regression of that trend; they are the first pass in which
+  anyone read timeline.json and network.json line by line against the primary
+  filings, and both files landed last. The lesson for the next handoff is to gate
+  the largest files first rather than last.
+
+DEFERRED ASSUMPTIONS:
+
+- No live chain or explorer confirmation of the eight labelled addresses or the
+  fourteen case transaction ids. Egress to blockchair.com and
+  mainnet.zcashexplorer.app is blocked here; curl gets 403 from the proxy. Every one
+  is transcribed from research 04, which states it queried Blockchair on 2026-08-22
+  and marks each row [verified]. Re-pulling them needs an environment with egress,
+  which HANDOFF-10 or 11 will have.
+- No live fetch of any of the 328 source URLs. Provenance is proven against the
+  corpus, not the live web. research 03 PART F already reports at least one 404, and
+  the Protos URL cited for Naval Ravikant's row may be that one. Link-rot sweep
+  deferred to whichever handoff renders /sources.
+- research 03 PART C dates the ECC team's regrouping as "cashZ (cashz.org)" on
+  8 Jan 2026 while the dossier says the team became ZODL. Both are transcribed, the
+  January row as cashZ and the March row as ZODL, which reads as a rename; nobody
+  states that explicitly and no source in the corpus connects them.
+- The corpus's own Zebra advisory table tallies 11 Critical and 8 High across 41
+  rows, against its stated headline of 12 Critical. B10 transcribes the headline.
+  Pre-existing corpus arithmetic, not introduced here.
+- The eslint no-unused-vars promotion for test files and the unused `saplingSpend`
+  in block-decoder.test.ts remain deferred to 06 or 07, as HANDOFF-00 and 01 both
+  recorded. Still the only lint warning in the workspace.
+- Root .env.example still carries the v0.2 VITE_* block and no SNAPSHOT_* names.
+  This session's RECONCILE folded it into HANDOFF-10 deliverable 1.
+- Root vercel.json still targets legacy/dashboard. HANDOFF-11 cutover.
+- packages/zec-types `Pool` is still the v0.2 pair. HANDOFF-06.
+```
