@@ -9,9 +9,9 @@
     "confidence": "high",
     "lastVerified": "2026-08-22",
     "sources": [
-      "S-zcash-improvement-proposals-zip-271-dev-fund-ext",
-      "S-mainnet-zcashexplorer-app-alternate-explorer-cro",
-      "S-blockchair-api-blockchair-zcash-api-address-dash"
+      "S-zcash-improvement-proposals-zip-0271",
+      "S-mainnet-zcashexplorer-app-address-t3ev37q2ul1sft",
+      "S-blockchair-api-address-addr"
     ],
     "balanceZec": "78183.4093",
     "notes": "Received 93,496.64 ZEC lifetime, more than the 78,750 disbursement, because a 7,438.2295 return re-entered the same address. 99.28 percent is still unspent."
@@ -26,7 +26,7 @@
     "confidence": "high",
     "lastVerified": "2026-08-22",
     "sources": [
-      "S-zcash-improvement-proposals-zip-271-dev-fund-ext"
+      "S-zcash-improvement-proposals-zip-0271"
     ],
     "balanceZec": null
   },
@@ -40,9 +40,9 @@
     "confidence": "med",
     "lastVerified": "2026-08-22",
     "sources": [
-      "S-blockchain-news-blockchain-news-30-000-zec-withd",
-      "S-blockchain-news-blockchain-news-74-002-zec-to-bi",
-      "S-blockchair-api-blockchair-zcash-api-address-dash"
+      "S-blockchain-news-flashnews-zec-whale-alert-newly",
+      "S-blockchain-news-flashnews-zec-whale-deposits-74",
+      "S-blockchair-api-address-addr"
     ],
     "balanceZec": "74881.26",
     "notes": "Two claims of different strength share one address. Exchange hot wallet: high, from behaviour. Binance specifically: medium-high, from a single analyst. The site renders the weaker of the two."
@@ -57,9 +57,9 @@
     "confidence": "high",
     "lastVerified": "2026-08-22",
     "sources": [
-      "S-blockchain-news-blockchain-news-202-077-zec-clai",
-      "S-beincrypto-beincrypto-over-1-zec-unshielded-are",
-      "S-blockchair-api-blockchair-zcash-api-address-dash"
+      "S-blockchain-news-flashnews-zec-zcash-whale-alert",
+      "S-beincrypto-zec-supply-unshielded-in-early-2026",
+      "S-blockchair-api-address-addr"
     ],
     "balanceZec": "202076.207",
     "notes": "Unattributed. Do not name an owner. The only defensible statement is that a single entity moved this out of shielding and has held it transparently ever since."
@@ -74,8 +74,8 @@
     "confidence": "med",
     "lastVerified": "2026-08-22",
     "sources": [
-      "S-blockchain-news-blockchain-news-74-002-zec-to-bi",
-      "S-blockchair-api-blockchair-zcash-api-address-dash"
+      "S-blockchain-news-flashnews-zec-whale-deposits-74",
+      "S-blockchair-api-address-addr"
     ],
     "balanceZec": "0"
   },
@@ -89,8 +89,8 @@
     "confidence": "med",
     "lastVerified": "2026-08-22",
     "sources": [
-      "S-blockchain-news-blockchain-news-30-000-zec-withd",
-      "S-blockchair-api-blockchair-zcash-api-address-dash"
+      "S-blockchain-news-flashnews-zec-whale-alert-newly",
+      "S-blockchair-api-address-addr"
     ],
     "balanceZec": "0"
   },
@@ -104,8 +104,8 @@
     "confidence": "med",
     "lastVerified": "2026-08-22",
     "sources": [
-      "S-blockchair-api-blockchair-zcash-api-transaction",
-      "S-blockchair-api-blockchair-zcash-api-address-dash"
+      "S-blockchair-api-transaction-hash",
+      "S-blockchair-api-address-addr"
     ],
     "balanceZec": null,
     "notes": "Cited only as one leg of the round-trip inference in case K-2026-01-02. Never as an identity."
@@ -120,8 +120,8 @@
     "confidence": "med",
     "lastVerified": "2026-08-22",
     "sources": [
-      "S-blockchair-api-blockchair-zcash-api-transaction",
-      "S-blockchair-api-blockchair-zcash-api-address-dash"
+      "S-blockchair-api-transaction-hash",
+      "S-blockchair-api-address-addr"
     ],
     "balanceZec": null
   }

@@ -262,6 +262,22 @@ function plain(text) {
     .trim();
 }
 
+/** The stable half of a source id: the publisher's own path to the resource. */
+function urlSlug(url) {
+  try {
+    const u = new URL(url);
+    const segments = u.pathname
+      .split("/")
+      .filter(Boolean)
+      .map((seg) => decodeURIComponent(seg).replace(/\.(html?|json|xml|pdf|md|htm)$/i, ""))
+      .filter((seg) => seg.length > 0 && !NOISE_SEGMENTS.has(seg.toLowerCase()));
+    const tail = segments.slice(-2).join("-");
+    return tail.length > 0 ? tail : u.hostname;
+  } catch {
+    return url;
+  }
+}
+
 function slug(text, max = 48) {
   const s = text
     .toLowerCase()
@@ -296,12 +312,19 @@ for (const file of FILES) {
     if (urls.length === 0) continue;
 
     // A source-list bullet: "- Title -- URL" (the corpus uses an em dash).
+    // A bibliography bullet is "- Title -- URL": the head ends in a dash
+    // separator, because the bullet exists to name that source. A prose bullet
+    // that happens to contain a link ("- ZEC was $545 ... ([BitMEX](url))") ends
+    // in the opening half of a markdown link instead, and its text is about the
+    // claim, not about the source. Only the first kind supplies a title.
     const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
     let bulletTitle = null;
     if (bullet) {
       const head = bullet[1].split(/https?:\/\//)[0];
-      const cleaned = trimTitle(plain(head));
-      if (cleaned.length >= 4) bulletTitle = cleaned;
+      if (/[\u2013\u2014-]\s*$/.test(head)) {
+        const cleaned = trimTitle(plain(head));
+        if (cleaned.length >= 4) bulletTitle = cleaned;
+      }
     }
 
     // Markdown links give a per-URL label, usually a short publisher tag.
@@ -346,7 +369,10 @@ for (const entry of [...found.values()].sort((a, b) => normalise(a.url).localeCo
   const title = (TITLE_OVERRIDES.get(entry.url) ?? chosen).slice(0, 220);
   const date = extractDate(entry.contexts.join(" · "), entry.url);
 
-  let id = `S-${slug(`${publisher}-${title}`)}`;
+  // The id is built from the publisher and the URL's own path, never from the
+  // title. Titles get better as the extractor gets better; a source's id must
+  // not move when that happens, because every data file cites it.
+  let id = `S-${slug(`${publisher}-${urlSlug(entry.url)}`)}`;
   if (id === "S-") id = `S-${slug(entry.url)}`;
   let n = 2;
   const base = id;

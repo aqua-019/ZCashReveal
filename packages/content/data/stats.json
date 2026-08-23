@@ -48,11 +48,11 @@
   },
   "openInterestUsd": 1660000000,
   "sources": [
-    "S-cipherscan-migration-status-22-aug-2026-3-13-m-z",
-    "S-zec-stats-zec-stats-zecstats-com",
-    "S-coingecko-nominal-all-time-high-3-191-93-on-28-o",
-    "S-coinglass-com-coinglass-zec-derivatives",
-    "S-coin-metrics-coin-metrics-crucial-caveat-the-gro"
+    "S-cipherscan-ironwood",
+    "S-zec-stats-zecstats-com",
+    "S-coingecko-coins-zcash",
+    "S-coinglass-com-currencies-zec",
+    "S-coin-metrics-state-of-the-network-issue-338"
   ],
   "confidence": "med",
   "lastVerified": "2026-08-22"

@@ -16,9 +16,9 @@
     "tension": "ZEC is not Bitcoin-derived in any meaningful sense; privacy is optional, not encrypted-by-default at the protocol level. In Nov 2025 shielded supply was approximately 30%, meaning approximately 70% of ZEC sat in transparent addresses.",
     "confidence": "high",
     "sources": [
-      "S-bankless-zcash-founder-on-privacy-ai-and-how-zec",
-      "S-decrypt-zcash-surging-cypherpunk-principles-bitc",
-      "S-research-grayscale-com-zcash-financial-privacy-i"
+      "S-bankless-podcast-zcash-founder-on-privacy-ai-and",
+      "S-decrypt-347322-zcash-surging-cypherpunk-principl",
+      "S-research-grayscale-com-reports-zcash-financial-p"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -31,7 +31,7 @@
     "tension": "An insider explicitly describing the core slogan as a memetic strategy for winning governance consensus.",
     "confidence": "high",
     "sources": [
-      "S-bankless-zcash-founder-on-privacy-ai-and-how-zec"
+      "S-bankless-podcast-zcash-founder-on-privacy-ai-and"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -63,8 +63,8 @@
     "tension": "ZEC's actual payment volume is a rounding error against its market cap; the Jan 2026 Gemini card is one of the few real spending rails, and it settles in fiat with ZEC rewards.",
     "confidence": "high",
     "sources": [
-      "S-gemini-com-the-winklevoss-zcash-relationship-pre",
-      "S-crypto-briefing-gemini-the-winklevoss-exchange-l"
+      "S-gemini-com-a-conversation-on-zcash-with-cameron",
+      "S-crypto-briefing-zcash-surges-gemini-zec-credit-c"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -80,8 +80,8 @@
     "tension": "Same optional-privacy tension.",
     "confidence": "high",
     "sources": [
-      "S-zcash-zcash-z-cash",
-      "S-zechub-wiki-what-is-zec-and-zcash"
+      "S-zcash-z-cash",
+      "S-zechub-wiki-start-here-what-is-zec-and-zcash"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -97,8 +97,8 @@
     "tension": "Cameron's line was posted the day ZEC fell more than 50% on a bug that made provable correctness demonstrably false for four years.",
     "confidence": "high",
     "sources": [
-      "S-coindesk-coindesk-com-research-inside-zcash-encr",
-      "S-messari-zcash-building-encrypted-money-at-planet"
+      "S-coindesk-research-inside-zcash-encrypted-money-a",
+      "S-messari-report-zcash-building-encrypted-money-at"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -116,7 +116,7 @@
     "confidence": "high",
     "sources": [
       "S-electric-coin-company-privacy-is-normal-safe-and",
-      "S-coindesk-coindesk-com-research-inside-zcash-encr"
+      "S-coindesk-research-inside-zcash-encrypted-money-a"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -136,9 +136,9 @@
     "tension": "ZEC +30% in 24h ($272 to $355) on the call. Hayes sold his entire position on 5 Jun 2026 at a fraction of $10k.",
     "confidence": "high",
     "sources": [
-      "S-coinmarketcap-zec-surges-30percent-after-arthur",
-      "S-yahoo-finance-arthur-hayes-10-000-zec",
-      "S-coindesk-arthur-hayes-liquidated-his-entire-zec"
+      "S-coinmarketcap-academy-zec-surges-30percent-after",
+      "S-yahoo-finance-arthur-hayes-10-000-zec-161819159",
+      "S-coindesk-05-arthur-hayes-dumps-zcash-holdings-af"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -151,7 +151,7 @@
     "tension": "Same author, revised target, approximately 7 months later.",
     "confidence": "med",
     "sources": [
-      "S-coindesk-arthur-hayes-liquidated-his-entire-zec"
+      "S-coindesk-05-arthur-hayes-dumps-zcash-holdings-af"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -166,7 +166,7 @@
     "tension": "Mumtaz runs a Solana infra company; never disclosed a ZEC position.",
     "confidence": "med",
     "sources": [
-      "S-coindesk-coindesk-podcast"
+      "S-coindesk-coindesk-podcast-network-why-zcash-is-t"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -179,7 +179,7 @@
     "tension": "No documented tension; recorded for completeness of the catalogue.",
     "confidence": "med",
     "sources": [
-      "S-finance-biggo-com-finance-biggo-com-finance-bigg"
+      "S-finance-biggo-com-486e6ece5f83ea4a"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -199,7 +199,7 @@
     "confidence": "high",
     "sources": [
       "S-protos-zcash-vs-bitcoin-debate-exposes-naval-rav",
-      "S-news-bitcoin-com-news-bitcoin-com"
+      "S-news-bitcoin-com-raoul-pal-backs-zcash-as-bitcoi"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -214,8 +214,8 @@
     "tension": "Said by the CIO of a company holding 1.9% of the supply with 1,000,000 RSUs of upside.",
     "confidence": "med",
     "sources": [
-      "S-coindesk-coindesk-com-research-inside-zcash-encr",
-      "S-the-block-winklevoss-backed-cypherpunk-targets-5"
+      "S-coindesk-research-inside-zcash-encrypted-money-a",
+      "S-the-block-378582-winklevoss-backed-cypherpunk-ta"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -230,7 +230,7 @@
     "tension": "Said on disclosure of an undisclosed-size position.",
     "confidence": "high",
     "sources": [
-      "S-yahoo-finance-yahoo-coindesk"
+      "S-yahoo-finance-crypto-zcash-spikes-30-multicoin-m"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -246,7 +246,7 @@
     "confidence": "high",
     "sources": [
       "S-cypherpunk-com-cypherpunk-com",
-      "S-yahoo-finance-winklevoss-twins-back-zcash-securi"
+      "S-yahoo-finance-crypto-winklevoss-twins-back-zcash"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -261,8 +261,8 @@
     "tension": "Posted as CYPH fell more than 40% and ZEC more than 50%.",
     "confidence": "high",
     "sources": [
-      "S-the-block-the-block-31-within-24-h-of-the-announ",
-      "S-coindesk-coindesk-zcash-plummets-38-as-shielded"
+      "S-the-block-403698-zcash-vulnerability-zec-drops",
+      "S-coindesk-05-zcash-plummets-30-as-developer-revea"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -278,8 +278,8 @@
     "tension": "No documented tension; recorded for completeness of the catalogue.",
     "confidence": "high",
     "sources": [
-      "S-decrypt-zcash-surging-cypherpunk-principles-bitc",
-      "S-coindesk-coindesk-com-research-inside-zcash-encr"
+      "S-decrypt-347322-zcash-surging-cypherpunk-principl",
+      "S-coindesk-research-inside-zcash-encrypted-money-a"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -296,9 +296,9 @@
     "tension": "Claimed more than 400% shielded-pool growth since 2024 launch; $600M+ in ZEC swaps since Oct.",
     "confidence": "med",
     "sources": [
-      "S-zcash-zcash-z-cash",
-      "S-zechub-wiki-what-is-zec-and-zcash",
-      "S-barchart-com-cypherpunk-makes-5m-investment-into"
+      "S-zcash-z-cash",
+      "S-zechub-wiki-start-here-what-is-zec-and-zcash",
+      "S-barchart-com-641883-cypherpunk-makes-5m-investme"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -313,8 +313,8 @@
     "tension": "Privacy coins were the weakest-performing sector in early Jan 2026 while the phrase was still circulating.",
     "confidence": "med",
     "sources": [
-      "S-tradingview-u-today-tradingview",
-      "S-ccn-zec-500-percent-rally-explained-next-bitcoin"
+      "S-tradingview-u-today-56fd7e455094b-0-behind-xrp-s",
+      "S-ccn-crypto-zec-500-percent-rally-explained-next"
     ],
     "lastVerified": "2026-08-22"
   }

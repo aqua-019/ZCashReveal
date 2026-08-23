@@ -15,10 +15,10 @@
       "privacy-optional"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-the-privacy-illusion-2",
-      "S-zec-stats-zec-stats-zecstats-com",
-      "S-usenix-kappos-yousaf-maller-meiklejohn-an-empiri",
-      "S-coin-metrics-coin-metrics-crucial-caveat-the-gro"
+      "S-electric-coin-company-the-privacy-illusion-what",
+      "S-zec-stats-zecstats-com",
+      "S-usenix-usenixsecurity18-sec18-kappos",
+      "S-coin-metrics-state-of-the-network-issue-338"
     ]
   },
   {
@@ -37,9 +37,9 @@
       "turnstile"
     ],
     "sources": [
-      "S-zodl-zodl-zcashd-sprout-verification-vulnerabili",
-      "S-zodl-zodl-several-zcash-vulnerabilities-remediat",
-      "S-github-ghsa-ww9q-8r59-xv46-cve-2026-54496-orchar"
+      "S-zodl-zcashd-sprout-verification-vulnerability",
+      "S-zodl-zcashd-zebra-april-2026-disclosure",
+      "S-github-advisories-ghsa-ww9q-8r59-xv46"
     ]
   },
   {
@@ -58,10 +58,10 @@
       "mpc-ceremony"
     ],
     "sources": [
-      "S-zcash-improvement-proposals-zip-209-prohibit-out",
-      "S-zcash-improvement-proposals-zip-308-sprout-sapli",
-      "S-crypto-news-crypto-news-why-30-of-zcash-supply-i",
-      "S-coindesk-coindesk-zcash-and-the-art-of-security"
+      "S-zcash-improvement-proposals-zip-0209",
+      "S-zcash-improvement-proposals-zip-0308",
+      "S-crypto-news-why-30-of-zcash-supply-is-now-in-the",
+      "S-coindesk-14-zcash-and-the-art-of-security-theate"
     ]
   },
   {
@@ -80,10 +80,10 @@
       "multisig"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-continued-funding-and",
-      "S-zcash-improvement-proposals-zip-1014-dev-fund",
-      "S-zcash-improvement-proposals-zip-271-dev-fund-ext",
-      "S-electric-coin-company-ecc-electric-coin-co-donat"
+      "S-electric-coin-company-continued-funding-and-tran",
+      "S-zcash-improvement-proposals-zip-1014",
+      "S-zcash-improvement-proposals-zip-0271",
+      "S-electric-coin-company-electric-coin-co-donates-z"
     ]
   },
   {
@@ -102,9 +102,9 @@
       "binance"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-gemini-sets-the-standa",
-      "S-dl-news-dl-news-how-firo-and-zcash-dodged-binanc",
-      "S-crypto-news-crypto-news-why-30-of-zcash-supply-i"
+      "S-electric-coin-company-gemini-sets-the-standard-f",
+      "S-dl-news-defi-how-privacy-coins-firo-and-zcash-do",
+      "S-crypto-news-why-30-of-zcash-supply-is-now-in-the"
     ]
   },
   {
@@ -123,9 +123,9 @@
       "disclosure"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-2018-zcash-security-au",
-      "S-electric-coin-company-ecc-zcash-counterfeiting-v",
-      "S-github-ghsa-ww9q-8r59-xv46-cve-2026-54496-orchar"
+      "S-electric-coin-company-2018-zcash-security-audit",
+      "S-electric-coin-company-zcash-counterfeiting-vulne",
+      "S-github-advisories-ghsa-ww9q-8r59-xv46"
     ]
   },
   {
@@ -144,8 +144,8 @@
       "governance"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-zcash-counterfeiting-v",
-      "S-github-zcash-orchard-and-zcash-halo2-advisories"
+      "S-electric-coin-company-zcash-counterfeiting-vulne",
+      "S-github-security-advisories-2"
     ]
   },
   {
@@ -164,9 +164,9 @@
       "dev-fund"
     ],
     "sources": [
-      "S-the-block-the-block-zcash-developers-quit-form-n",
-      "S-coindesk-9-march-2026-the-departed-team-led-by-f",
-      "S-zcash-improvement-proposals-draft-ecc-zbloc-obso"
+      "S-the-block-384737-zcash-developers-form-new-compa",
+      "S-coindesk-09-josh-swihart-s-zcash-open-developmen",
+      "S-zcash-improvement-proposals-draft-ecc-zbloc"
     ]
   },
   {
@@ -185,8 +185,8 @@
       "turnstile"
     ],
     "sources": [
-      "S-zcash-improvement-proposals-28-jul-2026-nu6-3-ir",
-      "S-cipherscan-migration-status-22-aug-2026-3-13-m-z"
+      "S-zcash-improvement-proposals-zip-0258",
+      "S-cipherscan-ironwood"
     ]
   },
   {
@@ -205,8 +205,8 @@
       "price-crash"
     ],
     "sources": [
-      "S-yahoo-finance-winklevoss-twins-back-zcash-securi",
-      "S-the-block-the-block-cypherpunk-remains-committed"
+      "S-yahoo-finance-crypto-winklevoss-twins-back-zcash",
+      "S-the-block-403839-zcash-treasury-cypherpunk-remai"
     ]
   },
   {
@@ -226,7 +226,7 @@
     ],
     "sources": [
       "S-cryptoslate-grayscales-zcash-etf-regulated-priva",
-      "S-the-block-the-block-grayscale-moves-closer-to-fi"
+      "S-the-block-regulation-2026-08-21-grayscale-moves"
     ]
   },
   {
@@ -245,8 +245,8 @@
       "implementation-diversity"
     ],
     "sources": [
-      "S-zcash-z-cash-zcashd-deprecation-eol",
-      "S-github-zcashfoundation-zebra-advisories-pages-1"
+      "S-zcash-support-zcashd-deprecation",
+      "S-github-security-advisories-4"
     ]
   },
   {
@@ -265,8 +265,8 @@
       "cypherpunk"
     ],
     "sources": [
-      "S-pr-newswire-pr-newswire-cypherpunk-taps-zooko-as",
-      "S-coindesk-coindesk-what-does-crypto-care-if-zooko"
+      "S-pr-newswire-news-releases-cypherpunk-taps-zcash",
+      "S-coindesk-01-what-does-crypto-care-if-zooko-is-a"
     ]
   },
   {
@@ -285,11 +285,11 @@
       "grayscale"
     ],
     "sources": [
-      "S-zcash-foundation-zf-first-announcement-from-the",
-      "S-wikipedia-wikipedia-zcash",
+      "S-zcash-foundation-first-announcement-from-the-zca",
+      "S-wikipedia-wiki-zcash",
       "S-protos-zcash-vs-bitcoin-debate-exposes-naval-rav",
-      "S-the-block-dcg-barry-silbert-bitcoin-privacy-cryp",
-      "S-thecoinrepublic-com-coin-republic"
+      "S-the-block-389472-dcg-barry-silbert-bitcoin-priva",
+      "S-thecoinrepublic-com-06-breaking-barry-silbert-se"
     ]
   },
   {
@@ -308,8 +308,8 @@
       "exchanges"
     ],
     "sources": [
-      "S-the-block-the-block-gemini-shielded-withdrawals",
-      "S-electric-coin-company-ecc-gemini-sets-the-standa"
+      "S-the-block-79098-gemini-supports-shielded-zcash-w",
+      "S-electric-coin-company-gemini-sets-the-standard-f"
     ]
   },
   {
@@ -328,7 +328,7 @@
       "deanonymization"
     ],
     "sources": [
-      "S-discovery-ucl-ac-uk-pdfsam-kappos-sec18-full-pro"
+      "S-discovery-ucl-ac-uk-1-pdfsam-kappos-sec18-full-p"
     ]
   }
 ]

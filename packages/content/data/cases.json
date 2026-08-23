@@ -85,12 +85,12 @@
     "verdict": "276,077.739 ZEC left the shielded pool on 2 January 2026, about 1.63 percent of the then-circulating supply and higher than the figure the press reported, which counted only the largest tranche. 74,001.93 ZEC reached a major exchange hot wallet. Roughly 50,000 of that plausibly originated from the same wallet eight days earlier, which would make the widely-reported whale deposit at most about 24,000 ZEC of genuinely new inflow. Zcash's design means the shield and the unshield cannot be proven to be the same coins, and nothing here establishes who owns any address or that anything was sold.",
     "confidence": "high",
     "sources": [
-      "S-blockchain-news-blockchain-news-30-000-zec-withd",
-      "S-blockchain-news-blockchain-news-74-002-zec-to-bi",
-      "S-blockchain-news-blockchain-news-202-077-zec-clai",
-      "S-beincrypto-beincrypto-over-1-zec-unshielded-are",
-      "S-blockchair-api-blockchair-zcash-api-transaction",
-      "S-blockchair-api-blockchair-zcash-api-address-dash"
+      "S-blockchain-news-flashnews-zec-whale-alert-newly",
+      "S-blockchain-news-flashnews-zec-whale-deposits-74",
+      "S-blockchain-news-flashnews-zec-zcash-whale-alert",
+      "S-beincrypto-zec-supply-unshielded-in-early-2026",
+      "S-blockchair-api-transaction-hash",
+      "S-blockchair-api-address-addr"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -139,12 +139,12 @@
     "verdict": "Fact: 78,183.4093 ZEC, 99.28 percent of the lockbox, is still sitting in the multisig, with nine of ten chunks completely untouched. Fact: the 566.5907 ZEC that has moved went into shielded outputs. Inference, medium: the amounts retained are consistent with grant disbursements under ZIP 1016. Not knowable: whether any recipient sold. ZIP 271 requires each chunk to be spent completely into a shielded output, so the trail terminates at the first hop by design, not by any failure of research.",
     "confidence": "high",
     "sources": [
-      "S-zcash-improvement-proposals-zip-271-dev-fund-ext",
-      "S-zcash-improvement-proposals-zip-255-deployment-o",
-      "S-zcash-improvement-proposals-zip-1016-community-a",
-      "S-mainnet-zcashexplorer-app-alternate-explorer-cro",
-      "S-blockchair-api-blockchair-zcash-api-transaction",
-      "S-blockchair-api-blockchair-zcash-api-address-dash"
+      "S-zcash-improvement-proposals-zip-0271",
+      "S-zcash-improvement-proposals-zip-0255",
+      "S-zcash-improvement-proposals-zip-1016",
+      "S-mainnet-zcashexplorer-app-address-t3ev37q2ul1sft",
+      "S-blockchair-api-transaction-hash",
+      "S-blockchair-api-address-addr"
     ],
     "lastVerified": "2026-08-22"
   },
@@ -173,10 +173,10 @@
     "verdict": "Proves that a single entity moved roughly 165 million dollars of ZEC out of shielding and has held it transparently ever since. Proves it did not go to an exchange. Does not prove who owns it, or why. An aggregator dated a 202,077 ZEC move to 2025-12-20 and called it a Binance withdrawal; no address was published, and the only on-chain event of that size is this one, seven months later in the wrong direction. Treat the aggregator's date and direction as unconfirmed.",
     "confidence": "high",
     "sources": [
-      "S-blockchain-news-blockchain-news-202-077-zec-clai",
-      "S-beincrypto-beincrypto-over-1-zec-unshielded-are",
-      "S-blockchair-api-blockchair-zcash-api-transaction",
-      "S-blockchair-api-blockchair-zcash-api-address-dash"
+      "S-blockchain-news-flashnews-zec-zcash-whale-alert",
+      "S-beincrypto-zec-supply-unshielded-in-early-2026",
+      "S-blockchair-api-transaction-hash",
+      "S-blockchair-api-address-addr"
     ],
     "lastVerified": "2026-08-22"
   }

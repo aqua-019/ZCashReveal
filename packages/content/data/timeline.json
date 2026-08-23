@@ -16,7 +16,7 @@
       "cryptography"
     ],
     "sources": [
-      "S-wikipedia-wikipedia-zcash"
+      "S-wikipedia-wiki-zcash"
     ]
   },
   {
@@ -36,8 +36,8 @@
       "privacy"
     ],
     "sources": [
-      "S-zerocash-project-org-ben-sasson-chiesa-garman-gr",
-      "S-iacr-eprint-eprint-2014-349"
+      "S-zerocash-project-org-paper",
+      "S-iacr-eprint-2014-349"
     ]
   },
   {
@@ -57,7 +57,7 @@
       "leadership"
     ],
     "sources": [
-      "S-wikipedia-wikipedia-zcash"
+      "S-wikipedia-wiki-zcash"
     ]
   },
   {
@@ -77,7 +77,7 @@
       "disclosure"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-fixing-vulnerabilities"
+      "S-electric-coin-company-fixing-zcash-vulns"
     ]
   },
   {
@@ -97,7 +97,7 @@
       "tokenomics"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-continued-funding-and"
+      "S-electric-coin-company-continued-funding-and-tran"
     ]
   },
   {
@@ -117,7 +117,7 @@
       "parameter-generation"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-the-design-of-the-cere"
+      "S-electric-coin-company-the-design-of-the-ceremony"
     ]
   },
   {
@@ -138,8 +138,8 @@
       "volatility"
     ],
     "sources": [
-      "S-coindesk-coindesk-bitcoin-prices-roar-past-700-b",
-      "S-coingecko-nominal-all-time-high-3-191-93-on-28-o"
+      "S-coindesk-29-bitcoin-prices-roar-past-700-but-zca",
+      "S-coingecko-coins-zcash"
     ]
   },
   {
@@ -159,7 +159,7 @@
       "security"
     ],
     "sources": [
-      "S-coindesk-coindesk-zcash-and-the-art-of-security"
+      "S-coindesk-14-zcash-and-the-art-of-security-theate"
     ]
   },
   {
@@ -178,7 +178,7 @@
       "executive-director"
     ],
     "sources": [
-      "S-zcash-community-forum-zcash-community-forum-josh"
+      "S-zcash-community-forum-josh-cincinnati-leaving-th"
     ]
   },
   {
@@ -198,7 +198,7 @@
       "enterprise"
     ],
     "sources": [
-      "S-wikipedia-wikipedia-zcash"
+      "S-wikipedia-wiki-zcash"
     ]
   },
   {
@@ -218,7 +218,7 @@
       "incorporation"
     ],
     "sources": [
-      "S-zcash-foundation-zf-first-announcement-from-the"
+      "S-zcash-foundation-first-announcement-from-the-zca"
     ]
   },
   {
@@ -238,7 +238,7 @@
       "deanonymization"
     ],
     "sources": [
-      "S-arxiv-quesnelle-on-the-linkability-of-zcash-tran"
+      "S-arxiv-pdf-1712-01210"
     ]
   },
   {
@@ -258,7 +258,7 @@
       "disclosure"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-zcash-counterfeiting-v"
+      "S-electric-coin-company-zcash-counterfeiting-vulne"
     ]
   },
   {
@@ -278,7 +278,7 @@
       "transparency"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-2018-zcash-security-au"
+      "S-electric-coin-company-2018-zcash-security-audit"
     ]
   },
   {
@@ -299,7 +299,7 @@
       "delisting"
     ],
     "sources": [
-      "S-ccn-ccn-coincheck-to-delist-privacy-coins"
+      "S-ccn-coincheck-to-delist-privacy-coins-monero-zca"
     ]
   },
   {
@@ -319,7 +319,7 @@
       "mpc"
     ],
     "sources": [
-      "S-coindesk-coindesk-zcash-completes-powers-of-tau"
+      "S-coindesk-13-zcash-completes-powers-of-tau-privac"
     ]
   },
   {
@@ -339,7 +339,7 @@
       "trading"
     ],
     "sources": [
-      "S-wikipedia-wikipedia-zcash"
+      "S-wikipedia-wiki-zcash"
     ]
   },
   {
@@ -359,7 +359,7 @@
       "overwinter"
     ],
     "sources": [
-      "S-zcash-zcash-upgrade-overwinter"
+      "S-zcash-upgrade-overwinter"
     ]
   },
   {
@@ -378,7 +378,7 @@
       "transparency"
     ],
     "sources": [
-      "S-coindesk-coindesk-what-does-crypto-care-if-zooko"
+      "S-coindesk-01-what-does-crypto-care-if-zooko-is-a"
     ]
   },
   {
@@ -399,7 +399,7 @@
       "analysis"
     ],
     "sources": [
-      "S-usenix-kappos-yousaf-maller-meiklejohn-an-empiri"
+      "S-usenix-usenixsecurity18-sec18-kappos"
     ]
   },
   {
@@ -420,7 +420,7 @@
       "inflation"
     ],
     "sources": [
-      "S-bitcoin-core-bitcoin-core-cve-2018-17144-disclos"
+      "S-bitcoin-core-20-notice"
     ]
   },
   {
@@ -442,7 +442,7 @@
       "exploit-fix"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-sapling-activation-com"
+      "S-electric-coin-company-sapling-activation-complet"
     ]
   },
   {
@@ -461,7 +461,7 @@
       "counterfeiting"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-zcash-counterfeiting-v"
+      "S-electric-coin-company-zcash-counterfeiting-vulne"
     ]
   },
   {
@@ -481,7 +481,7 @@
       "sprout-sapling"
     ],
     "sources": [
-      "S-zcash-improvement-proposals-zip-308-sprout-sapli"
+      "S-zcash-improvement-proposals-zip-0308"
     ]
   },
   {
@@ -501,7 +501,7 @@
       "recursion"
     ],
     "sources": [
-      "S-wikipedia-wikipedia-zcash"
+      "S-wikipedia-wiki-zcash"
     ]
   },
   {
@@ -520,7 +520,7 @@
       "disclosure"
     ],
     "sources": [
-      "S-zcash-foundation-zf-concerning-the-sprout-vulner"
+      "S-zcash-foundation-concerning-the-sprout-vulnerabi"
     ]
   },
   {
@@ -540,7 +540,7 @@
       "disclosure"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-zcash-counterfeiting-v"
+      "S-electric-coin-company-zcash-counterfeiting-vulne"
     ]
   },
   {
@@ -559,7 +559,7 @@
       "ecc"
     ],
     "sources": [
-      "S-wikipedia-wikipedia-zcash"
+      "S-wikipedia-wiki-zcash"
     ]
   },
   {
@@ -579,7 +579,7 @@
       "chain-value"
     ],
     "sources": [
-      "S-zcash-improvement-proposals-zip-209-prohibit-out"
+      "S-zcash-improvement-proposals-zip-0209"
     ]
   },
   {
@@ -599,7 +599,7 @@
       "unlinkability"
     ],
     "sources": [
-      "S-zcash-improvement-proposals-zip-212-note-plainte"
+      "S-zcash-improvement-proposals-zip-0212"
     ]
   },
   {
@@ -619,7 +619,7 @@
       "korea"
     ],
     "sources": [
-      "S-coindesk-coindesk-south-korea-s-upbit-delists-pr"
+      "S-coindesk-20-south-koreas-upbit-becomes-latest-ex"
     ]
   },
   {
@@ -638,7 +638,7 @@
       "patch"
     ],
     "sources": [
-      "S-electric-coin-company-fixed-zcashd-2-0-7-3-relea"
+      "S-electric-coin-company-new-release-2-0-7-3"
     ]
   },
   {
@@ -658,8 +658,8 @@
       "veto"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-electric-coin-co-donat",
-      "S-coindesk-coindesk-zcash-trademark-talks-were-abo"
+      "S-electric-coin-company-electric-coin-co-donates-z",
+      "S-coindesk-07-zcash-trademark-talks-were-about-mor"
     ]
   },
   {
@@ -680,7 +680,7 @@
       "zip"
     ],
     "sources": [
-      "S-zcash-improvement-proposals-zip-1014-dev-fund"
+      "S-zcash-improvement-proposals-zip-1014"
     ]
   },
   {
@@ -700,7 +700,7 @@
       "blossom"
     ],
     "sources": [
-      "S-zcash-zcash-upgrade-blossom"
+      "S-zcash-upgrade-blossom"
     ]
   },
   {
@@ -719,7 +719,7 @@
       "restructuring"
     ],
     "sources": [
-      "S-wikipedia-wikipedia-zcash"
+      "S-wikipedia-wiki-zcash"
     ]
   },
   {
@@ -739,7 +739,7 @@
       "heartwood"
     ],
     "sources": [
-      "S-zcash-zcash-upgrade-heartwood"
+      "S-zcash-upgrade-heartwood"
     ]
   },
   {
@@ -759,7 +759,7 @@
       "sprout"
     ],
     "sources": [
-      "S-zodl-zodl-zcashd-sprout-verification-vulnerabili"
+      "S-zodl-zcashd-sprout-verification-vulnerability"
     ]
   },
   {
@@ -779,7 +779,7 @@
       "resignation"
     ],
     "sources": [
-      "S-zcash-community-forum-zcash-community-forum-josh"
+      "S-zcash-community-forum-josh-cincinnati-leaving-th"
     ]
   },
   {
@@ -799,7 +799,7 @@
       "withdrawal"
     ],
     "sources": [
-      "S-the-block-the-block-gemini-shielded-withdrawals"
+      "S-the-block-79098-gemini-supports-shielded-zcash-w"
     ]
   },
   {
@@ -822,7 +822,7 @@
       "dev-fund"
     ],
     "sources": [
-      "S-zcash-zcash-upgrade-canopy"
+      "S-zcash-upgrade-canopy"
     ]
   },
   {
@@ -839,7 +839,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-zcash-foundation-zf-bids-farewell-to-jack-gaviga"
+      "S-zcash-foundation-zcash-foundation-bids-farewell"
     ]
   },
   {
@@ -856,7 +856,7 @@
       "governance"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-privacy-leak-bug-in-ni"
+      "S-electric-coin-company-privacy-leak-bug-discovere"
     ]
   },
   {
@@ -873,7 +873,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-wikipedia-wikipedia-zcash"
+      "S-wikipedia-wiki-zcash"
     ]
   },
   {
@@ -892,7 +892,7 @@
       "pool-specific"
     ],
     "sources": [
-      "S-zcash-zcash-upgrade-nu5"
+      "S-zcash-upgrade-nu5"
     ],
     "secondaryCategory": "EXPLOIT"
   },
@@ -910,7 +910,7 @@
       "network-upgrade"
     ],
     "sources": [
-      "S-github-start-mid-june-2022-roughly-two-weeks-aft"
+      "S-github-allarboristcallnotes-sandblasting-retrosp"
     ]
   },
   {
@@ -927,7 +927,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-zcash-improvement-proposals-mechanism-a-flat-1-0"
+      "S-zcash-improvement-proposals-zip-0317"
     ]
   },
   {
@@ -944,7 +944,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-protos-chain-bloat-30-gb-100-gb-tripled-by-octob"
+      "S-protos-zcash-chain-triples-in-size-thanks-to-10"
     ]
   },
   {
@@ -961,7 +961,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-zcash-community-forum-shielded-labs-founding-thr"
+      "S-zcash-community-forum-shielded-labs-an-independe"
     ]
   },
   {
@@ -978,7 +978,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-zcash-improvement-proposals-mechanism-a-flat-1-0"
+      "S-zcash-improvement-proposals-zip-0317"
     ]
   },
   {
@@ -995,7 +995,7 @@
       "governance"
     ],
     "sources": [
-      "S-crypto-news-crypto-news-sec-ends-zcash-foundatio"
+      "S-crypto-news-sec-ends-zcash-foundation-probe-enfo"
     ]
   },
   {
@@ -1013,7 +1013,7 @@
       "market"
     ],
     "sources": [
-      "S-crypto-news-crypto-news-coinbase-limits-zcash-tr"
+      "S-crypto-news-coinbase-limits-zcash-trading-as-via"
     ],
     "secondaryCategory": "MARKET"
   },
@@ -1031,7 +1031,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-github-start-mid-june-2022-roughly-two-weeks-aft"
+      "S-github-allarboristcallnotes-sandblasting-retrosp"
     ]
   },
   {
@@ -1048,7 +1048,7 @@
       "governance"
     ],
     "sources": [
-      "S-the-block-the-block-zooko-steps-down-as-ecc-ceo"
+      "S-the-block-268219-zcash-founder-zooko-wilcox-step"
     ]
   },
   {
@@ -1065,7 +1065,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-dl-news-dl-news-how-firo-and-zcash-dodged-binanc"
+      "S-dl-news-defi-how-privacy-coins-firo-and-zcash-do"
     ]
   },
   {
@@ -1082,7 +1082,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-meet-zashi-28-mar-2024"
+      "S-electric-coin-company-meet-zashi-eccs-new-mobile"
     ]
   },
   {
@@ -1099,7 +1099,7 @@
       "market"
     ],
     "sources": [
-      "S-coingecko-nominal-all-time-high-3-191-93-on-28-o"
+      "S-coingecko-coins-zcash"
     ]
   },
   {
@@ -1116,7 +1116,7 @@
       "governance"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-zooko-and-a-new-focus"
+      "S-electric-coin-company-zooko-and-a-new-focus-for"
     ]
   },
   {
@@ -1135,7 +1135,7 @@
       "market"
     ],
     "sources": [
-      "S-forbes-forbes-how-satoshi-collaborator-zooko-wil"
+      "S-forbes-08-how-satoshi-collaborator-zooko-wilcox"
     ],
     "secondaryCategory": "FUND"
   },
@@ -1153,7 +1153,7 @@
       "network-upgrade"
     ],
     "sources": [
-      "S-zcash-improvement-proposals-zip-1015-block-subsi"
+      "S-zcash-improvement-proposals-zip-1015"
     ]
   },
   {
@@ -1170,7 +1170,7 @@
       "governance"
     ],
     "sources": [
-      "S-zcash-community-forum-zcash-community-forum-i-m"
+      "S-zcash-community-forum-im-departing-ecc-but-its-g"
     ]
   },
   {
@@ -1189,8 +1189,8 @@
       "governance"
     ],
     "sources": [
-      "S-zcash-zcash-upgrade-nu6",
-      "S-electric-coin-company-ecc-zcash-halvening-nu6-23"
+      "S-zcash-upgrade-nu6",
+      "S-electric-coin-company-zcash-halvening-nu6-embrac"
     ],
     "secondaryCategory": "TECH"
   },
@@ -1208,7 +1208,7 @@
       "governance"
     ],
     "sources": [
-      "S-zcash-improvement-proposals-draft-ecc-zbloc-obso"
+      "S-zcash-improvement-proposals-draft-ecc-zbloc"
     ]
   },
   {
@@ -1227,8 +1227,8 @@
       "market"
     ],
     "sources": [
-      "S-zcash-improvement-proposals-zip-1016-community-a",
-      "S-zcash-improvement-proposals-zip-271-dev-fund-ext"
+      "S-zcash-improvement-proposals-zip-1016",
+      "S-zcash-improvement-proposals-zip-0271"
     ],
     "secondaryCategory": "GOV"
   },
@@ -1246,7 +1246,7 @@
       "governance"
     ],
     "sources": [
-      "S-zcash-foundation-zf-changing-of-the-guard-4-mar"
+      "S-zcash-foundation-changing-of-the-guard"
     ]
   },
   {
@@ -1263,7 +1263,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-sean-bowe-sean-bowe-tachyon-scaling-zcash-with-o"
+      "S-sean-bowe-tachyon-scaling-zcash-oblivious-synchr"
     ]
   },
   {
@@ -1280,7 +1280,7 @@
       "governance"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-the-privacy-illusion-2"
+      "S-electric-coin-company-the-privacy-illusion-what"
     ]
   },
   {
@@ -1297,7 +1297,7 @@
       "market"
     ],
     "sources": [
-      "S-bitmex-com-zec-545-on-29-may-624-peak-on-4-jun-3"
+      "S-bitmex-com-zec-crash-2026"
     ]
   },
   {
@@ -1336,7 +1336,7 @@
       "institutional-research"
     ],
     "sources": [
-      "S-coinbase-com-coinbase-institutional"
+      "S-coinbase-com-tokenomics-review-privacy-coins-zca"
     ]
   },
   {
@@ -1358,9 +1358,9 @@
       "market"
     ],
     "sources": [
-      "S-coindesk-coindesk-podcast",
-      "S-yahoo-finance-arthur-hayes-10-000-zec",
-      "S-coinmarketcap-zec-surges-30percent-after-arthur"
+      "S-coindesk-coindesk-podcast-network-why-zcash-is-t",
+      "S-yahoo-finance-arthur-hayes-10-000-zec-161819159",
+      "S-coinmarketcap-academy-zec-surges-30percent-after"
     ]
   },
   {
@@ -1377,7 +1377,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-zcash-foundation-zf-board-appoints-alex-bornstei"
+      "S-zcash-foundation-board-appoints-alex-bornstein-a"
     ]
   },
   {
@@ -1395,7 +1395,7 @@
       "market"
     ],
     "sources": [
-      "S-zcash-improvement-proposals-zip-255-deployment-o"
+      "S-zcash-improvement-proposals-zip-0255"
     ],
     "secondaryCategory": "TECH"
   },
@@ -1413,7 +1413,7 @@
       "market"
     ],
     "sources": [
-      "S-bitmex-com-zec-545-on-29-may-624-peak-on-4-jun-3"
+      "S-bitmex-com-zec-crash-2026"
     ]
   },
   {
@@ -1433,7 +1433,7 @@
       "genzcash"
     ],
     "sources": [
-      "S-coindesk-coindesk-com-research-inside-zcash-encr"
+      "S-coindesk-research-inside-zcash-encrypted-money-a"
     ]
   },
   {
@@ -1452,7 +1452,7 @@
       "institutional-research"
     ],
     "sources": [
-      "S-decrypt-zcash-surging-cypherpunk-principles-bitc"
+      "S-decrypt-347322-zcash-surging-cypherpunk-principl"
     ]
   },
   {
@@ -1461,19 +1461,22 @@
     "datePrecision": "day",
     "dateText": "6 Nov 2025",
     "category": "NET",
-    "title": "Barry Silbert sells Grayscale Zcash Trust shares",
-    "summary": "Barry Silbert (2015 Zcash Company co-investor, DCG founder, Grayscale chairman) sells 9,753 shares of the Grayscale Zcash Trust per SEC filing while ZEC traded ~$544 (prior sale 25 Jul: 1,897 shares).",
-    "confidence": "med",
+    "title": "Silbert entities file Rule 144 notices on Zcash Trust shares",
+    "summary": "Two Rule 144 notices, read directly from SEC EDGAR. Silbert Family Investments LLC filed on 5 Nov 2025 to sell 9,753 Grayscale Zcash Trust shares for $407,312.59, and Barry E. Silbert filed on 6 Nov to sell 1,000 shares for $47,250.00; both sales were on OTCQX. They sit inside a run of 148 Form 144 filings by DCG and Silbert entities between 24 Jan 2024 and 6 Nov 2025, clustered in consecutive-day runs that read as a programmatic disposal schedule.",
+    "confidence": "high",
     "lastVerified": "2026-08-22",
     "tags": [
       "promotion-network",
       "barry-silbert",
       "grayscale",
-      "insider-selling"
+      "rule-144"
     ],
     "sources": [
-      "S-thecoinrepublic-com-coin-republic"
-    ]
+      "S-sec-edgar-xsl144x01-primary-doc-2",
+      "S-sec-edgar-xsl144x01-primary-doc",
+      "S-thecoinrepublic-com-06-breaking-barry-silbert-se"
+    ],
+    "body": "These are ZCSH trust shares traded on OTCQX between investors. They move no ZEC on-chain, create no exchange inflow and add no ZEC sell pressure, and the research file says so in terms. The dossier's abridged timeline attaches the 9,753-share figure to Barry Silbert personally on 6 November at about $544 per ZEC; the EDGAR filings separate it, and the $544 is a ZEC price, not a share price, since 9,753 shares changed hands for $407,312.59, about $41.76 each. The juxtaposition worth stating, as fact and not as accusation, is that the same corporate family filing dozens of Rule 144 notices through 2024 and 2025 is the one whose unit is now discussing contributing roughly 200,000 ZEC to the converted trust, non-bindingly."
   },
   {
     "id": "T2025-11-10",
@@ -1489,7 +1492,7 @@
       "pool-specific"
     ],
     "sources": [
-      "S-electric-coin-company-ecc-gemini-sets-the-standa"
+      "S-electric-coin-company-gemini-sets-the-standard-f"
     ]
   },
   {
@@ -1507,8 +1510,8 @@
       "stakeholders"
     ],
     "sources": [
-      "S-coingecko-coingecko-treasuries",
-      "S-pr-newswire-pr-newswire-cypherpunk-taps-zooko-as"
+      "S-coingecko-companies-cypherpunk-technologies",
+      "S-pr-newswire-news-releases-cypherpunk-taps-zcash"
     ],
     "secondaryCategory": "MARKET"
   },
@@ -1526,7 +1529,7 @@
       "market"
     ],
     "sources": [
-      "S-the-defiant-the-defiant-ledger-draws-heat-as-pre"
+      "S-the-defiant-infrastructure-ledger-draws-heat-as"
     ],
     "secondaryCategory": "REG",
     "dateEnd": "2025-11-16"
@@ -1546,7 +1549,7 @@
       "stakeholders"
     ],
     "sources": [
-      "S-coingecko-coingecko-treasuries"
+      "S-coingecko-companies-cypherpunk-technologies"
     ],
     "secondaryCategory": "MARKET"
   },
@@ -1564,7 +1567,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-wikipedia-wikipedia-zcash"
+      "S-wikipedia-wiki-zcash"
     ],
     "secondaryCategory": "REG"
   },
@@ -1582,7 +1585,7 @@
       "governance"
     ],
     "sources": [
-      "S-ccn-ccn-zcash-dev-drama-explained-cashz-pivot"
+      "S-ccn-crypto-zcash-dev-drama-explained-heres-what"
     ]
   },
   {
@@ -1599,7 +1602,7 @@
       "stakeholders"
     ],
     "sources": [
-      "S-pr-newswire-pr-newswire-cypherpunk-taps-zooko-as"
+      "S-pr-newswire-news-releases-cypherpunk-taps-zcash"
     ],
     "secondaryCategory": "LEAD"
   },
@@ -1620,8 +1623,8 @@
       "conflict-of-interest"
     ],
     "sources": [
-      "S-investing-com-investing-com",
-      "S-pr-newswire-pr-newswire-cypherpunk-taps-zooko-as"
+      "S-investing-com-company-news-zcash-developer-eccs",
+      "S-pr-newswire-news-releases-cypherpunk-taps-zcash"
     ]
   },
   {
@@ -1639,7 +1642,7 @@
       "stakeholders"
     ],
     "sources": [
-      "S-coingecko-coingecko-treasuries"
+      "S-coingecko-companies-cypherpunk-technologies"
     ],
     "secondaryCategory": "MARKET"
   },
@@ -1658,9 +1661,9 @@
       "market"
     ],
     "sources": [
-      "S-the-block-the-block-zcash-developers-quit-form-n",
-      "S-coindesk-january-2026-the-entire-ecc-engineering",
-      "S-crypto-news-crypto-news-ecc-team-quits-in-bootst"
+      "S-the-block-384737-zcash-developers-form-new-compa",
+      "S-coindesk-08-zcash-developer-team-behind-ecc-quit",
+      "S-crypto-news-electric-coin-companys-entire-zcash"
     ],
     "secondaryCategory": "LEAD",
     "dateEnd": "2026-01-08"
@@ -1679,7 +1682,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-ccn-ccn-zcash-dev-drama-explained-cashz-pivot"
+      "S-ccn-crypto-zcash-dev-drama-explained-heres-what"
     ]
   },
   {
@@ -1697,7 +1700,7 @@
       "market"
     ],
     "sources": [
-      "S-crypto-news-crypto-news-sec-ends-zcash-foundatio"
+      "S-crypto-news-sec-ends-zcash-foundation-probe-enfo"
     ]
   },
   {
@@ -1717,7 +1720,7 @@
       "donation"
     ],
     "sources": [
-      "S-dl-news-the-winklevoss-twins-personally-donated"
+      "S-dl-news-people-culture-zcash-developer-shielded"
     ]
   },
   {
@@ -1737,7 +1740,7 @@
       "narrative"
     ],
     "sources": [
-      "S-bankless-zcash-founder-on-privacy-ai-and-how-zec"
+      "S-bankless-podcast-zcash-founder-on-privacy-ai-and"
     ]
   },
   {
@@ -1757,7 +1760,7 @@
       "product-launch"
     ],
     "sources": [
-      "S-crypto-briefing-gemini-the-winklevoss-exchange-l"
+      "S-crypto-briefing-zcash-surges-gemini-zec-credit-c"
     ]
   },
   {
@@ -1774,7 +1777,7 @@
       "stakeholders"
     ],
     "sources": [
-      "S-crypto-news-crypto-news-zashi-rebrands-to-zodl"
+      "S-crypto-news-zcash-wallet-zashi-rebrands-zodl-tea"
     ],
     "dateEnd": "2026-02-17"
   },
@@ -1795,7 +1798,7 @@
       "dilution"
     ],
     "sources": [
-      "S-stocktitan-8-k-via-stocktitan-2"
+      "S-stocktitan-cyph-8-k-cypherpunk-technologies-inc-2"
     ]
   },
   {
@@ -1813,7 +1816,7 @@
       "stakeholders"
     ],
     "sources": [
-      "S-coindesk-9-march-2026-the-departed-team-led-by-f"
+      "S-coindesk-09-josh-swihart-s-zcash-open-developmen"
     ],
     "secondaryCategory": "GOV"
   },
@@ -1832,7 +1835,7 @@
       "stakeholders"
     ],
     "sources": [
-      "S-coingecko-coingecko-treasuries"
+      "S-coingecko-companies-cypherpunk-technologies"
     ],
     "secondaryCategory": "MARKET"
   },
@@ -1851,7 +1854,7 @@
       "pool-specific"
     ],
     "sources": [
-      "S-zodl-zodl-zcashd-sprout-verification-vulnerabili"
+      "S-zodl-zcashd-sprout-verification-vulnerability"
     ],
     "dateEnd": "2026-03-31"
   },
@@ -1870,7 +1873,7 @@
       "stakeholders"
     ],
     "sources": [
-      "S-github-zcashfoundation-zebra-advisories-pages-1"
+      "S-github-security-advisories-4"
     ]
   },
   {
@@ -1887,7 +1890,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-the-block-the-block-31-within-24-h-of-the-announ"
+      "S-the-block-403698-zcash-vulnerability-zec-drops"
     ]
   },
   {
@@ -1904,7 +1907,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-wikipedia-wikipedia-zcash"
+      "S-wikipedia-wiki-zcash"
     ]
   },
   {
@@ -1921,7 +1924,7 @@
       "security-issue"
     ],
     "sources": [
-      "S-zodl-zodl-several-zcash-vulnerabilities-remediat"
+      "S-zodl-zcashd-zebra-april-2026-disclosure"
     ],
     "dateEnd": "2026-04-17"
   },
@@ -1957,7 +1960,7 @@
       "stakeholders"
     ],
     "sources": [
-      "S-github-zcashfoundation-zebra-advisories-pages-1"
+      "S-github-security-advisories-4"
     ],
     "dateEnd": "2026-05-08"
   },
@@ -1978,7 +1981,7 @@
       "market"
     ],
     "sources": [
-      "S-yahoo-finance-yahoo-coindesk"
+      "S-yahoo-finance-crypto-zcash-spikes-30-multicoin-m"
     ]
   },
   {
@@ -1995,7 +1998,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-zcash-community-forum-note-the-asymmetry-the-iro"
+      "S-zcash-community-forum-the-orchard-counterfeiting"
     ]
   },
   {
@@ -2013,7 +2016,7 @@
       "pool-specific"
     ],
     "sources": [
-      "S-zodl-zodl-orchard-vulnerability-successfully-rem"
+      "S-zodl-orchard-vulnerability-successfully-remediat"
     ]
   },
   {
@@ -2031,7 +2034,7 @@
       "pool-specific"
     ],
     "sources": [
-      "S-zcash-foundation-zf-zebra-4-5-3-and-5-0-0-emerge"
+      "S-zcash-foundation-zebra-4-5-3-and-5-0-0-emergency"
     ],
     "secondaryCategory": "TECH",
     "dateEnd": "2026-06-02"
@@ -2051,7 +2054,7 @@
       "pool-specific"
     ],
     "sources": [
-      "S-zcash-zcash-upgrade-nu6-2"
+      "S-zcash-upgrade-nu6-2"
     ]
   },
   {
@@ -2068,8 +2071,8 @@
       "market"
     ],
     "sources": [
-      "S-the-block-the-block-31-within-24-h-of-the-announ",
-      "S-bitmex-com-zec-545-on-29-may-624-peak-on-4-jun-3"
+      "S-the-block-403698-zcash-vulnerability-zec-drops",
+      "S-bitmex-com-zec-crash-2026"
     ],
     "secondaryCategory": "MARKET"
   },
@@ -2088,7 +2091,7 @@
       "market"
     ],
     "sources": [
-      "S-coindesk-arthur-hayes-liquidated-his-entire-zec"
+      "S-coindesk-05-arthur-hayes-dumps-zcash-holdings-af"
     ],
     "dateEnd": "2026-06-05"
   },
@@ -2107,7 +2110,7 @@
       "stakeholders"
     ],
     "sources": [
-      "S-the-block-the-block-cypherpunk-remains-committed"
+      "S-the-block-403839-zcash-treasury-cypherpunk-remai"
     ],
     "secondaryCategory": "MARKET"
   },
@@ -2125,7 +2128,7 @@
       "pool-specific"
     ],
     "sources": [
-      "S-zodl-zodl-zodl-com"
+      "S-zodl-zodl-com"
     ]
   },
   {
@@ -2143,8 +2146,8 @@
       "market"
     ],
     "sources": [
-      "S-github-ghsa-ww9q-8r59-xv46-cve-2026-54496-orchar",
-      "S-crypto-briefing-15-jun-2026-zooko-announces-anth"
+      "S-github-advisories-ghsa-ww9q-8r59-xv46",
+      "S-crypto-briefing-zcash-jumps-anthropic-mythos-sec"
     ],
     "secondaryCategory": "MARKET"
   },
@@ -2163,7 +2166,7 @@
       "pool-specific"
     ],
     "sources": [
-      "S-github-zcash-zcash-security-disclosures"
+      "S-github-zcash-security"
     ],
     "dateEnd": "2026-07-19"
   },
@@ -2181,7 +2184,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-zcash-foundation-zf-blog-index"
+      "S-zcash-foundation-zfnd-org"
     ]
   },
   {
@@ -2198,7 +2201,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-zcash-z-cash-zcashd-deprecation-eol"
+      "S-zcash-support-zcashd-deprecation"
     ]
   },
   {
@@ -2215,7 +2218,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-github-github-zcash-zcash-security-advisories"
+      "S-github-security-advisories-3"
     ]
   },
   {
@@ -2233,8 +2236,8 @@
       "pool-specific"
     ],
     "sources": [
-      "S-zcash-improvement-proposals-28-jul-2026-nu6-3-ir",
-      "S-the-block-sean-bowe-on-the-outcome-soundness-of"
+      "S-zcash-improvement-proposals-zip-0258",
+      "S-the-block-409934-zcash-ironwood-upgrade-launchin"
     ]
   },
   {
@@ -2252,7 +2255,7 @@
       "pool-specific"
     ],
     "sources": [
-      "S-coindesk-coindesk-80m-zec-crosses-into-ironwood"
+      "S-coindesk-29-about-usd80-million-zec-crosses-into"
     ],
     "secondaryCategory": "MARKET"
   },
@@ -2272,7 +2275,7 @@
       "dev-ojha"
     ],
     "sources": [
-      "S-pr-newswire-cypherpunk-technologies-reports-seco"
+      "S-pr-newswire-news-releases-cypherpunk-technologie"
     ]
   },
   {
@@ -2292,7 +2295,7 @@
       "shielded-labs"
     ],
     "sources": [
-      "S-zcash-community-forum-bounty-zcash-s-bug-bounty"
+      "S-zcash-community-forum-taylor-hornby-bonus-grant"
     ]
   },
   {
@@ -2311,7 +2314,7 @@
       "stakeholders"
     ],
     "sources": [
-      "S-crypto-news-crypto-news-cypherpunk-becomes-large"
+      "S-crypto-news-cypherpunk-becomes-largest-zcash-min"
     ],
     "dateEnd": "2026-08-18",
     "secondaryCategory": "MARKET"
@@ -2330,7 +2333,7 @@
       "zcash-event"
     ],
     "sources": [
-      "S-the-block-the-block-grayscale-moves-closer-to-fi"
+      "S-the-block-regulation-2026-08-21-grayscale-moves"
     ],
     "secondaryCategory": "REG"
   },
@@ -2349,9 +2352,9 @@
       "pool-specific"
     ],
     "sources": [
-      "S-coingecko-nominal-all-time-high-3-191-93-on-28-o",
-      "S-zec-stats-zec-stats-zecstats-com",
-      "S-cipherscan-migration-status-22-aug-2026-3-13-m-z"
+      "S-coingecko-coins-zcash",
+      "S-zec-stats-zecstats-com",
+      "S-cipherscan-ironwood"
     ]
   }
 ]
