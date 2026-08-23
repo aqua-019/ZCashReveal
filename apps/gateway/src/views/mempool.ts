@@ -97,9 +97,24 @@ export function buildMempoolView(
         crossings.length === 0
           ? "Nothing in the mempool crosses a pool boundary."
           : `${zecText(intoPool)} in, ${zecText(outOfPool)} out, across ${countText(crossings.length)} ${crossings.length === 1 ? "transaction" : "transactions"}.`,
-      // The fee total across the transactions that pay the conventional fee,
-      // which is the quantity the count beside it is about.
-      conventionalFeeZat: conventional.reduce<bigint>((acc, r) => acc + r.fingerprint.feeZat, 0n),
+      /*
+       * THE CONVENTIONAL FEE, not a total of fees paid.
+       *
+       * The first version summed the fees of the transactions that pay it,
+       * which is a different quantity from the one the field is named after and
+       * a different quantity from the one `apps/web` renders it as: the fixture
+       * at `apps/web/src/lib/api/fixtures/mempool.ts` sets it to 10,000 and
+       * /track prints it under the subtitle "zat - ZIP 317 at 2 logical actions
+       * - N of M conventional". A sum of fees under that subtitle is a false
+       * label, and it would have appeared only when the gateway replaced the
+       * fixture - the exact shape of defect HANDOFF-04's ledger warns about.
+       *
+       * So the gateway emits what the label says: ZIP 317's fee at the grace
+       * minimum of two logical actions. `conventionalCount` beside it carries
+       * how many transactions actually pay their own, which is the part that
+       * varies.
+       */
+      conventionalFeeZat: conventionalFeeZat(GRACE_ACTIONS),
       conventionalCount: conventional.length,
       findingsHigh,
       findingsNote:
@@ -201,8 +216,16 @@ function logicalActionsOf(r: LeakReport): number {
   return transparent + sapling + r.bundle.orchardActions.length;
 }
 
+/**
+ * ZIP 317's grace: a transaction is priced at no fewer than two logical
+ * actions, so two is both the floor of the fee curve and the figure /track
+ * labels its conventional-fee tile with.
+ */
+const GRACE_ACTIONS = 2;
+
 /** ZIP 317's conventional fee for a count of logical actions. Mirrors `views/tx.ts`. */
 function conventionalFeeZat(logicalActions: number): bigint {
   const actions = BigInt(logicalActions);
-  return (actions > 2n ? actions : 2n) * 5_000n;
+  const floor = BigInt(GRACE_ACTIONS);
+  return (actions > floor ? actions : floor) * 5_000n;
 }

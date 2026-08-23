@@ -664,7 +664,18 @@ export const mempoolViewSchema = z.object({
     /** Value crossing a boundary in the current mempool, split by direction. */
     crossingZat: zatSchema,
     crossingSplit: z.string().min(1),
+    /**
+     * ZIP 317's CONVENTIONAL FEE ITSELF, at the grace minimum of two logical
+     * actions - not a total of the fees anyone paid.
+     *
+     * Stated because two producers of this view disagreed about it and nothing
+     * here said which was right: the fixture emitted 10,000 and the gateway
+     * emitted the sum of the fees of the conventional-paying transactions,
+     * while /track printed whichever arrived under the subtitle "zat - ZIP 317
+     * at 2 logical actions". The count beside it is the quantity that varies.
+     */
     conventionalFeeZat: zatSchema,
+    /** How many of `unconfirmed` pay the conventional fee for their own action count. */
     conventionalCount: countSchema,
     findingsHigh: countSchema,
     findingsNote: z.string().min(1),

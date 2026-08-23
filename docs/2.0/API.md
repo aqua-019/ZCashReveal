@@ -399,7 +399,7 @@ call per request. It used to be a hardcoded `0`, which the site renders as
     "nextBlockSeconds": 75,
     "crossingZat": "0",
     "crossingSplit": "Nothing in the mempool crosses a pool boundary.",
-    "conventionalFeeZat": "0",
+    "conventionalFeeZat": "10000",
     "conventionalCount": 0,
     "findingsHigh": 0,
     "findingsNote": "No finding in the current mempool is rated HIGH.",
@@ -407,6 +407,15 @@ call per request. It used to be a hardcoded `0`, which the site renders as
   }
 }
 ```
+
+`conventionalFeeZat` is ZIP 317's conventional fee ITSELF, at the grace minimum
+of two logical actions - not a total of the fees anyone paid. /track prints it
+under the subtitle "zat - ZIP 317 at 2 logical actions", and the fixture the
+page ships with emits the same 10,000, so the label is true whichever producer
+is behind it. `conventionalCount` beside it is the quantity that varies: how
+many of `unconfirmed` pay the conventional fee for their own action count,
+computed from the fee and the actions rather than from the indexer's wallet
+guess.
 
 `nextBlockSeconds` is the 75-second target interval, and that is the correct
 answer to "how long until the next block" rather than a placeholder: block

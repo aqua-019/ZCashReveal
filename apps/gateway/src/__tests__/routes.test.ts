@@ -488,6 +488,23 @@ describe("the content-backed routes", () => {
     expect(body.summary.findingsNote).toContain("No finding");
     await h.close();
   });
+
+  it("the conventional-fee tile carries the FEE, not a total of fees paid", async () => {
+    // /track prints this number under the subtitle "zat - ZIP 317 at 2 logical
+    // actions", and apps/web's fixture emits 10,000 for it. The gateway summed
+    // the fees of the conventional-paying transactions instead, which is a
+    // different quantity under the same label - visible only once the gateway
+    // replaced the fixture. Pinned here so the two producers cannot drift
+    // apart again.
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: "/api/mempool" });
+    const body = res.json() as { summary: { conventionalFeeZat: string; feeWeather: string } };
+    expect(body.summary.conventionalFeeZat).toBe("10000");
+    // And an empty mempool does not claim every transaction in it pays that
+    // fee, which is what `0 === 0` said before.
+    expect(body.summary.feeWeather).toBe("Nothing is waiting.");
+    await h.close();
+  });
 });
 
 describe("the DTO boundary", () => {

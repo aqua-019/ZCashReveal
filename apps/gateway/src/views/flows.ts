@@ -11,7 +11,7 @@
  * Every figure below is READ from a seed rather than restated. Where the seed
  * does not carry a figure, this view does not carry it either.
  */
-import { getCases, getStats } from "@zcashreveal/content";
+import { getCases, getStats, getUnverified } from "@zcashreveal/content";
 import type { FlowsView } from "@zcashreveal/types";
 
 import { caseViews } from "./labels.js";
@@ -20,6 +20,18 @@ import { zecText } from "./units.js";
 /** The case the Tracking side summarises. Named by id, so a re-ordered seed cannot silently change it. */
 const CASE_ID = "K-2026-01-02";
 
+/**
+ * The quarantine record the custodian line rests on.
+ *
+ * NAMED AND LOOKED UP, not merely cited in prose. The sentence below is a
+ * summary of this record and the record is where its three sources live, so if
+ * the record is corrected, withdrawn or renamed and this file is not, the site
+ * states a fact about a named company that its own corpus no longer supports -
+ * which is the failure mode CLAUDE.md's sweep rule exists to prevent. The
+ * lookup turns that silent divergence into a loud one at build time.
+ */
+const CUSTODIAN_RECORD_ID = "U-grayscale-published-zec-address";
+
 export function buildFlowsView(): FlowsView {
   const view = caseViews().find((k) => k.id === CASE_ID);
   if (view === undefined) {
@@ -27,6 +39,13 @@ export function buildFlowsView(): FlowsView {
   }
   const seed = getCases().find((k) => k.id === CASE_ID);
   const stats = getStats();
+
+  const custodian = getUnverified().find((u) => u.id === CUSTODIAN_RECORD_ID);
+  if (custodian === undefined) {
+    throw new Error(
+      `flows: the custodian line summarises quarantine record ${CUSTODIAN_RECORD_ID}, which the corpus no longer carries`,
+    );
+  }
 
   const reached = view.steps.filter((s) => s.amountZat > 0n);
   const largest = reached.reduce<bigint>((max, s) => (s.amountZat > max ? s.amountZat : max), 0n);
@@ -61,7 +80,7 @@ export function buildFlowsView(): FlowsView {
         // one is an entry in the Record's research-gaps list. This names the
         // issuer, the three documents and the record id, and claims nothing
         // about anyone else's filings.
-        v: "Custodians, not addresses. Grayscale's S-3, its S-3/A and its 10-Q were read directly: all three name Coinbase Custody Trust Company, LLC and none discloses a wallet address or a proof of reserves. That is quarantine record U-grayscale-published-zec-address on the Record's /flows, with its sources.",
+        v: `Custodians, not addresses. Grayscale's S-3, its S-3/A and its 10-Q were read directly: all three name Coinbase Custody Trust Company, LLC and none discloses a wallet address or a proof of reserves. That is quarantine record ${custodian.id} on the Record's /flows, where its ${custodian.sources.length} sources are cited.`,
       },
       {
         k: "what an aggregator label proves",
