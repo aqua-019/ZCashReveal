@@ -308,5 +308,13 @@
     "why": "No sourced first-party use of 'the only true private cryptocurrency' by Zcash, Electric Coin Company or the Zcash Foundation was located. Comparisons to Monero exist in third-party commentary, but attributing this exact phrase to Zcash as a self-description is not supported.",
     "sources": [],
     "lastVerified": "2026-08-22"
+  },
+  {
+    "id": "U-zooko-sold-for-taxes",
+    "claim": "Zooko Wilcox sold ZEC in order to pay a tax bill.",
+    "status": "unlocatable",
+    "why": "Research 04 section 7 item 10 searched for this specifically and found no source at all. The only Zooko-and-tax item it surfaced is a 2017-era Cointelegraph piece about Snowden and tax evasion as a general property of privacy coins, which is a different subject entirely. Treat the claim as unsourced until a primary quote is produced. HANDOFF-02 section 3 names it as one of the five corrected premises that may appear only in this file, so it is recorded here even though nothing in the package asserts it.",
+    "sources": [],
+    "lastVerified": "2026-08-22"
   }
 ]
