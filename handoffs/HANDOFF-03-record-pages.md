@@ -41,6 +41,15 @@ Render the Record from `packages/content` with React Server Components in `apps/
 - Client islands only where interaction exists (timeline filter, tooltip, citation popover); URL-synced state must wrap `history.replaceState` in try/catch (sandboxed iframes throw).
 - Every rendered claim shows its id, confidence, and a 'cite this' popover (id, canonical URL, lastVerified, sources).
 - Zero motion on Record pages (DGIGA TP05) except the Splash fog/tide.
+- **Fonts are vendored** (LEDGER-01 Q4, fold 3): the four families load through `next/font/local` from
+  files in the repository, never `next/font/google`, so the build is hermetic and CI cannot flake on a
+  font fetch. Manrope alone is preloaded; a fifth family, or a second preload, needs an explicit L2
+  decision. The Lighthouse floors — performance >= 95 and accessibility >= 95 on `/beware` — stay a §5
+  assertion (A5).
+- **Muted inks are canonical** (LEDGER-01 Q1, fold 4): `--ink-mute` `#8f8576` and `--ink-faint` `#6a6157`
+  are the source of truth, superseding the mockup `:root`. `--ink-faint` is a non-text token — hairlines
+  and rules only. Where a mockup value and WCAG AA for normal text disagree, AA wins and the divergence
+  is recorded in §8.
 
 ## §4 DELIVERABLES
 

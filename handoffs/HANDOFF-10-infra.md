@@ -1,7 +1,7 @@
 ---
 handoff: 10
 title: Infra: Zebra 6.2.x compose, VPS runbook, tunnel, DEPLOY-2.0
-status: queued
+status: open
 branch: the session-designated branch (name it `feat/v2-10-infra` if you may choose)
 track: Infra
 depends_on: 00
@@ -47,8 +47,14 @@ Production infrastructure as files: a compose stack for a Linux VPS (Zebra 6.2.x
 ## §4 DELIVERABLES
 
 1. `docker-compose.yml` (prod), `docker-compose.dev.yml` (Windows override), three Dockerfiles, updated `zebrad.toml`, `RUNBOOK-VPS.md`, `DEPLOY-2.0.md`, `.env.example`.
+   - `.env.example` specifically (LEDGER-01 fold 7): the root `.env.example` still carries the v0.2 `VITE_*`
+     block and documents no `SNAPSHOT_*` name. Remove the former; add `SNAPSHOT_REDIS_URL`,
+     `SNAPSHOT_REDIS_REST_URL` and `SNAPSHOT_REDIS_REST_TOKEN`, each with its one-line comment.
 2. **Mainnet block fixture** (LEDGER-00 Q4): capture one post-NU5 mainnet block from the synced Zebra into `apps/indexer/test/fixtures/blocks/mainnet-<height>.json` and commit it, so `block-decoder.test.ts` stops self-skipping. Record the height, hash and RPC command used in `RUNBOOK-VPS.md`.
 3. Bump the pinned GitHub Actions (`actions/checkout`, `actions/setup-node`, `actions/upload-artifact`, `pnpm/action-setup`) to versions whose runtime is not deprecated — the HANDOFF-00 run warned that all four are being forced onto Node 24 (LEDGER-00 NOTICED).
+4. **Playwright e2e CI job** (LEDGER-01 Q3, fold 6): a job separate from the main verify job, triggered only by a
+   paths filter on `apps/web/**`, installing chromium in the job (`playwright install --with-deps chromium`) and
+   running `pnpm --filter @zcashreveal/web test:e2e`. It gates apps/web PRs without gating unrelated ones.
 
 ## §5 ASSERTIONS — binary, machine-checkable, each needs a pass-state and a fail-state transcript
 

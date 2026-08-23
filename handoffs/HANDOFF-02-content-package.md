@@ -1,7 +1,7 @@
 ---
 handoff: 02
 title: `packages/content` — zod schemas + research seeds
-status: queued
+status: in-progress
 branch: the session-designated branch (name it `feat/v2-02-content-package` if you may choose)
 track: Web
 depends_on: 00
@@ -48,6 +48,13 @@ A typed content package the Record renders from: zod schemas for every claim typ
 1. `packages/content/src/schema.ts`, `src/loaders.ts` (`getBeware()`, `getContradictions()`, `getTimeline({category?})`, `getNetwork()`, `getPhrases()`, `getLabels()`, `getCase(id)`, `getUnverified()`, `getSources()`, `permalink(id)`).
 2. `packages/content/data/`: `beware.json` (14), `contradictions.json` (16), `timeline.json` (≥ 100), `network.json` (entities + edges from the loop + Cypherpunk ledger), `phrases.json` (catalogue minus the unverified three), `labels.json` (ZIP 271 multisig mainnet/testnet; `t1PKBiv7…` analyst/Lookonchain; `t1gGCYpy…`, `t1Ym8XWv…`, `t1XKfbZY…`, `t1dP1MJw…`, `t1U1NE8w…` with their provenance), `cases.json` (2 Jan 2026 event; lockbox disbursement; 202,076 unshield), `unverified.json`, `sources.json` (every URL de-duplicated), `stats.json` (the 22 Aug 2026 pool/price figures with their sources, for the Splash metrics until the snapshot exists).
 3. `packages/content/scripts/validate.ts` wired to `pnpm --filter @zcashreveal/content validate` and to CI.
+4. **Plan branch-count correction** (LEDGER-01 fold 1): correct the two remaining "22 stale branches"
+   claims in `docs/2.0/ZECREVEAL-2.0-PLAN.md` (lines 14 and 126) to 20 `claude/*` + 2 merged `feat/*`,
+   matching the §10 line HANDOFF-01 already fixed.
+5. **Mockup tip-hash note** (LEDGER-01 fold 2): in `docs/2.0/mockups/reference/README.md`, record that
+   the mockup's tip hash literal is 65 hex characters (one zero too many in the leading run) and that
+   the canonical fixture is the 64-character value in `apps/web/src/lib/chain.ts`, so no later handoff
+   harvests the typo.
 
 ## §5 ASSERTIONS — binary, machine-checkable, each needs a pass-state and a fail-state transcript
 

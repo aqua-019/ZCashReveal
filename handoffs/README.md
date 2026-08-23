@@ -20,21 +20,21 @@ Aqua Stack v4.1 session. Read CLAUDE.md, then handoffs/LEDGER.md, then pick the 
 | # | Handoff | Branch | Track | Depends on | Status |
 |---|---|---|---|---|---|
 | 00 | [Housekeeping, docs import, CI runs tests, CLAUDE.md](HANDOFF-00-housekeeping.md) | `claude/aqua-stack-v4-1-handoff-818gb3` | Foundation — first | — | `closed` |
-| 01 | [`apps/web` scaffold + the ZEC Forensic design system](HANDOFF-01-web-scaffold.md) | session-designated | Web | 00 (closed) | `shipped` |
-| 02 | [`packages/content` — zod schemas + research seeds](HANDOFF-02-content-package.md) | session-designated | Web | 00 | `queued` |
+| 01 | [`apps/web` scaffold + the ZEC Forensic design system](HANDOFF-01-web-scaffold.md) | session-designated | Web | 00 (closed) | `closed` |
+| 02 | [`packages/content` — zod schemas + research seeds](HANDOFF-02-content-package.md) | session-designated | Web | 00 | `in-progress` |
 | 03 | [The Record — Splash, Beware, Contradictions, Timeline, Network, Method, Flows, Sources](HANDOFF-03-record-pages.md) | session-designated | Web | 01, 02 | `queued` |
 | 04 | [ZEC Tracking UI in fixture mode — search, mempool, address, tx, pools, reveal](HANDOFF-04-tracking-ui.md) | session-designated | Web | 01, 02 (03 optional) | `queued` |
-| 05 | [Gateway REST read API v2 + hardening (Zebra address-index RPCs with a cache)](HANDOFF-05-gateway-api.md) | session-designated | Data | 00 (uses the DTOs from 04 if merged; otherwise defines them) | `queued` |
+| 05 | [Gateway REST read API v2 + hardening (Zebra address-index RPCs with a cache)](HANDOFF-05-gateway-api.md) | session-designated | Data | 00 (uses the DTOs from 04 if merged; otherwise defines them) | `open` |
 | 06 | [Indexer: four pools + migration 003 + post-NU6.3 invariants](HANDOFF-06-four-pools.md) | session-designated | Data | 00 | `queued` |
 | 07 | [Indexer: v6 / Ironwood decoder (module 7A.2) + migration detection](HANDOFF-07-v6-decoder.md) | session-designated | Data | 06 | `queued` |
 | 08 | [Indexer analysis toolkit: echo, clustering, labels, posterior, taint (+ golden cases)](HANDOFF-08-analysis-toolkit.md) | session-designated | Data | 06 | `queued` |
 | 09 | [Turnstile accounting, migration lens, Ironwood birth, snapshot publisher](HANDOFF-09-instruments-snapshot.md) | session-designated | Data | 06, 08 | `queued` |
-| 10 | [Infra: Zebra 6.2.x compose, VPS runbook, tunnel, DEPLOY-2.0](HANDOFF-10-infra.md) | session-designated | Infra | 00 | `queued` |
+| 10 | [Infra: Zebra 6.2.x compose, VPS runbook, tunnel, DEPLOY-2.0](HANDOFF-10-infra.md) | session-designated | Infra | 00 | `open` |
 | 11 | [Live wiring: snapshot baseline → WS upgrade, smoke tests, cutover checklist](HANDOFF-11-live-wiring.md) | session-designated | Integration | 04, 05, 09, 10 | `queued` |
 | 12 | [7B / 7C runtime wiring — PoolState replay, confirmed-block driver, assessments on the live path](HANDOFF-12-runtime-poolstate.md) | session-designated | Integration | 06, 07, 08 | `queued` |
 | 13 | [Mode A — viewing-key decryption in the browser (2.1; PLAN ONLY, stop for approval)](HANDOFF-13-mode-a-wasm.md) | session-designated | 2.1 — plan only | 04, 11 | `queued` |
 
-Web (01→04), Data (05→09) and Infra (10) are independent once 00 is closed. 00 is `closed` (PR #31 merged as `0031d7c`), so 01, 02, 05, 06 and 10 are releasable; L2 released 01 first. 11 and 12 integrate. 13 is plan-only.
+Web (01→04), Data (05→09) and Infra (10) are independent once 00 is closed. 00 is `closed` (PR #31 merged as `0031d7c`) and 01 is `closed` (PR #32 merged as `0ed75ad`), so the Web track has advanced to 02, and the Data and Infra tracks release at their lowest unblocked handoff: 05 and 10 are `open`. 03 and 04 stay `queued` until 02 closes; 06–09 stay `queued` behind 05's track position. 11 and 12 integrate. 13 is plan-only.
 
 ## Human clicks (L4 — nothing here is done by an agent)
 | When | What the operator does |

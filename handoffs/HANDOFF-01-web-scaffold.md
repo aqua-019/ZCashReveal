@@ -1,7 +1,7 @@
 ---
 handoff: 01
 title: `apps/web` scaffold + the ZEC Forensic design system
-status: shipped
+status: closed
 branch: the session-designated branch (name it `feat/v2-01-web-scaffold` if you may choose)
 track: Web
 depends_on: 00 (closed)
