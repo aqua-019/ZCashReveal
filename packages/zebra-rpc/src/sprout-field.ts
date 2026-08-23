@@ -25,8 +25,15 @@
  *             `nVersion >= 2`), so absence is a fact
  *   v2 v3 v4  JoinSplits are permitted, so absence is INDETERMINATE - either
  *             the transaction has none, or the node cannot say
- *   v5 v6     the v5 format removed JoinSplits entirely (ZIP 225; v6 inherits
- *             the structure per ZIP 229), so absence is a fact again
+ *   v5 v6     the v5 format removed JoinSplits entirely (ZIP 225), so absence
+ *             is a fact again. THE v6 HALF IS AN INFERENCE, NOT A QUOTATION:
+ *             this repository states only that v6 is "the transaction format,
+ *             per ZIP 229" (docs/2.0/research/01-contemporary-zcash.md §2.2)
+ *             and carries no field list for it, so "v6 did not bring JoinSplits
+ *             back" is read from v6 being an extension of v5 rather than from
+ *             any line anyone here has seen. The inference errs safe: if it is
+ *             wrong, a v6 carrying JoinSplits is declined rather than
+ *             mismeasured.
  *
  * The window is therefore versions 2 to 4, which is narrower than "v2 and
  * later". That matters: reporting every v5 and v6 transaction as indeterminate
@@ -75,7 +82,8 @@ export const JOINSPLIT_MIN_TX_VERSION = 2;
 
 /**
  * The highest transaction version whose format includes JoinSplit descriptions.
- * v5 (ZIP 225) removed them, and v6 (ZIP 229) did not bring them back.
+ * v5 (ZIP 225) removed them; that v6 did not bring them back is an inference,
+ * labelled as one in this file's header.
  */
 export const JOINSPLIT_MAX_TX_VERSION = 4;
 

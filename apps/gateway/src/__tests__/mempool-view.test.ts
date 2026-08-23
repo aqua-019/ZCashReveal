@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   asHex,
   mempoolViewSchema,
-  type DecodedOrchardAction,
+  type DecodedIronwoodAction,
+  DecodedOrchardAction,
   type DecodedSaplingOutput,
   type DecodedSaplingSpend,
   type Hex,
@@ -15,6 +16,7 @@ import {
 } from "@zcashreveal/types";
 
 import { buildMempoolView } from "../views/mempool.js";
+import { zecText } from "../views/units.js";
 
 /**
  * `buildMempoolView` - the class, the flow label and the crossing tile.
@@ -109,6 +111,19 @@ const orchardAction = (index: number): DecodedOrchardAction => ({
   outCiphertextSize: 80,
 });
 
+/** The same shape with `pool: "ironwood"`, which is the only thing that differs. */
+const ironwoodAction = (index: number): DecodedIronwoodAction => ({
+  pool: "ironwood",
+  index,
+  nullifier: hex("77"),
+  cmx: hex("66"),
+  cv: hex("55"),
+  rk: hex("44"),
+  ephemeralKey: hex("33"),
+  encCiphertextSize: 580,
+  outCiphertextSize: 80,
+});
+
 interface Shape {
   readonly txid: string;
   /**
@@ -126,6 +141,7 @@ interface Shape {
   readonly saplingSpends?: number;
   readonly saplingOutputs?: number;
   readonly orchardActions?: number;
+  readonly ironwoodActions?: number;
 }
 
 const deltaOf = (deltas: Shape["perPoolZat"], pool: ShieldedPool): Zatoshi =>
@@ -138,10 +154,12 @@ function report(shape: Shape): LeakReport {
   const saplingSpends = times(shape.saplingSpends ?? 0, saplingSpend);
   const saplingOutputs = times(shape.saplingOutputs ?? 0, saplingOutput);
   const orchardActions = times(shape.orchardActions ?? 0, orchardAction);
+  const ironwoodActions = times(shape.ironwoodActions ?? 0, ironwoodAction);
 
   const sproutValueBalanceZat = deltaOf(perPoolZat, "sprout");
   const hasShieldedAny =
-    saplingSpends.length + saplingOutputs.length + orchardActions.length > 0 || sproutValueBalanceZat !== 0n;
+    saplingSpends.length + saplingOutputs.length + orchardActions.length + ironwoodActions.length >
+      0 || sproutValueBalanceZat !== 0n;
 
   // The analyser's rule, copied deliberately (`leak-analyzer.ts`,
   // `classifyValueFlow`): a pool that GAINED value makes the transaction a
@@ -173,6 +191,10 @@ function report(shape: Shape): LeakReport {
       orchardValueBalanceZat: deltaOf(perPoolZat, "orchard"),
       orchardAnchor: orchardActions.length > 0 ? hex("de") : null,
       orchardFlags: null,
+      ironwoodActions,
+      ironwoodValueBalanceZat: deltaOf(perPoolZat, "ironwood"),
+      ironwoodAnchor: ironwoodActions.length > 0 ? hex("df") : null,
+      ironwoodFlags: null,
     },
     transparent: { vin, vout },
     identity: {
@@ -185,6 +207,7 @@ function report(shape: Shape): LeakReport {
       sproutValueBalanceZat,
       saplingValueBalanceZat: deltaOf(perPoolZat, "sapling"),
       orchardValueBalanceZat: deltaOf(perPoolZat, "orchard"),
+      ironwoodValueBalanceZat: deltaOf(perPoolZat, "ironwood"),
       perPoolZat,
       netTransparentInflowZat: 0n,
       isPureShielded: perPoolZat.length === 0 && hasShieldedAny,
@@ -192,8 +215,10 @@ function report(shape: Shape): LeakReport {
       direction,
     },
     fingerprint: {
-      outputCount: vout.length + saplingOutputs.length + orchardActions.length,
-      spendCount: vin.length + saplingSpends.length + orchardActions.length,
+      outputCount:
+        vout.length + saplingOutputs.length + orchardActions.length + ironwoodActions.length,
+      spendCount:
+        vin.length + saplingSpends.length + orchardActions.length + ironwoodActions.length,
       outputPadded: false,
       feeZat: FEE,
       isZip317ConventionalFee: true,
@@ -335,15 +360,59 @@ describe("the flow label follows the SIGN of each delta, not the order of the li
 });
 
 describe("the crossing tile and its own caption count the same set", () => {
-  it("a mempool of migrations reports its crossing amount AND says it crosses", () => {
+  it("a mempool of migrations reports the AMOUNT that crossed, not the fee the crossing left behind", () => {
     const built = view(saplingIntoOrchard, orchardIntoSapling);
-    // Each migration leaves `FEE` behind, so the pools are down that much
-    // between them - a real amount, which the tile prints in the accent
-    // colour. The caption underneath must not deny it.
-    expect(built.summary.crossingZat).toBe(2n * FEE);
+
+    // THIS ASSERTION READ `2n * FEE` UNTIL HANDOFF-07, AND THE OLD NUMBER WAS
+    // THE FEE. A migration's two legs nearly cancel - one ZEC leaves a pool and
+    // one ZEC minus the fee enters another - so summing `perPoolZat` returns
+    // the residue rather than the crossing. The tile is captioned as the value
+    // crossing a boundary, and the design corpus settles which quantity that
+    // is: `apps/web/src/lib/api/fixtures/mempool.ts` builds `crossingZat` from
+    // its rows' `crossing.zec`, and its Orchard-to-Ironwood row contributes
+    // `500.0` rather than its 0.0001 fee. Two ZEC of migrations therefore read
+    // as two ZEC.
+    //
+    // The old behaviour was not merely a smaller number, it was a different
+    // quantity wearing the same caption - and it was about to get worse:
+    // decoding Ironwood adds the second leg to a crossing that previously had
+    // only one, so a 500 ZEC pool migration would have been published as a
+    // crossing of 0.005 ZEC with no arithmetic having changed.
+    expect(built.summary.crossingZat).toBe(2n * ZEC);
+    expect(built.summary.crossingZat).not.toBe(2n * FEE);
+
+    // The fee is not lost, it is just not this number: it is the difference
+    // between the two sides, and `fingerprint.feeZat` is where a fee lives.
+    expect(built.summary.crossingSplit).toContain("between pools");
     expect(built.summary.crossingSplit).not.toBe("Nothing in the mempool crosses a pool boundary.");
     expect(built.summary.crossingSplit).toContain("2 transactions");
     expect(built.summary.migrations).toBe(2);
+  });
+
+  it("a shield and a deshield still split by direction, so the third term did not swallow the first two", () => {
+    // THE FAIL SIDE FOR THE CHANGE ABOVE. A pool-to-pool crossing gets its own
+    // term because it has no direction; a transaction with one leg still has
+    // one, and must still be counted under it. Without this, "between pools"
+    // could have absorbed everything and the two assertions above would still
+    // pass.
+    const shield = report({
+      txid: "c3",
+      perPoolZat: [{ pool: "orchard", deltaZat: -ZEC }],
+      vin: 1,
+      orchardActions: 1,
+    });
+    const deshield = report({
+      txid: "d4",
+      perPoolZat: [{ pool: "orchard", deltaZat: ZEC }],
+      vout: 1,
+      orchardActions: 1,
+    });
+    const built = view(shield, deshield);
+
+    expect(built.summary.crossingZat).toBe(2n * ZEC);
+    expect(built.summary.crossingSplit).toContain(`${zecText(ZEC)} in`);
+    expect(built.summary.crossingSplit).toContain(`${zecText(ZEC)} out`);
+    expect(built.summary.crossingSplit).toContain(`${zecText(0n)} between pools`);
   });
 
   it("a mempool with no crossing at all reports zero AND says nothing crosses", () => {

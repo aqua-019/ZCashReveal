@@ -373,6 +373,10 @@ function asRpcBlock(v: z.infer<typeof rpcBlockSchema>, selector: string): RpcBlo
     tx,
     ...(v.finalsaplingroot === undefined ? {} : { finalsaplingroot: v.finalsaplingroot }),
     ...(v.finalorchardroot === undefined ? {} : { finalorchardroot: v.finalorchardroot }),
+    // Forwarded on the same terms as the two above. If the wire name turns out
+    // to be something else, this is inert rather than wrong - and `decodeBlock`
+    // is where that inertness becomes visible instead of silent.
+    ...(v.finalironwoodroot === undefined ? {} : { finalironwoodroot: v.finalironwoodroot }),
     ...(v.previousblockhash === undefined ? {} : { previousblockhash: v.previousblockhash }),
     ...(v.nextblockhash === undefined ? {} : { nextblockhash: v.nextblockhash }),
     ...(v.confirmations === undefined ? {} : { confirmations: v.confirmations }),

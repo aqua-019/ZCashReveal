@@ -14,7 +14,15 @@
  * only by `apps/web`; per-transaction traffic must never leave the VPS
  * (CLAUDE.md, HANDOFF-05 section 3).
  */
-import type { LeakReport, MempoolRow, MempoolView, RpcTransaction, ShieldedPool } from "@zcashreveal/types";
+import type {
+  Hex,
+  LeakReport,
+  MempoolRow,
+  MempoolView,
+  RpcTransaction,
+  ShieldedPool,
+  Zatoshi,
+} from "@zcashreveal/types";
 import { ZIP317_GRACE_ACTIONS, conventionalFeeZat, zip317LogicalActionsP2pkhApproximation } from "@zcashreveal/types";
 
 import { countText, zecText } from "./units.js";
@@ -69,16 +77,34 @@ export function buildMempoolView(
   // the fix there was a new term rather than a new source. `perPoolZat` is that
   // source: the analyser builds it once, a pool that did not move is absent
   // from it, and a pool that becomes decodable appears here with no edit.
-  const netCrossing = (r: LeakReport): bigint =>
-    r.valueFlow.perPoolZat.reduce<bigint>((acc, p) => acc + p.deltaZat, 0n);
-  const intoPool = reports.reduce<bigint>((acc, r) => {
-    const net = netCrossing(r);
-    return net < 0n ? acc - net : acc;
-  }, 0n);
-  const outOfPool = reports.reduce<bigint>((acc, r) => {
-    const net = netCrossing(r);
-    return net > 0n ? acc + net : acc;
-  }, 0n);
+  // THREE DESTINATIONS, NOT TWO, AND A MIGRATION IS THE THIRD. The split used
+  // to be a sign test on the SUM of a transaction's per-pool deltas, which put
+  // every transaction into "in" or "out" - and for a pool-to-pool crossing that
+  // sum is the FEE, because the two legs cancel. So a mempool holding a 500 ZEC
+  // Orchard-to-Ironwood migration reported a crossing of 0.005 ZEC.
+  //
+  // It was correct by accident until this handoff: Ironwood was not decoded, so
+  // such a transaction had only its Orchard leg in `perPoolZat` and the sum WAS
+  // the amount. Decoding the second leg is what turns the same arithmetic into
+  // the fee, and no test would have caught it because the arithmetic did not
+  // change - which is HANDOFF-06's lesson about widening a type, arriving in a
+  // file nobody widened.
+  //
+  // The design corpus already says which quantity this tile means:
+  // `apps/web/src/lib/api/fixtures/mempool.ts` builds `crossingZat` as
+  // `tToZ + zToT + oToI` where the migration row contributes `500.0` - the
+  // amount that crossed, not the fee it left behind. This now matches it, and
+  // a pool-to-pool crossing is counted in its own term rather than being
+  // squeezed into a direction it does not have.
+  let intoPool = 0n;
+  let outOfPool = 0n;
+  let betweenPools = 0n;
+  for (const r of reports) {
+    const c = crossingOf(r);
+    if (c.out > 0n && c.into > 0n) betweenPools += c.out >= c.into ? c.out : c.into;
+    else if (c.out > 0n) outOfPool += c.out;
+    else if (c.into > 0n) intoPool += c.into;
+  }
 
   /**
    * How many transactions actually pay ZIP 317's conventional fee.
@@ -122,11 +148,11 @@ export function buildMempoolView(
       // long has already elapsed - the memorylessness is what makes a constant
       // correct here. Zcash's target has been 75 s since Blossom.
       nextBlockSeconds: TARGET_BLOCK_SECONDS,
-      crossingZat: intoPool + outOfPool,
+      crossingZat: intoPool + outOfPool + betweenPools,
       crossingSplit:
         crossings.length === 0
           ? "Nothing in the mempool crosses a pool boundary."
-          : `${zecText(intoPool)} in, ${zecText(outOfPool)} out, across ${countText(crossings.length)} ${crossings.length === 1 ? "transaction" : "transactions"}.`,
+          : `${zecText(intoPool)} in, ${zecText(outOfPool)} out, ${zecText(betweenPools)} between pools, across ${countText(crossings.length)} ${crossings.length === 1 ? "transaction" : "transactions"}.`,
       /*
        * THE CONVENTIONAL FEE, not a total of fees paid.
        *
@@ -229,10 +255,46 @@ function poolInitial(pool: ShieldedPool): string {
 }
 
 function mempoolRow(r: LeakReport, now: number): MempoolRow {
-  const net = r.valueFlow.perPoolZat.reduce<bigint>((acc, p) => acc + p.deltaZat, 0n);
+  // A REPORT THAT MEASURED NOTHING GETS A ROW THAT CLAIMS NOTHING, AND IT HAS
+  // TO BE DECIDED HERE, FIRST. Every field below is recomputed from `valueFlow`
+  // and the decoded bundles - deliberately, so /tx and /track cannot state two
+  // different things about one transaction - and on an `UNSUPPORTED_TX` report
+  // every one of those inputs is empty. Falling through would therefore produce
+  // `class: "transparent"`, `flow: "t to t"`, "no net crossing" and "Nothing
+  // this transaction publishes distinguishes it from any other of its shape":
+  // four confident statements about a transaction the decoder declined to read.
+  //
+  // The flag is read, never the zeros. That is the contract `LeakReport.
+  // unsupported` states, and this is the surface it was written for.
+  if (r.unsupported !== undefined) {
+    return {
+      txid: r.txid,
+      ageSeconds: Math.max(0, Math.round((now - r.seenAt) / 1000)),
+      version: r.txVersion >= 6 ? "v6" : r.txVersion === 5 ? "v5" : "v4",
+      flow: "not decoded",
+      // Empty rather than `["transparent"]`. A lane swatch is a claim that the
+      // transaction touched that lane, and nothing here can make one.
+      lanes: [],
+      valueBalanceText: "not measured",
+      feeZat: null,
+      logicalActions: 0,
+      walletGuess: r.fingerprint.likelyWallet,
+      finding: r.unsupported.reason,
+      severity: "INFO",
+      class: "undecoded",
+      reasoning: [
+        `This transaction is version ${r.unsupported.version}, and the decoder declined to read it: ${r.unsupported.reason}.`,
+        "Nothing on this row is a measurement. The pools, the fee and the flow are all absent rather than zero, because reading a shape this build does not model would produce numbers with no source.",
+        `Top-level fields the node sent: ${r.unsupported.rawFieldNames.join(", ")}.`,
+      ],
+    };
+  }
+
+  const net = netCrossingZat(r);
   const hasTransparent = r.transparent.vin.length + r.transparent.vout.length > 0;
   const hasSapling = r.bundle.saplingSpends.length + r.bundle.saplingOutputs.length > 0;
   const hasOrchard = r.bundle.orchardActions.length > 0;
+  const hasIronwood = r.bundle.ironwoodActions.length > 0;
   const hasSprout = r.valueFlow.sproutValueBalanceZat !== 0n;
 
   // THE LANE SWATCHES ARE WHAT A READER SEES FIRST, so a missing lane is a
@@ -245,6 +307,13 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
   if (hasSprout) lanes.push("sprout");
   if (hasSapling) lanes.push("sapling");
   if (hasOrchard) lanes.push("orchard");
+  // IRONWOOD PUSHED SINCE HANDOFF-07, AND THE FALLBACK BELOW IS WHY IT MATTERS
+  // MORE THAN SPROUT'S DID. `lanes` has accepted five members since HANDOFF-04
+  // and this producer emitted at most four, so a pure-Ironwood transaction
+  // failed every test above and fell through to `["transparent"]` - not an
+  // omission but an affirmative claim that a fully shielded transaction had a
+  // transparent side.
+  if (hasIronwood) lanes.push("ironwood");
   if (lanes.length === 0) lanes.push("transparent");
 
   // Which pools this transaction actually moved value in, in the order the site
@@ -343,21 +412,128 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
  * rather than rewritten, because a fourth hand-written L is how /track and /tx
  * came to state two different action counts for one transaction. The argument
  * is a SHAPE, not a transaction: the approximation reads list LENGTHS and
- * nothing else, and five of the seven it looks for are exactly what a report
- * carries. The other two stay at zero because a `DecodedShieldedBundle` holds
- * neither: an Ironwood bundle needs the v6 decoder, which is HANDOFF-07's, and
- * Sprout moves value through JoinSplits without a decoded structure at all. So a
- * Sprout transaction's count is understated here by two per JoinSplit until they
- * arrive.
+ * nothing else, and six of the seven terms it looks for are what a report
+ * carries. Ironwood joined them in HANDOFF-07 - the excuse for omitting it was
+ * that `DecodedShieldedBundle` did not hold one, and it now does, so leaving it
+ * out would understate the count for exactly the transactions NU6.3 produces
+ * while `docs/2.0/API.md` tells readers the rule counts "every Orchard and
+ * Ironwood action".
+ *
+ * SPROUT IS THE ONE STILL MISSING, and it cannot be fixed the same way: Sprout
+ * moves value through JoinSplits with no decoded structure on the report at
+ * all, so a Sprout transaction's count is understated here by two per
+ * JoinSplit. `views/tx.ts` has the raw transaction and does not have this gap.
  */
 function logicalActionsOf(r: LeakReport): number {
-  return zip317LogicalActionsP2pkhApproximation({
-    vin: r.transparent.vin,
-    vout: r.transparent.vout,
-    vShieldedSpend: r.bundle.saplingSpends,
-    vShieldedOutput: r.bundle.saplingOutputs,
-    orchard: { actions: r.bundle.orchardActions },
-  } as unknown as RpcTransaction);
+  // A REAL `RpcTransaction` SHAPE RATHER THAN A CAST. The old form went through
+  // `as unknown as RpcTransaction`, which is what let the Ironwood term be
+  // silently absent: a cast agrees with whatever the author wrote. Every field
+  // below is now checked by the compiler against the declared interface, and
+  // the fields this approximation does not read are supplied as the empty
+  // values they would have on a transaction with none of them.
+  const shape: RpcTransaction = {
+    txid: r.txid,
+    version: r.txVersion,
+    locktime: 0,
+    vin: r.transparent.vin.map(() => ({ sequence: 0 })),
+    vout: r.transparent.vout.map((_o, n) => ({
+      value: 0,
+      valueZat: 0,
+      n,
+      scriptPubKey: { asm: "", hex: EMPTY_HEX, type: "" },
+    })),
+    vShieldedSpend: r.bundle.saplingSpends.map(() => EMPTY_SAPLING_SPEND),
+    vShieldedOutput: r.bundle.saplingOutputs.map(() => EMPTY_SAPLING_OUTPUT),
+    orchard: { actions: r.bundle.orchardActions.map(() => EMPTY_ORCHARD_ACTION), valueBalanceZat: 0 },
+    ironwood: { actions: r.bundle.ironwoodActions.map(() => EMPTY_ORCHARD_ACTION), valueBalanceZat: 0 },
+  };
+  return zip317LogicalActionsP2pkhApproximation(shape);
+}
+
+/**
+ * Placeholder members for the shape above.
+ *
+ * The approximation reads LIST LENGTHS and the transparent counts, and nothing
+ * else - so the contents of these are never inspected. They exist so the shape
+ * can be a declared `RpcTransaction` instead of a cast, which is the whole
+ * point: the compiler now checks that every list this function fills is a list
+ * the interface has, and would have caught the missing Ironwood term.
+ */
+const EMPTY_HEX = "00" as Hex;
+const EMPTY_SAPLING_SPEND = {
+  cv: EMPTY_HEX,
+  anchor: EMPTY_HEX,
+  nullifier: EMPTY_HEX,
+  rk: EMPTY_HEX,
+  proof: EMPTY_HEX,
+  spendAuthSig: EMPTY_HEX,
+} as const;
+const EMPTY_SAPLING_OUTPUT = {
+  cv: EMPTY_HEX,
+  cmu: EMPTY_HEX,
+  ephemeralKey: EMPTY_HEX,
+  encCiphertext: EMPTY_HEX,
+  outCiphertext: EMPTY_HEX,
+  proof: EMPTY_HEX,
+} as const;
+const EMPTY_ORCHARD_ACTION = {
+  cv: EMPTY_HEX,
+  nullifier: EMPTY_HEX,
+  rk: EMPTY_HEX,
+  cmx: EMPTY_HEX,
+  ephemeralKey: EMPTY_HEX,
+  encCiphertext: EMPTY_HEX,
+  outCiphertext: EMPTY_HEX,
+  spendAuthSig: EMPTY_HEX,
+} as const;
+
+/**
+ * The net value a transaction moved across pool boundaries.
+ *
+ * A MIGRATION HAS TWO LEGS AND THEIR SUM IS THE FEE, NOT THE CROSSING. Until
+ * HANDOFF-07 this was a plain reduce over `perPoolZat`, and it was correct by
+ * accident: an Orchard-to-Ironwood crossing had only its Orchard leg in the
+ * array, because Ironwood was not decoded, so the reduce returned the amount
+ * that crossed. Decoding the second leg turns that same reduce into
+ * `+500 ZEC + -499.995 ZEC = 0.005 ZEC`, and /track would have reported five
+ * thousandths of a ZEC as the crossing for a mempool holding a 500 ZEC pool
+ * migration - a number that is not wrong by a little, and one no test would
+ * have caught because the arithmetic never changed.
+ *
+ * So the magnitude is taken from the LARGER SIDE rather than from the sum: the
+ * value that left the pools it left, which for a migration is the amount that
+ * crossed and for a plain shield or deshield is the same number the reduce used
+ * to give. The sign is kept - negative means value went into the pools on net -
+ * because the callers use it to decide the in/out split.
+ *
+ * The residue between the two sides is the fee, and it is deliberately NOT
+ * reported here: `fingerprint.feeZat` is where the fee lives, computed from the
+ * inputs a transaction spends, and a second derivation of one quantity is how
+ * `summary.conventionalFeeZat` came to mean two things in HANDOFF-05.
+ */
+function crossingOf(r: LeakReport): { out: Zatoshi; into: Zatoshi } {
+  let out = 0n;
+  let into = 0n;
+  for (const p of r.valueFlow.perPoolZat) {
+    if (p.deltaZat > 0n) out += p.deltaZat;
+    else into -= p.deltaZat;
+  }
+  return { out, into };
+}
+
+/**
+ * One signed number for the row's own value-balance cell.
+ *
+ * The magnitude is the LARGER SIDE, not the sum, for the reason above: for a
+ * migration the sum is the fee. The sign keeps the row's existing meaning -
+ * negative when value went into the pools on net - so the cell reads the same
+ * for every transaction that is not a pool-to-pool crossing, and reads the
+ * amount rather than the fee for one that is.
+ */
+function netCrossingZat(r: LeakReport): Zatoshi {
+  const { out, into } = crossingOf(r);
+  if (out === 0n && into === 0n) return 0n;
+  return out >= into ? out : -into;
 }
 
 /**

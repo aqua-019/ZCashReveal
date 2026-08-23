@@ -683,7 +683,20 @@ export const mempoolRowSchema = z.object({
   version: z.enum(["v4", "v5", "v6"]),
   /** "t to z", "z to t", "O to I", "mixed" - the flow as the table prints it. */
   flow: z.string().min(1),
-  lanes: z.array(ledgerSchema).min(1),
+  /**
+   * The lanes this transaction touched.
+   *
+   * EMPTY IS LEGAL SINCE HANDOFF-07 AND MEANS "NO LANE CAN BE CLAIMED". It was
+   * `.min(1)`, which sounds harmless and forced the producer to name a lane for
+   * every transaction including ones it had not decoded - so an `UNSUPPORTED_TX`
+   * report, whose bundles were never examined, fell through the producer's
+   * `if (lanes.length === 0) lanes.push("transparent")` and was drawn with a
+   * transparent swatch. A missing lane is a strong claim in this UI ("the
+   * transaction did not touch that pool") and a transparent swatch on an
+   * undecodable transaction is a stronger one, so the schema has to be able to
+   * express the third state: nothing is claimed.
+   */
+  lanes: z.array(ledgerSchema),
   valueBalanceText: z.string().min(1),
   /**
    * The fee, or `null` when it could not be computed.
@@ -699,7 +712,20 @@ export const mempoolRowSchema = z.object({
   walletGuess: z.string().min(1),
   finding: z.string().min(1),
   severity: severitySchema,
-  class: z.enum(["shield", "deshield", "shielded", "migration", "transparent"]),
+  /**
+   * What the row says this transaction is.
+   *
+   * `undecoded` IS NEW IN HANDOFF-07 AND IT IS NOT A KIND OF FLOW. It is the
+   * row's way of saying the decoder declined to read the transaction's shape,
+   * which the other five members cannot express: every one of them asserts
+   * something about where value went, and the producer recomputes them from a
+   * value flow that an `UNSUPPORTED_TX` report leaves empty. Without this
+   * member such a transaction was published as `transparent` / `t to t` /
+   * "no net crossing" / "Nothing this transaction publishes distinguishes it
+   * from any other of its shape" - four statements, all false, about a
+   * transaction nobody could decode.
+   */
+  class: z.enum(["shield", "deshield", "shielded", "migration", "transparent", "undecoded"]),
   reasoning: z.array(z.string().min(1)).min(1),
 });
 export type MempoolRow = z.infer<typeof mempoolRowSchema>;

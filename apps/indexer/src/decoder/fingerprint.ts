@@ -37,6 +37,17 @@ export interface FingerprintInputs {
   expiryDelta: number | null;
   hasOrchardBundle: boolean;
   hasSaplingBundle: boolean;
+  /**
+   * Whether this transaction carries Ironwood actions. Decoded since
+   * HANDOFF-07; before that no caller could know.
+   *
+   * IT IS A NEGATIVE SIGNAL BEFORE IT IS A POSITIVE ONE. Ywallet's last release
+   * is 1.15.3 and it "will not be updated for Ironwood"
+   * (docs/2.0/research/01-contemporary-zcash.md §2.6, `med`), so a transaction
+   * carrying an Ironwood bundle is not Ywallet whatever else it looks like.
+   */
+  hasIronwoodBundle: boolean;
+  ironwoodActionCount: number;
 }
 
 /**
@@ -55,6 +66,39 @@ export function isZip317Conventional(feeZat: Zatoshi, totalActions: bigint | num
   return isConventionalFee(feeZat, totalActions);
 }
 
+/**
+ * THE FOUR WALLETS HANDOFF-07 NAMED THAT HAVE NO SIGNATURE HERE, AND WHAT EACH
+ * WOULD NEED. §3 asks for "expiryDelta/padding signatures for Zodl 3.x, Vizor,
+ * Zkool, Zingo, Cake as documented hypotheses WITH THEIR SOURCE". Zodl has one
+ * and is implemented below. The other four have no expiry delta and no padding
+ * rule anywhere in this repository, and inventing a plausible band for them
+ * would be indistinguishable, to every later reader, from a sourced one - the
+ * same argument `activation-heights.ts` makes for the testnet NU6 height it
+ * deliberately did without for a whole handoff.
+ *
+ * What the corpus DOES say about each (§2.6, `med`, a wallet-support table
+ * dated 30 Jul - 1 Aug 2026) is a version number and a migration quality, and
+ * neither is a transaction-level tell:
+ *
+ *   Vizor  0.0.20   "full ZIP 318"            - a migration-quality judgement,
+ *                                               not a padding or expiry rule.
+ *                                               Attributing the ZIP 318 SHAPE to
+ *                                               Vizor would attribute it to
+ *                                               every compliant wallet at once.
+ *   Cake   6.4.0    "mostly ZIP 318 compliant"  same, and "mostly" is not a
+ *                                               measurable deviation.
+ *   Zkool  6.25.1   "private migration flow"    unquantified.
+ *   Zingo  2.0.21   "basic"                     unquantified.
+ *
+ * To become a signature each needs one measured number: an expiry delta from
+ * the wallet's own source or release notes, or an action-count padding rule
+ * observed across a sample of its transactions. HANDOFF-08's golden cases are
+ * where such a sample could come from; a captured mainnet block (HANDOFF-10)
+ * is where the first real observations arrive. Recorded here rather than as a
+ * `WalletGuess` member no rule can return.
+ */
+export const UNSOURCED_WALLET_HYPOTHESES = ["VIZOR", "CAKE", "ZKOOL", "ZINGO"] as const;
+
 export function guessWallet(i: FingerprintInputs): WalletGuess {
   // UNKNOWN, NOT FALSE - AND THE FALLTHROUGH HAS TO KNOW THE DIFFERENCE. With no
   // fee there is no evidence either way, so the two signatures that require a
@@ -68,9 +112,29 @@ export function guessWallet(i: FingerprintInputs): WalletGuess {
   const feeIsUnknown = i.feeZat === null;
   const conventionalFee = feeIsUnknown ? false : isConventionalFee(i.feeZat!, i.logicalActions);
 
+  // ZODL BEFORE YWALLET, BECAUSE THEIR BANDS OVERLAP AND ONLY ONE THING
+  // SEPARATES THEM. `docs/2.0/TRACKING-MATH.md` §3.6 gives Zashi/Zodl an expiry
+  // delta of 40, which sits inside Ywallet's sourced 35-50 band, so on the
+  // delta alone the two are indistinguishable. The corpus supplies the
+  // tiebreaker: Zodl 3.8.0 has Ironwood support and Ywallet's final release
+  // 1.15.3 "will not be updated for Ironwood" (§2.6, `med`). An Ironwood bundle
+  // therefore rules Ywallet out, and it is the only evidence here that does.
+  //
+  // WHAT THIS RULE DOES NOT CLAIM: that a delta of 40 without an Ironwood
+  // bundle is Ywallet rather than Zodl. Zodl sends ordinary Orchard
+  // transactions too, and in that overlap this build cannot tell them apart -
+  // the answer below is Ywallet because its 35-50 is sourced as a BAND while
+  // Zodl's 40 is sourced as a point, not because the evidence separates them.
+  // Stated rather than hidden in the ordering, per TRACKING-MATH §3.6's rule
+  // that the output is a likelihood and never an identity.
+  if (i.hasIronwoodBundle && i.expiryDelta === 40) {
+    return "ZODL";
+  }
+
   if (
     i.hasOrchardBundle &&
     !i.hasSaplingBundle &&
+    !i.hasIronwoodBundle &&
     i.orchardActionCount >= 2 &&
     i.expiryDelta !== null &&
     i.expiryDelta >= 35 &&

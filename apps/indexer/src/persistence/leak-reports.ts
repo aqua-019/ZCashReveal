@@ -31,6 +31,16 @@ export function createDb(url: string): Sql {
  * `sprout_value_balance_zat` is new in the same migration. It comes off
  * `valueFlow` rather than `bundle`, because Sprout is a JoinSplit sum and not a
  * decoded bundle - see decoder/sprout.ts.
+ *
+ * `ironwood_value_balance_zat` AND `ironwood_action_count` ARE NEW IN MIGRATION
+ * 004, AND THEY ARE WRITTEN NULL FOR AN UNSUPPORTED TRANSACTION rather than
+ * zero. A report with `leakClass === "UNSUPPORTED_TX"` carries defaults in every
+ * quantitative field because the decoder declined to read the transaction's
+ * shape at all; writing its `0n` into these columns would record "measured, and
+ * the pool did not move" about bundles nobody looked at. `report.unsupported`
+ * is the flag that says which it is, and it is read here rather than the zeros -
+ * which is the rule its own docblock states and the one thing a writer of this
+ * table must not skip.
  */
 export async function persistLeakReport(sql: Sql, r: LeakReport): Promise<void> {
   // THE ON CONFLICT LIST REFRESHES EVERY RECOMPUTED COLUMN, AND IT DID NOT.
@@ -53,7 +63,9 @@ export async function persistLeakReport(sql: Sql, r: LeakReport): Promise<void> 
       leak_class, overall_severity,
       sprout_value_balance_zat,
       sapling_value_balance_zat, orchard_value_balance_zat,
+      ironwood_value_balance_zat,
       sapling_spend_count, sapling_output_count, orchard_action_count,
+      ironwood_action_count,
       net_transparent_inflow_zat, value_flow_direction,
       fee_zat, expiry_delta, likely_wallet,
       report
@@ -67,9 +79,11 @@ export async function persistLeakReport(sql: Sql, r: LeakReport): Promise<void> 
       ${r.valueFlow.sproutValueBalanceZat.toString()},
       ${r.bundle.saplingValueBalanceZat.toString()},
       ${r.bundle.orchardValueBalanceZat.toString()},
+      ${unmeasured(r) ? null : r.bundle.ironwoodValueBalanceZat.toString()},
       ${r.bundle.saplingSpends.length},
       ${r.bundle.saplingOutputs.length},
       ${r.bundle.orchardActions.length},
+      ${unmeasured(r) ? null : r.bundle.ironwoodActions.length},
       ${r.valueFlow.netTransparentInflowZat.toString()},
       ${r.valueFlow.direction},
       ${r.fingerprint.feeZat === null ? null : r.fingerprint.feeZat.toString()},
@@ -84,12 +98,27 @@ export async function persistLeakReport(sql: Sql, r: LeakReport): Promise<void> 
       sprout_value_balance_zat = EXCLUDED.sprout_value_balance_zat,
       sapling_value_balance_zat = EXCLUDED.sapling_value_balance_zat,
       orchard_value_balance_zat = EXCLUDED.orchard_value_balance_zat,
+      ironwood_value_balance_zat = EXCLUDED.ironwood_value_balance_zat,
+      ironwood_action_count = EXCLUDED.ironwood_action_count,
       value_flow_direction = EXCLUDED.value_flow_direction,
       leak_class = EXCLUDED.leak_class,
       expiry_delta = EXCLUDED.expiry_delta,
       likely_wallet = EXCLUDED.likely_wallet,
       report = EXCLUDED.report
   `;
+}
+
+/**
+ * Whether this report measured nothing, so its zeros must be written as NULL.
+ *
+ * READS `unsupported`, NEVER THE ZEROS. An unsupported report's numeric fields
+ * are indistinguishable from a genuinely empty transaction's by inspection -
+ * that is what makes the flag necessary rather than convenient. The one-line
+ * form exists so the two column expressions above cannot drift apart on which
+ * condition they test.
+ */
+function unmeasured(r: LeakReport): boolean {
+  return r.unsupported !== undefined;
 }
 
 function serializeReport(r: LeakReport): unknown {

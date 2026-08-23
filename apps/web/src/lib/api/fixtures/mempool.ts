@@ -51,6 +51,19 @@ const REASONING: Readonly<Record<MempoolRow["class"], readonly string[]>> = {
   shielded: [
     "Intra-pool. The public fields are nullifiers, commitments, anchor and fee. No amounts, no endpoints, and no estimate to make.",
   ],
+  /**
+   * The one class whose reasoning is not about a flow, because there is no flow
+   * to reason about. `undecoded` says the decoder declined to read the
+   * transaction's shape, so every number on the row is absent rather than zero,
+   * and the words here have to say that rather than describe a crossing. The
+   * gateway supplies its own reasoning for a real undecoded row, naming the
+   * version and the fields the node sent; this fixture text is what the panel
+   * shows when the class appears with no such detail.
+   */
+  undecoded: [
+    "The decoder does not model this transaction's version or bundle shape, so it declined to read it.",
+    "Nothing on this row is a measurement. The pools, the fee and the flow are absent rather than zero - reading a shape this build does not understand would produce numbers with no source.",
+  ],
 };
 
 /**

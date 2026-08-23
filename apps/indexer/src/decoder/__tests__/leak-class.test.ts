@@ -120,184 +120,282 @@ function orchardAction(): RpcOrchardAction {
 }
 
 /**
+ * An Ironwood action, in the shape a node serialises.
+ *
+ * IT WAS `{}` UNTIL HANDOFF-07, AND FOUR TESTS PASSED OVER IT. `RpcTransaction`
+ * had no `ironwood` field, so every Ironwood fixture in this repository was an
+ * `as RpcTransaction` cast over an object literal, and a cast agrees with
+ * whatever the author typed. Nothing read the actions, so nothing noticed that
+ * `{}` has no `cmx`, no `nullifier` and no ciphertext - a shape
+ * `rpcOrchardActionSchema` rejects and no node could produce. The moment the
+ * decoder read one it threw, which is the honest outcome and is why the cast
+ * had to go rather than the throw.
+ *
+ * Deliberately the same byte sizes as `orchardAction()`: Ironwood reuses
+ * Orchard's circuit on the same curve, so its action serialises identically and
+ * a fixture that differed would be inventing a distinction the wire does not
+ * make.
+ */
+function ironwoodAction(): RpcOrchardAction {
+  return {
+    cv: hexOf(32),
+    nullifier: hexOf(32),
+    rk: hexOf(32),
+    cmx: hexOf(32),
+    ephemeralKey: hexOf(32),
+    encCiphertext: hexOf(580),
+    outCiphertext: hexOf(80),
+    spendAuthSig: hexOf(64),
+  };
+}
+
+/**
  * The shape a real Orchard-to-Ironwood migration has on the wire: a v6
  * transaction whose Orchard bundle publishes a positive value balance - value
  * LEAVING Orchard, which is the only direction ZIP 2006 still permits - and
  * whose Ironwood bundle takes the same amount in.
+ *
+ * NO TRANSPARENT SIDE AT ALL, and that is part of the shape rather than an
+ * omission. ZIP 318 spends exactly one Orchard note into exactly one Ironwood
+ * output; a crossing that also paid a transparent address would be a different
+ * transaction, and `classifyLeak` requires the absence.
+ *
+ * `orchardZat` and `ironwoodZat` are separate so a test can make the two legs
+ * disagree - a migration pays its fee out of the note it spends, so on the real
+ * chain they nearly always do.
  */
-function orchardToIronwood(): RpcTransaction {
+function orchardToIronwood(
+  over: { orchardZat?: number; ironwoodZat?: number } = {},
+): RpcTransaction {
   return {
     ...txn({
       version: 6,
-      orchard: { actions: [orchardAction()], valueBalanceZat: 700_000 },
+      orchard: { actions: [orchardAction()], valueBalanceZat: over.orchardZat ?? 700_000 },
     }),
-    ironwood: { actions: [{}], valueBalanceZat: -700_000 },
-  } as RpcTransaction;
+    ironwood: { actions: [ironwoodAction()], valueBalanceZat: over.ironwoodZat ?? -700_000 },
+  };
 }
 
-describe("MIGRATION_O2I — the negative case, which is the one the live analyser takes", () => {
-  it("Orchard positive with the Ironwood balance UNKNOWN is not classified as a migration", async () => {
-    // `null` means not decoded, which is not the same as zero and not the same
-    // as negative. A null input cannot satisfy the predicate, so nothing is
-    // guessed and nothing is claimed - which is the whole reason the rule takes
-    // a nullable rather than defaulting to 0n. This is the branch every
-    // transaction takes today.
+/** 500 ZEC in zatoshi. A4's fixture amount, and 5 x 10^10 zat = 5 x 10^2 ZEC. */
+const FIVE_HUNDRED_ZEC = 50_000_000_000;
+
+describe("MIGRATION_O2I — decoded end to end, which is what HANDOFF-07 changed", () => {
+  /**
+   * THIS BLOCK REPLACES ONE THAT PINNED THE OPPOSITE BEHAVIOUR, AND THE
+   * REPLACEMENT WAS ASKED FOR IN THE FILE IT REPLACES.
+   *
+   * HANDOFF-06 implemented the rule and could not reach it: the Ironwood bundle
+   * was not decoded, so `analyze()` had no balance to give the classifier and
+   * every real migration came out `MIXED`. Its tests pinned that, correctly and
+   * deliberately, and one of them said so in a comment - "when HANDOFF-07
+   * decodes the Ironwood bundle, MIGRATION_O2I fires above and this assertion
+   * should be replaced rather than kept".
+   *
+   * So the assertions below are the mirror image of the ones they replace, and
+   * that is the point: the same transaction that had to classify `MIXED` must
+   * now classify `MIGRATION_O2I`, and the fail sides have to change with them
+   * or they stop discriminating. A `not.toBe("MIGRATION_O2I")` that passed
+   * yesterday because nothing could reach the branch would pass today for a
+   * different reason and prove nothing either way.
+   */
+  it("A8 PASS: a v6 migration reaches MIGRATION_O2I through the REAL decoder path", async () => {
+    // No `ironwoodValueBalanceZat` in the context. The balance comes off the
+    // transaction's own bundle, which is the whole deliverable: for one handoff
+    // the only way into this branch was a value the caller supplied, and a rule
+    // reachable only from a test is a rule that does not run.
     const report = await analyze(orchardToIronwood(), context());
-    expect(report.leakClass).not.toBe("MIGRATION_O2I");
+
+    expect(report.leakClass).toBe("MIGRATION_O2I");
+    expect(report.valueFlow.ironwoodValueBalanceZat).toBe(-700_000n);
+    expect(report.bundle.ironwoodActions).toHaveLength(1);
   });
 
-  it("no heuristic stands in for the missing half, even where one would be defensible", async () => {
-    // It would be easy to guess: past NU6.3, Orchard is exit-only, so value
-    // leaving Orchard with no transparent output to receive it has nowhere to go
-    // but Ironwood. That inference is defensible and it is still a guess, and it
-    // would misclassify an Orchard-to-Sapling transfer as a migration. This
-    // transaction has exactly that profile - Orchard positive, no vout - and it
-    // still does not classify as a migration.
-    const report = await analyze(orchardToIronwood(), context());
-    expect(report.valueFlow.netTransparentInflowZat).toBe(0n);
-    expect(report.leakClass).not.toBe("MIGRATION_O2I");
-  });
-
-  it("with the Ironwood half unknown it is MIXED - an admission, not a claim", async () => {
-    // THIS ASSERTION USED TO READ `Z_TO_T`, AND THAT WAS THE DEFECT. A gate
-    // round against this handoff pinned the live behaviour here and condemned
-    // it in the same breath: `Z_TO_T` asserts that value left the shielded side
-    // for the transparent one, while the assertion above shows
-    // `netTransparentInflowZat` is `0n` and nothing transparent received
-    // anything. The analyser was not declining to identify the migration, it
-    // was making a specific false statement about it, and would have made that
-    // statement about every NU6.3 migration.
-    //
-    // The cause was that `direction` was being read as if it named the other
-    // side of the crossing. It does not: it says only which way value moved
-    // across a pool boundary, and value leaving one pool lands in another pool
-    // as readily as in a transparent output. `classifyLeak` now requires a
-    // transparent output before it will say `Z_TO_T`, and a transparent input
-    // before `T_TO_Z`, so this falls through to `MIXED`.
-    //
-    // `MIXED` is the right answer and not a consolation prize: value moved
-    // between pools and this build cannot characterise the crossing, which is
-    // exactly what MIXED means. When HANDOFF-07 decodes the Ironwood bundle,
-    // MIGRATION_O2I fires above and this assertion should be replaced rather
-    // than deleted - the transaction will have a name by then.
-    const report = await analyze(orchardToIronwood(), context());
-    expect(report.leakClass).toBe("MIXED");
-    expect(report.valueFlow.direction).toBe("WITHDRAWAL");
-    expect(report.valueFlow.perPoolZat).toEqual([{ pool: "orchard", deltaZat: 700_000n }]);
-  });
-
-  it("FAIL SIDE: the same Orchard outflow WITH a transparent recipient is Z_TO_T", async () => {
-    // The discriminating half, and the reason the guard is not simply
-    // "never say Z_TO_T". A genuine deshield has somewhere for the value to go:
-    // one transparent output, and the class is Z_TO_T again. Only the vout
-    // differs from the transaction above.
-    const deshield = txn({
-      version: 5,
-      orchard: { actions: [orchardAction()], valueBalanceZat: 700_000 },
-      vout: [transparentOutput(690_000)],
+  it("A8 FAIL: withholding the Ironwood balance at the call site returns it to MIXED", async () => {
+    // The discriminating half. `null` on the context means WITHHELD - not
+    // decoded, not zero - and the identical transaction then cannot satisfy the
+    // predicate. Without this, "the decoder classifies it" and "anything at all
+    // classifies it" would be the same passing test.
+    const report = await analyze(orchardToIronwood(), {
+      ...context(),
+      ironwoodValueBalanceZat: null,
     });
-    const report = await analyze(deshield, context());
-    expect(report.valueFlow.direction).toBe("WITHDRAWAL");
-    expect(report.leakClass).toBe("Z_TO_T");
+
+    expect(report.leakClass).not.toBe("MIGRATION_O2I");
+    expect(report.leakClass).toBe("MIXED");
+    // And the report still records what the pool did. Withholding a balance
+    // from the CLASSIFIER must not erase the pool from the measurement: the
+    // caller is testing a branch, not editing the chain.
+    expect(report.valueFlow.ironwoodValueBalanceZat).toBe(-700_000n);
   });
 
-  it("Ironwood contributes nothing to perPoolZat, so the report does not imply it moved", async () => {
-    // The honest half of the gap. An undecoded pool is ABSENT from the list
-    // rather than present at zero, because a hardcoded zero renders as a
-    // measurement - and "Ironwood moved 0 ZEC" is a claim this build cannot make.
-    const report = await analyze(orchardToIronwood(), context());
+  it("A8 FAIL, the other polarity: a v6 migration whose ironwood bundle is absent is MIXED", async () => {
+    // The shape a node that does not serialise the bundle would produce, and
+    // the shape the pre-HANDOFF-07 analyser saw for every transaction. Orchard
+    // drains, nothing observably receives it, and the class admits that rather
+    // than guessing Ironwood - which would be defensible past NU6.3, since
+    // Orchard is exit-only, and would still be a guess.
+    const report = await analyze(
+      txn({ version: 6, orchard: { actions: [orchardAction()], valueBalanceZat: 700_000 } }),
+      context(),
+    );
+
+    expect(report.leakClass).toBe("MIXED");
     expect(report.valueFlow.perPoolZat.map((p) => p.pool)).not.toContain("ironwood");
+  });
+
+  it("Ironwood now appears in perPoolZat, and only when it moved", async () => {
+    // The assertion this replaces was `not.toContain("ironwood")`, and it was
+    // right at the time: an undecoded pool must be ABSENT rather than present
+    // at zero, because a hardcoded zero renders as a measurement. Decoding does
+    // not change that rule, it changes which side of it this transaction is on.
+    const moved = await analyze(orchardToIronwood(), context());
+    expect(moved.valueFlow.perPoolZat).toContainEqual({
+      pool: "ironwood",
+      deltaZat: -700_000n,
+    });
+
+    // FAIL SIDE: a v6 transaction whose Ironwood bundle is present and empty is
+    // a measurement that the pool did not move, and it is still omitted. Same
+    // rule as the other three pools - the array is what moved, not what exists.
+    const still = await analyze(
+      {
+        ...txn({ version: 6, vin: [transparentInput()], vout: [transparentOutput(90_000)] }),
+        ironwood: { actions: [], valueBalanceZat: 0 },
+      },
+      context(),
+    );
+    expect(still.valueFlow.perPoolZat.map((p) => p.pool)).not.toContain("ironwood");
+    expect(still.valueFlow.ironwoodValueBalanceZat).toBe(0n);
+  });
+
+  it("a decoded Ironwood balance of ZERO is not a migration", async () => {
+    // Zero is a decoded fact saying the pool did not move, so it must fail the
+    // predicate for the opposite reason a withheld balance does. If `0n`
+    // passed, the sign test would be decoration - which is the reasoning that
+    // produced `BigInt(tx.feeZat ?? 0)`.
+    const report = await analyze(orchardToIronwood({ ironwoodZat: 0 }), context());
+    expect(report.leakClass).not.toBe("MIGRATION_O2I");
+  });
+
+  it("Ironwood filling WITHOUT Orchard draining is not a migration", async () => {
+    // Value entering Ironwood from somewhere other than Orchard is not ZIP 318.
+    // Both halves of the predicate have to carry weight or one is decoration.
+    const shielding = {
+      ...txn({
+        version: 6,
+        vin: [transparentInput()],
+        orchard: { actions: [], valueBalanceZat: 0 },
+      }),
+      ironwood: { actions: [ironwoodAction()], valueBalanceZat: -700_000 },
+    };
+    const report = await analyze(shielding, context());
+    expect(report.leakClass).not.toBe("MIGRATION_O2I");
+  });
+
+  it("a crossing that ALSO pays a transparent output is not a ZIP 318 migration", async () => {
+    // §3: "with no transparent components". ZIP 318 spends one Orchard note
+    // into one Ironwood output and nothing else, so a transaction that drained
+    // Orchard into both Ironwood and a public address is a different animal -
+    // and publishing it as a pure pool crossing would hide the public recipient
+    // standing in the same transaction, which is the opposite of what this site
+    // exists to notice.
+    const withPayout = {
+      ...txn({
+        version: 6,
+        vout: [transparentOutput(100_000)],
+        orchard: { actions: [orchardAction()], valueBalanceZat: 800_000 },
+      }),
+      ironwood: { actions: [ironwoodAction()], valueBalanceZat: -700_000 },
+    };
+    const report = await analyze(withPayout, context());
+
+    expect(report.leakClass).not.toBe("MIGRATION_O2I");
+    // AND IT FALLS TO `MIXED`, NOT TO `Z_TO_T`. This assertion read `Z_TO_T`
+    // first and was wrong: `direction` is DEPOSIT here, because a pool GAINED
+    // value, and `Z_TO_T` requires a WITHDRAWAL direction with a transparent
+    // output beside it. So the transaction that both crossed pools and paid a
+    // public address gets the class that says value moved between pools and the
+    // crossing could not be characterised - which is exactly what happened.
+    // Naming either half alone would be the more specific claim, and it would
+    // be the wrong one in whichever direction it named.
+    expect(report.leakClass).toBe("MIXED");
+    // The transparent output is still on the report, so nothing is hidden by
+    // the class declining to name it.
+    expect(report.valueFlow.netTransparentInflowZat).toBe(100_000n);
   });
 });
 
-describe("MIGRATION_O2I — the positive case, through the seam a gate round added", () => {
+describe("A4 — the ZIP 318 denomination, in both units and both polarities", () => {
   /**
-   * THE RULE IS IMPLEMENTED AND REACHABLE, and this block is where that stops
-   * being a claim.
+   * A4 STATES `(n,k) = (5, 2)` AND THE DATABASE STORES `(5, 10)`. BOTH ARE
+   * RIGHT AND THEY ARE DIFFERENT NUMBERS FOR ONE DENOMINATION.
    *
-   * It was neither, briefly. `classifyLeak` returns MIGRATION_O2I when
-   * Orchard's balance is positive and Ironwood's is non-null and negative, and
-   * the first version of `analyze()` passed `ironwoodValueBalanceZat: null` as
-   * a LITERAL - so no transaction of any shape could reach the branch, while
-   * the docblock beside it asserted that the classifier's unit tests supplied
-   * the balance directly. They could not: `classifyLeak` is module-private and
-   * `analyze()` is the only way in. A rule that reads as covered and never runs
-   * is the same defect as `tx.feeZat` and `expiryheight`, which is what this
-   * handoff exists to close, so finding a third instance inside the fix was not
-   * a thing to repair quietly.
+   * The research states ZIP 318's ladder in ZEC, where 500 ZEC is `5 x 10^2`
+   * and 0.5 ZEC would need a negative exponent. `migrations_zip318.denom_k`
+   * (migration 003) is declared `CHECK (denom_k >= 0)` precisely because it is
+   * an exponent over ZATOSHI: 500 ZEC is `5 x 10^10` zat and 0.5 ZEC is
+   * `5 x 10^7`, so no row ever carries a negative one.
    *
-   * `AnalyzeContext.ironwoodValueBalanceZat` is the seam. A caller that has
-   * decoded the bundle supplies it; the live path does not, because decoding v6
-   * is HANDOFF-07's deliverable. Both halves are exercised below.
+   * Two names for one quantity is how `summary.conventionalFeeZat` came to mean
+   * two things in HANDOFF-05, so neither is called `k`: the record carries
+   * `kZec` and `kZatoshi`, and both are asserted here. A4's pair is `kZec`.
    */
-  it("PASS STATE: Orchard positive with a supplied negative Ironwood balance is MIGRATION_O2I", async () => {
-    const report = await analyze(orchardToIronwood(), {
-      ...context(),
-      ironwoodValueBalanceZat: -700_000n,
-    });
+  it("PASS: 500 ZEC crossing is canonical, (n, kZec) = (5, 2) and kZatoshi = 10", async () => {
+    const report = await analyze(
+      orchardToIronwood({ orchardZat: FIVE_HUNDRED_ZEC, ironwoodZat: -FIVE_HUNDRED_ZEC }),
+      context(),
+    );
+
     expect(report.leakClass).toBe("MIGRATION_O2I");
+    expect(report.migration?.canonical).toBe(true);
+    expect(report.migration?.denomination).toEqual({ n: 5, kZec: 2, kZatoshi: 10 });
+    expect(report.migration?.amountZat).toBe(BigInt(FIVE_HUNDRED_ZEC));
   });
 
-  it("FAIL STATE: the identical transaction with the balance withheld is not", async () => {
-    // Only the context differs. This is the branch every live transaction takes
-    // today, and it must not become a migration by proximity to one.
-    const report = await analyze(orchardToIronwood(), context());
-    expect(report.leakClass).not.toBe("MIGRATION_O2I");
-    expect(report.leakClass).toBe("MIXED");
+  it("FAIL: 499.5 ZEC is not canonical, and carries no denomination at all", async () => {
+    // 499.5 ZEC is 49,950,000,000 zat, which strips to 4995 - not 1, 2 or 5.
+    // The record says so rather than rounding to the nearest rung: rounding
+    // would manufacture the very regularity the migration lens measures, which
+    // is the argument migration 003 already wrote against storing a
+    // denomination on a non-canonical row.
+    const report = await analyze(
+      orchardToIronwood({ orchardZat: 49_950_000_000, ironwoodZat: -49_950_000_000 }),
+      context(),
+    );
+
+    expect(report.leakClass).toBe("MIGRATION_O2I");
+    expect(report.migration?.canonical).toBe(false);
+    expect(report.migration?.denomination).toBeNull();
+    expect(report.findings.map((f) => f.code)).toContain("MIGRATION_DENOMINATION");
   });
 
-  it("a supplied Ironwood balance of ZERO is not a migration either", async () => {
-    // Zero is a decoded fact and it says the pool did not move, so it must fail
-    // the predicate for the opposite reason null does. If `0n` passed, the
-    // nullable would be decoration and a coalesced default would be as good -
-    // which is exactly the reasoning that produced `BigInt(tx.feeZat ?? 0)`.
-    const report = await analyze(orchardToIronwood(), {
-      ...context(),
-      ironwoodValueBalanceZat: 0n,
-    });
-    expect(report.leakClass).not.toBe("MIGRATION_O2I");
+  it("both magnitudes are recorded, because the fee sits between them", async () => {
+    // A migration pays its fee out of the note it spends, so what leaves
+    // Orchard and what enters Ironwood are different numbers. Which one ZIP 318
+    // means by "the net amount crossing between the pools" is not settled by
+    // anything in this repository - the corpus gives DENOM_CAP both as
+    // "10,000 ZEC plus canonical fee" and as a flat 10,000, which only makes
+    // sense if the two statements had different sides in mind. So both are kept
+    // and the question is carried as a deferred assumption.
+    const report = await analyze(
+      orchardToIronwood({ orchardZat: FIVE_HUNDRED_ZEC, ironwoodZat: -(FIVE_HUNDRED_ZEC - 10_000) }),
+      context(),
+    );
+
+    expect(report.migration?.amountZat).toBe(BigInt(FIVE_HUNDRED_ZEC));
+    expect(report.migration?.arrivedZat).toBe(BigInt(FIVE_HUNDRED_ZEC - 10_000));
+    // The denomination is tested on the Orchard side, which is the note ZIP
+    // 318's phase 1 quantised, so the fee does not make the crossing look
+    // unquantised.
+    expect(report.migration?.canonical).toBe(true);
   });
 
-  it("Ironwood negative WITHOUT Orchard draining is not a migration", async () => {
-    // Value entering Ironwood from somewhere other than Orchard is not ZIP 318.
-    // Both halves of the predicate have to carry weight or one of them is
-    // decoration.
-    const shielding = txn({
-      version: 6,
-      vin: [transparentInput()],
-      orchard: { actions: [], valueBalanceZat: 0 },
-    });
-    const report = await analyze(shielding, {
-      ...context(),
-      ironwoodValueBalanceZat: -700_000n,
-    });
-    expect(report.leakClass).not.toBe("MIGRATION_O2I");
-  });
-
-  it("no combination of version or ironwood KEY reaches the branch without the context balance", async () => {
-    // The wire shape alone is never enough. `hasUndecodedIronwood` reads the
-    // key to refuse a fee; the classifier will not read it to make a claim,
-    // because this build has not verified Ironwood's serialised shape and a
-    // value taken out of an unverified field is money taken on trust.
-    const shapes: ReadonlyArray<readonly [string, RpcTransaction]> = [
-      ["v6 with a negative ironwood balance on the wire", orchardToIronwood()],
-      [
-        "v5 with an ironwood key",
-        {
-          ...txn({ version: 5, orchard: { actions: [orchardAction()], valueBalanceZat: 700_000 } }),
-          ironwood: { actions: [{}], valueBalanceZat: -700_000 },
-        } as RpcTransaction,
-      ],
-      [
-        "v6 with no ironwood key at all",
-        txn({ version: 6, orchard: { actions: [orchardAction()], valueBalanceZat: 700_000 } }),
-      ],
-    ];
-
-    for (const [name, tx] of shapes) {
-      const report = await analyze(tx, context());
-      expect(report.leakClass, `${name} reached MIGRATION_O2I`).not.toBe("MIGRATION_O2I");
-    }
+  it("no migration record at all on a transaction that is not one", async () => {
+    // `migration` is present iff the class is MIGRATION_O2I. A record on any
+    // other transaction would be a ZIP 318 crossing asserted about something
+    // that did not cross.
+    const report = await analyze(txn({ version: 5, vin: [transparentInput()] }), context());
+    expect(report.migration).toBeUndefined();
   });
 });
 
@@ -553,10 +651,11 @@ describe("A9 — a class that names the transparent side requires a transparent 
    */
 
   it("PASS A: a migration with no transparent output is MIGRATION_O2I, never transparent-naming", async () => {
-    const report = await analyze(orchardToIronwood(), {
-      ...context(),
-      ironwoodValueBalanceZat: -700_000n,
-    });
+    // NO SUPPLIED BALANCE SINCE HANDOFF-07. This called `analyze` with
+    // `ironwoodValueBalanceZat: -700_000n` on the context, because that was the
+    // only way to reach the branch; the balance now comes off the transaction,
+    // so the assertion tests the live path rather than a hand-fed one.
+    const report = await analyze(orchardToIronwood(), context());
     expect(report.transparent.vout).toHaveLength(0);
     expect(report.valueFlow.netTransparentInflowZat).toBe(0n);
     expect(report.leakClass).toBe("MIGRATION_O2I");
@@ -564,9 +663,19 @@ describe("A9 — a class that names the transparent side requires a transparent 
   });
 
   it("PASS A': with the Ironwood half withheld it is still never transparent-naming", async () => {
-    // The branch every live transaction takes until HANDOFF-07 decodes v6. It
-    // may decline to name the crossing; it may not name the wrong one.
-    const report = await analyze(orchardToIronwood(), context());
+    // A9's rule survives the change that made A8 possible, and this is where
+    // that is checked. Withholding the balance takes the class from
+    // MIGRATION_O2I back to MIXED - the branch every live transaction took
+    // before HANDOFF-07 - and MIXED is still an admission rather than a
+    // transparent-side claim. The class may decline to name the crossing; it
+    // may not name the wrong one.
+    //
+    // The withholding is now explicit (`null`) where it used to be the default,
+    // which is the only thing about this assertion that changed.
+    const report = await analyze(orchardToIronwood(), {
+      ...context(),
+      ironwoodValueBalanceZat: null,
+    });
     expect(report.valueFlow.netTransparentInflowZat).toBe(0n);
     expect(["Z_TO_T", "T_TO_Z"]).not.toContain(report.leakClass);
     expect(report.leakClass).toBe("MIXED");

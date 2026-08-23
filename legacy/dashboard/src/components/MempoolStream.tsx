@@ -11,8 +11,31 @@ interface MempoolStreamProps {
   onSelect: (txid: string) => void;
 }
 
+/**
+ * The filter chips, and this list is COMPLETE rather than typed-as-complete.
+ *
+ * It is `(LeakClass | "ALL")[]` and not a tuple over the union, so a member
+ * missing from it compiles - which is how it came to be short by two: HANDOFF-06
+ * added MIGRATION_O2I and COINBASE_SHIELDED and nothing swept this array, so a
+ * reader of this retired app had no way to filter for the crossing NU6.3 exists
+ * to produce. HANDOFF-07 adds the third and fills in the two that were missing.
+ *
+ * `LEAK_CLASS_LABEL` in lib/tokens.ts IS a `Record<LeakClass, string>` and is
+ * the tripwire that catches a widening; this array is a display order and gets
+ * swept alongside it. Kept as a list rather than derived from the record so the
+ * order is the site's rather than the union's.
+ */
 const FILTER_CLASSES: (LeakClass | "ALL")[] = [
-  "ALL", "PURE_SHIELDED", "T_TO_Z", "Z_TO_T", "MIXED", "MIGRATION_S2O", "FULLY_TRANSPARENT",
+  "ALL",
+  "PURE_SHIELDED",
+  "T_TO_Z",
+  "Z_TO_T",
+  "MIXED",
+  "MIGRATION_S2O",
+  "MIGRATION_O2I",
+  "COINBASE_SHIELDED",
+  "FULLY_TRANSPARENT",
+  "UNSUPPORTED_TX",
 ];
 
 export function MempoolStream({ reports, selectedTxid, onSelect }: MempoolStreamProps) {

@@ -111,6 +111,32 @@ export interface RpcOrchardBundle {
 }
 
 /**
+ * The Ironwood bundle, as `getrawtransaction` and `getblock` verbosity 2 render it.
+ *
+ * AN ALIAS RATHER THAN A TWIN, BECAUSE THE WIRE MAKES NO DISTINCTION. Zebra
+ * serialises the same `Orchard` struct for both bundles - `packages/zebra-rpc`
+ * validates `ironwood` with `rpcOrchardBundleSchema`, from HANDOFF-05's read of
+ * Zebra 6.3.0 at commit 1c9b2450 - so declaring a structurally identical
+ * `RpcIronwoodBundle` interface would invent a difference the response does not
+ * have, and the two would drift the first time anyone edited one of them.
+ *
+ * WHAT IS GENUINELY DIFFERENT ABOUT IRONWOOD IS NOT IN THIS JSON. ZIP 2005
+ * gives every Ironwood output note the quantum-recoverable note plaintext
+ * format, lead byte `0x03` where Orchard's is `0x02`, and re-derives the note
+ * randomness commitment over all note fields. That lives inside
+ * `encCiphertext`, which this project never decrypts without a viewing key
+ * (Mode A, client-side only), so it is invisible at this layer by design.
+ *
+ * THE DISTINCTION THAT DOES MATTER IS MADE ON THE DECODED SIDE.
+ * `DecodedIronwoodAction` carries `pool: "ironwood"` against
+ * `DecodedOrchardAction`'s `pool: "orchard"`, so once a bundle has been through
+ * the decoder the four-pool model cannot confuse them - which is the layer
+ * where confusing them would matter, since Orchard is exit-only from NU6.3 and
+ * Ironwood is where the value goes.
+ */
+export type RpcIronwoodBundle = RpcOrchardBundle;
+
+/**
  * One JoinSplit description, as `getrawtransaction` renders it.
  *
  * DECLARED HERE SINCE HANDOFF-06 BECAUSE FOUR CALL SITES WERE READING IT
@@ -188,6 +214,26 @@ export interface RpcTransaction {
   valueBalanceZat?: number | undefined;
   bindingSig?: Hex | undefined;
   orchard?: RpcOrchardBundle | undefined;
+  /**
+   * The Ironwood bundle. Present only on v6 transactions, and only from NU6.3.
+   *
+   * DECLARED SINCE HANDOFF-07, AND TWO CALL SITES WERE READING IT THROUGH
+   * `as unknown as` BEFORE THAT. `zip317LogicalActions` and its P2PKH
+   * approximation both counted `(tx as unknown as { ironwood?: ... })` because
+   * this interface did not carry the field. That is the construct HANDOFF-06
+   * removed for `vjoinsplit` and HANDOFF-05 traced the `expiryheight` defect
+   * to: a cast agrees with whatever the author typed and the wire is never
+   * consulted. The field is validated at the RPC boundary
+   * (`packages/zebra-rpc`), so the declaration and the wire are checked against
+   * each other in exactly one place.
+   *
+   * ABSENT ON EVERY PRE-v6 TRANSACTION, which is nearly all of them, and
+   * `decodeIronwoodBundle` returns an empty decode for `undefined` rather than
+   * throwing - the same contract `decodeOrchardBundle` has, for the same reason:
+   * Zebra emits pool bundles unconditionally on the versions that have them and
+   * not at all on the versions that do not, so absence is ordinary.
+   */
+  ironwood?: RpcIronwoodBundle | undefined;
   time?: number | undefined;
   /**
    * NO NODE SENDS A FEE, AND THESE TWO FIELDS ARE KEPT ONLY TO SAY SO.

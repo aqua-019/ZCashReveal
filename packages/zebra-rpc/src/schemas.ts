@@ -390,7 +390,28 @@ export const rpcTransactionSchema = z
     valueBalanceZat: z.number().optional(),
     bindingSig: hexLowerSchema.optional(),
     orchard: rpcOrchardBundleSchema.optional(),
-    /** NU6.3 and later. Same shape as `orchard`; nothing in 2.0 decodes it yet. */
+    /**
+     * NU6.3 and later, on v6 transactions. Same struct as `orchard`.
+     *
+     * THIS KEY NAME IS THE SINGLE LOAD-BEARING UNVERIFIED ASSUMPTION OF THE
+     * IRONWOOD DECODER, and it is called out here rather than left under this
+     * file's blanket "read from the source" header, because that header is
+     * evidence for the shapes someone quoted a Zebra struct for and this name
+     * has no such quotation beside it. Nothing in this repository has ever seen
+     * a real Ironwood bundle: there is no captured v6 transaction anywhere in
+     * the tree, so every Ironwood fixture here was written from this belief and
+     * therefore cannot test it.
+     *
+     * `.optional()` is what makes a wrong guess survivable rather than
+     * catastrophic - the parse succeeds and the bundle reads as absent - and it
+     * is also what makes a wrong guess SILENT, which is the `expiryheight`
+     * failure mode. So the silence is closed elsewhere: `dispatchByVersion`
+     * plus `analyze()` raise a finding when a v6 transaction arrives carrying
+     * no `ironwood` key at all, naming the keys it did carry. Under the belief
+     * that finding almost never fires (Zebra emits `orchard` unconditionally
+     * and this is the same struct); if the belief is wrong it fires on every v6
+     * transaction on the chain, which is exactly the alarm wanted.
+     */
     ironwood: rpcOrchardBundleSchema.optional(),
     /** -1 on a side chain, absent in the mempool. */
     height: z.number().int().optional(),
@@ -457,6 +478,19 @@ export const rpcBlockSchema = z
     merkleroot: hexLowerSchema.optional(),
     finalsaplingroot: hexLowerSchema.optional(),
     finalorchardroot: hexLowerSchema.optional(),
+    /**
+     * The block-level Ironwood note-commitment-tree root.
+     *
+     * THE NAME IS INFERRED, NOT READ. `finalsaplingroot` and `finalorchardroot`
+     * are both taken from Zebra's source; this one is the obvious continuation
+     * of that pattern and nothing in this repository has seen it. Declaring it
+     * `.optional()` means a wrong guess costs an absent anchor rather than a
+     * failed parse - and `decodeBlock` reports the absence explicitly on a
+     * block that DID add Ironwood commitments, so a wrong name announces itself
+     * instead of reading as "this block added none". HANDOFF-10's captured
+     * mainnet block settles it.
+     */
+    finalironwoodroot: hexLowerSchema.optional(),
     blockcommitments: hexLowerSchema.optional(),
     nTx: z.number().int().nonnegative().optional(),
     tx: z.array(blockTxSchema),

@@ -83,6 +83,10 @@ function makeReport(opts: {
       orchardValueBalanceZat,
       orchardAnchor: null,
       orchardFlags: null,
+      ironwoodActions: [],
+      ironwoodValueBalanceZat: 0n,
+      ironwoodAnchor: null,
+      ironwoodFlags: null,
     },
     transparent: { vin: [], vout: [] },
     identity: {
@@ -105,6 +109,7 @@ function makeReport(opts: {
       sproutValueBalanceZat,
       saplingValueBalanceZat,
       orchardValueBalanceZat,
+      ironwoodValueBalanceZat: 0n,
       perPoolZat,
       netTransparentInflowZat: 0n,
       isPureShielded: false,

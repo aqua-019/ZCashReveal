@@ -238,7 +238,12 @@ function asRow(v: unknown): MempoolRow | null {
   if (typeof v !== "object" || v === null) return null;
   const r = v as Record<string, unknown>;
   const feeZat = asNullableZat(r["feeZat"]);
-  const lanes = Array.isArray(r["lanes"]) && r["lanes"].length > 0 && r["lanes"].every((l) => typeof l === "string" && LANES.has(l))
+  // AN EMPTY LANE LIST IS A VALID ROW SINCE HANDOFF-07, so the length test is
+  // gone. It means the gateway could not say which pools the transaction
+  // touched - an `UNSUPPORTED_TX` report - and dropping such a row here would
+  // make an undecodable transaction vanish from /track rather than appear as
+  // one nobody could read. `Array.isArray` still rejects a malformed field.
+  const lanes = Array.isArray(r["lanes"]) && r["lanes"].every((l) => typeof l === "string" && LANES.has(l))
     ? (r["lanes"] as MempoolRow["lanes"])
     : null;
   const reasoning = Array.isArray(r["reasoning"]) && r["reasoning"].length > 0 && r["reasoning"].every(isText) ? (r["reasoning"] as string[]) : null;
