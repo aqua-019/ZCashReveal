@@ -53,7 +53,15 @@ export function buildFlowsView(): FlowsView {
       { k: "chain height when the balances were read", v: stats.height.toLocaleString("en-US") },
       {
         k: "what the filings name",
-        v: "Custodians. Not addresses: the S-3, the S-3/A and the 10-Q were checked and none publishes one.",
+        // WHOSE filings, and WHICH record. The first version said "the S-3, the
+        // S-3/A and the 10-Q were checked" with no issuer at all, generalising
+        // one company's quarantined record into a statement about filings at
+        // large. The correction then named two companies, which was also wrong:
+        // only the Grayscale finding is a quarantine record, and the Cypherpunk
+        // one is an entry in the Record's research-gaps list. This names the
+        // issuer, the three documents and the record id, and claims nothing
+        // about anyone else's filings.
+        v: "Custodians, not addresses. Grayscale's S-3, its S-3/A and its 10-Q were read directly: all three name Coinbase Custody Trust Company, LLC and none discloses a wallet address or a proof of reserves. That is quarantine record U-grayscale-published-zec-address on the Record's /flows, with its sources.",
       },
       {
         k: "what an aggregator label proves",

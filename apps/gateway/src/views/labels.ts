@@ -23,9 +23,12 @@ const ZAT_PER_ZEC = 100_000_000n;
 /**
  * A decimal ZEC string from the seed to zatoshi, exactly.
  *
- * By string arithmetic, never by multiplying a float: `78183.4093 * 1e8` is
- * 7818340929999.999 in IEEE 754, and the lockbox balance is the one number on
- * this site that assertion A2 pins to the zatoshi.
+ * By string arithmetic, never by multiplying a float. Not because the lockbox
+ * figure fails that way - `78183.4093 * 1e8` is exactly 7,818,340,930,000, and
+ * an earlier version of this comment claimed it was not - but because whether a
+ * given decimal survives is a property of that decimal: `163.17 * 1e8` is
+ * 16,316,999,999.999998. A2 pins this balance to the zatoshi and the conversion
+ * has to be exact for every seed, not for the ones that happen to be here.
  */
 function zecToZat(amount: string): bigint {
   const m = /^(-?)(\d+)(?:\.(\d{1,8}))?$/.exec(amount);

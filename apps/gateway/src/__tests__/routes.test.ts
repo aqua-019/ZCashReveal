@@ -188,7 +188,23 @@ describe("A3 - every route rejects a malformed input with 400 and a Zod issue li
     expect(res.statusCode).toBe(400);
     const body = res.json() as { error: string; issues: { message: string }[] };
     expect(body.error).toBe("not a block height");
-    expect(body.issues[0]?.message).toContain("not negative");
+    expect(body.issues[0]?.message).toContain("no sign");
+    await h.close();
+  });
+
+  it("a height that is not a height at all is a 400, and never reaches the node", async () => {
+    // `z.coerce.number().int().nonnegative()` validated the RESULT of Number(),
+    // so "999999999999999999999" coerced to 1e21, passed .int(), and was sent
+    // to the node as the parameter "1e+21" - whose -8 became a 404 saying "the
+    // chain does not have that". A malformed request would have been reported
+    // as a true statement about the chain.
+    const h = await harness({ handle: node });
+    for (const bad of ["999999999999999999999", "1e9", "3.5", "0x10", " 12", "12 ", "+12", "٣"]) {
+      const res = await h.app.inject({ method: "GET", url: `/api/block/${encodeURIComponent(bad)}` });
+      expect(res.statusCode, `"${bad}" was not rejected`).toBe(400);
+    }
+    // Not one of them reached the scripted node.
+    expect(h.calls().byMethod["getblock"]).toBeUndefined();
     await h.close();
   });
 
@@ -446,8 +462,10 @@ describe("the content-backed routes", () => {
     const res = await h.app.inject({ method: "GET", url: "/api/cases" });
     const body = res.json() as { id: string; steps: { amountZat: string }[] }[];
     expect(body.length).toBeGreaterThan(0);
-    // 29999.99 ZEC is 2999999000000 zatoshi exactly. Through a float it is
-    // 2999998999999.9995, which is the reason for the string arithmetic.
+    // 29999.99 ZEC is 2999999000000 zatoshi exactly, and a double would in fact
+    // get this one right - the claim that it would not was false. The reason
+    // for the string arithmetic is the decimals it gets WRONG: 163.17 * 1e8 is
+    // 16,316,999,999.999998.
     expect(body[0]?.steps[0]?.amountZat).toBe("2999999000000");
     await h.close();
   });

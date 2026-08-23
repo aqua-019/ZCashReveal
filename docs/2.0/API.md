@@ -39,13 +39,13 @@ whichever survives, one line in `src/routes/index.ts` removes the other.
 
 | | |
 |---|---|
-| **Zatoshi** | Always a **decimal string**, never a JSON number. JSON has no bigint, and `78183.4093 * 1e8` is `7818340929999.999` in IEEE 754. `zatSchema` in `packages/zec-types` parses the string straight back to `bigint`, so an amount is never a double at either end. |
+| **Zatoshi** | Always a **decimal string**, never a JSON number. JSON has no bigint, and whether a given ZEC decimal survives a double is a property of that decimal rather than of the conversion: `78183.4093 * 1e8` is exactly `7818340930000`, but `163.17 * 1e8` is `16316999999.999998` — two zatoshi short. `zatSchema` in `packages/zec-types` parses the string straight back to `bigint`, so an amount is never a double at either end. |
 | **Heights and counts** | JSON numbers. |
 | **Hex** | Lowercase, no `0x`, validated at the RPC boundary. |
 | **Dates** | A `Stamp`: `text` renders, `sortMs` sorts, `precision` says how much of the timestamp is real. A record known only to the day never renders a time (LEDGER-02 Q3). |
-| **Validation** | Every 2xx body is parsed through its Zod DTO from `packages/zec-types` **before** it is sent. A response that does not satisfy its own contract is a 500, not a malformed 200. |
+| **Validation** | Every 2xx body is parsed through a Zod DTO **before** it is sent. A response that does not satisfy its own contract is a 500, not a malformed 200. Most come from `packages/zec-types`; `/api/search` and `/api/pools/balances` are not views the Tracking pages render, so their shapes are declared beside their routes rather than being the two 200s that leave unchecked. `/healthz` carries no data. |
 | **CORS** | `GATEWAY_CORS_ORIGIN`, a comma-separated allow list or `*`. `*` is accepted: this is a read-only public API and some deployments legitimately want it. |
-| **Rate limit** | Per IP, `GATEWAY_RATE_LIMIT_MAX` requests per `GATEWAY_RATE_LIMIT_WINDOW_MS` (default 100 / 10 s). Over it: `429`, with `x-ratelimit-*` and `retry-after` headers. |
+| **Rate limit** | `GATEWAY_RATE_LIMIT_MAX` requests per `GATEWAY_RATE_LIMIT_WINDOW_MS` (default 100 / 10 s), keyed on `req.ip`. Over it: `429`, with `x-ratelimit-*` and `retry-after` headers. **Per reader only if `GATEWAY_TRUSTED_PROXIES` names the proxy** — behind a tunnel with it unset, every reader shares one bucket. |
 | **Request id** | Echoed as `x-request-id` on every response. A caller-supplied one is honoured, so a trace can span the tunnel between the site and the VPS — the one hop nobody can watch from either end. |
 | **Logging** | The request serialiser writes the method, the request id and the **path**. The query string is dropped entirely and any viewing-key-shaped run is replaced, in the path and in error messages alike. `authorization` and `cookie` headers are removed rather than censored: a censored line still records that a credential was presented and how long it was. |
 
@@ -385,23 +385,153 @@ never leave the VPS.
 With no Redis configured the view is empty and the summary says so in words,
 because an empty mempool and an unreachable indexer look the same to a reader.
 
+`summary.bytes` is summed from `getrawmempool` with `verbose=true`, one extra
+call per request. It used to be a hardcoded `0`, which the site renders as
+"0.0 kB" beside a table of transactions.
+
+```json
+{
+  "tipHeight": 3456227,
+  "entries": [],
+  "summary": {
+    "unconfirmed": 0, "shielded": 0, "migrations": 0, "transparent": 0,
+    "bytes": 0,
+    "nextBlockSeconds": 75,
+    "crossingZat": "0",
+    "crossingSplit": "Nothing in the mempool crosses a pool boundary.",
+    "conventionalFeeZat": "0",
+    "conventionalCount": 0,
+    "findingsHigh": 0,
+    "findingsNote": "No finding in the current mempool is rated HIGH.",
+    "feeWeather": "Nothing is waiting."
+  }
+}
+```
+
+`nextBlockSeconds` is the 75-second target interval, and that is the correct
+answer to "how long until the next block" rather than a placeholder: block
+arrival is a Poisson process, so the expected remaining wait is the mean however
+long has already elapsed. The target has been 75 s since Blossom (ZIP 208).
+
+`conventionalCount` is computed here from each report's fee and action counts.
+It is **not** `fingerprint.isZip317ConventionalFee`, which the indexer sets from
+the wallet guess — a page built on that field would tell a reader how many
+transactions pay the conventional fee when what it counted was how many looked
+like two particular wallets.
+
 ## `GET /api/flows`
 
 `FlowsView` — the Tracking side of the Record's `/flows`, as a **summary, not a
 second copy**. The Record page holds the rich rows with their provenance;
 HANDOFF-03's ledger records what happens when one fact lives in two files.
 
+```json
+{
+  "headline": "The 2 January 2026 unshielding",
+  "case": {
+    "id": "K-2026-01-02",
+    "title": "The 2 January 2026 unshielding",
+    "summary": "Three withdrawals from a presumed exchange hot wallet in late December, then 276,077.739 ZEC leaving the shielded pool in a single afternoon ...",
+    "steps": [
+      {
+        "stamp": { "text": "2025-12-24 19:32:46", "precision": "second", "sortMs": 1766604766000 },
+        "height": null,
+        "from": "t1PKBiv7mtzD9bNafYaqyxaENeiNDbpKxxQ",
+        "to": "t1XKfbZYsdxR5HSnP25ee5VaAxgCNUtFkFK",
+        "amountZat": "2999999000000",
+        "note": "Withdrawal from the hot wallet to a freshly created address ...",
+        "txid": "f45ded5d44452c405d92e66d69d760a5a7d01f94aab937b96ecd1f666edb4712"
+      },
+      "... four more steps"
+    ],
+    "verdict": "...", "confidence": "high", "lastVerified": "2026-08-22", "sources": ["..."]
+  },
+  "outcome": [ { "k": "verdict", "v": "..." }, { "k": "steps documented", "v": "5" }, "..." ],
+  "institutions": [
+    { "k": "shielded share of supply", "v": "26 to 26.8 per cent, as of 2026-08-22" },
+    { "k": "what the filings name", "v": "Custodians, not addresses. Grayscale's S-3, its S-3/A and its 10-Q were read directly ..." },
+    "..."
+  ],
+  "notSupported": "No claim here attributes an address to a person or an institution ..."
+}
+```
+
 ## `GET /api/labels`
 
 Every address label from `packages/content`, filtered to `GATEWAY_NETWORK`, each
 with its `labeller`, its precedence `rank`, its `method`, its `confidence`, its
-`lastVerified` and its `sources`.
+`lastVerified` and its `sources`. Eight on mainnet; one testnet label is filtered
+out.
+
+```json
+[
+  {
+    "address": "t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo",
+    "network": "mainnet",
+    "label": "ZIP 271 lockbox disbursement multisig",
+    "labeller": "consensus",
+    "rank": 1,
+    "method": "ZIP 271 writes this address verbatim into the consensus rules and names the key-holders ...",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "sources": ["S-zcash-improvement-proposals-zip-0271", "..."],
+    "balanceZat": "7818340930000",
+    "notes": "Received 93,496.64 ZEC lifetime, more than the 78,750 disbursement ..."
+  },
+  {
+    "address": "t1PKBiv7mtzD9bNafYaqyxaENeiNDbpKxxQ",
+    "label": "Exchange hot wallet, labelled \"Binance\" by Lookonchain",
+    "labeller": "analyst",
+    "rank": 4,
+    "confidence": "med",
+    "...": "six more"
+  }
+]
+```
+
+Rank 1 is consensus and rank 5 is behaviour. The difference between the two
+entries above — a label written into the consensus rules and a label asserted by
+one analyst — is the whole of this site's argument about labelling, which is why
+the rank travels with every label everywhere it is rendered.
 
 ## `GET /api/cases`
 
 The golden cases from `packages/content`, with each step's `amountZat` as an
-exact zatoshi string. 29,999.99 ZEC is `"2999999000000"`; through a float it is
-2999998999999.9995, which is why the conversion is string arithmetic.
+exact zatoshi string. 29,999.99 ZEC is `"2999999000000"` — which a double would
+also get right; `163.17` is the kind it does not, and that is why the conversion
+is string arithmetic for all of them.
+
+```json
+[
+  {
+    "id": "K-2026-01-02",
+    "title": "The 2 January 2026 unshielding",
+    "summary": "Three withdrawals from a presumed exchange hot wallet in late December ...",
+    "steps": [
+      {
+        "stamp": { "text": "2025-12-24 19:32:46", "precision": "second", "sortMs": 1766604766000 },
+        "height": null,
+        "from": "t1PKBiv7mtzD9bNafYaqyxaENeiNDbpKxxQ",
+        "to": "t1XKfbZYsdxR5HSnP25ee5VaAxgCNUtFkFK",
+        "amountZat": "2999999000000",
+        "note": "Withdrawal from the hot wallet to a freshly created address ...",
+        "txid": "f45ded5d44452c405d92e66d69d760a5a7d01f94aab937b96ecd1f666edb4712"
+      },
+      "... four more steps"
+    ],
+    "verdict": "...",
+    "confidence": "high",
+    "lastVerified": "2026-08-22",
+    "sources": ["..."]
+  },
+  "... two more cases"
+]
+```
+
+A step's `height` is `null` where the corpus records the time but not the block,
+which is most of them: the research read these movements from an explorer, and
+inventing a height to fill the field would be fabricating a precision the source
+does not have.
 
 ## `GET /api/snapshot` — 501 until HANDOFF-09
 
@@ -476,6 +606,7 @@ Every variable, with its default. Secrets only via the environment; the root
 | `GATEWAY_RATE_LIMIT_MAX` | `100` | Per IP |
 | `GATEWAY_RATE_LIMIT_WINDOW_MS` | `10000` | |
 | `GATEWAY_WS_MAX_CONNECTIONS` | `500` | Over it: close 1013 |
+| `GATEWAY_TRUSTED_PROXIES` | *(empty)* | Comma-separated addresses whose `x-forwarded-for` is believed. **The rate limit is only per-reader if this is set.** Empty means `req.ip` is the socket address, so behind a reverse proxy every reader shares one bucket — correct and safe, but coarse. Blanket trust would be worse: any caller could forge the header and mint a fresh bucket per request. Set it to the tunnel's address (HANDOFF-10) |
 | `GATEWAY_ADDRESS_CACHE_TTL_S` | `60` | `0` disables |
 | `GATEWAY_TX_CACHE_TTL_S` | `3600` | `0` disables |
 | `GATEWAY_ADDRESS_TX_LIMIT` | `50` | Max 500 |
@@ -497,18 +628,33 @@ shape is the shape.
 
 Every schema was read from Zebra 6.3.0 at commit
 `1c9b2450349b53232e2787bef62dd0e21b10e041` (2026-08-22) — the Rust source and the
-`insta` snapshots, which are the actual serialised JSON. Four of Zebra's own doc
-comments contradict its serialisation code; each is recorded at the schema it
-affects. The four that matter to a client:
+`insta` snapshots, which are the actual serialised JSON. Four facts matter to a
+client, and they are **two of each kind**: two are doc comments that contradict
+the code, and two are wire facts that a zcashd-shaped client simply gets wrong.
+An earlier version of this section called all four "doc comments that contradict
+the serialisation code", which was true of half of them.
+
+**Doc comments that contradict the code:**
 
 1. **`getaddressbalance` does return `received`.** Its doc comment says it does
    not. Both fields are zatoshi.
-2. **`getblock`'s selector must be a JSON string, even for a height.**
+2. **`getblock`'s `size` is present at verbosity 1 as well as 2**, though the
+   doc comment says verbosity 2 only. In 6.3.0 the only structural difference
+   between the two is the element type of `tx`.
+
+**Wire facts a zcashd-shaped client gets wrong** — the docs here are not
+contradictory, they simply do not say it:
+
+3. **`getblock`'s selector must be a JSON string, even for a height.**
    `hash_or_height` is typed `String`; a bare number fails to deserialise.
-3. **`getrawtransaction`'s verbosity is `u8`, not `bool`.** A client sending
-   `true` fails to deserialise. Send `1`.
-4. **`getblock`'s `size` is present at verbosity 1 as well as 2.** In 6.3.0 the
-   only structural difference between the two is the element type of `tx`.
+4. **`getrawtransaction`'s verbosity is `u8`, not `bool`.** A client sending
+   `true` fails to deserialise. Send `1`. `getrawmempool`'s `verbose` *is* a
+   bool, so the two are inconsistent with each other.
+
+A fifth, which is a doc comment contradicting the code and matters wherever a
+fee is read: **`getrawmempool` verbose's `fee` is a ZEC float**, documented as
+"Transaction fee in zatoshi". `descendantfees` is the one field in that struct
+that genuinely is zatoshi.
 
 And one that matters to this repository: the wire spells `expiryheight` and
 `versiongroupid` all lowercase, while `RpcTransaction` declares `expiryHeight`

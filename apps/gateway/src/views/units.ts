@@ -65,9 +65,24 @@ export function stampBefore(first: Stamp): Stamp {
 /**
  * Zatoshi as a decimal ZEC string, exactly, by integer arithmetic.
  *
- * Never `Number(zat) / 1e8`. 7,818,340,930,000 zatoshi divided as a double is
- * 78183.40929999999, and a page that printed that would be wrong about the
- * lockbox by a hundredth of a ZEC while looking precise to eight places.
+ * Never `Number(zat) / 1e8`, and the reason is NOT that the lockbox balance
+ * fails that way - it does not. 7,818,340,930,000 / 1e8 is exactly 78183.4093
+ * and round-trips, and an earlier version of this comment said it did not,
+ * which was a false statement about a computation anyone can run.
+ *
+ * The real reason is that survival is a property of the particular number
+ * rather than of the conversion. `163.17 * 1e8` is 16,316,999,999.999998, two
+ * zatoshi short; `69.93 * 1e8` is 6,993,000,000.000001. A conversion that is
+ * exact for the amounts already in the corpus and wrong for the next one is not
+ * a conversion this site can use, because nothing downstream can tell which
+ * kind of amount it was handed.
+ *
+ * IT TRUNCATES, IT DOES NOT ROUND, and that is a choice rather than an
+ * oversight. At four decimals a balance of 1.00009999 ZEC renders "1.0000":
+ * the figure shown is always one the address really has, never one rounded up
+ * to a value it does not. On a site whose subject is overstated claims, a
+ * displayed balance that exceeds the real one is the wrong direction to err,
+ * and the exact figure is a field away in every DTO.
  *
  * A NON-ZERO AMOUNT NEVER RENDERS AS ZERO. At the site's four-decimal
  * convention a single zatoshi would otherwise print as "0.0000", which hides a

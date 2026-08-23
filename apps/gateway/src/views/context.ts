@@ -157,7 +157,36 @@ export function poolValueBalanceZat(tx: RpcTransaction): bigint {
   const ironwood = BigInt(
     (tx as unknown as { ironwood?: { valueBalanceZat?: number } }).ironwood?.valueBalanceZat ?? 0,
   );
-  return sapling + orchard + ironwood;
+  return sapling + orchard + ironwood + sproutValueBalanceZat(tx);
+}
+
+/**
+ * Sprout's contribution to the transparent value pool.
+ *
+ * SPROUT IS NOT A `valueBalance` FIELD, which is why it was missing from the
+ * first version of the function above. Each JoinSplit carries `vpub_old` - the
+ * value it takes OUT of the transparent pool and puts into Sprout - and
+ * `vpub_new`, the value it releases back. So its contribution, in the same sign
+ * convention as `valueBalance`, is `vpub_new - vpub_old` summed over the
+ * JoinSplits.
+ *
+ * The consequence of omitting it was not cosmetic: a Sprout transaction had a
+ * boundary of zero, so it was classified "transparent throughout", its fee was
+ * computed without the term that balances it, and the pool it actually moved
+ * value out of did not appear in its deltas. Sprout is a drained pool that the
+ * site has a whole argument about, and it is exactly the kind of transaction a
+ * reader comes here to look at.
+ *
+ * `vpub_oldZat` and `vpub_newZat` are the integer fields; the unsuffixed ones
+ * are ZEC floats (types/transaction.rs, `JoinSplit`).
+ */
+export function sproutValueBalanceZat(tx: RpcTransaction): bigint {
+  const joinsplits = (tx as unknown as { vjoinsplit?: { vpub_oldZat?: number; vpub_newZat?: number }[] }).vjoinsplit;
+  if (joinsplits === undefined) return 0n;
+  return joinsplits.reduce<bigint>(
+    (acc, js) => acc + BigInt(js.vpub_newZat ?? 0) - BigInt(js.vpub_oldZat ?? 0),
+    0n,
+  );
 }
 
 /** How many shielded actions a transaction carries, across every pool. */
@@ -247,9 +276,10 @@ function divCeil(a: number, b: number): number {
 }
 
 /** Which lanes a transaction touches, in the site's five-lane vocabulary. */
-export function lanesTouched(tx: RpcTransaction): ("transparent" | "sapling" | "orchard" | "ironwood")[] {
-  const lanes: ("transparent" | "sapling" | "orchard" | "ironwood")[] = [];
+export function lanesTouched(tx: RpcTransaction): ("transparent" | "sprout" | "sapling" | "orchard" | "ironwood")[] {
+  const lanes: ("transparent" | "sprout" | "sapling" | "orchard" | "ironwood")[] = [];
   if (tx.vin.length > 0 || tx.vout.length > 0) lanes.push("transparent");
+  if (((tx as unknown as { vjoinsplit?: unknown[] }).vjoinsplit?.length ?? 0) > 0) lanes.push("sprout");
   if ((tx.vShieldedSpend?.length ?? 0) + (tx.vShieldedOutput?.length ?? 0) > 0) lanes.push("sapling");
   if ((tx.orchard?.actions.length ?? 0) > 0) lanes.push("orchard");
   if (((tx as unknown as { ironwood?: { actions?: unknown[] } }).ironwood?.actions?.length ?? 0) > 0) {

@@ -71,7 +71,8 @@ interface RequestLike {
 }
 
 export interface GatewayLoggerOptions {
-  readonly level: LoggerOptions["level"];
+  /** A pino level name. Required rather than optional: a logger with no level is a configuration nobody chose. */
+  readonly level: string;
   /** Pretty-print, for a TTY. Never in production, where the sink is a file. */
   readonly pretty?: boolean;
 }
@@ -89,13 +90,13 @@ export function createGatewayLogger(options: GatewayLoggerOptions, destination?:
     ...(options.pretty === true && destination === undefined ? { transport: { target: "pino-pretty" } } : {}),
     serializers: {
       req: (req: RequestLike) => ({
-        method: req.method,
+        method: req.method ?? "",
         // The PATH, never the url. See the header comment.
-        path: typeof req.url === "string" ? safePath(req.url) : undefined,
+        path: typeof req.url === "string" ? safePath(req.url) : "",
         id: req.id,
-        ip: req.ip,
+        ip: req.ip ?? "",
       }),
-      res: (res: { statusCode?: number }) => ({ statusCode: res.statusCode }),
+      res: (res: { statusCode?: number }) => ({ statusCode: res.statusCode ?? 0 }),
       /**
        * An error's message and stack can both carry a URL - a fetch failure
        * names the endpoint it could not reach, and a routing error names the

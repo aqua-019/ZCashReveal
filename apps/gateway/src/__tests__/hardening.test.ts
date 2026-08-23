@@ -65,6 +65,81 @@ describe("A4 - per-IP rate limiting", () => {
     await h.close();
   });
 
+  it("FAIL STATE: behind a proxy with no trusted list, every reader shares ONE bucket", async () => {
+    // The shipped topology puts a cloudflared tunnel in front of this gateway,
+    // so every request arrives from one socket address. With no trusted proxy
+    // configured that is the correct, safe behaviour - `x-forwarded-for` is
+    // unforgeable - and its cost is that the limit is per-DEPLOYMENT rather than
+    // per-reader. The operator has to know that, which is why it is asserted.
+    const h = await harness({
+      handle: node,
+      env: { GATEWAY_RATE_LIMIT_MAX: "5", GATEWAY_RATE_LIMIT_WINDOW_MS: "10000" },
+    });
+    const statuses: number[] = [];
+    for (let i = 0; i < 10; i += 1) {
+      const res = await h.app.inject({
+        method: "GET",
+        url: "/healthz",
+        remoteAddress: "10.0.0.1",
+        headers: { "x-forwarded-for": `198.51.100.${i}` },
+      });
+      statuses.push(res.statusCode);
+    }
+    expect(statuses.filter((s) => s === 200)).toHaveLength(5);
+    expect(statuses.filter((s) => s === 429)).toHaveLength(5);
+    await h.close();
+  });
+
+  it("PASS STATE: with the proxy trusted, ten forwarded clients get ten buckets", async () => {
+    const h = await harness({
+      handle: node,
+      env: {
+        GATEWAY_RATE_LIMIT_MAX: "5",
+        GATEWAY_RATE_LIMIT_WINDOW_MS: "10000",
+        GATEWAY_TRUSTED_PROXIES: "10.0.0.1",
+      },
+    });
+    const statuses: number[] = [];
+    for (let i = 0; i < 10; i += 1) {
+      const res = await h.app.inject({
+        method: "GET",
+        url: "/healthz",
+        remoteAddress: "10.0.0.1",
+        headers: { "x-forwarded-for": `198.51.100.${i}` },
+      });
+      statuses.push(res.statusCode);
+    }
+    expect(statuses.filter((s) => s === 429)).toHaveLength(0);
+    await h.close();
+  });
+
+  it("an UNTRUSTED sender cannot forge its way out of the limit", async () => {
+    // The reason the default is `false` rather than `true`. With blanket trust
+    // any caller mints a fresh bucket per request, which removes the limit
+    // rather than coarsening it - strictly worse than one shared bucket.
+    const h = await harness({
+      handle: node,
+      env: {
+        GATEWAY_RATE_LIMIT_MAX: "5",
+        GATEWAY_RATE_LIMIT_WINDOW_MS: "10000",
+        GATEWAY_TRUSTED_PROXIES: "10.0.0.1",
+      },
+    });
+    const statuses: number[] = [];
+    for (let i = 0; i < 10; i += 1) {
+      const res = await h.app.inject({
+        method: "GET",
+        url: "/healthz",
+        // NOT the trusted proxy.
+        remoteAddress: "203.0.113.50",
+        headers: { "x-forwarded-for": `198.51.100.${i}` },
+      });
+      statuses.push(res.statusCode);
+    }
+    expect(statuses.filter((s) => s === 429)).toHaveLength(5);
+    await h.close();
+  });
+
   it("a 429 body carries no internal detail", async () => {
     const h = await harness({ handle: node, env: { GATEWAY_RATE_LIMIT_MAX: "2", GATEWAY_RATE_LIMIT_WINDOW_MS: "10000" } });
     for (let i = 0; i < 3; i += 1) await h.app.inject({ method: "GET", url: "/healthz", remoteAddress: "203.0.113.9" });

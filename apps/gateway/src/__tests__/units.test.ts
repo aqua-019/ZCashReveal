@@ -20,15 +20,25 @@ import { decodeAddress } from "../address.js";
 
 describe("zecString - zatoshi to ZEC, by integer arithmetic", () => {
   it("renders the lockbox balance exactly, which a double cannot", () => {
-    // 7,818,340,930,000 / 1e8 as a double is 78183.40929999999.
+    // Exact by construction, not by luck. This particular figure would also
+    // survive `Number(zat) / 1e8` - the float-path claim once made about it was
+    // false - but 163.17 ZEC would not: `163.17 * 1e8` is 16,316,999,999.999998.
     expect(zecString(7_818_340_930_000n)).toBe("78,183.4093");
     expect(zecString(7_818_340_930_000n, 8)).toBe("78,183.40930000");
     expect(zecText(7_818_340_930_000n)).toBe("78,183.4093 ZEC");
   });
 
   it("renders a case step exactly", () => {
-    // 29,999.99 ZEC. Through a float this is 2999998999999.9995.
+    // 29,999.99 ZEC. This one also survives a double; `163.17` does not, which
+    // is why the arithmetic is integral for all of them rather than for these.
     expect(zecString(2_999_999_000_000n)).toBe("29,999.9900");
+  });
+
+  it("is exact for a decimal that a double gets WRONG", () => {
+    // The case that justifies the convention: 163.17 * 1e8 is
+    // 16,316,999,999.999998 in IEEE 754, two zatoshi short of the truth.
+    expect(zecString(16_317_000_000n)).toBe("163.1700");
+    expect(zecString(6_993_000_000n)).toBe("69.9300");
   });
 
   it("renders one ZEC, and one zatoshi under it", () => {

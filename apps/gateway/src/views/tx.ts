@@ -25,6 +25,7 @@ import {
   poolValueBalanceZat,
   resolveInputs,
   shieldedActionCount,
+  sproutValueBalanceZat,
   versionText,
   zip317LogicalActions,
   type ReadContext,
@@ -80,6 +81,8 @@ export async function buildTxView(
   // of inputs and outputs. See `zip317LogicalActions`.
   const logicalActions = zip317LogicalActions(tx);
   const conventional = feeZat === conventionalFeeZat(logicalActions);
+  /** True where the fee above is admittedly incomplete, so no verdict rests on it. */
+  const feeIsBounded = !isCoinbase && indexed?.feeZat == null && unresolved;
 
   const height = typeof tx.height === "number" && tx.height >= 0 ? tx.height : 0;
   const stamp =
@@ -123,6 +126,11 @@ export async function buildTxView(
   if ((ironwood?.actions?.length ?? 0) > 0) {
     deltas.push({ pool: "ironwood", deltaZat: BigInt(ironwood?.valueBalanceZat ?? 0) });
   }
+  // Sprout, which is a JoinSplit sum rather than a `valueBalance` field and was
+  // therefore missing entirely from the first version of this list.
+  if (((tx as unknown as { vjoinsplit?: unknown[] }).vjoinsplit?.length ?? 0) > 0) {
+    deltas.push({ pool: "sprout", deltaZat: sproutValueBalanceZat(tx) });
+  }
 
   const summary = isCoinbase
     ? `Coinbase at height ${countText(height)}. Protocol issuance and the ZIP 1014 and ZIP 271 splits, crossing no pool boundary.`
@@ -147,12 +155,17 @@ export async function buildTxView(
       {
         label: "fee",
         value: zecText(feeZat, 8),
+        // ORDER MATTERS. The indexer's figure is exact and is checked FIRST: an
+        // earlier version tested `unresolved` first, so a transaction whose fee
+        // came straight from `leak_reports` was labelled "a lower bound"
+        // whenever any input happened to be unresolvable - describing an exact
+        // number as an estimate.
         note: isCoinbase
           ? "A coinbase pays no fee. Its outputs are created by issuance rather than by spending, so there is no input total to take a difference from."
-          : unresolved
-            ? "A lower bound: at least one input could not be resolved to the output it spends, so the input total is incomplete."
-            : indexed?.feeZat != null
-              ? "As the indexer recorded it when this transaction was in the mempool."
+          : indexed?.feeZat != null
+            ? "As the indexer recorded it when this transaction was in the mempool."
+            : unresolved
+              ? "A lower bound: at least one input could not be resolved to the output it spends, so the input total is incomplete."
               : "Computed from the outputs this transaction spends. No node reports a fee on getrawtransaction.",
         accent: false,
       },
@@ -165,12 +178,17 @@ export async function buildTxView(
       },
       {
         label: "conventional fee",
-        // "no" on a coinbase would read as "it underpaid". A coinbase is not a
-        // fee-paying transaction at all, and ZIP 317 does not price one.
-        value: isCoinbase ? "not priced" : conventional ? "yes" : "no",
+        // Three answers, not two. "no" on a coinbase would read as "it
+        // underpaid", and a coinbase is not a fee-paying transaction at all.
+        // "no" on a fee that is itself a lower bound would be a verdict derived
+        // from an admittedly incomplete number - the page would say the fee is
+        // incomplete in one tile and rule on it in the next.
+        value: isCoinbase ? "not priced" : feeIsBounded ? "cannot say" : conventional ? "yes" : "no",
         note: isCoinbase
           ? "ZIP 317 prices the transactions a wallet builds. A coinbase is built by the consensus rules and pays nothing."
-          : `ZIP 317 would price this at ${zecText(conventionalFeeZat(logicalActions), 8)}.`,
+          : feeIsBounded
+            ? `The fee above is a lower bound, so whether it meets ZIP 317's ${zecText(conventionalFeeZat(logicalActions), 8)} cannot be decided from it.`
+            : `ZIP 317 would price this at ${zecText(conventionalFeeZat(logicalActions), 8)}.`,
         accent: false,
       },
       {
@@ -218,7 +236,10 @@ export async function buildTxView(
         : "A round trip needs the pool side, which needs the estimators HANDOFF-08 ships. This transaction's public half is above.",
     feeZat,
     logicalActions,
-    conventionalFee: conventional,
+    // False where the fee is a lower bound: the field is a boolean and cannot
+    // say "cannot say", and asserting `true` from an incomplete number would be
+    // the wrong half of the pair to guess.
+    conventionalFee: !feeIsBounded && conventional,
   };
 }
 

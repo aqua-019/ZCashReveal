@@ -18,7 +18,13 @@ import type { LeakReport, MempoolRow, MempoolView } from "@zcashreveal/types";
 
 import { countText, zecText } from "./units.js";
 
-/** Zcash's 75-second target under NU6, used only to word the "next block" figure. */
+/**
+ * Zcash's target block spacing, 75 seconds.
+ *
+ * Introduced by ZIP 208 and activated with BLOSSOM in 2019, not by NU6 - an
+ * earlier version of this comment said NU6, which is a different upgrade five
+ * years later.
+ */
 const TARGET_BLOCK_SECONDS = 75;
 
 export function buildMempoolView(
@@ -54,7 +60,21 @@ export function buildMempoolView(
     return net > 0n ? acc + net : acc;
   }, 0n);
 
-  const conventional = reports.filter((r) => r.fingerprint.isZip317ConventionalFee);
+  /**
+   * How many transactions actually pay ZIP 317's conventional fee.
+   *
+   * NOT `fingerprint.isZip317ConventionalFee`, WHICH IS NOT A FEE TEST. The
+   * indexer sets that field from the WALLET GUESS
+   * (`leak-analyzer.ts`: `wallet === "ZCASHD_RUST" || wallet === "NIGHTHAWK"`),
+   * so a page built on it would tell a reader that N of M transactions pay the
+   * conventional fee when what it counted was how many looked like two
+   * particular wallets. That is a claim of fact derived from something else
+   * entirely.
+   *
+   * The fee and the action counts ARE on the report, so the test is done here:
+   * `feeZat === 5000 * max(2, logicalActions)`.
+   */
+  const conventional = reports.filter((r) => r.fingerprint.feeZat === conventionalFeeZat(logicalActionsOf(r)));
   const findingsHigh = reports.reduce((acc, r) => acc + r.findings.filter((f) => f.severity === "HIGH").length, 0);
 
   return {
@@ -77,6 +97,8 @@ export function buildMempoolView(
         crossings.length === 0
           ? "Nothing in the mempool crosses a pool boundary."
           : `${zecText(intoPool)} in, ${zecText(outOfPool)} out, across ${countText(crossings.length)} ${crossings.length === 1 ? "transaction" : "transactions"}.`,
+      // The fee total across the transactions that pay the conventional fee,
+      // which is the quantity the count beside it is about.
       conventionalFeeZat: conventional.reduce<bigint>((acc, r) => acc + r.fingerprint.feeZat, 0n),
       conventionalCount: conventional.length,
       findingsHigh,
@@ -140,7 +162,7 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
     lanes,
     valueBalanceText: net === 0n ? "no net crossing" : zecText(net < 0n ? -net : net),
     feeZat: r.fingerprint.feeZat,
-    logicalActions: r.fingerprint.outputCount + r.fingerprint.spendCount,
+    logicalActions: logicalActionsOf(r),
     // The indexer's own word for it, never re-derived here. `UNKNOWN_*` values
     // are passed through as they are: HANDOFF-05 found that two of the five
     // wallet tells could not fire at all before the RPC boundary was corrected,
@@ -153,4 +175,34 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
     class: klass,
     reasoning,
   };
+}
+
+/**
+ * ZIP 317's logical-action count, from what a `LeakReport` carries.
+ *
+ * THE OBVIOUS SUM DOUBLE-COUNTS ORCHARD. `FingerprintAnnotation.outputCount` is
+ * `vout + saplingOutputs + orchardActions` and `spendCount` is
+ * `vin + saplingSpends + orchardActions`, so `outputCount + spendCount` counts
+ * every Orchard action TWICE - and that doubled figure was rendered to the
+ * reader as the transaction's logical actions.
+ *
+ * This is the count-based approximation of ZIP 317's rule: the greater of the
+ * transparent input and output counts, plus the greater of the Sapling spends
+ * and outputs, plus the Orchard actions. It is exact for standard P2PKH
+ * transactions and understates a transaction with oversized scripts, because a
+ * `LeakReport` carries counts and not serialised sizes - `views/tx.ts` has the
+ * raw transaction and uses the size-based rule there. The two agree wherever
+ * both can be computed, which is what stops /track and /tx contradicting each
+ * other about the same transaction.
+ */
+function logicalActionsOf(r: LeakReport): number {
+  const transparent = Math.max(r.transparent.vin.length, r.transparent.vout.length);
+  const sapling = Math.max(r.bundle.saplingSpends.length, r.bundle.saplingOutputs.length);
+  return transparent + sapling + r.bundle.orchardActions.length;
+}
+
+/** ZIP 317's conventional fee for a count of logical actions. Mirrors `views/tx.ts`. */
+function conventionalFeeZat(logicalActions: number): bigint {
+  const actions = BigInt(logicalActions);
+  return (actions > 2n ? actions : 2n) * 5_000n;
 }

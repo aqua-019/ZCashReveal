@@ -7,8 +7,11 @@
  * says which network it belongs to. A mainnet gateway that answers for a
  * testnet address is answering about a chain it does not read.
  *
- * The four version prefixes are ZIP 316 / the Zcash protocol specification
- * section 5.6.1.1, and each is two bytes:
+ * The four version prefixes are the Zcash protocol specification section 5.6.1.1
+ * ("Transparent Addresses"), and each is two bytes. NOT ZIP 316, which an
+ * earlier version of this comment cited: ZIP 316 is the Unified Address
+ * specification and defines no transparent version bytes at all. ZIP 320, cited
+ * below for TEX, is the right reference for that one.
  *   mainnet P2PKH  0x1CB8  renders as t1
  *   mainnet P2SH   0x1CBD  renders as t3
  *   testnet P2PKH  0x1D25  renders as tm

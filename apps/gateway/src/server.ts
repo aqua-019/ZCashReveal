@@ -28,7 +28,7 @@ import type { ZebraRpc } from "@zcashreveal/zebra-rpc";
 import type { WebSocket } from "ws";
 
 import type { CacheStore } from "./cache.js";
-import { secretValues, type GatewayConfig } from "./config.js";
+import { secretValues, trustProxyFor, type GatewayConfig } from "./config.js";
 import type { GatewayApp } from "./routes/deps.js";
 import { registerReadRoutes } from "./routes/index.js";
 import { toStatus } from "./routes/errors.js";
@@ -71,6 +71,22 @@ export async function buildServer(options: BuildServerOptions): Promise<BuiltSer
     requestIdHeader: "x-request-id",
     requestIdLogLabel: "reqId",
     disableRequestLogging: false,
+    /**
+     * Whose `x-forwarded-for` to believe, and therefore what `req.ip` is.
+     *
+     * The rate limiter keys on `req.ip`. Behind a reverse proxy - which is the
+     * shipped topology, since HANDOFF-10 puts a cloudflared tunnel in front of
+     * this gateway - every request arrives from ONE address, so without this
+     * every reader shares one bucket and a single client denies service to all
+     * of them. Measured before this was set: ten requests with ten distinct
+     * `x-forwarded-for` values and one socket address filled one bucket of five
+     * and 429'd the rest.
+     *
+     * `false` unless an operator names the proxy, because blanket trust is
+     * worse than none: any caller could then forge the header and mint a fresh
+     * bucket per request, removing the limit rather than coarsening it.
+     */
+    trustProxy: trustProxyFor(cfg),
   });
 
   const redisClients: Redis[] = [];

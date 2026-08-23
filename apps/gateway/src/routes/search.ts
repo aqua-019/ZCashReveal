@@ -22,13 +22,27 @@
  * locally and why `docs/2.0/API.md` says in as many words that no client of
  * this site should ever call this endpoint with one.
  */
+import { searchKindSchema } from "@zcashreveal/types";
 import { z } from "zod";
 
 import type { GatewayApp, RouteDeps } from "./deps.js";
 import { badRequest } from "./errors.js";
+import { respond } from "../serialize.js";
 import { searchKind, hrefFor } from "../search-kind.js";
 
 const querySchema = z.object({ q: z.string().min(1, "q is required and cannot be empty") });
+
+/**
+ * This route's response DTO.
+ *
+ * Section 3 says every response is validated against the Zod DTOs before it is
+ * sent, and `packages/zec-types` has no shape for this one - it is the only
+ * endpoint whose answer is not a view the Tracking pages render. So the shape
+ * is declared here rather than left as the one unvalidated 200, and `kind`
+ * reuses `searchKindSchema` so the six answers cannot drift from the union the
+ * client narrows on.
+ */
+const searchResponseSchema = z.object({ kind: searchKindSchema, href: z.string().min(1).nullable() });
 
 export function registerSearchRoute(app: GatewayApp, _deps: RouteDeps): void {
   app.get("/search", (req, reply) => {
@@ -42,6 +56,6 @@ export function registerSearchRoute(app: GatewayApp, _deps: RouteDeps): void {
     }
     const kind = searchKind(parsed.data.q);
     // No `q` in the response, deliberately: see the header comment.
-    return { kind, href: hrefFor(parsed.data.q) };
+    return respond("/search", searchResponseSchema, { kind, href: hrefFor(parsed.data.q) });
   });
 }

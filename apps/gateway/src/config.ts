@@ -96,12 +96,44 @@ const Schema = z.object({
 
   /** WebSocket connection cap. The one over it is closed with 1013, Try Again Later. */
   GATEWAY_WS_MAX_CONNECTIONS: z.coerce.number().int().positive().default(500),
+
+  /**
+   * Addresses whose `x-forwarded-for` this gateway will believe.
+   *
+   * THE RATE LIMIT IS ONLY PER-IP IF THIS IS SET CORRECTLY. `@fastify/rate-limit`
+   * keys on `req.ip`, and behind a reverse proxy every request arrives from the
+   * proxy's address - so with this empty, one bucket is shared by every reader
+   * and a single client denies service to all of them. HANDOFF-10 puts a
+   * cloudflared tunnel in front of this gateway, which is exactly that topology.
+   *
+   * EMPTY IS THE DEFAULT AND IS THE SAFE ONE, not the convenient one. Blanket
+   * `trustProxy: true` would let ANY caller forge `x-forwarded-for` and mint a
+   * fresh bucket per request, which is worse than one shared bucket: it removes
+   * the limit entirely rather than making it coarse. So the value is a list of
+   * addresses or CIDR ranges, and an operator who deploys behind a tunnel sets
+   * it to the tunnel's address.
+   *
+   * Comma-separated, e.g. `127.0.0.1,10.0.0.0/8`.
+   */
+  GATEWAY_TRUSTED_PROXIES: z.string().default(""),
 });
 
 export type GatewayConfig = z.infer<typeof Schema>;
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): GatewayConfig {
   return Schema.parse(env);
+}
+
+/**
+ * What to pass Fastify as `trustProxy`.
+ *
+ * `false` when no proxy is configured, which makes `req.ip` the socket address
+ * and `x-forwarded-for` unforgeable. A list otherwise, which makes `req.ip` the
+ * forwarded address only for hops this gateway was told to believe.
+ */
+export function trustProxyFor(cfg: GatewayConfig): boolean | string[] {
+  const list = cfg.GATEWAY_TRUSTED_PROXIES.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+  return list.length === 0 ? false : list;
 }
 
 /**

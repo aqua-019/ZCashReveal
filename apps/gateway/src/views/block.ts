@@ -96,7 +96,16 @@ export function buildBlockView(block: BlockSource): BlockView {
               const first = addresses[0];
               const labelled = first === undefined ? null : labelFor(first);
               return {
-                k: labelled?.label ?? first ?? `output ${o.n}`,
+                // THE LABELLER AND ITS RANK TRAVEL WITH THE LABEL, always.
+                // Printing "ZIP 271 lockbox disbursement multisig" as a bare key
+                // states an attribution with no indication of who made it or how
+                // strongly it is held, which CLAUDE.md calls an identity claim -
+                // and the difference between a consensus label and a behavioural
+                // one is the whole of this site's argument about labelling.
+                k:
+                  labelled === null
+                    ? first ?? `output ${o.n}`
+                    : `${labelled.label} (${labelled.labeller}, rank ${labelled.rank})`,
                 v: zecText(BigInt(o.valueZat)),
                 muted: labelled === null,
               };
@@ -106,6 +115,6 @@ export function buildBlockView(block: BlockSource): BlockView {
     note:
       block.size === undefined
         ? "The node did not report this block's serialised size, so it is shown as zero rather than estimated."
-        : `${countText(block.tx.length)} transactions, ${countText(block.size)} bytes. Pool deltas are summed from the transactions in this block, and the transparent delta is their mirror image.`,
+        : `${countText(block.tx.length)} transactions, ${countText(block.size)} bytes. Every delta here is value CROSSING A POOL BOUNDARY, summed over this block's transactions, and the transparent delta is the pools' mirror image. It is not the transparent supply's net change: the block's coinbase issuance and the fees paid to the miner both move transparent value without crossing any boundary, and neither is counted.`,
   };
 }

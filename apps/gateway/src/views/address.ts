@@ -232,7 +232,10 @@ async function addressRow(ctx: ReadContext, address: string, tx: Parameters<type
         : direction === "z-to-t"
           ? `Value left ${lanes.filter((l) => l !== "transparent").join(" and ") || "a shielded pool"}. Where it came from inside is not estimated here: the estimators are HANDOFF-08's, and an estimate without its audit trail is not an estimate.`
           : "Transparent throughout. There is no pool side to estimate.",
-    exactness: direction === "t-to-t" || direction === "coinbase" ? "exact" : "bounded",
+    // A row whose debit is admittedly incomplete is not exact, whatever its
+    // direction: `exactness: "exact"` means the chain says so, and here the
+    // chain was asked and part of the answer could not be read.
+    exactness: unresolved ? "bounded" : direction === "t-to-t" || direction === "coinbase" ? "exact" : "bounded",
   };
 }
 
@@ -385,7 +388,13 @@ function reasoning(i: {
   const steps: AddressView["reasoning"] = [
     {
       title: "The address was decoded, not pattern-matched",
-      body: `Base58check decode gives a ${i.decoded.script.toUpperCase()} version byte pair for ${i.decoded.network}, and the checksum verifies. A regular expression would have said it looks like an address; this says it is one, and which chain it belongs to.`,
+      // A TEX address is bech32m and has no version byte pair at all. Saying
+      // "base58check ... version byte pair" for one describes a decode that did
+      // not happen, in the very step whose subject is that the decode DID.
+      body:
+        i.decoded.script === "tex"
+          ? `Bech32m decode gives the human-readable part for ${i.decoded.network} and a twenty-byte payload, and the checksum verifies. TEX addresses (ZIP 320) accept only transparent sources, which is an exchange-deposit tell. A regular expression would have said it looks like an address; this says it is one, and which chain it belongs to.`
+          : `Base58check decode gives a ${i.decoded.script.toUpperCase()} version byte pair for ${i.decoded.network}, and the checksum verifies. A regular expression would have said it looks like an address; this says it is one, and which chain it belongs to.`,
       confidence: "high",
     },
     {
