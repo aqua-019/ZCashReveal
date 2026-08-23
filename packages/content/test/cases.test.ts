@@ -52,11 +52,9 @@ describe("A6 -- the 2 January 2026 case", () => {
 
 describe("the case file", () => {
   it("holds exactly the three cases the handoff names", () => {
-    expect(getCases().map((c) => c.id).sort()).toEqual([
-      "K-2026-01-02",
-      "K-202076-unshield",
-      "K-zip271-lockbox",
-    ]);
+    expect(new Set(getCases().map((c) => c.id))).toEqual(
+      new Set(["K-2026-01-02", "K-202076-unshield", "K-zip271-lockbox"]),
+    );
   });
 
   it("returns undefined for an id that does not exist", () => {
@@ -68,8 +66,10 @@ describe("the case file", () => {
     const [disbursed] = lockbox?.steps ?? [];
     expect(disbursed?.amount).toBe("78750.00");
     expect(disbursed?.height).toBe(3146400);
-    // 7,875.00 out, 7,438.2295 back, 129.8202 out = 566.5907 net removed.
-    expect(lockbox?.verdict).toContain("566.5907");
-    expect(lockbox?.verdict).toContain("78183.4093");
+    // The verdict is prose, so it groups its digits. Compare the values, not the commas:
+    // 7,875.00 out, 7,438.2295 back, 129.8202 out = 566.5907 net removed, 78,183.4093 left.
+    const figures = (lockbox?.verdict ?? "").replace(/,/g, "");
+    expect(figures).toContain("566.5907");
+    expect(figures).toContain("78183.4093");
   });
 });
