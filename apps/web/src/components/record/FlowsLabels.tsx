@@ -109,7 +109,7 @@ export function FlowsEnd({ value }: { readonly value: string }) {
       <a className="fl-addr" href={`/flows#${label.id}`}>
         {shortAddress(label.address)}
       </a>
-      <span className="fl-cp">
+      <span className="cp">
         <Pill kind="label" /> {label.label}
       </span>
       <span className="fl-attrib">
@@ -155,7 +155,7 @@ export function FlowsLabelsTable() {
               head: "Label",
               cell: (l: AddressLabel) => (
                 <>
-                  <Pill kind="label" /> <span className="fl-cp">{l.label}</span>
+                  <Pill kind="label" /> <span className="cp">{l.label}</span>
                 </>
               ),
             },
@@ -173,7 +173,7 @@ export function FlowsLabelsTable() {
                       {TIER_LABEL[l.labeller]} · precedence {rank(l.labeller)}
                     </Chip>
                   )}
-                  <span className="fl-cp fl-gap-s">{l.method}</span>
+                  <span className="cp fl-gap-s">{l.method}</span>
                 </>
               ),
             },
@@ -193,7 +193,7 @@ export function FlowsLabelsTable() {
                       </>
                     )}
                   </span>
-                  {l.notes === undefined ? null : <span className="fl-cp">{l.notes}</span>}
+                  {l.notes === undefined ? null : <span className="cp">{l.notes}</span>}
                   <span className="fl-attrib">balance as at {l.lastVerified}</span>
                 </>
               ),
@@ -339,7 +339,7 @@ export function FlowsRichList() {
           {
             key: "read",
             head: "Behavioural read, inference only",
-            cell: (r: RichRow) => <span className="fl-cp">{r.read}</span>,
+            cell: (r: RichRow) => <span className="cp">{r.read}</span>,
           },
         ]}
         rows={RICH_LIST}

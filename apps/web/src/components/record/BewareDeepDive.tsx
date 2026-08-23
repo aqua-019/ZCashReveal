@@ -63,7 +63,7 @@ export function BewareDeepDive({
             needs a tab stop (axe: scrollable-region-focusable), and the eyebrow
             above already names it. aria-label on an element with no role is
             prohibited, and repeating the name would announce it twice. */}
-        <pre className="bw-code" style={{ marginTop: 10 }} tabIndex={0}>
+        <pre className="code" style={{ marginTop: 10 }} tabIndex={0}>
           {PATCH.map((line) => (
             <span className={`bw-${line.kind}`} key={line.text}>
               {line.text}

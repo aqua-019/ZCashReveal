@@ -86,6 +86,26 @@
   --t2: 320ms;
   --t3: 500ms;
 
+  /* -- card insets ---------------------------------------------------------
+     The five-step inset ladder, named. Every step is `vertical / vertical+2px`
+     and the vertical steps by 2px: 10, 12, 14, 16, 18. Panels get an inset from
+     this ladder and from nowhere else.
+
+     HANDOFF-03's design review counted SEVEN distinct card insets, which is
+     what happens when a ladder exists only as a literal repeated in
+     seventeen rules and nothing names it. LEDGER-03 Q5 assigns the collapse to
+     HANDOFF-04 deliverable 1; these names are what stops it drifting back.
+     `.entry` (20px 22px 18px) and `.pending` (22px 24px) were the two rungs
+     above the top of the ladder and are now step 5.
+
+     Deliberately NOT in the `@theme inline` bridge below: Tailwind's theme
+     namespaces take single values, and these are shorthand pairs. */
+  --inset-1: 10px 12px;
+  --inset-2: 12px 14px;
+  --inset-3: 14px 16px;
+  --inset-4: 16px 18px;
+  --inset-5: 18px 20px;
+
   /* -- measure ------------------------------------------------------------- */
   --measure: 64ch;
   --radius: 3px;

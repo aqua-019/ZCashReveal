@@ -257,13 +257,13 @@ export function FlowsTransfersTable() {
               key: "from",
               head: "From",
               cell: (r: Row) =>
-                r.kind === "chain" ? <FlowsEnd value={r.step.from} /> : <span className="fl-cp">{r.from}</span>,
+                r.kind === "chain" ? <FlowsEnd value={r.step.from} /> : <span className="cp">{r.from}</span>,
             },
             {
               key: "to",
               head: "To",
               cell: (r: Row) =>
-                r.kind === "chain" ? <FlowsEnd value={r.step.to} /> : <span className="fl-cp">{r.to}</span>,
+                r.kind === "chain" ? <FlowsEnd value={r.step.to} /> : <span className="cp">{r.to}</span>,
             },
             {
               key: "source",
@@ -291,7 +291,7 @@ export function FlowsTransfersTable() {
               head: "Proves, and does not prove",
               cell: (r: Row) => (
                 <>
-                  <span className="fl-cp">{r.kind === "chain" ? r.step.note : r.assessment}</span>
+                  <span className="cp">{r.kind === "chain" ? r.step.note : r.assessment}</span>
                   {r.kind === "chain" ? (
                     <FlowsClaim
                       id={r.caseIds[0] ?? "K-2026-01-02"}
@@ -421,7 +421,7 @@ export function FlowsReconstruction() {
           Fixed-width ledger. Each line is one transaction: time in UTC, the signed amount, and the two ends. The rule
           marks the December subtotal.
         </p>
-        <pre className="fl-code fl-gap-s">{buildLedger(kase)}</pre>
+        <pre className="code fl-code fl-gap-s">{buildLedger(kase)}</pre>
         <div className="fl-gap-s">
           <KV
             entries={[

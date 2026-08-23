@@ -24,7 +24,9 @@ import { Glass } from "@/components/ui/Glass";
  */
 
 /**
- * The three lines TRACKING-MATH section 4 states, in `.formula`. They are set
+ * The three lines TRACKING-MATH section 4 states, in `.code` - the site's one
+ * preformatted-block treatment, shared with the /beware diff and the /flows
+ * reconstruction ledger since the HANDOFF-04 de-duplication pass. They are set
  * as text rather than as an image or a typeset block: a reader who wants to
  * check the arithmetic should be able to select it.
  */
@@ -57,7 +59,7 @@ export function MethodPosterior() {
         four likelihoods, one distribution, one number
       </Eyebrow>
 
-      <pre className="formula mt-posterior">{POSTERIOR}</pre>
+      <pre className="code">{POSTERIOR}</pre>
 
       <dl className="kv mt-ladder" style={{ marginTop: 12 }}>
         {TERMS.map((t) => (

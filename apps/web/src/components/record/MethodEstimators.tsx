@@ -310,7 +310,7 @@ const ESTIMATORS: readonly Estimator[] = [
 /** One lineage cell: published work as a permalink, internal references as prose. */
 function LineageCell({ entries }: { readonly entries: readonly Lineage[] }) {
   return (
-    <div className="mt-lineage">
+    <div className="cp mt-lineage">
       {entries.map((e) => {
         if (e.kind === "internal") {
           return (

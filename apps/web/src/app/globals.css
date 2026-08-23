@@ -428,7 +428,7 @@ p {
 }
 
 .card {
-  padding: 18px 20px;
+  padding: var(--inset-5);
 }
 
 .hair {
@@ -648,7 +648,7 @@ p {
 
 /* ---------- metric ---------- */
 .metric {
-  padding: 16px 18px;
+  padding: var(--inset-4);
   border-left: 1px solid var(--line);
 }
 
@@ -700,6 +700,36 @@ p {
 
 .metrics .metric {
   flex: 1 1 180px;
+}
+
+/* ---------- the compact cell register (mockup `.cp`) ----------
+   Table cells across this site carry sentences, not values: what a transfer
+   proves, who applied a label and by what method, what a pool-side estimate did
+   and did not establish. They are set in mono at the mockup's 11px so the prose
+   reads as apparatus rather than as body copy, in --ink-dim rather than
+   --ink-mute because at 11px --ink-mute is the floor of AA and this is real
+   reading.
+
+   ONE register. HANDOFF-03 shipped two - `.fl-cp` on /flows and `.mt-lineage`
+   on /method - identical but for one declaration each, and both said in their
+   own comments that they were the mockup's `.cp`. This is that rule, under the
+   mockup's own name, in the shared layer where the tracking tables can reach
+   it. `.mt-lineage` survives as a width modifier only. */
+.cp {
+  display: block;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--ink-dim);
+}
+
+.cp b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.cp + .cp {
+  margin-top: 6px;
 }
 
 /* ---------- key/value ---------- */
@@ -1302,7 +1332,9 @@ canvas[data-ui="fog"] {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 20px 22px 18px;
+  /* Was 20px 22px 18px - a sixth rung above the ladder, used by nothing
+     else. Step 5, like every other card. */
+  padding: var(--inset-5);
   border: 1px solid var(--line);
   background: var(--surface);
   color: var(--ink);
@@ -1429,7 +1461,8 @@ canvas[data-ui="fog"] {
      already has. */
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 22px 24px;
+  /* Was 22px 24px - a seventh rung, used by nothing else. Step 5. */
+  padding: var(--inset-5);
   background: var(--bg-deep);
   display: flex;
   flex-direction: column;
@@ -1465,7 +1498,7 @@ canvas[data-ui="fog"] {
   background: rgba(26, 24, 22, 0.4);
 }
 
-.ledgerfoot .code {
+.ledgerfoot .lines {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1533,7 +1566,7 @@ canvas[data-ui="fog"] {
 }
 
 .cango .c {
-  padding: 14px 16px;
+  padding: var(--inset-3);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -1567,7 +1600,7 @@ canvas[data-ui="fog"] {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 16px 18px;
+  padding: var(--inset-4);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -1716,7 +1749,7 @@ canvas[data-ui="fog"] {
 
 .cite .cite-body {
   margin-top: 8px;
-  padding: 12px 14px;
+  padding: var(--inset-2);
   border: 1px solid var(--line);
   border-left: 2px solid var(--gold-dim);
   border-radius: var(--radius);
@@ -2140,7 +2173,7 @@ canvas[data-ui="fog"] {
 
 .contra .said,
 .contra .shows {
-  padding: 10px 12px;
+  padding: var(--inset-1);
   border-radius: var(--radius);
   border: 1px solid var(--line);
   font-size: 13px;
@@ -2283,7 +2316,7 @@ canvas[data-ui="fog"] {
 }
 
 .quarantine li {
-  padding: 12px 14px;
+  padding: var(--inset-2);
   border: 1px solid var(--line);
   border-left: 2px solid var(--warn);
   border-radius: var(--radius);
@@ -2344,18 +2377,36 @@ canvas[data-ui="fog"] {
   font-style: italic;
 }
 
-/* ---------- estimator and method tables ---------- */
-.formula {
-  font-family: var(--f-mono);
-  font-size: 13px;
-  color: var(--ink);
-  background: var(--surface-2);
+/* ---------- the preformatted block (mockup `pre.code`) ----------
+   ONE treatment for every block of preformatted monospace on this site: the
+   /beware unified diff, the /flows reconstruction ledger and the /method
+   posterior formula. HANDOFF-03 shipped three - `.formula`, `.bw-code` and
+   `.fl-code` - because four route stylesheets were written in parallel and
+   folded together afterwards; LEDGER-03 Q5 assigns the collapse to this
+   handoff, ahead of the tracking CSS, and A9 is what holds it.
+
+   The surviving declarations are the mockup's `pre.code` rule verbatim, which
+   is also `.bw-code`'s block unchanged - so /beware renders pixel-identically
+   by construction rather than by luck. `white-space` is not declared: every
+   consumer is a `<pre>`, where it is the user-agent default, and declaring it
+   was what made the three rules look less alike than they were.
+
+   Exactly one modifier survives beside it, `.fl-code`, and it carries one
+   declaration. See the note there. */
+.code {
+  margin: 0;
+  padding: var(--inset-3);
+  background: var(--bg-deep);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 10px 12px;
   overflow-x: auto;
-  white-space: pre;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-dim);
 }
+
+/* ---------- estimator and method tables ---------- */
 
 .refuses {
   font-size: 12.5px;
@@ -2385,8 +2436,11 @@ canvas[data-ui="fog"] {
    Every class below is namespaced by its route, so nothing here can collide
    with the shared layer above or with another route. The duplication the design
    review found between these blocks - three preformatted-mono treatments, two
-   compact-cell registers, seven card insets - is now visible in one file, which
-   is where it has to be before it can be collapsed. Recorded in section 8.
+   compact-cell registers, seven card insets - was collapsed by HANDOFF-04
+   deliverable 1 (LEDGER-03 Q5): the block is `.code`, the register is `.cp`,
+   and every panel inset is a rung of `--inset-1` .. `--inset-5`. A route layer
+   may still carry a modifier, but never a second copy of a shared pattern;
+   assertion A9 holds that, from both ends.
    ========================================================================== */
 
 /* ============================================================================
@@ -2474,33 +2528,21 @@ canvas[data-ui="fog"] {
 
 /* The unified diff, read as a two-colour diagram: what was there, what
    replaced it, and the framing comments that say why it mattered. It scrolls
-   inside itself - the page body never scrolls sideways. */
-.bw-code {
-  font-family: var(--f-mono);
-  font-size: 12px;
-  line-height: 1.6;
-  background: var(--bg-deep);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-  overflow-x: auto;
-  color: var(--ink-dim);
-  margin: 0;
-}
-
+   inside itself - the page body never scrolls sideways. The block itself is
+   the shared `.code` treatment; only the three diff colours are local. */
 /* The mockup sets the comment lines in #4F4840. That token is --ink-faint,
    which HANDOFF-03 section 3 (LEDGER-01 Q1, fold 4) reserves for non-text:
    3.05:1 on --bg-deep is below AA for 12px text. --ink-mute is the same ramp
    and clears it, and where the mockup and AA disagree, AA wins. */
-.bw-code .bw-c {
+.code .bw-c {
   color: var(--ink-mute);
 }
 
-.bw-code .bw-del {
+.code .bw-del {
   color: var(--danger);
 }
 
-.bw-code .bw-add {
+.code .bw-add {
   color: var(--ok);
 }
 
@@ -2601,8 +2643,11 @@ canvas[data-ui="fog"] {
    Every class below is namespaced by its route, so nothing here can collide
    with the shared layer above or with another route. The duplication the design
    review found between these blocks - three preformatted-mono treatments, two
-   compact-cell registers, seven card insets - is now visible in one file, which
-   is where it has to be before it can be collapsed. Recorded in section 8.
+   compact-cell registers, seven card insets - was collapsed by HANDOFF-04
+   deliverable 1 (LEDGER-03 Q5): the block is `.code`, the register is `.cp`,
+   and every panel inset is a rung of `--inset-1` .. `--inset-5`. A route layer
+   may still carry a modifier, but never a second copy of a shared pattern;
+   assertion A9 holds that, from both ends.
    ========================================================================== */
 
 /* ============================================================================
@@ -2693,7 +2738,7 @@ canvas[data-ui="fog"] {
   display: block;
   flex: 1 1 300px;
   max-width: 520px;
-  padding: 12px 14px;
+  padding: var(--inset-2);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -2748,7 +2793,7 @@ canvas[data-ui="fog"] {
 }
 
 .nw-ent-card {
-  padding: 14px 16px;
+  padding: var(--inset-3);
 }
 
 .nw-ent-card .ent .nw-role {
@@ -2825,8 +2870,11 @@ canvas[data-ui="fog"] {
    Every class below is namespaced by its route, so nothing here can collide
    with the shared layer above or with another route. The duplication the design
    review found between these blocks - three preformatted-mono treatments, two
-   compact-cell registers, seven card insets - is now visible in one file, which
-   is where it has to be before it can be collapsed. Recorded in section 8.
+   compact-cell registers, seven card insets - was collapsed by HANDOFF-04
+   deliverable 1 (LEDGER-03 Q5): the block is `.code`, the register is `.cp`,
+   and every panel inset is a rung of `--inset-1` .. `--inset-5`. A route layer
+   may still carry a modifier, but never a second copy of a shared pattern;
+   assertion A9 holds that, from both ends.
    ========================================================================== */
 
 /* ============================================================================
@@ -2919,7 +2967,7 @@ canvas[data-ui="fog"] {
   flex: 1 1 180px;
   display: grid;
   gap: 2px;
-  padding: 10px 12px;
+  padding: var(--inset-1);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -2941,7 +2989,8 @@ canvas[data-ui="fog"] {
 /* ---------- the estimator table ----------
    Two cells that carry more than a phrase: the statement, which pairs what an
    estimator computes with what it refuses to compute, and the lineage, which
-   is the mockup's `.cp` register - mono, dim, with the emphasised run in ink. */
+   is the mockup's `.cp` register - mono, dim, with the emphasised run in ink,
+   and is now that shared rule rather than a second copy of it. */
 .mt-statement {
   display: block;
   max-width: 54ch;
@@ -2962,17 +3011,9 @@ canvas[data-ui="fog"] {
   margin-top: 8px;
 }
 
+/* The register is `.cp`; the measure is this column's own. */
 .mt-lineage {
-  font-family: var(--f-mono);
-  font-size: 11px;
-  color: var(--ink-dim);
-  line-height: 1.55;
   max-width: 34ch;
-}
-
-.mt-lineage b {
-  color: var(--ink);
-  font-weight: 500;
 }
 
 /* An internal reference - a v0.2 module, a section of RESEARCH.md - is not a
@@ -2990,13 +3031,6 @@ canvas[data-ui="fog"] {
   display: block;
   max-width: 44ch;
   line-height: 1.7;
-}
-
-/* ---------- the posterior ----------
-   .formula already sets the mono block; a <pre> only needs its default margin
-   removed so the card's own inset governs the spacing. */
-.mt-posterior {
-  margin: 0;
 }
 
 /* ---------- the viewing-key ceremony ----------
@@ -3023,7 +3057,7 @@ canvas[data-ui="fog"] {
 }
 
 .mt-cell {
-  padding: 14px 16px;
+  padding: var(--inset-3);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -3069,8 +3103,11 @@ canvas[data-ui="fog"] {
    Every class below is namespaced by its route, so nothing here can collide
    with the shared layer above or with another route. The duplication the design
    review found between these blocks - three preformatted-mono treatments, two
-   compact-cell registers, seven card insets - is now visible in one file, which
-   is where it has to be before it can be collapsed. Recorded in section 8.
+   compact-cell registers, seven card insets - was collapsed by HANDOFF-04
+   deliverable 1 (LEDGER-03 Q5): the block is `.code`, the register is `.cp`,
+   and every panel inset is a rung of `--inset-1` .. `--inset-5`. A route layer
+   may still carry a modifier, but never a second copy of a shared pattern;
+   assertion A9 holds that, from both ends.
    ========================================================================== */
 
 /* ============================================================================
@@ -3090,29 +3127,6 @@ canvas[data-ui="fog"] {
    No `animation:` appears below, and no rule declares a transition. Assertion
    A6 measures `document.getAnimations().length === 0` on this page.
    ========================================================================== */
-
-/* ---------- the compact cell register (mockup `.cp`) ----------
-   Table cells on this page carry sentences, not values: what a transfer proves,
-   who applied a label and by what method, what a claim did and did not
-   establish. They are set in mono at the mockup's 11px so the prose reads as
-   apparatus rather than as body copy, in --ink-dim rather than --ink-mute
-   because at 11px --ink-mute is the floor of AA and this is real reading. */
-.fl-cp {
-  display: block;
-  font-family: var(--f-mono);
-  font-size: 11px;
-  line-height: 1.55;
-  color: var(--ink-dim);
-}
-
-.fl-cp b {
-  color: var(--ink);
-  font-weight: 500;
-}
-
-.fl-cp + .fl-cp {
-  margin-top: 6px;
-}
 
 /* The attribution line that sits under every rendered label: who applied it and
    at what precedence. Quieter than .fl-cp, and never absent - a label whose
@@ -3141,21 +3155,16 @@ canvas[data-ui="fog"] {
    A diagram made of monospace text: ten lines, column-aligned by spaces, with a
    hand-drawn rule marking the subtotal. It is preformatted text and stays
    preformatted text - reflowing it or converting it to a table destroys the
-   only thing it is for, which is that the arithmetic is visible. */
+   only thing it is for, which is that the arithmetic is visible.
+
+   The block is `.code`; this is the one declaration that is genuinely this
+   ledger's own. Ten lines at 12px, and A9 pins /flows to the pre-pass render,
+   so the 0.1 of leading is not something the collapse may quietly spend. Two
+   of the old rule's declarations were provably inert and are gone with it:
+   `white-space: pre` (the element is a `<pre>`) and `tab-size: 2`
+   (`buildLedger` aligns with spaces and emits no tab). */
 .fl-code {
-  margin: 0;
-  padding: 14px 16px;
-  background: var(--bg-deep);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  overflow-x: auto;
-  font-family: var(--f-mono);
-  font-size: 12px;
   line-height: 1.7;
-  color: var(--ink-dim);
-  font-variant-numeric: tabular-nums lining-nums;
-  white-space: pre;
-  tab-size: 2;
 }
 
 /* ---------- the false-inference warning (mockup `.warnbox`) ----------
@@ -3169,7 +3178,7 @@ canvas[data-ui="fog"] {
   border: 1px solid rgba(228, 85, 63, 0.45);
   background: var(--danger-wash);
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: var(--inset-3);
 }
 
 .fl-warn .eyebrow b {
