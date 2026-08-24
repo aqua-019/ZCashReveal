@@ -59,7 +59,8 @@ export function buildMempoolView(
   // THE TWO PRODUCERS OF THIS FIELD MEANT DIFFERENT THINGS BY IT, AND /track
   // RENDERS WHICHEVER MODE IT IS IN. This counted `class === "shielded"` alone
   // - the RESIDUAL class, the one a transaction lands in when it touched a pool
-  // and crossed no boundary - while `apps/web/src/lib/api/fixtures/mempool.ts`
+  // and none of the more specific labels fits it - while
+  // `apps/web/src/lib/api/fixtures/mempool.ts`
   // counted `shield | deshield | shielded` under the heading "anything that
   // touches a shielded pool and is not a migration". On thirteen rows that is 3
   // against 7, published as the same header string and the same headline tile.
@@ -94,9 +95,24 @@ export function buildMempoolView(
   // mempool of two migrations printed a gold-accented "0.0002 ZEC" tile above
   // the subtitle "Nothing in the mempool crosses a pool boundary." The tile and
   // its own caption have to be counted over the same set.
-  const crossings = entries.filter(
-    (e) => e.class === "shield" || e.class === "deshield" || e.class === "migration",
-  );
+  // COUNTED BY THE SAME FUNCTION THAT SUMS THE FIGURE, which is the only form
+  // of this that cannot drift. It was a filter over three CLASS names, and a
+  // class is a label the row producer derives - so narrowing the `migration`
+  // class in the round before dropped a real crossing out of this set while
+  // `crossingZat` below went on summing it over every report. A mempool holding
+  // one Sapling-to-Orchard transfer that also paid a transparent address then
+  // rendered a gold-accented "1.0000 ZEC" above the caption "Nothing in the
+  // mempool crosses a pool boundary." That is the identical self-contradiction
+  // the comment above records being fixed one handoff earlier, reintroduced
+  // from the other side by a change to a different file.
+  //
+  // `crossingOf` is the answer to "did value cross a pool boundary", so the
+  // caption asks it rather than asking what the row is called. A future class
+  // rename cannot separate the two again.
+  const crossings = reports.filter((r) => {
+    const c = crossingOf(r);
+    return c.into > 0n || c.out > 0n;
+  });
 
   // SUMMED OVER `perPoolZat`, NOT OVER TWO NAMED FIELDS. These read
   // `saplingValueBalanceZat + orchardValueBalanceZat`, so a JoinSplit moving
@@ -409,6 +425,19 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
             // PURE_SHIELDED. On a site whose thesis is that a transparent
             // transaction publishes its addresses, that is a false statement
             // about the transaction and not a missing one.
+            // AND `shielded` IS A RESIDUAL, NOT A CLAIM THAT NOTHING CROSSED.
+            // A pool crossing that also pays a transparent address lands here:
+            // it is not a migration (a public recipient stands in it), and
+            // neither `shield` nor `deshield` fits, because those name the
+            // direction of a transparent side this transaction has on only one
+            // end. The classifier's own answer for it is MIXED, which this
+            // six-member enum cannot say - so the row states the crossing in
+            // its finding text, its lanes and its `valueBalanceText`, and the
+            // class is the coarsest of the four. Adding a `mixed` member is
+            // the right fix and it is a DTO widening, which this handoff has
+            // now been bitten by three times in three gate rounds; it is
+            // written up in the report and asked as a ledger question rather
+            // than pushed through unreviewed.
             hasSprout || hasSapling || hasOrchard || hasIronwood
             ? "shielded"
             : "transparent";

@@ -666,6 +666,33 @@ describe("MIGRATION_S2O — still detectable, because both pools publish a balan
     expect(both.valueFlow.perPoolZat.map((p) => p.pool)).toEqual(["sapling", "orchard"]);
   });
 
+  it("FAIL STATE: Sapling draining while Orchard does not fill is not a migration", async () => {
+    // THE ORCHARD SIGN CLAUSE, TESTED BY A TRANSACTION A NODE CAN ACTUALLY
+    // SEND, which the "signs swapped" test above cannot do: it flips BOTH signs
+    // at once, so either clause alone refuses it and neither is shown to carry
+    // any weight. A gate round measured that - deleting either sign conjunct
+    // left the whole indexer suite green - which made the claim in this file's
+    // docblock, that removing the shape test "returns the two sign conjuncts to
+    // work", true of the code and false of the tests certifying it.
+    //
+    // This is the discriminating input: Sapling spends draining 500,000 zat
+    // entirely to fee, with an Orchard bundle of net zero - an internal Orchard
+    // shuffle in the same transaction. Nothing filled Orchard, so nothing
+    // migrated into it, and only `orchardValueBalanceZat < 0n` says so.
+    const report = await analyze(
+      saplingToOrchard({ saplingZat: 500_000, orchardZat: 0 }),
+      context(),
+    );
+    expect(report.leakClass).not.toBe("MIGRATION_S2O");
+
+    // Pass state on the same builder, so the fixture is not refusing everything.
+    const migration = await analyze(
+      saplingToOrchard({ saplingZat: 500_000, orchardZat: -490_000 }),
+      context(),
+    );
+    expect(migration.leakClass).toBe("MIGRATION_S2O");
+  });
+
   it("a coinbase is classified as one before any migration rule is consulted", async () => {
     // Order matters here: a shielded coinbase carries bundles and balances, and
     // "the miner shielded the subsidy" is the more specific fact about it.

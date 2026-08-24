@@ -285,6 +285,31 @@ describe("mempoolRow class - a migration is a migration, whichever direction it 
     expect(built.summary.migrations).toBe(0);
   });
 
+  it("a crossing that is not called a migration is still COUNTED as a crossing", () => {
+    // THE TILE AND ITS OWN CAPTION HAVE TO COUNT THE SAME SET, and narrowing
+    // the migration class in a different file separated them again. `crossings`
+    // filtered on three CLASS names while `crossingZat` summed `crossingOf`
+    // over every report, so this transaction - a real Sapling-to-Orchard
+    // crossing that also pays a transparent address - contributed 1 ZEC to the
+    // figure and nothing to the count. /track rendered a gold-accented
+    // "1.0000 ZEC" above the caption "Nothing in the mempool crosses a pool
+    // boundary." Both are now derived from `crossingOf`, so a class rename
+    // cannot separate them a third time.
+    const built = view({ ...saplingIntoOrchard, transparent: { vin: [], vout: [transparentOutput(0)] } });
+    expect(built.summary.crossingZat).toBeGreaterThan(0n);
+    expect(built.summary.crossingSplit).not.toBe("Nothing in the mempool crosses a pool boundary.");
+    expect(built.summary.crossingSplit).toContain("across 1 transaction");
+  });
+
+  it("FAIL SIDE: a mempool that really crosses nothing still says so", () => {
+    // The discriminating half. The fix must not be "always claim a crossing":
+    // a purely transparent transaction moves no pool, so the caption is the
+    // true one and the figure is zero.
+    const built = view(report({ txid: "ed", vin: 1, vout: 1 }));
+    expect(built.summary.crossingZat).toBe(0n);
+    expect(built.summary.crossingSplit).toBe("Nothing in the mempool crosses a pool boundary.");
+  });
+
   it("a pool crossing FUNDED from a transparent input is not a migration either", () => {
     // The mirror clause. A public funding address is the same fact as a public
     // recipient, arriving on the other side of the transaction.

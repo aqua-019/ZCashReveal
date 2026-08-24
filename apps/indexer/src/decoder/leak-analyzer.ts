@@ -793,8 +793,19 @@ function classifyLeak(input: {
   // someone else's test. So the clauses are gone rather than kept as
   // unreachable belt-and-braces, and their removal returns the two sign
   // conjuncts to work: while the shape test stood, `drained[0] === "sapling"`
-  // implied `saplingValueBalanceZat > 0n` and the sign clauses decided nothing,
-  // which quietly retired the FAIL STATE test that says they are load-bearing.
+  // implied `saplingValueBalanceZat > 0n` and the sign clauses decided nothing.
+  //
+  // THAT SENTENCE WAS TRUE OF THE CODE AND FALSE OF THE TESTS FOR ONE GATE
+  // ROUND, which is worth leaving in rather than tidying away. A reviewer
+  // deleted each sign conjunct in turn and the whole indexer suite stayed
+  // green: the only probe aimed at them, "the same transaction with the signs
+  // swapped", flips BOTH at once, so either clause alone refuses it and neither
+  // is shown to carry weight - while its comment says both are load-bearing.
+  // The discriminating input for the Orchard clause is a producible one and is
+  // now a test: Sapling spends draining entirely to fee beside an Orchard
+  // bundle of net zero, where nothing filled Orchard and only that clause says
+  // so. The Sapling clause still has no producible discriminator, and saying
+  // which of the two is covered is the point of writing this down.
   if (
     saplingSpendCount > 0 &&
     orchardActionCount > 0 &&

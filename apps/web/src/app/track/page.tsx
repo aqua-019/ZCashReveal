@@ -7,6 +7,7 @@ import { Block } from "@/components/ui/Block";
 import { Metric, MetricRow } from "@/components/ui/Metric";
 import { api, IS_FIXTURE } from "@/lib/api";
 import { fmtInt, zatToZecGrouped } from "@/lib/format";
+import { mempoolHeaderText, shieldedShareTile } from "@/lib/mempool-summary";
 
 export const metadata: Metadata = {
   title: "Track",
@@ -81,7 +82,7 @@ export default async function TrackPage() {
       <Block
         idx="A"
         title="Mempool"
-        right={`${fmtInt(s.unconfirmed)} unconfirmed - ${fmtInt(s.shielded)} shielded - ${fmtInt(s.migrations)} migrations - ${fmtInt(s.transparent)} transparent - fee weather: ${s.feeWeather}`}
+        right={mempoolHeaderText(s, s.feeWeather)}
       >
         <MetricRow>
           <Metric
@@ -91,16 +92,14 @@ export default async function TrackPage() {
           />
           <Metric
             label="shielded share"
-            // THE DENOMINATOR IS WHAT COULD BE DECODED, not everything
-            // unconfirmed - the same correction the conventional-fee tile below
-            // already carries, arriving here two handoffs later. It read
-            // `s.unconfirmed`, so a transaction the decoder declined to read
-            // counted against the shielded share: the tile said "7 of 13" about
-            // a mempool holding twelve readable transactions, seven of them
-            // shielded. An undecodable transaction is evidence of nothing, and
-            // a denominator is a claim as much as a numerator is.
-            value={`${Math.round((s.shielded / s.decodedCount) * 100)}%`}
-            sub={`by count - ${fmtInt(s.shielded)} of ${fmtInt(s.decodedCount)} decoded`}
+            // BOTH STRINGS COME FROM `shieldedShareTile`, and the page calling
+            // the same function the test calls is the point of it. The
+            // denominator is what could be DECODED, not everything unconfirmed
+            // - the correction the conventional-fee tile below already carries,
+            // arriving here two handoffs later - and the zero-denominator case
+            // is answered in words rather than as "NaN%".
+            value={shieldedShareTile(s).value}
+            sub={shieldedShareTile(s).sub}
           />
           <Metric
             label="value crossing boundaries"
