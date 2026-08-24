@@ -176,11 +176,36 @@ describe("which wallet signatures the fix actually revives, and which stay inert
     feeZat: 0n,
     hasOrchardBundle: true,
     hasSaplingBundle: false,
+    // No Ironwood by default. HANDOFF-07 made this a real input rather than an
+    // absent one, and YWALLET now requires it to be false: Ywallet's last
+    // release "will not be updated for Ironwood"
+    // (docs/2.0/research/01-contemporary-zcash.md §2.6), so a transaction
+    // carrying an Ironwood bundle is not Ywallet whatever its expiry delta.
+    hasIronwoodBundle: false,
+    ironwoodActionCount: 0,
   };
 
   it("YWALLET is now reachable, and was not before", () => {
     expect(guessWallet({ ...base, expiryDelta: 40 })).toBe("YWALLET");
     expect(guessWallet({ ...base, expiryDelta: null })).toBe("UNKNOWN_NONSTANDARD");
+  });
+
+  it("an Ironwood bundle rules YWALLET out and reaches ZODL instead", () => {
+    // THE ONLY EVIDENCE THAT SEPARATES THE TWO. TRACKING-MATH §3.6 gives
+    // Zashi/Zodl an expiry delta of 40, which sits inside Ywallet's sourced
+    // 35-50 band, so the delta alone cannot tell them apart. The corpus
+    // supplies the tiebreaker: Zodl 3.8.0 supports Ironwood and Ywallet 1.15.3
+    // "will not be updated for Ironwood" (§2.6, `med`).
+    const withIronwood = { ...base, hasIronwoodBundle: true, ironwoodActionCount: 2 };
+    expect(guessWallet({ ...withIronwood, expiryDelta: 40 })).toBe("ZODL");
+
+    // FAIL SIDE, AND IT DISCRIMINATES ON EACH HALF SEPARATELY. Remove the
+    // Ironwood bundle and the same delta is Ywallet again; keep the bundle and
+    // move the delta off 40 and it is neither, because ZODL's tell is a point
+    // value and Ywallet has been ruled out by the bundle.
+    expect(guessWallet({ ...base, expiryDelta: 40 })).toBe("YWALLET");
+    expect(guessWallet({ ...withIronwood, expiryDelta: 41 })).not.toBe("ZODL");
+    expect(guessWallet({ ...withIronwood, expiryDelta: 41 })).not.toBe("YWALLET");
   });
 
   it("ZECWALLET_LITE is now reachable, and was not before", () => {

@@ -230,15 +230,39 @@ function asNullableZat(v: unknown): bigint | null | undefined {
 }
 
 const LANES = new Set(["transparent", "sprout", "sapling", "orchard", "ironwood"]);
-const VERSIONS = new Set(["v4", "v5", "v6"]);
+// `unknown` IS A VALID VERSION SINCE HANDOFF-07, and it is here for exactly the
+// reason `undecoded` is in CLASSES below: a row the decoder refused cannot name
+// a version, and a guard that rejects the honest answer drops the whole
+// snapshot. The two sets sit three lines apart and the first widening missed
+// this one - which is the same half-widening the comment below is about,
+// repeated one field over in the same commit that wrote the comment.
+const VERSIONS = new Set(["v4", "v5", "v6", "unknown"]);
 const SEVERITIES = new Set(["INFO", "LOW", "MED", "HIGH"]);
-const CLASSES = new Set(["shield", "deshield", "shielded", "migration", "transparent"]);
+// `undecoded` IS A VALID CLASS SINCE HANDOFF-07 AND LEAVING IT OUT DROPPED THE
+// WHOLE SNAPSHOT. `asRow` returns null for an unknown class and `asView`
+// returns null for the whole view when any row is null, so one undecodable
+// transaction removed every other transaction from /track too - the exact
+// outcome the comment below says the relaxed `lanes` test exists to prevent.
+// The two checks were three lines apart and only one of them was widened.
+const CLASSES = new Set([
+  "shield",
+  "deshield",
+  "shielded",
+  "migration",
+  "transparent",
+  "undecoded",
+]);
 
 function asRow(v: unknown): MempoolRow | null {
   if (typeof v !== "object" || v === null) return null;
   const r = v as Record<string, unknown>;
   const feeZat = asNullableZat(r["feeZat"]);
-  const lanes = Array.isArray(r["lanes"]) && r["lanes"].length > 0 && r["lanes"].every((l) => typeof l === "string" && LANES.has(l))
+  // AN EMPTY LANE LIST IS A VALID ROW SINCE HANDOFF-07, so the length test is
+  // gone. It means the gateway could not say which pools the transaction
+  // touched - an `UNSUPPORTED_TX` report - and dropping such a row here would
+  // make an undecodable transaction vanish from /track rather than appear as
+  // one nobody could read. `Array.isArray` still rejects a malformed field.
+  const lanes = Array.isArray(r["lanes"]) && r["lanes"].every((l) => typeof l === "string" && LANES.has(l))
     ? (r["lanes"] as MempoolRow["lanes"])
     : null;
   const reasoning = Array.isArray(r["reasoning"]) && r["reasoning"].length > 0 && r["reasoning"].every(isText) ? (r["reasoning"] as string[]) : null;
@@ -251,7 +275,10 @@ function asRow(v: unknown): MempoolRow | null {
     lanes === null ||
     !isText(r["valueBalanceText"]) ||
     feeZat === undefined ||
-    !isCount(r["logicalActions"]) ||
+    // NULL IS LEGAL HERE, on the same terms as `feeZat` beside it: an
+    // undecoded row counted no logical actions, and `isCount` alone would
+    // reject the row and take the snapshot with it.
+    !(r["logicalActions"] === null || isCount(r["logicalActions"])) ||
     !isText(r["walletGuess"]) ||
     !isText(r["finding"]) ||
     typeof r["severity"] !== "string" ||
@@ -270,7 +297,7 @@ function asRow(v: unknown): MempoolRow | null {
     lanes,
     valueBalanceText: r["valueBalanceText"],
     feeZat,
-    logicalActions: r["logicalActions"],
+    logicalActions: r["logicalActions"] as number | null,
     walletGuess: r["walletGuess"],
     finding: r["finding"],
     severity: r["severity"] as MempoolRow["severity"],
@@ -301,6 +328,7 @@ function asView(v: unknown): MempoolView | null {
     !isCount(sum["shielded"]) ||
     !isCount(sum["migrations"]) ||
     !isCount(sum["transparent"]) ||
+    !isCount(sum["decodedCount"]) ||
     !isCount(sum["bytes"]) ||
     !isCount(sum["nextBlockSeconds"]) ||
     !isCount(sum["pricedCount"]) ||
@@ -320,6 +348,7 @@ function asView(v: unknown): MempoolView | null {
       shielded: sum["shielded"],
       migrations: sum["migrations"],
       transparent: sum["transparent"],
+      decodedCount: sum["decodedCount"],
       bytes: sum["bytes"],
       nextBlockSeconds: sum["nextBlockSeconds"],
       crossingZat,

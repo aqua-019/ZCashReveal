@@ -71,10 +71,22 @@ export type FeeUnavailableReason =
    */
   | "negative-fee"
   /**
-   * A v6 transaction may carry an Ironwood bundle whose value balance is a term
-   * in the conservation identity above, and decoding v6 is HANDOFF-07's
-   * deliverable. Omitting a term would not produce an approximate fee, it would
-   * produce a confidently wrong one, so the fee is refused instead.
+   * A v6 transaction carried no `ironwood` key, so this build cannot tell
+   * whether an Ironwood term belongs in the conservation identity.
+   *
+   * NARROWED IN HANDOFF-07, AND THE OLD FORM WOULD HAVE BEEN PERMANENT. Through
+   * HANDOFF-06 this fired on `tx.version >= 6 || "ironwood" in tx` - true for
+   * EVERY v6 transaction, forever, decoder or no decoder. Landing the Ironwood
+   * decoder without narrowing it would have left every transaction on the
+   * post-NU6.3 chain with `feeZat: null` and a reason saying the pool was not
+   * decoded, while the pool was being decoded three files away. A refusal that
+   * outlives its reason is the mirror image of a false zero: it publishes
+   * "unknown" about something known, and nothing fails.
+   *
+   * It now fires only where the ambiguity is real: a v6 transaction with no
+   * `ironwood` key at all. Under this build's belief about the wire that is the
+   * shape of a wrong field name, in which case the Ironwood balance really is
+   * unknown and a fee computed without it really would be confidently wrong.
    */
   | "ironwood-not-decoded"
   /** An input carries neither a `txid`/`vout` pair nor a coinbase script. */
@@ -113,14 +125,25 @@ const REFUSED = {
 /**
  * The net value the shielded bundles contribute to the transparent value pool.
  *
- * Sapling and Orchard publish a signed `valueBalance` each; Sprout is the
- * JoinSplit sum. Ironwood is absent by construction - see
- * `ironwood-not-decoded`, which is checked before this is called.
+ * ALL FOUR POOLS SINCE HANDOFF-07. Sapling, Orchard and Ironwood each publish a
+ * signed `valueBalance`; Sprout is the JoinSplit sum, because it has no such
+ * field. The Ironwood term was absent while the bundle was undecoded, and the
+ * guard that made that safe - refusing every v6 transaction outright - is
+ * narrowed in the same commit that adds the term. Narrowing the guard WITHOUT
+ * adding the term would have made every v6 fee wrong by the Ironwood balance,
+ * as a confident number rather than a null, which is precisely what this file's
+ * header spends three paragraphs refusing to do.
+ *
+ * The gateway's parallel term (`apps/gateway/src/views/context.ts`,
+ * `poolValueBalanceZat`) already included Ironwood, so until this commit the
+ * two apps priced a real Orchard-to-Ironwood transaction differently: /tx
+ * computed a fee and /track said it could not be priced. They agree now.
  */
 export function poolContributionZat(tx: RpcTransaction): Zatoshi {
   return (
     BigInt(tx.valueBalanceZat ?? 0) +
     BigInt(tx.orchard?.valueBalanceZat ?? 0) +
+    BigInt(tx.ironwood?.valueBalanceZat ?? 0) +
     sproutValueBalanceZat(tx)
   );
 }
@@ -128,15 +151,27 @@ export function poolContributionZat(tx: RpcTransaction): Zatoshi {
 /**
  * Whether this transaction carries value in a pool this build cannot read.
  *
- * Two independent signals, because either alone can be wrong: a v6 transaction
- * is the ZIP 229 format Ironwood needs, and the presence of an `ironwood` key
- * is what a node actually sends. The key is tested with `in` rather than read,
- * deliberately - this build has not verified Ironwood's serialised shape, and
- * asserting one through a cast is the defect that made `expiryheight` invisible
- * for the whole life of the project.
+ * NARROWED IN HANDOFF-07 FROM `tx.version >= 6 || "ironwood" in tx`, WHICH WAS
+ * TRUE OF EVERY v6 TRANSACTION AND WOULD HAVE STAYED TRUE FOREVER. That form
+ * was right while nothing decoded the bundle. Left alone after the decoder
+ * landed it would have refused a fee for the whole post-NU6.3 chain, with a
+ * reason string naming a gap that no longer existed - a permanent "unknown"
+ * about something known, which no test can catch because a refusal looks the
+ * same whether or not it is warranted.
+ *
+ * WHAT REMAINS AMBIGUOUS, AND IT IS A REAL AMBIGUITY. The `ironwood` field name
+ * is inferred rather than observed (see `packages/zebra-rpc/src/schemas.ts`).
+ * If it is wrong, a v6 transaction arrives with no such key and its Ironwood
+ * balance is genuinely unknown rather than zero - so a fee computed without the
+ * term would be confidently wrong. That is the one case left: v6, no `ironwood`
+ * key. Under the belief about the wire it never fires, because Zebra emits pool
+ * bundles unconditionally on the versions that have them; if the belief is
+ * wrong it fires on every v6 transaction and the fee coverage of the
+ * post-NU6.3 chain goes to zero, which is a loud failure rather than a silent
+ * wrong number. `leak-analyzer.ts` raises a finding on the same condition.
  */
 export function hasUndecodedIronwood(tx: RpcTransaction): boolean {
-  return tx.version >= 6 || "ironwood" in (tx as object);
+  return tx.version >= 6 && tx.ironwood === undefined;
 }
 
 /** Whether a transaction is a coinbase. Its single input carries a coinbase script. */

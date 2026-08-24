@@ -218,8 +218,58 @@ describe("the mempool summary is its own rows", () => {
     expect(s.unconfirmed).toBe(e.length);
     expect(s.migrations).toBe(e.filter((r) => r.class === "migration").length);
     expect(s.transparent).toBe(e.filter((r) => r.class === "transparent").length);
-    expect(s.shielded).toBe(e.length - s.migrations - s.transparent);
-    expect(s.shielded + s.migrations + s.transparent).toBe(s.unconfirmed);
+
+    // COUNTED BY CLASS, NOT RESTATED FROM THE FIXTURE'S OWN FORMULA. This line
+    // read `e.length - s.migrations - s.transparent`, which is the arithmetic
+    // the fixture uses to PRODUCE the number - so the test asserted that the
+    // fixture agrees with itself and passed no matter what the rows said. It
+    // stayed green while HANDOFF-07 added an `undecoded` row that the
+    // subtraction swept into `shielded`, moving /track's headline shielded
+    // share from 7 of 12 to 8 of 13 with one row nobody could decode.
+    expect(s.shielded).toBe(
+      e.filter((r) => r.class === "shield" || r.class === "deshield" || r.class === "shielded")
+        .length,
+    );
+  });
+
+  it("FAIL STATE: an undecoded row is counted into no bucket at all", () => {
+    // The discriminating half, and the one that would have caught the defect
+    // above on the day it landed. `undecoded` means the decoder declined to
+    // read the transaction, so it is evidence of nothing - not of shielded
+    // usage, not of transparent usage, not of a migration. The three counts
+    // therefore do NOT partition the rows, and asserting that they do is what
+    // forced the miscount: a partition is only available when every class
+    // belongs in one of the buckets, and this one belongs in none.
+    const undecoded = e.filter((r) => r.class === "undecoded");
+    expect(undecoded).toHaveLength(1);
+    expect(s.shielded + s.migrations + s.transparent).toBe(s.unconfirmed - undecoded.length);
+
+    // And the row itself claims nothing in the cells a reader sees.
+    expect(undecoded[0]?.version).toBe("unknown");
+    expect(undecoded[0]?.logicalActions).toBeNull();
+    expect(undecoded[0]?.feeZat).toBeNull();
+    expect(undecoded[0]?.lanes).toEqual([]);
+  });
+
+  it("the shielded share divides by what was decoded, not by every row", () => {
+    // THE SAME UNREADABLE TRANSACTION MOVED THIS STATISTIC TWICE, and the
+    // second move was made by the fix for the first. Counted into `shielded` it
+    // read "62% - 8 of 13"; taken out of the numerator but left in the
+    // denominator it read "54% - 7 of 13". Neither is a measurement of anything
+    // - a row that says "not decoded" in every cell is not evidence for
+    // shielded usage or against it - and the honest figure is over the twelve
+    // rows anyone could read.
+    expect(s.decodedCount).toBe(e.filter((r) => r.class !== "undecoded").length);
+    expect(s.decodedCount).toBe(s.unconfirmed - 1);
+    expect(s.shielded + s.migrations + s.transparent).toBe(s.decodedCount);
+
+    // The tile as /track renders it, so the number in this test is the number
+    // on the page rather than a restatement of the formula above it.
+    expect(`${Math.round((s.shielded / s.decodedCount) * 100)}% - ${s.shielded} of ${s.decodedCount}`).toBe(
+      "58% - 7 of 12",
+    );
+    // FAIL SIDE: the figure the wrong denominator produced.
+    expect(Math.round((s.shielded / s.unconfirmed) * 100)).toBe(54);
   });
 
   it("the conventional-fee count is ZIP 317 applied to the rows that could be priced", () => {
@@ -237,10 +287,16 @@ describe("the mempool summary is its own rows", () => {
     const priced = e.filter((r) => r.feeZat !== null);
     expect(s.pricedCount).toBe(priced.length);
     expect(priced).toHaveLength(11);
-    const conventional = priced.filter((r) => r.feeZat === conventionalFeeZat(r.logicalActions));
+    // A PRICED ROW ALWAYS COUNTED ITS ACTIONS, and that is asserted rather than
+    // assumed: `logicalActions` became nullable in HANDOFF-07 for the undecoded
+    // row, and a null reaching `conventionalFeeZat` would price it at the
+    // 10,000 floor and quietly call it conventional.
+    expect(priced.every((r) => r.logicalActions !== null)).toBe(true);
+    const L = (r: (typeof priced)[number]): number => r.logicalActions ?? -1;
+    const conventional = priced.filter((r) => r.feeZat === conventionalFeeZat(L(r)));
     expect(s.conventionalCount).toBe(conventional.length);
     expect(s.conventionalCount).toBe(10);
-    const odd = priced.filter((r) => r.feeZat !== conventionalFeeZat(r.logicalActions));
+    const odd = priced.filter((r) => r.feeZat !== conventionalFeeZat(L(r)));
     expect(odd).toHaveLength(1);
     expect(odd[0]?.logicalActions).toBe(1);
     expect(odd[0]?.feeZat).toBe(5_000n);

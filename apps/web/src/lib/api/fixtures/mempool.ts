@@ -51,6 +51,19 @@ const REASONING: Readonly<Record<MempoolRow["class"], readonly string[]>> = {
   shielded: [
     "Intra-pool. The public fields are nullifiers, commitments, anchor and fee. No amounts, no endpoints, and no estimate to make.",
   ],
+  /**
+   * The one class whose reasoning is not about a flow, because there is no flow
+   * to reason about. `undecoded` says the decoder declined to read the
+   * transaction's shape, so every number on the row is absent rather than zero,
+   * and the words here have to say that rather than describe a crossing. The
+   * gateway supplies its own reasoning for a real undecoded row, naming the
+   * version and the fields the node sent; this fixture text is what the panel
+   * shows when the class appears with no such detail.
+   */
+  undecoded: [
+    "The decoder does not model this transaction's version or bundle shape, so it declined to read it.",
+    "Nothing on this row is a measurement. The pools, the fee and the flow are absent rather than zero - reading a shape this build does not understand would produce numbers with no source.",
+  ],
 };
 
 /**
@@ -64,7 +77,7 @@ const REASONING: Readonly<Record<MempoolRow["class"], readonly string[]>> = {
 interface Row {
   readonly txid: string;
   readonly ageSeconds: number;
-  readonly version: "v4" | "v5" | "v6";
+  readonly version: "v4" | "v5" | "v6" | "unknown";
   readonly flow: string;
   readonly lanes: MempoolRow["lanes"];
   /**
@@ -86,7 +99,7 @@ interface Row {
    * priced" cell reached a gate round having been seen by nobody.
    */
   readonly feeZat: bigint | null;
-  readonly logicalActions: number;
+  readonly logicalActions: number | null;
   readonly walletGuess: string;
   readonly finding: string;
   readonly severity: MempoolRow["severity"];
@@ -285,6 +298,53 @@ const ROWS: readonly Row[] = [
     severity: "LOW",
     cls: "transparent",
   },
+  {
+    /**
+     * THE ONE ROW NOBODY COULD DECODE, and it is here for the same reason the
+     * unpriced row above it is: a branch nothing renders is a branch nobody has
+     * seen. The `undecoded` class was added to the DTO and to the gateway in
+     * HANDOFF-07 and the fixture corpus had no row carrying it, so the cheap
+     * frame guard in `stream.ts` could reject the class while
+     * `frame-guard.test.ts` - which iterates exactly these rows - stayed green.
+     * It did reject it, and a gate round found it: `asView` returns null for
+     * the whole view when any row is null, so one undecodable transaction
+     * removed the entire mempool from /track.
+     *
+     * Every field says an absence rather than a value, because that is what the
+     * class means: the decoder declined to read the transaction's shape, so its
+     * pools, its fee and its flow are unknown and not zero. `lanes` is empty -
+     * a swatch would claim the transaction touched that lane - and this is the
+     * only row in the corpus with no lane at all.
+     *
+     * THAT SENTENCE WAS FALSE IN TWO CELLS WHEN IT WAS FIRST WRITTEN, which is
+     * the reason it is worth reading twice rather than trusting. `version` said
+     * `v6` and `logicalActions` said `0`, and both are values. The DTO forced
+     * them: its version was a three-member enum and its action count was a
+     * plain count, so the honest answer could not be expressed and the row
+     * supplied the nearest expressible lie. Both fields gained a null state in
+     * the same commit. A docblock is not evidence that the fields under it obey
+     * it - only a gate round reading them one at a time is.
+     */
+    txid: "7e6d5c4b3a2f1e0d9c8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d",
+    ageSeconds: 61,
+    // `"unknown"`, not `"v6"`. The first draft of this row said `v6` two cells
+    // left of its own finding, "transaction version 7 is outside the range this
+    // decoder models (1 to 6)" - the row contradicted itself on the surface a
+    // reader sees, under a docblock claiming every field says an absence. A
+    // gate round found it here and in the gateway producer at the same time.
+    version: "unknown",
+    flow: "not decoded",
+    lanes: [],
+    valueBalanceText: "not measured",
+    feeZat: null,
+    // `null`, not `0`. "not priced - L = 0" is a measurement, and no
+    // transaction has L = 0 - ZIP 317 prices `max(2, L)`.
+    logicalActions: null,
+    walletGuess: "UNKNOWN_UNPRICED",
+    finding: "transaction version 7 is outside the range this decoder models (1 to 6)",
+    severity: "INFO",
+    cls: "undecoded",
+  },
 ];
 
 /** ZIP 317: the conventional fee is 5,000 zatoshi times max(2, L). */
@@ -314,8 +374,46 @@ const ENTRIES: readonly MempoolRow[] = ROWS.map((r) => ({
 
 const migrations = ROWS.filter((r) => r.cls === "migration").length;
 const transparent = ROWS.filter((r) => r.cls === "transparent").length;
-/** Anything that touches a shielded pool and is not a migration. */
-const shielded = ROWS.length - migrations - transparent;
+/**
+ * Anything that touches a shielded pool and is not a migration.
+ *
+ * COUNTED, NOT SUBTRACTED, AND THE DIFFERENCE COST FOUR POINTS OFF THE SITE'S
+ * HEADLINE STATISTIC. This read `ROWS.length - migrations - transparent`, which
+ * is correct only while every class is one of the three - and HANDOFF-07 added
+ * a sixth, `undecoded`, whose entire meaning is that it touches no pool. The
+ * subtraction swept it into `shielded`, so /track's header printed "13
+ * unconfirmed - 8 shielded" and the tile printed "62% - by count - 8 of 13"
+ * while only 7 rows touched a pool at all. The transaction whose own row says
+ * "not decoded", "not measured" and carries no lane swatch was being counted
+ * as evidence of shielded usage.
+ *
+ * This is HANDOFF-06's lesson arriving in a new file: widening a union runs
+ * arithmetic that the narrow union kept correct. A subtraction over a closed
+ * set is a silent assertion that the set is still closed, and nothing in
+ * TypeScript checks it - which is why the three counts below are now three
+ * predicates over the classes they name, and a seventh class would be absent
+ * from the summary rather than folded into one of them.
+ */
+const shielded = ROWS.filter(
+  (r) => r.cls === "shield" || r.cls === "deshield" || r.cls === "shielded",
+).length;
+
+/**
+ * How many rows the decoder read - the denominator a share of the mempool is
+ * out of.
+ *
+ * THE SAME UNREADABLE TRANSACTION MOVED THE HEADLINE STATISTIC TWICE, IN
+ * OPPOSITE DIRECTIONS, and the second move was made by the fix for the first.
+ * With the subtraction above, the undecoded row was counted as shielded and the
+ * tile printed "62% - 8 of 13". With the subtraction gone it left the
+ * numerator, stayed in the denominator, and the tile printed "54% - 7 of 13".
+ * The figure over the rows anyone could read is "58% - 7 of 12". A row that
+ * says "not decoded" in every cell cannot be evidence for shielded usage OR
+ * against it.
+ *
+ * `pricedCount` three fields down is the same rule, already learned once.
+ */
+const decodedCount = ROWS.filter((r) => r.cls !== "undecoded").length;
 /*
  * PRICED FIRST, and conventional only WITHIN the priced.
  *
@@ -328,7 +426,9 @@ const shielded = ROWS.length - migrations - transparent;
  * by the tile above this table.
  */
 const priced = ROWS.filter((r) => r.feeZat !== null);
-const conventional = priced.filter((r) => r.feeZat === conventionalFeeZat(r.logicalActions)).length;
+const conventional = priced.filter(
+  (r) => r.logicalActions !== null && r.feeZat === conventionalFeeZat(r.logicalActions),
+).length;
 const findingsHigh = ROWS.filter((r) => r.severity === "HIGH").length;
 
 const crossingBy = (kind: "t-to-z" | "z-to-t" | "o-to-i"): bigint =>
@@ -352,6 +452,7 @@ export const MEMPOOL_VIEW: MempoolView = {
     shielded,
     migrations,
     transparent,
+    decodedCount,
     bytes: 38_100,
     nextBlockSeconds: 41,
     crossingZat: tToZ + zToT + oToI,

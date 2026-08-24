@@ -411,11 +411,13 @@ call per request. It used to be a hardcoded `0`, which the site renders as
   "entries": [],
   "summary": {
     "unconfirmed": 0, "shielded": 0, "migrations": 0, "transparent": 0,
+    "decodedCount": 0,
     "bytes": 0,
     "nextBlockSeconds": 75,
     "crossingZat": "0",
     "crossingSplit": "Nothing in the mempool crosses a pool boundary.",
     "conventionalFeeZat": "10000",
+    "pricedCount": 0,
     "conventionalCount": 0,
     "findingsHigh": 0,
     "findingsNote": "No finding in the current mempool is rated HIGH.",
@@ -424,14 +426,34 @@ call per request. It used to be a hardcoded `0`, which the site renders as
 }
 ```
 
+`shielded` counts every transaction that touched a shielded pool without being
+a migration - classes `shield`, `deshield` and `shielded` together. Written down
+because the two producers of this field disagreed about it until HANDOFF-07: the
+gateway counted the residual class `shielded` alone and the fixture counted all
+three, so on thirteen rows one said 3 and the other said 7, under the same
+header string and the same headline tile. A `shield` transaction moved value
+INTO a pool, and counting it out of this number leaves it in no bucket at all.
+
+`decodedCount` is HANDOFF-07's, and it is the DENOMINATOR for any share of the
+mempool - not `unconfirmed`. A row of class `undecoded` is a transaction whose
+shape this build declined to read, so it is evidence of nothing; dividing by a
+total that includes it turns it into evidence AGAINST whatever is being
+measured. /track's shielded-share tile printed "8 of 13" while an undecoded row
+was miscounted into the numerator and "7 of 13" once it was taken out - four
+points of one statistic, manufactured twice from one unreadable transaction, in
+opposite directions. `pricedCount` below is the same rule, learned one handoff
+earlier for the fee tile.
+
 `conventionalFeeZat` is ZIP 317's conventional fee ITSELF, at the grace minimum
 of two logical actions - not a total of the fees anyone paid. /track prints it
 under the subtitle "zat - ZIP 317 at 2 logical actions", and the fixture the
 page ships with emits the same 10,000, so the label is true whichever producer
 is behind it. `conventionalCount` beside it is the quantity that varies: how
-many of `unconfirmed` pay the conventional fee for their own action count,
-computed from the fee and the actions rather than from the indexer's wallet
-guess.
+many of `pricedCount` - NOT of `unconfirmed` - pay the conventional fee for
+their own action count, computed from the fee and the actions rather than from
+the indexer's wallet guess. The denominator matters: the fee is not on the wire,
+so a mempool of twelve may have three transactions with a known fee, and "3 of
+12 conventional" would be a verdict on nine nobody priced.
 
 `nextBlockSeconds` is the 75-second target interval, and that is the correct
 answer to "how long until the next block" rather than a placeholder: block

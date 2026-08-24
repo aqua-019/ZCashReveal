@@ -1,5 +1,6 @@
 import type { Hex, Zatoshi } from "./transactions.js";
 import type { DecodedShieldedBundle, PoolPath, ShieldedPool } from "./shielded.js";
+import type { Zip318Denomination } from "./zip318.js";
 import type { ClaimAssessment } from "./analysis.js";
 
 /**
@@ -35,7 +36,26 @@ export type LeakClass =
   | "MIGRATION_S2O"
   | "MIGRATION_O2I"
   | "COINBASE_SHIELDED"
-  | "FULLY_TRANSPARENT";
+  | "FULLY_TRANSPARENT"
+  /**
+   * THE ONLY MEMBER THAT IS NOT A CLASSIFICATION. It is a refusal to classify.
+   *
+   * A transaction whose version this decoder does not model, or whose bundle it
+   * cannot read, gets this and nothing else: no value flow, no fingerprint, no
+   * findings about its shape. Every other member of this union asserts
+   * something about where value went, and asserting any of them about bytes
+   * nobody here understands would be a claim manufactured out of a gap - which
+   * is the one thing this project will not publish.
+   *
+   * A report carrying this class also carries {@link LeakReport.unsupported},
+   * and its quantitative fields are UNPOPULATED rather than measured. Read that
+   * object's presence, not the zeros, to know which it is.
+   *
+   * It is never a crash. Zebra will serialise transaction versions this build
+   * has never seen the moment a network upgrade defines one, and an indexer that
+   * throws on the first of them stops indexing the chain.
+   */
+  | "UNSUPPORTED_TX";
 
 export type Severity = "INFO" | "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
@@ -84,14 +104,31 @@ export interface ValueBalanceAnnotation {
   saplingValueBalanceZat: Zatoshi;
   orchardValueBalanceZat: Zatoshi;
   /**
-   * One entry per pool this transaction actually moved, built in a single place
-   * from the three fields above.
+   * Ironwood's value balance, in the same sign convention as the three above:
+   * positive means value LEFT the pool, negative means it entered.
    *
-   * A POOL THAT DID NOT MOVE DOES NOT APPEAR, and Ironwood does not appear at
-   * all yet - decoding a v6 bundle is HANDOFF-07's. That is the point of an
-   * array rather than a `Record<ShieldedPool, Zatoshi>`: a record would owe an
-   * `ironwood: 0n` on every transaction ever analysed, and a hardcoded zero
-   * renders as a measurement.
+   * DECODED SINCE HANDOFF-07, and until then this field did not exist rather
+   * than existing at zero - HANDOFF-06 argued that an `ironwoodValueBalanceZat:
+   * 0n` on every report would be a measurement nobody took, in the same shape as
+   * the `feeZat` of `0n` it spent its length removing. It is a measurement now.
+   *
+   * NEARLY EVERY VALUE HERE IS A NEGATIVE ONE, which is worth knowing when
+   * reading a chart across NU6.3. Ironwood was born at a balance of zero on 28
+   * July 2026 and value has flowed INTO it ever since, out of an Orchard that
+   * became exit-only in the same upgrade; a positive Ironwood balance is value
+   * leaving the newest pool, which is the rarer event.
+   */
+  ironwoodValueBalanceZat: Zatoshi;
+  /**
+   * One entry per pool this transaction actually moved, built in a single place
+   * from the four fields above.
+   *
+   * A POOL THAT DID NOT MOVE DOES NOT APPEAR. That is the point of an array
+   * rather than a `Record<ShieldedPool, Zatoshi>`: a record would owe an entry
+   * for every pool on every transaction, and a hardcoded zero renders as a
+   * measurement. Ironwood joined the other three in HANDOFF-07 on exactly those
+   * terms - present when the pool moved, absent when it did not, never a
+   * standing zero.
    *
    * Consumers that need per-pool deltas read THIS and not the named fields, so
    * there is one construction site and the two cannot come to disagree - which
@@ -156,6 +193,19 @@ export type WalletGuess =
   | "YWALLET"
   | "NIGHTHAWK"
   | "EDGE"
+  /**
+   * Zodl, the wallet ECC's Zashi was rebranded to after the team moved to ZODL.
+   *
+   * ADDED IN HANDOFF-07 AND IT IS THE ONLY ONE OF THE FIVE THE HANDOFF NAMED
+   * THAT COULD BE SOURCED. `docs/2.0/TRACKING-MATH.md` §3.6 gives an expiry
+   * delta for it - "zcashd 20, Zashi/Zodl 40" - and the corpus gives it
+   * Ironwood support at 3.8.0. Vizor, Zkool, Zingo and Cake have neither an
+   * expiry delta nor a padding rule anywhere in this repository, so they have
+   * no member here: a `WalletGuess` no rule can return is a branch that reads
+   * as covered and never runs, which is the defect this project keeps finding.
+   * See `fingerprint.ts` for what each of the four would need.
+   */
+  | "ZODL"
   /** Not one of the five signatures, but it paid ZIP 317's conventional fee. */
   | "UNKNOWN_BUT_STANDARD"
   /** Not one of the five, and its fee was MEASURED and found non-conventional. */
@@ -221,6 +271,99 @@ export interface LinkRecord {
   assessment?: ClaimAssessment;
 }
 
+/**
+ * A ZIP 318 Orchard-to-Ironwood crossing, as this decoder measured it.
+ *
+ * Present on a report only when `leakClass === "MIGRATION_O2I"`. Every field is
+ * an observation: the amount is public on-chain by ZIP 318's own design, and
+ * the denomination is derived from that amount and nothing else. Nothing here
+ * names, groups or counts a wallet - TRACKING-MATH §3.9 permits distributions
+ * and counts per window and forbids "wallet W migrated B", and a per-crossing
+ * record is where that rule is easiest to break.
+ */
+export interface Zip318MigrationRecord {
+  /**
+   * The magnitude that LEFT Orchard. Positive.
+   *
+   * This is the note the wallet spent, which is what ZIP 318's phase 1
+   * quantises and what the Orchard drain measures, so it is the side the
+   * denomination below is tested on.
+   */
+  amountZat: Zatoshi;
+  /**
+   * The magnitude that ENTERED Ironwood. Positive, and smaller than
+   * `amountZat` by the fee.
+   *
+   * RECORDED BECAUSE WHICH SIDE ZIP 318 MEANS BY "the net amount crossing
+   * between the pools" IS NOT SETTLED HERE. The corpus states `DENOM_CAP` both
+   * as "10,000 ZEC plus canonical fee" and as a flat 10,000, a difference that
+   * only makes sense if the two statements had different sides in mind. Both
+   * magnitudes are therefore kept, the fee is their difference, and the
+   * question is a deferred assumption rather than one closed by picking a side
+   * quietly.
+   */
+  arrivedZat: Zatoshi;
+  /**
+   * The canonical denomination, or `null` when the amount is not one.
+   *
+   * `null` IS THE MEASUREMENT, NOT A FAILURE TO MEASURE. ZIP 318's bucketing is
+   * a heuristic privacy defence, so an unquantised crossing is a real
+   * observation the migration lens counts; rounding it into the nearest bucket
+   * would manufacture the regularity the lens exists to measure.
+   */
+  denomination: Zip318Denomination | null;
+  /** `denomination !== null`. Mirrors `migrations_zip318.canonical`. */
+  canonical: boolean;
+  /**
+   * Whether the amount exceeds `DENOM_CAP` on the flat 10,000 ZEC reading.
+   *
+   * A FLAG FOR A HUMAN, NOT A VERDICT. The corpus states the cap two ways -
+   * 10,000 ZEC "plus canonical fee" in the research, a flat 10,000 in
+   * TRACKING-MATH §3.9 - so a crossing in the band between them is legal under
+   * one reading and over-cap under the other. See `ZIP318_DENOM_CAP_ZAT`.
+   */
+  overDenomCap: boolean;
+  /**
+   * Whether the amount is below `MAX_RESIDUAL_VALUE` (0.01 ZEC), the size ZIP
+   * 318 says is stranded in Orchard permanently.
+   *
+   * A SIZE COMPARISON, NOT A CONTRADICTION. A crossing smaller than the residual
+   * is something to look at, not something to suppress: the corpus's
+   * denomination ladder starts at 0.5 ZEC, so an amount below the residual can
+   * still be structurally canonical (`5 x 10^k` for a small k) while sitting
+   * off the ladder entirely. Recording both facts is what stops a histogram
+   * showing a rung the ladder does not have, labelled the same as the real ones.
+   */
+  belowMaxResidual: boolean;
+}
+
+/**
+ * Why a report carries `leakClass: "UNSUPPORTED_TX"` and what was seen.
+ *
+ * ITS PRESENCE IS THE SIGNAL THAT THE REPORT'S NUMBERS ARE UNPOPULATED. Every
+ * quantitative field on an unsupported report - value balances, per-pool
+ * deltas, transparent inflow, fee, action counts - is a default and not a
+ * measurement, because the decoder declined to read a shape it does not model.
+ * A consumer that renders such a report as data will publish zeros as facts,
+ * which is the failure mode this whole object exists to make impossible to miss.
+ */
+export interface UnsupportedTx {
+  /** The transaction version as the node reported it. */
+  version: number;
+  /** Which rule declined it, in one phrase, for a log line and a reader alike. */
+  reason: string;
+  /**
+   * The top-level keys the response actually carried, sorted.
+   *
+   * LOGGED BECAUSE THE NEXT VERSION'S FIELD NAMES ARE THE ONE THING THIS BUILD
+   * CANNOT GUESS, and a future handoff implementing v7 will want to know what a
+   * v7 looked like on the wire before anyone had a schema for it. Keys only:
+   * values could carry an amount or a script, and this project does not log
+   * transaction contents it has not classified.
+   */
+  rawFieldNames: string[];
+}
+
 export interface LeakReport {
   txid: Hex;
   seenAt: number;
@@ -243,6 +386,21 @@ export interface LeakReport {
   fingerprint: FingerprintAnnotation;
   findings: Finding[];
   links: LinkRecord[];
+  /**
+   * The ZIP 318 crossing this transaction is, when it is one.
+   *
+   * Present iff `leakClass === "MIGRATION_O2I"`. Optional rather than nullable
+   * so that a report predating HANDOFF-07, replayed out of the `report` JSONB
+   * column, is missing the key rather than carrying a `null` that would read as
+   * "measured, and it was not a migration".
+   */
+  migration?: Zip318MigrationRecord;
+  /**
+   * Why nothing on this report was measured, when nothing was.
+   *
+   * Present iff `leakClass === "UNSUPPORTED_TX"`. See {@link UnsupportedTx}.
+   */
+  unsupported?: UnsupportedTx;
 }
 
 export interface Finding {
@@ -263,4 +421,60 @@ export type FindingCode =
   | "WALLET_FINGERPRINT"
   | "MEMO_PRESENT"
   | "FULL_TRANSPARENT"
-  | "SHIELDED_COINBASE";
+  | "SHIELDED_COINBASE"
+  /**
+   * A post-NU6.2 Orchard bundle whose proof is not the canonical length.
+   *
+   * ZIP 257 fixed `proofsOrchard` at exactly `2720 + 2272 x nActionsOrchard`
+   * bytes when it replaced the Orchard Action verifying key
+   * (docs/2.0/research/01-contemporary-zcash.md §1.4, `high`). A length that
+   * disagrees is recorded and never thrown on: a consensus-valid chain cannot
+   * carry one, so seeing one means this decoder has miscounted the actions or
+   * misread the field, and the finding is how that surfaces instead of being
+   * hidden behind an exception or, worse, silently accepted.
+   */
+  | "PROOF_SIZE_NONCANONICAL"
+  /**
+   * The transaction's version or bundle shape is one this decoder does not
+   * model, so nothing was measured. Accompanies `leakClass: "UNSUPPORTED_TX"`,
+   * and ONLY that - see `IRONWOOD_FIELD_ABSENT` for the case that looks similar
+   * and is not.
+   */
+  | "UNSUPPORTED_TX_SHAPE"
+  /**
+   * A v6 transaction arrived carrying no `ironwood` key at all.
+   *
+   * A FACT ABOUT THE RESPONSE, ON A REPORT THAT WAS FULLY DECODED. Its class is
+   * whatever the transaction's other pools made it, and its numbers ARE
+   * measurements - which is why this cannot share `UNSUPPORTED_TX_SHAPE`, whose
+   * contract is that nothing on the report was measured. One code carrying two
+   * mutually exclusive facts makes neither countable, and a consumer using it
+   * as the "read the flag, not the zeros" signal would read a measured report
+   * as unmeasured.
+   *
+   * What it means depends on something this build cannot check: the `ironwood`
+   * field name is inferred rather than observed. Zebra emits pool bundles
+   * unconditionally on the versions that have them, so under that belief this
+   * fires on almost nothing; if the belief is wrong it fires on every v6
+   * transaction, and every Ironwood balance the project has published is a
+   * false zero. It is an all-or-nothing alarm, which is why both polarities
+   * are pinned by tests.
+   */
+  | "IRONWOOD_FIELD_ABSENT"
+  /**
+   * A ZIP 318 crossing whose amount is not a canonical denomination, or is
+   * outside the band the corpus describes. An observation about an amount and
+   * never about a sender - see `zip318.ts`.
+   */
+  | "MIGRATION_DENOMINATION"
+  /**
+   * The node did not say whether this transaction has JoinSplits.
+   *
+   * NOT A PROPERTY OF THE TRANSACTION - a property of the response. Zebra
+   * serialises `vjoinsplit` only from ZcashFoundation/zebra PR #9805 (merged
+   * 22 Aug 2025); an older node omits it on every transaction, so an absent
+   * field on a version that CAN carry JoinSplits (v2, v3, v4) leaves Sprout's
+   * contribution unknown rather than zero. Raised so a `sproutValueBalanceZat`
+   * of `0n` on such a transaction is never read as a measurement.
+   */
+  | "SPROUT_FIELD_INDETERMINATE";

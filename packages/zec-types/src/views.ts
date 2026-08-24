@@ -483,7 +483,8 @@ export const poolDeltaSchema = z.object({
 
 export const txViewSchema = z.object({
   txid: txidSchema,
-  version: z.enum(["v4", "v5", "v6"]),
+  /** See `mempoolRowSchema.version`: `unknown` rather than a clamp. */
+  version: z.enum(["v4", "v5", "v6", "unknown"]),
   height: heightSchema,
   stamp: stampSchema,
   leakClass: z.string().min(1),
@@ -552,7 +553,8 @@ export const blockViewSchema = z.object({
   transactions: z.array(
     z.object({
       txid: txidSchema,
-      version: z.enum(["v4", "v5", "v6"]),
+      /** See `mempoolRowSchema.version`: `unknown` rather than a clamp. */
+      version: z.enum(["v4", "v5", "v6", "unknown"]),
       flow: z.string().min(1),
       valueText: z.string().min(1),
       severity: severitySchema,
@@ -680,10 +682,42 @@ export const mempoolRowSchema = z.object({
   txid: txidSchema,
   /** Seconds since the entry was first seen. A count, so `number`. */
   ageSeconds: countSchema,
-  version: z.enum(["v4", "v5", "v6"]),
+  /**
+   * The transaction version as the table prints it.
+   *
+   * `"unknown"` IS NEW IN HANDOFF-07 AND IT IS THE ONLY HONEST ANSWER FOR A ROW
+   * THE DECODER REFUSED. The three-member enum forced the producer to name a
+   * version for every transaction, and the producer obliged with a clamp -
+   * `>= 6 ? "v6" : === 5 ? "v5" : "v4"` - so a version-7 transaction was
+   * published as `v6` in the cell two columns left of its own finding,
+   * "transaction version 7 is outside the range this decoder models (1 to 6)".
+   * A gate round reproduced it at both ends: version 7 printed `v6`, version 0
+   * printed `v4`.
+   *
+   * The clamp is false about real transactions as well as refused ones. Zcash
+   * shipped v1, v2 and v3 before Overwinter, and every one of them printed
+   * `v4` here - a version this site states as fact beside a txid a reader can
+   * look up. `versionText` now answers `unknown` outside 4-6 rather than
+   * rounding into the nearest member, which is the same rule the `undecoded`
+   * class states one field over: an absence is not a value.
+   */
+  version: z.enum(["v4", "v5", "v6", "unknown"]),
   /** "t to z", "z to t", "O to I", "mixed" - the flow as the table prints it. */
   flow: z.string().min(1),
-  lanes: z.array(ledgerSchema).min(1),
+  /**
+   * The lanes this transaction touched.
+   *
+   * EMPTY IS LEGAL SINCE HANDOFF-07 AND MEANS "NO LANE CAN BE CLAIMED". It was
+   * `.min(1)`, which sounds harmless and forced the producer to name a lane for
+   * every transaction including ones it had not decoded - so an `UNSUPPORTED_TX`
+   * report, whose bundles were never examined, fell through the producer's
+   * `if (lanes.length === 0) lanes.push("transparent")` and was drawn with a
+   * transparent swatch. A missing lane is a strong claim in this UI ("the
+   * transaction did not touch that pool") and a transparent swatch on an
+   * undecodable transaction is a stronger one, so the schema has to be able to
+   * express the third state: nothing is claimed.
+   */
+  lanes: z.array(ledgerSchema),
   valueBalanceText: z.string().min(1),
   /**
    * The fee, or `null` when it could not be computed.
@@ -695,11 +729,35 @@ export const mempoolRowSchema = z.object({
    * rule a renderer needs, in one line: print an absence, never a zero.
    */
   feeZat: zatSchema.nullable(),
-  logicalActions: countSchema,
+  /**
+   * ZIP 317's logical action count, or `null` when nothing counted them.
+   *
+   * NULLABLE SINCE HANDOFF-07, FOR THE REASON `feeZat` ABOVE IS. The producer's
+   * unsupported branch had to supply a number and supplied `0`, which the panel
+   * renders as "not priced - L = 0" - a stated measurement of zero logical
+   * actions for a transaction nobody decoded. No transaction has L = 0: ZIP
+   * 317's own floor is `max(2, L)`, so zero is not merely unlikely here, it is
+   * outside the quantity's range. The row that says "not decoded" in four other
+   * cells must be able to say it in this one.
+   */
+  logicalActions: countSchema.nullable(),
   walletGuess: z.string().min(1),
   finding: z.string().min(1),
   severity: severitySchema,
-  class: z.enum(["shield", "deshield", "shielded", "migration", "transparent"]),
+  /**
+   * What the row says this transaction is.
+   *
+   * `undecoded` IS NEW IN HANDOFF-07 AND IT IS NOT A KIND OF FLOW. It is the
+   * row's way of saying the decoder declined to read the transaction's shape,
+   * which the other five members cannot express: every one of them asserts
+   * something about where value went, and the producer recomputes them from a
+   * value flow that an `UNSUPPORTED_TX` report leaves empty. Without this
+   * member such a transaction was published as `transparent` / `t to t` /
+   * "no net crossing" / "Nothing this transaction publishes distinguishes it
+   * from any other of its shape" - four statements, all false, about a
+   * transaction nobody could decode.
+   */
+  class: z.enum(["shield", "deshield", "shielded", "migration", "transparent", "undecoded"]),
   reasoning: z.array(z.string().min(1)).min(1),
 });
 export type MempoolRow = z.infer<typeof mempoolRowSchema>;
@@ -709,9 +767,37 @@ export const mempoolViewSchema = z.object({
   entries: z.array(mempoolRowSchema),
   summary: z.object({
     unconfirmed: countSchema,
+    /**
+     * How many transactions touched a shielded pool without being a migration:
+     * `shield`, `deshield` and `shielded` together.
+     *
+     * WRITTEN DOWN BECAUSE THE TWO PRODUCERS OF THIS FIELD DISAGREED ABOUT IT,
+     * exactly as `conventionalFeeZat` below records for its own field. The
+     * gateway counted the residual class `shielded` alone and the fixture
+     * counted all three, so on thirteen rows one said 3 and the other said 7 -
+     * and /track renders whichever `NEXT_PUBLIC_DATA_MODE` selects, under the
+     * same header string and the same headline tile. A `shield` transaction
+     * moved value INTO a shielded pool; counting it out of this number leaves
+     * it in no bucket at all.
+     */
     shielded: countSchema,
     migrations: countSchema,
     transparent: countSchema,
+    /**
+     * How many transactions the decoder actually read - the denominator any
+     * share of the mempool is out of.
+     *
+     * NOT `unconfirmed`, for the reason `pricedCount` below is not `unconfirmed`
+     * either. An `undecoded` row is a transaction whose shape this build
+     * declined to read, so it is evidence of nothing; dividing by a total that
+     * includes it turns it into evidence AGAINST whatever is being measured.
+     * /track's shielded-share tile printed "8 of 13" while an undecoded row was
+     * miscounted INTO the numerator and "7 of 13" once it was taken out - four
+     * points of one statistic, manufactured twice from a single unreadable
+     * transaction, in opposite directions. The honest figure is out of the
+     * twelve anyone could read.
+     */
+    decodedCount: countSchema,
     bytes: countSchema,
     nextBlockSeconds: countSchema,
     /** Value crossing a boundary in the current mempool, split by direction. */

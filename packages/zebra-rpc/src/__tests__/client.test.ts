@@ -162,7 +162,11 @@ describe("results - validation at the boundary", () => {
     const { rpc } = client([OK({ ...rawTx(), authdigest: "ff".repeat(32), ironwood: { actions: [], valueBalanceZat: 0 } })]);
     const tx = await rpc.getRawTransaction(hex64("ab"));
     expect((tx as unknown as { authdigest: string }).authdigest).toBe("ff".repeat(32));
-    expect((tx as unknown as { ironwood: unknown }).ironwood).toBeDefined();
+    // Read through the DECLARED field since HANDOFF-07. The cast this
+    // replaces would have passed even if the client had stripped the bundle
+    // and something else had put an `ironwood` key back.
+    expect(tx.ironwood).toBeDefined();
+    expect(tx.ironwood?.actions).toEqual([]);
   });
 
   it("rejects a zatoshi amount that has been through a double", async () => {

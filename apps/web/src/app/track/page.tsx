@@ -7,6 +7,7 @@ import { Block } from "@/components/ui/Block";
 import { Metric, MetricRow } from "@/components/ui/Metric";
 import { api, IS_FIXTURE } from "@/lib/api";
 import { fmtInt, zatToZecGrouped } from "@/lib/format";
+import { mempoolHeaderText, shieldedShareTile } from "@/lib/mempool-summary";
 
 export const metadata: Metadata = {
   title: "Track",
@@ -81,7 +82,7 @@ export default async function TrackPage() {
       <Block
         idx="A"
         title="Mempool"
-        right={`${fmtInt(s.unconfirmed)} unconfirmed - ${fmtInt(s.shielded)} shielded - ${fmtInt(s.migrations)} migrations - ${fmtInt(s.transparent)} transparent - fee weather: ${s.feeWeather}`}
+        right={mempoolHeaderText(s, s.feeWeather)}
       >
         <MetricRow>
           <Metric
@@ -91,8 +92,14 @@ export default async function TrackPage() {
           />
           <Metric
             label="shielded share"
-            value={`${Math.round((s.shielded / s.unconfirmed) * 100)}%`}
-            sub={`by count - ${fmtInt(s.shielded)} of ${fmtInt(s.unconfirmed)}`}
+            // BOTH STRINGS COME FROM `shieldedShareTile`, and the page calling
+            // the same function the test calls is the point of it. The
+            // denominator is what could be DECODED, not everything unconfirmed
+            // - the correction the conventional-fee tile below already carries,
+            // arriving here two handoffs later - and the zero-denominator case
+            // is answered in words rather than as "NaN%".
+            value={shieldedShareTile(s).value}
+            sub={shieldedShareTile(s).sub}
           />
           <Metric
             label="value crossing boundaries"

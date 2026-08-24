@@ -339,30 +339,57 @@ describe("fold 5 — the refusals, which are the point of the function", () => {
     expect(fee.reason).toBe("malformed-input");
   });
 
-  it("a v6 transaction refuses with ironwood-not-decoded, before any lookup", async () => {
-    // A v6 transaction may carry an Ironwood bundle whose value balance is a
-    // term in the identity above, and decoding v6 is HANDOFF-07's deliverable.
-    // Omitting a term would not give an approximate fee, it would give a
-    // confidently wrong one - so the fee is refused even though every input
-    // here resolves.
+  it("a v6 transaction WITH an ironwood bundle is priced, and the bundle is a term in the fee", async () => {
+    // THE REFUSAL THIS REPLACES WOULD HAVE BECOME PERMANENT. Through HANDOFF-06
+    // `hasUndecodedIronwood` was `tx.version >= 6 || "ironwood" in tx`, true of
+    // every v6 transaction forever, and the guard was correct only because
+    // nothing decoded the bundle. Left alone after HANDOFF-07 landed the
+    // decoder it would have refused a fee for the entire post-NU6.3 chain while
+    // naming a gap that no longer existed - an "unknown" published about
+    // something known, which no test catches because a refusal looks the same
+    // whether or not it is warranted.
+    //
+    // The bundle is a real term: 100,000 spent, 90,000 paid out, and 5,000
+    // leaving Ironwood for the transparent side gives a fee of 15,000.
+    const tx: RpcTransaction = {
+      ...txn({ version: 6, vin: [spendOf(PREV_A)], vout: [payTo(90_000)] }),
+      ironwood: { actions: [], valueBalanceZat: 5_000 },
+    };
+    const fee = await computeFeeZat(tx, mapResolver([[PREV_A, 0, 100_000n]]));
+
+    expect(hasUndecodedIronwood(tx)).toBe(false);
+    expect(fee.feeZat).toBe(15_000n);
+  });
+
+  it("FAIL SIDE: a v6 transaction with NO ironwood key still refuses, because that is where the doubt is", async () => {
+    // The one case the narrowed guard keeps, and it is a real one. The
+    // `ironwood` field NAME is inferred rather than observed - nothing in this
+    // repository has seen a real Ironwood bundle - so a v6 arriving without the
+    // key is the shape a wrong guess would take, and the Ironwood balance is
+    // then genuinely unknown rather than zero. A fee computed without the term
+    // would be confidently wrong, which is worse than no fee.
     const tx = txn({ version: 6, vin: [spendOf(PREV_A)], vout: [payTo(90_000)] });
     const fee = await computeFeeZat(tx, mapResolver([[PREV_A, 0, 100_000n]]));
 
+    expect(hasUndecodedIronwood(tx)).toBe(true);
     expect(fee.feeZat).toBeNull();
     expect(fee.reason).toBe("ironwood-not-decoded");
-    expect(hasUndecodedIronwood(tx)).toBe(true);
   });
 
-  it("an `ironwood` key on a v5 transaction refuses too, because the key is what a node sends", async () => {
-    // Two independent signals, because either alone can be wrong: the version
-    // is the ZIP 229 format Ironwood needs, and the key is what actually
-    // arrives. The key is tested with `in` rather than read - asserting an
-    // unverified serialised shape through a cast is the defect that made
-    // `expiryheight` invisible for the whole life of the project.
-    const tx = { ...txn({ vin: [], vout: [] }), ironwood: { actions: [] } } as RpcTransaction;
-    const fee = await computeFeeZat(tx, mapResolver([]));
-
-    expect(fee.reason).toBe("ironwood-not-decoded");
+  it("an `ironwood` key on a v5 transaction no longer refuses the fee - it is a shape refusal instead", async () => {
+    // The old rule refused the FEE for a v5 carrying an Ironwood key, on the
+    // grounds that the key is what a node actually sends. That refusal is in
+    // the wrong place: an Ironwood bundle on a version that predates Ironwood
+    // is not a pricing problem, it is a transaction whose shape contradicts its
+    // own format, and `dispatchByVersion` declines to classify it at all. So
+    // the fee function no longer has an opinion about it, and the decoder's
+    // UNSUPPORTED_TX path does. Both halves are asserted so the responsibility
+    // is visibly moved rather than dropped.
+    const tx: RpcTransaction = {
+      ...txn({ version: 5, vin: [], vout: [] }),
+      ironwood: { actions: [], valueBalanceZat: 0 },
+    };
+    expect(hasUndecodedIronwood(tx)).toBe(false);
     expect(hasUndecodedIronwood(txn({ version: 5 }))).toBe(false);
   });
 

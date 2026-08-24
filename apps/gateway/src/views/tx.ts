@@ -134,13 +134,12 @@ export async function buildTxView(
   if ((tx.orchard?.actions.length ?? 0) > 0) {
     deltas.push({ pool: "orchard", deltaZat: BigInt(tx.orchard?.valueBalanceZat ?? 0) });
   }
-  const ironwood = (tx as unknown as { ironwood?: { actions?: unknown[]; valueBalanceZat?: number } }).ironwood;
-  if ((ironwood?.actions?.length ?? 0) > 0) {
-    deltas.push({ pool: "ironwood", deltaZat: BigInt(ironwood?.valueBalanceZat ?? 0) });
+  if ((tx.ironwood?.actions.length ?? 0) > 0) {
+    deltas.push({ pool: "ironwood", deltaZat: BigInt(tx.ironwood?.valueBalanceZat ?? 0) });
   }
   // Sprout, which is a JoinSplit sum rather than a `valueBalance` field and was
   // therefore missing entirely from the first version of this list.
-  if (((tx as unknown as { vjoinsplit?: unknown[] }).vjoinsplit?.length ?? 0) > 0) {
+  if ((tx.vjoinsplit?.length ?? 0) > 0) {
     deltas.push({ pool: "sprout", deltaZat: sproutValueBalanceZat(tx) });
   }
 

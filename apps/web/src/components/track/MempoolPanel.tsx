@@ -43,8 +43,16 @@ const LANE_VAR: Readonly<Record<string, string>> = {
  * has to read correctly alone: this table carries no sr-only twin, so the cell
  * text and the caption are the whole of what a screen reader is given.
  */
-function fmtFeeAndActions(feeZat: bigint | null, logicalActions: number): string {
+function fmtFeeAndActions(feeZat: bigint | null, logicalActions: number | null): string {
+  // BOTH HALVES CAN BE ABSENT, AND THE L TERM HAS ITS OWN NULL FOR THE SAME
+  // REASON THE FEE DOES. A row the decoder refused has no action count either,
+  // and the first draft printed "not priced - L = 0" for it: an unpriced fee
+  // beside a measured zero, in one cell, about a transaction nobody read. ZIP
+  // 317 prices `max(2, L)`, so no transaction has L = 0 - the zero was not a
+  // low reading, it was outside the quantity's range.
+  if (feeZat === null && logicalActions === null) return "not decoded";
   if (feeZat === null) return `not priced - L = ${logicalActions}`;
+  if (logicalActions === null) return `${fmtInt(Number(feeZat))} - L not counted`;
   return `${fmtInt(Number(feeZat))} to ${logicalActions}`;
 }
 
@@ -222,9 +230,13 @@ export function MempoolPanel({ initial }: { readonly initial: MempoolView }) {
                   {
                     k: "fee",
                     v:
-                      detail.feeZat === null
-                        ? `not priced - L = ${detail.logicalActions} logical actions`
-                        : `${fmtInt(Number(detail.feeZat))} zat to L = ${detail.logicalActions} logical actions`,
+                      detail.feeZat === null && detail.logicalActions === null
+                        ? "not decoded, so neither the fee nor the logical actions were counted"
+                        : detail.feeZat === null
+                          ? `not priced - L = ${detail.logicalActions} logical actions`
+                          : detail.logicalActions === null
+                            ? `${fmtInt(Number(detail.feeZat))} zat, logical actions not counted`
+                            : `${fmtInt(Number(detail.feeZat))} zat to L = ${detail.logicalActions} logical actions`,
                   },
                   { k: "wallet guess", v: detail.walletGuess },
                   { k: "severity", v: <Sev level={detail.severity} /> },

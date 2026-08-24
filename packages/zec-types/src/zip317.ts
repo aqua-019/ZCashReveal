@@ -68,12 +68,14 @@ export const ZIP317_GRACE_ACTIONS = 2n;
 /**
  * The number of logical actions ZIP 317 assigns to a transaction.
  *
- * Ironwood actions are counted when present. The bundle is read through a
- * narrow structural type rather than a declared field on `RpcTransaction`,
- * because this build has not verified Ironwood's serialised shape against a
- * node - HANDOFF-07 owns v6 decoding. Counting a list is safe in a way that
- * reading a value out of it would not be: a wrong count is visible in a
- * logical-action figure, a wrong value balance is money.
+ * Ironwood actions are counted when present, and since HANDOFF-07 they are read
+ * off a DECLARED field. This function used to reach the bundle through
+ * `(tx as unknown as { ironwood?: ... })`, because `RpcTransaction` did not
+ * carry it and this build had not verified Ironwood's serialised shape - the
+ * count was defended at the time on the grounds that a wrong count is visible
+ * in a logical-action figure while a wrong value balance is money. The cast is
+ * gone: `ironwood` is declared here and validated at the RPC boundary, so the
+ * shape is checked against the wire in one place instead of asserted at two.
  */
 export function zip317LogicalActions(tx: RpcTransaction): number {
   const inSize = tx.vin.reduce((acc, v) => acc + transparentInputSize(v), 0);
@@ -86,7 +88,7 @@ export function zip317LogicalActions(tx: RpcTransaction): number {
   const joinsplits = tx.vjoinsplit?.length ?? 0;
   const sapling = Math.max(tx.vShieldedSpend?.length ?? 0, tx.vShieldedOutput?.length ?? 0);
   const orchard = tx.orchard?.actions.length ?? 0;
-  const ironwood = (tx as unknown as { ironwood?: { actions?: unknown[] } }).ironwood?.actions?.length ?? 0;
+  const ironwood = tx.ironwood?.actions.length ?? 0;
 
   return transparent + 2 * joinsplits + sapling + orchard + ironwood;
 }
@@ -131,7 +133,7 @@ export function zip317LogicalActionsP2pkhApproximation(tx: RpcTransaction): numb
   const joinsplits = tx.vjoinsplit?.length ?? 0;
   const sapling = Math.max(tx.vShieldedSpend?.length ?? 0, tx.vShieldedOutput?.length ?? 0);
   const orchard = tx.orchard?.actions.length ?? 0;
-  const ironwood = (tx as unknown as { ironwood?: { actions?: unknown[] } }).ironwood?.actions?.length ?? 0;
+  const ironwood = tx.ironwood?.actions.length ?? 0;
 
   return transparent + 2 * joinsplits + sapling + orchard + ironwood;
 }

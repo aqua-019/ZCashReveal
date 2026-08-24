@@ -46,10 +46,28 @@ export const ROUND_TRIP_BLOCK: BlockView = {
   stamp: at({ y: 2026, mo: 1, d: 2, h: 18, mi: 53, s: 18 }),
   txCount: 7,
   sizeBytes: 21_448,
+  /**
+   * IRONWOOD IS ABSENT FROM THIS LIST, AND ITS ABSENCE IS THE CORRECT FACT.
+   *
+   * This block is at height 3,191,051 and NU6.3 activated at 3,428,143, so the
+   * Ironwood pool did not exist here. The row said `{ pool: "ironwood",
+   * deltaZat: 0n }` and `/block/[height]` renders every entry of this array
+   * into its per-pool deltas section, so the page published "Ironwood moved 0"
+   * about a block that predates the pool by 237,000 blocks - a measurement of
+   * something that was not there.
+   *
+   * The indexer refuses exactly this statement: `perPoolZat` omits a pool that
+   * did not move, on the stated grounds that a hardcoded zero renders as a
+   * measurement, and `poolsActiveAt(3_191_051)` returns three pools with
+   * Ironwood not among them. The fixture was printing what the producer
+   * declines to say.
+   *
+   * The other three zeros stay: those pools existed at this height and a
+   * measured zero is a fact about them.
+   */
   deltas: [
     { pool: "orchard", deltaZat: zec("50000.5541") },
     { pool: "sapling", deltaZat: 0n },
-    { pool: "ironwood", deltaZat: 0n },
     { pool: "sprout", deltaZat: 0n },
   ],
   coinbase: {

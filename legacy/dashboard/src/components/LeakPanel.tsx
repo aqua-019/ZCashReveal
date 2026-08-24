@@ -350,13 +350,25 @@ function IdentitySection({ report }: { report: RawReport }) {
   );
 }
 
+/**
+ * The four pools. A second hand-written mirror of the wire, and widening the
+ * first one is what exposed it.
+ *
+ * `useMempool.ts` declared the same two-pool union and this file's props
+ * declared it independently, so the narrow type survived in two places and
+ * neither was a compile error - a cast at the parse boundary means a dropped
+ * pool is silence, not a failure. Correcting the hook turned this into four
+ * type errors, which is the only reason it was found.
+ */
+type LegacyPool = "sprout" | "sapling" | "orchard" | "ironwood";
+
 function IdentityCard({
   side, transparentAddresses, nullifiers, commitments,
 }: {
   side: "SENDER" | "RECIPIENT";
   transparentAddresses: string[];
-  nullifiers: Array<{ pool: "sapling" | "orchard"; value: string }>;
-  commitments: Array<{ pool: "sapling" | "orchard"; value: string }>;
+  nullifiers: Array<{ pool: LegacyPool; value: string }>;
+  commitments: Array<{ pool: LegacyPool; value: string }>;
 }) {
   const isSender = side === "SENDER";
   return (

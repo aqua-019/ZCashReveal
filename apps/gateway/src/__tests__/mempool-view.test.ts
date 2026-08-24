@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   asHex,
   mempoolViewSchema,
-  type DecodedOrchardAction,
+  type DecodedIronwoodAction,
+  DecodedOrchardAction,
   type DecodedSaplingOutput,
   type DecodedSaplingSpend,
   type Hex,
@@ -15,6 +16,7 @@ import {
 } from "@zcashreveal/types";
 
 import { buildMempoolView } from "../views/mempool.js";
+import { zecText } from "../views/units.js";
 
 /**
  * `buildMempoolView` - the class, the flow label and the crossing tile.
@@ -109,6 +111,19 @@ const orchardAction = (index: number): DecodedOrchardAction => ({
   outCiphertextSize: 80,
 });
 
+/** The same shape with `pool: "ironwood"`, which is the only thing that differs. */
+const ironwoodAction = (index: number): DecodedIronwoodAction => ({
+  pool: "ironwood",
+  index,
+  nullifier: hex("77"),
+  cmx: hex("66"),
+  cv: hex("55"),
+  rk: hex("44"),
+  ephemeralKey: hex("33"),
+  encCiphertextSize: 580,
+  outCiphertextSize: 80,
+});
+
 interface Shape {
   readonly txid: string;
   /**
@@ -126,6 +141,7 @@ interface Shape {
   readonly saplingSpends?: number;
   readonly saplingOutputs?: number;
   readonly orchardActions?: number;
+  readonly ironwoodActions?: number;
 }
 
 const deltaOf = (deltas: Shape["perPoolZat"], pool: ShieldedPool): Zatoshi =>
@@ -138,10 +154,12 @@ function report(shape: Shape): LeakReport {
   const saplingSpends = times(shape.saplingSpends ?? 0, saplingSpend);
   const saplingOutputs = times(shape.saplingOutputs ?? 0, saplingOutput);
   const orchardActions = times(shape.orchardActions ?? 0, orchardAction);
+  const ironwoodActions = times(shape.ironwoodActions ?? 0, ironwoodAction);
 
   const sproutValueBalanceZat = deltaOf(perPoolZat, "sprout");
   const hasShieldedAny =
-    saplingSpends.length + saplingOutputs.length + orchardActions.length > 0 || sproutValueBalanceZat !== 0n;
+    saplingSpends.length + saplingOutputs.length + orchardActions.length + ironwoodActions.length >
+      0 || sproutValueBalanceZat !== 0n;
 
   // The analyser's rule, copied deliberately (`leak-analyzer.ts`,
   // `classifyValueFlow`): a pool that GAINED value makes the transaction a
@@ -173,6 +191,10 @@ function report(shape: Shape): LeakReport {
       orchardValueBalanceZat: deltaOf(perPoolZat, "orchard"),
       orchardAnchor: orchardActions.length > 0 ? hex("de") : null,
       orchardFlags: null,
+      ironwoodActions,
+      ironwoodValueBalanceZat: deltaOf(perPoolZat, "ironwood"),
+      ironwoodAnchor: ironwoodActions.length > 0 ? hex("df") : null,
+      ironwoodFlags: null,
     },
     transparent: { vin, vout },
     identity: {
@@ -185,6 +207,7 @@ function report(shape: Shape): LeakReport {
       sproutValueBalanceZat,
       saplingValueBalanceZat: deltaOf(perPoolZat, "sapling"),
       orchardValueBalanceZat: deltaOf(perPoolZat, "orchard"),
+      ironwoodValueBalanceZat: deltaOf(perPoolZat, "ironwood"),
       perPoolZat,
       netTransparentInflowZat: 0n,
       isPureShielded: perPoolZat.length === 0 && hasShieldedAny,
@@ -192,8 +215,10 @@ function report(shape: Shape): LeakReport {
       direction,
     },
     fingerprint: {
-      outputCount: vout.length + saplingOutputs.length + orchardActions.length,
-      spendCount: vin.length + saplingSpends.length + orchardActions.length,
+      outputCount:
+        vout.length + saplingOutputs.length + orchardActions.length + ironwoodActions.length,
+      spendCount:
+        vin.length + saplingSpends.length + orchardActions.length + ironwoodActions.length,
       outputPadded: false,
       feeZat: FEE,
       isZip317ConventionalFee: true,
@@ -246,6 +271,51 @@ describe("mempoolRow class - a migration is a migration, whichever direction it 
     const built = view(orchardIntoSapling);
     expect(built.entries[0]?.class).toBe("migration");
     expect(built.summary.migrations).toBe(1);
+  });
+
+  it("a pool crossing that ALSO pays a transparent address is not a migration on this surface either", () => {
+    // THE CLASSIFIER LEARNED THIS AND THE ROW PRODUCER DID NOT, for one gate
+    // round. `movedPools.length > 1` alone published `class: "migration"` and
+    // `flow: "S to O"` for a transfer paying a public recipient, on the surface
+    // a reader actually sees, while `analyze()` had just been taught to answer
+    // MIXED for the same transaction - so /tx and /track disagreed about one
+    // txid, which the docblock above the ternary and ASSERTION A9 both forbid.
+    const built = view({ ...saplingIntoOrchard, transparent: { vin: [], vout: [transparentOutput(0)] } });
+    expect(built.entries[0]?.class).not.toBe("migration");
+    expect(built.summary.migrations).toBe(0);
+  });
+
+  it("a crossing that is not called a migration is still COUNTED as a crossing", () => {
+    // THE TILE AND ITS OWN CAPTION HAVE TO COUNT THE SAME SET, and narrowing
+    // the migration class in a different file separated them again. `crossings`
+    // filtered on three CLASS names while `crossingZat` summed `crossingOf`
+    // over every report, so this transaction - a real Sapling-to-Orchard
+    // crossing that also pays a transparent address - contributed 1 ZEC to the
+    // figure and nothing to the count. /track rendered a gold-accented
+    // "1.0000 ZEC" above the caption "Nothing in the mempool crosses a pool
+    // boundary." Both are now derived from `crossingOf`, so a class rename
+    // cannot separate them a third time.
+    const built = view({ ...saplingIntoOrchard, transparent: { vin: [], vout: [transparentOutput(0)] } });
+    expect(built.summary.crossingZat).toBeGreaterThan(0n);
+    expect(built.summary.crossingSplit).not.toBe("Nothing in the mempool crosses a pool boundary.");
+    expect(built.summary.crossingSplit).toContain("across 1 transaction");
+  });
+
+  it("FAIL SIDE: a mempool that really crosses nothing still says so", () => {
+    // The discriminating half. The fix must not be "always claim a crossing":
+    // a purely transparent transaction moves no pool, so the caption is the
+    // true one and the figure is zero.
+    const built = view(report({ txid: "ed", vin: 1, vout: 1 }));
+    expect(built.summary.crossingZat).toBe(0n);
+    expect(built.summary.crossingSplit).toBe("Nothing in the mempool crosses a pool boundary.");
+  });
+
+  it("a pool crossing FUNDED from a transparent input is not a migration either", () => {
+    // The mirror clause. A public funding address is the same fact as a public
+    // recipient, arriving on the other side of the transaction.
+    const built = view({ ...saplingIntoOrchard, transparent: { vin: [transparentInput(0)], vout: [] } });
+    expect(built.entries[0]?.class).not.toBe("migration");
+    expect(built.summary.migrations).toBe(0);
   });
 
   it("a single-pool DEPOSIT with a transparent input is still a shield", () => {
@@ -334,16 +404,215 @@ describe("the flow label follows the SIGN of each delta, not the order of the li
   });
 });
 
+describe("the four-pool row, and the two places Ironwood was half-added", () => {
+  it("an intra-Ironwood transfer is class shielded, not transparent", () => {
+    // A GATE FINDING, AND IT IS THE SPROUT DEFECT ONE POOL LATER. `hasIronwood`
+    // was added to the lane list and not to the class ternary below it, so an
+    // ordinary z-to-z transfer inside Ironwood - which is most shielded traffic
+    // after NU6.3 - fell past every test and landed on "transparent". The row
+    // then printed flow "t to t" beside its own Ironwood lane swatch, counted
+    // into `summary.transparent`, and contradicted /tx, whose classifier calls
+    // the same transaction PURE_SHIELDED.
+    const built = view(report({ txid: "e5", ironwoodActions: 2 }));
+
+    expect(built.entries[0]?.class).toBe("shielded");
+    expect(built.entries[0]?.class).not.toBe("transparent");
+    expect(built.entries[0]?.flow).not.toBe("t to t");
+    expect(built.entries[0]?.lanes).toContain("ironwood");
+    expect(built.summary.shielded).toBe(1);
+    expect(built.summary.transparent).toBe(0);
+  });
+
+  it("FAIL SIDE: a genuinely transparent transaction is still class transparent", () => {
+    // The discriminating half. The fix must not be "never say transparent": a
+    // transaction with a transparent input and output and no shielded component
+    // is exactly what that class is for.
+    const built = view(report({ txid: "e6", vin: 1, vout: 1 }));
+    expect(built.entries[0]?.class).toBe("transparent");
+    expect(built.summary.transparent).toBe(1);
+  });
+
+  it("an undecodable transaction gets a row that claims nothing, and it parses as a DTO", () => {
+    // The `UNSUPPORTED_TX` path had no test at all, and every field on the row
+    // is recomputed from a value flow that such a report leaves empty - so
+    // without the early return it would have published class "transparent",
+    // flow "t to t", "no net crossing" and "Nothing this transaction publishes
+    // distinguishes it from any other of its shape". Four confident statements
+    // about a transaction nobody could decode.
+    // `txVersion` AND `unsupported.version` MUST AGREE, and the first draft of
+    // this test set them to 5 and 7. `analyze()` cannot produce that pair -
+    // `unsupportedReport` builds `unsupported.version` from `tx.version` - and
+    // the mismatch was not cosmetic: it hid a defect. The row derives its
+    // version cell from `txVersion`, so a test pinning that field at 5 asserted
+    // "claims nothing" over a row that read `v5` correctly, while the real
+    // shape published `v6` for a version-7 transaction. A gate round found it.
+    const undecodable: LeakReport = {
+      ...report({ txid: "e7" }),
+      txVersion: 7,
+      leakClass: "UNSUPPORTED_TX",
+      unsupported: {
+        version: 7,
+        reason: "transaction version 7 is outside the range this decoder models (1 to 6)",
+        rawFieldNames: ["orchard", "txid", "version"],
+      },
+    };
+    const built = view(undecodable);
+
+    expect(built.entries[0]?.class).toBe("undecoded");
+    expect(built.entries[0]?.flow).toBe("not decoded");
+    expect(built.entries[0]?.valueBalanceText).toBe("not measured");
+    expect(built.entries[0]?.feeZat).toBeNull();
+    // THE VERSION AND THE ACTION COUNT ARE ABSENCES TOO, and both were values
+    // until a gate round read them. The producer clamped the version into the
+    // three-member enum, so this row said `v6` two cells left of its own
+    // finding "transaction version 7 is outside the range this decoder models
+    // (1 to 6)"; and it supplied `logicalActions: 0`, which the panel renders
+    // as "not priced - L = 0" - a measurement of zero logical actions, a value
+    // ZIP 317's `max(2, L)` puts outside the quantity's range entirely.
+    expect(built.entries[0]?.version).toBe("unknown");
+    expect(built.entries[0]?.logicalActions).toBeNull();
+    // No lane is claimed. A swatch is a claim that the transaction touched that
+    // lane, and nothing here can make one.
+    expect(built.entries[0]?.lanes).toEqual([]);
+    expect(built.entries[0]?.reasoning.join(" ")).toContain("version 7");
+
+    // AND IT SURVIVES THE DTO. `lanes` was `.min(1)` and `class` had five
+    // members before this handoff, so the row this branch produces would have
+    // failed validation at the wire boundary - which no test would have caught,
+    // because nothing validated an unsupported row.
+    expect(() => mempoolViewSchema.parse(built)).not.toThrow();
+  });
+
+  it("`summary.shielded` counts every row that touched a pool without crossing to the public side", () => {
+    // TWO PRODUCERS OF THIS FIELD MEANT DIFFERENT THINGS BY IT AND /track
+    // RENDERED WHICHEVER MODE IT WAS IN. This counted the residual class
+    // `shielded` alone while the fixture corpus counted `shield | deshield |
+    // shielded`; on the same three rows that is 1 against 3, published as the
+    // same header string and the same headline tile. A `shield` transaction
+    // moved value INTO a pool, so leaving it out of this number puts it in no
+    // bucket at all.
+    const built = view(
+      report({ txid: "f1", perPoolZat: [{ pool: "orchard", deltaZat: -ZEC }], vin: 2, orchardActions: 2 }),
+      report({ txid: "f2", perPoolZat: [{ pool: "orchard", deltaZat: ZEC }], vout: 2, orchardActions: 2 }),
+      report({ txid: "f3", ironwoodActions: 2 }),
+    );
+    expect(built.entries.map((e) => e.class)).toEqual(["shield", "deshield", "shielded"]);
+    expect(built.summary.shielded).toBe(3);
+    // FAIL SIDE: the residual-class-only reading, named so a regression reads
+    // as a regression rather than as an arbitrary number.
+    expect(built.summary.shielded).not.toBe(1);
+  });
+
+  it("`summary.decodedCount` is the denominator, and it leaves out the row nobody decoded", () => {
+    // A SHARE OF THE MEMPOOL DIVIDED BY EVERY ROW COUNTS AN UNREADABLE
+    // TRANSACTION AS EVIDENCE AGAINST WHATEVER IS BEING MEASURED. /track's
+    // shielded-share tile did exactly that in both directions across two gate
+    // rounds - "8 of 13" while the undecoded row was miscounted into the
+    // numerator, "7 of 13" once it was taken out, where the honest figure over
+    // the rows anyone could read is 7 of 12.
+    const undecodable: LeakReport = {
+      ...report({ txid: "f4" }),
+      txVersion: 7,
+      leakClass: "UNSUPPORTED_TX",
+      unsupported: { version: 7, reason: "version 7 is outside the modelled range", rawFieldNames: ["txid"] },
+    };
+    const built = view(report({ txid: "f5", ironwoodActions: 2 }), undecodable);
+
+    expect(built.summary.unconfirmed).toBe(2);
+    expect(built.summary.decodedCount).toBe(1);
+    expect(built.summary.shielded).toBe(1);
+    // FAIL SIDE: the two must not be the same number here, which is the whole
+    // point of having both.
+    expect(built.summary.decodedCount).not.toBe(built.summary.unconfirmed);
+  });
+
+  it("FAIL SIDE: with nothing undecodable, the denominator IS every row", () => {
+    // The discriminating half. `decodedCount` must not be "unconfirmed minus
+    // one" or a constant: on a mempool the decoder read in full it equals the
+    // row count exactly, so the tile does not quietly under-report.
+    const built = view(report({ txid: "f6", ironwoodActions: 2 }), report({ txid: "f7", vin: 1, vout: 1 }));
+    expect(built.summary.decodedCount).toBe(2);
+    expect(built.summary.decodedCount).toBe(built.summary.unconfirmed);
+  });
+
+  it("FAIL SIDE: a decodable transaction still names its version and counts its actions", () => {
+    // The discriminating half of the two assertions above. The fix must not be
+    // "never state a version": a v5 the decoder read is a v5, and its logical
+    // actions were counted. Without this, `version: "unknown"` everywhere and
+    // `logicalActions: null` everywhere would pass the test above.
+    const built = view(report({ txid: "e8", vin: 1, vout: 1 }));
+    expect(built.entries[0]?.version).toBe("v5");
+    expect(built.entries[0]?.logicalActions).not.toBeNull();
+    expect(built.entries[0]?.class).not.toBe("undecoded");
+  });
+
+  it("a version this build does not model is `unknown` at BOTH ends of the range, not the nearest member", () => {
+    // The clamp was `>= 6 ? "v6" : === 5 ? "v5" : "v4"`, so it was wrong in two
+    // directions at once and only one of them involved an undecodable
+    // transaction. Zcash shipped v1, v2 and v3 before Overwinter; every one of
+    // them was published here as `v4`, a version this site states as fact
+    // beside a txid a reader can check in ten seconds.
+    expect(view({ ...report({ txid: "e9" }), txVersion: 7 }).entries[0]?.version).toBe("unknown");
+    expect(view({ ...report({ txid: "ea" }), txVersion: 2 }).entries[0]?.version).toBe("unknown");
+    expect(view({ ...report({ txid: "eb" }), txVersion: 4 }).entries[0]?.version).toBe("v4");
+    expect(view({ ...report({ txid: "ec" }), txVersion: 6 }).entries[0]?.version).toBe("v6");
+  });
+});
+
 describe("the crossing tile and its own caption count the same set", () => {
-  it("a mempool of migrations reports its crossing amount AND says it crosses", () => {
+  it("a mempool of migrations reports the AMOUNT that crossed, not the fee the crossing left behind", () => {
     const built = view(saplingIntoOrchard, orchardIntoSapling);
-    // Each migration leaves `FEE` behind, so the pools are down that much
-    // between them - a real amount, which the tile prints in the accent
-    // colour. The caption underneath must not deny it.
-    expect(built.summary.crossingZat).toBe(2n * FEE);
+
+    // THIS ASSERTION READ `2n * FEE` UNTIL HANDOFF-07, AND THE OLD NUMBER WAS
+    // THE FEE. A migration's two legs nearly cancel - one ZEC leaves a pool and
+    // one ZEC minus the fee enters another - so summing `perPoolZat` returns
+    // the residue rather than the crossing. The tile is captioned as the value
+    // crossing a boundary, and the design corpus settles which quantity that
+    // is: `apps/web/src/lib/api/fixtures/mempool.ts` builds `crossingZat` from
+    // its rows' `crossing.zec`, and its Orchard-to-Ironwood row contributes
+    // `500.0` rather than its 0.0001 fee. Two ZEC of migrations therefore read
+    // as two ZEC.
+    //
+    // The old behaviour was not merely a smaller number, it was a different
+    // quantity wearing the same caption - and it was about to get worse:
+    // decoding Ironwood adds the second leg to a crossing that previously had
+    // only one, so a 500 ZEC pool migration would have been published as a
+    // crossing of 0.005 ZEC with no arithmetic having changed.
+    expect(built.summary.crossingZat).toBe(2n * ZEC);
+    expect(built.summary.crossingZat).not.toBe(2n * FEE);
+
+    // The fee is not lost, it is just not this number: it is the difference
+    // between the two sides, and `fingerprint.feeZat` is where a fee lives.
+    expect(built.summary.crossingSplit).toContain("between pools");
     expect(built.summary.crossingSplit).not.toBe("Nothing in the mempool crosses a pool boundary.");
     expect(built.summary.crossingSplit).toContain("2 transactions");
     expect(built.summary.migrations).toBe(2);
+  });
+
+  it("a shield and a deshield still split by direction, so the third term did not swallow the first two", () => {
+    // THE FAIL SIDE FOR THE CHANGE ABOVE. A pool-to-pool crossing gets its own
+    // term because it has no direction; a transaction with one leg still has
+    // one, and must still be counted under it. Without this, "between pools"
+    // could have absorbed everything and the two assertions above would still
+    // pass.
+    const shield = report({
+      txid: "c3",
+      perPoolZat: [{ pool: "orchard", deltaZat: -ZEC }],
+      vin: 1,
+      orchardActions: 1,
+    });
+    const deshield = report({
+      txid: "d4",
+      perPoolZat: [{ pool: "orchard", deltaZat: ZEC }],
+      vout: 1,
+      orchardActions: 1,
+    });
+    const built = view(shield, deshield);
+
+    expect(built.summary.crossingZat).toBe(2n * ZEC);
+    expect(built.summary.crossingSplit).toContain(`${zecText(ZEC)} in`);
+    expect(built.summary.crossingSplit).toContain(`${zecText(ZEC)} out`);
+    expect(built.summary.crossingSplit).toContain(`${zecText(0n)} between pools`);
   });
 
   it("a mempool with no crossing at all reports zero AND says nothing crosses", () => {

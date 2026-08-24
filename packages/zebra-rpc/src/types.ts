@@ -46,6 +46,16 @@ export interface RpcBlock {
   finalsaplingroot?: Hex | undefined;
   /** Orchard NCT root as of this block. Absent pre-NU5-activation. */
   finalorchardroot?: Hex | undefined;
+  /**
+   * Ironwood NCT root as of this block. Absent pre-NU6.3-activation - and
+   * absent, on every block, if this field name is wrong.
+   *
+   * INFERRED BY ANALOGY FROM ITS TWO SIBLINGS AND NEVER OBSERVED. See the note
+   * on `finalironwoodroot` in `schemas.ts`. `decodeBlock` reports a block that
+   * added Ironwood commitments while carrying no root, so the guess cannot fail
+   * quietly.
+   */
+  finalironwoodroot?: Hex | undefined;
   /** Full transaction objects (verbosity 2). */
   tx: RpcTransaction[];
   previousblockhash?: Hex | undefined;

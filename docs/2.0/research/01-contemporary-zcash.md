@@ -57,6 +57,29 @@
 
 ---
 
+## Network-upgrade activation heights
+
+Consolidated from the ZIP texts. The heights themselves are scattered across §1.4 (the mitigation and NU6.2), §2.1 (NU6.3) and §7.2 (NU6.1); this table is the one place that carries all of them with both networks named, because `apps/indexer/src/decoder/activation-heights.ts` needs to cite each height individually and reading a pair out of a sentence is how testnet NU6.2 came to be recorded as ordering-derived (§1.4).
+
+| Upgrade | Mainnet height | Testnet height | ZIP | ZIP status |
+|---|---|---|---|---|
+| Sapling (NU1) | 419,200 | 280,000 *(uncorroborated)* | — | — |
+| NU5 (Orchard) | 1,687,104 | 1,842,420 *(uncorroborated)* | — | — |
+| NU6 | 2,726,400 | **2,976,000** | [ZIP 253](https://zips.z.cash/zip-0253) | Final |
+| NU6.1 | 3,146,400 | 3,536,500 | [ZIP 255](https://zips.z.cash/zip-0255) | Final |
+| Orchard mitigation soft fork | 3,363,426 | 4,048,500 | [ZIP 257](https://zips.z.cash/zip-0257) | Final |
+| NU6.2 | 3,364,600 | 4,052,000 | [ZIP 257](https://zips.z.cash/zip-0257) | Final |
+| NU6.3 "Ironwood" | 3,428,143 | 4,134,000 | [ZIP 258](https://zips.z.cash/zip-0258) | **Draft** |
+
+Notes on this table, because two of its cells are not like the others:
+
+- **Testnet NU6, 2,976,000, is new to this corpus and appears in no other line of it.** ZIP 253 (Final) states it; L2 read the ZIP and relayed the height in the HANDOFF-06 resolution. Until then the repository had no testnet NU6 height at all, and `activation-heights.ts` deliberately carried a comment explaining its absence rather than a plausible number. `high`.
+- **ZIP 258 is Draft, and was Draft when NU6.3 activated** (§2.1). Both Ironwood heights, and with them `poolsActiveAt`, `orchardExitOnlyFrom` and every Orchard-exit-only gate in this project, rest on a document that may still be edited. Tracked as a standing deferred entry in `handoffs/LEDGER.md`. `high`.
+- **The four pre-NU6 heights are NOT "consolidated from the ZIP texts", despite the sentence above this table.** No ZIP was located for any of them in this corpus. The two MAINNET ones are corroborated elsewhere in this repository (419,200 and 1,687,104 both appear across the research files). The two TESTNET ones are marked *(uncorroborated)* because this table is their **only** appearance outside `apps/indexer/src/decoder/activation-heights.ts` and its test — so a later session must not read them here and cite this line as corroboration for the constant that is this line's only origin. They come from the Zcash protocol specification and `zcashd` chainparams, which are not in this repository, and `activation-heights.ts` states that at each of the two testnet constants. It does not state it at the two mainnet ones, which are corroborated by the corpus instead.
+- A row's ZIP column is empty when this corpus locates no ZIP for that height. An empty column is not a claim that no ZIP states it; it is a claim that nobody here has read one.
+
+---
+
 ## 1. The Orchard soundness exploit (May–June 2026)
 
 ### 1.1 Disclosure timeline
@@ -146,7 +169,9 @@ ZIP 257 (Final), author Daira-Emma Hopwood, "Deployment of the Orchard Temporary
 
 i.e. `nActionsOrchard = 0` — Orchard was **switched off entirely** for ~1,174 blocks (≈24 hours). NU6.2 then replaced the Orchard Action verifying key and added a canonical-length rule: `proofsOrchard` MUST be exactly `2720 + 2272 · nActionsOrchard` bytes [[ZIP 257](https://zips.z.cash/zip-0257)] `high`.
 
-Activation heights — mainnet soft fork **3,363,426**, mainnet NU6.2 **3,364,600**; testnet **4,048,500** and **4,052,000** [[ZIP 257](https://zips.z.cash/zip-0257)] `high`. **This confirms the height given in the research brief (3,364,600) and the date (3 June 2026).**
+Activation heights, each under its own name rather than as an ordered pair — the mitigation soft fork at **mainnet 3,363,426** and **testnet 4,048,500** (the two the clause above names together), and NU6.2 itself at **mainnet 3,364,600** and **testnet 4,052,000**, which ZIP 257 prints under NU6.2's own heading [[ZIP 257](https://zips.z.cash/zip-0257)] `high`. **This confirms the height given in the research brief (3,364,600) and the date (3 June 2026).**
+
+> **Why this sentence is written out four times instead of twice.** It previously read "testnet 4,048,500 and 4,052,000", which is true and, taken alone, does not say WHICH is which — the mapping had to be recovered from the order of the mainnet pair before it. HANDOFF-06 read it that way, correctly refused to claim more than the corpus supported, and recorded testnet NU6.2 as corroborated by ordering rather than by statement. L2 then read ZIP 257: the height is stated. The constant never changed; only its provenance did. Corrected here so the next reader inherits the statement rather than the inference (LEDGER, L2 RESOLUTION — HANDOFF-06, fold 3).
 
 ### 1.5 The AI angle — verified
 

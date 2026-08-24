@@ -43,6 +43,21 @@ Production infrastructure as files: a compose stack for a Linux VPS (Zebra 6.2.x
 - `handoffs/LEDGER.md` (§8 entries from every shipped handoff — read before planning)
 - `docker-compose.yml`, `infra/zebrad/zebrad.toml`, `DEPLOY.md`, `docs/2.0/HANDOFF-2026-08-22-v2.md` §1, `docs/2.0/v0.2-notes/RUNBOOK-finish-v0.2.md` + `postgres-port-5433.patch` (the v0.2 VPS notes, imported by HANDOFF-00)
 - Zebra 6.x docs: config reference (`[rpc] enable_cookie_auth`, address indexes), state format, checkpoints, disk requirements — cite the version read
+- ZcashFoundation/zebra PR **#9805** (merged 22 Aug 2025), which is what puts `vjoinsplit` on `getrawtransaction` at all — see the version floor in §3 and deliverable 2b
+
+> **THE ZEBRA VERSION FLOOR IS A CORRECTNESS FLOOR, NOT A FEATURE FLOOR, AND IT NOW HAS TWO REASONS.**
+> `docs/2.0/HANDOFF-2026-08-22-v2.md` already mandates **`zfnd/zebra` >= 6.0.0** because 6.0.0 is the
+> first release with NU6.3/Ironwood support (docs/2.0/research/01-contemporary-zcash.md:47, `high`).
+> The second reason is quieter and worse. Zebra's `getrawtransaction` gained the `vjoinsplit` field
+> only in **PR #9805, merged 22 Aug 2025**; before that the field is not serialised at all. Every
+> Sprout term in this project reads `tx.vjoinsplit`, so against a node that predates that PR
+> `sproutValueBalanceZat` returns `0n` for every transaction, silently, with no failing test — the
+> same shape as the `expiryheight` defect that made every wallet fingerprint inert for three
+> revolutions. `docker-compose.yml` still pins `zfnd/zebra:4.4.1`, which is on the wrong side of
+> both reasons. *(L2 RESOLUTION for HANDOFF-06, fold 9. The `vjoinsplit` SPELLING is settled — the
+> official zcash RPC documentation for `getrawtransaction` prints it all-lowercase in the same
+> result object where the Sapling arrays are `vShieldedSpend`/`vShieldedOutput`, and PR #9805 adds
+> that spelling to Zebra. The end-to-end path is not settled, which is why deliverable 2a stands.)*
 
 ## §3 CONTRACT
 
@@ -52,7 +67,7 @@ Production infrastructure as files: a compose stack for a Linux VPS (Zebra 6.2.x
 - Design: ZEC gold `#F4B728` is a budgeted accent; one hover verb (dim); one curve `cubic-bezier(.32,.72,0,1)`; reduced motion honoured by not constructing the animation system; `Math.random` banned (FNV-1a → mulberry32 from a chain seed).
 - The PR stops at **opened**. No merge, no deploy, no production promotion by any agent at any tier.
 - Provenance on every claim in §7: Executed (output shown) / Read (file + commit cited) / UNVERIFIED (labelled). Stale or fabricated claims are a gate failure.
-- Pin `zfnd/zebra:6.2.x` (exact tag chosen and cited). Healthchecks and `restart: unless-stopped` for all services; named volumes; Postgres on host port 5433; Redis AOF; multi-stage Dockerfiles on `node:22-alpine` for indexer/gateway/publisher; cloudflared from an env token.
+- Pin `zfnd/zebra` at **>= 6.0.0**, `6.2.x` (exact tag chosen and cited). The floor is not stylistic: below 6.0.0 there is no Ironwood support, and below PR #9805 (merged 22 Aug 2025) `getrawtransaction` does not serialise `vjoinsplit` at all, which makes every Sprout value term silently `0n`. See §2. Healthchecks and `restart: unless-stopped` for all services; named volumes; Postgres on host port 5433; Redis AOF; multi-stage Dockerfiles on `node:22-alpine` for indexer/gateway/publisher; cloudflared from an env token.
 - `infra/zebrad/zebrad.toml` for 6.x: re-validate `enable_cookie_auth = false` with the loopback-bound RPC; enable the address indexes HANDOFF-05 needs; ZMQ if supported else document the polling fallback.
 - `docs/2.0/RUNBOOK-VPS.md`: sizing (≥ 4 vCPU / 16 GB / ≥ 500 GB NVMe), first sync with checkpoints, wipe-and-resync, Postgres backups, upgrade within one Zebra major, alert on snapshot age > 20 blocks, the tunnel steps (`cloudflared tunnel create zecreveal-gateway`, DNS route, ingress → `gateway:8080`).
 - `docs/2.0/DEPLOY-2.0.md`: Vercel project `zecreveal` (Root `apps/web`, Framework Next.js, env vars) and the post-deploy smoke (assert the snapshot fallback is present in the built JS). There is no cutover from `z-cash-reveal-dashboard2` to write: the operator deleted both v0.2 projects on 23 Aug 2026 and `zecreveal` is the only one on the account (HANDOFF-04 correction).
@@ -70,6 +85,9 @@ Production infrastructure as files: a compose stack for a Linux VPS (Zebra 6.2.x
      `SNAPSHOT_REDIS_MONTHLY_BUDGET`. Do not re-add `SNAPSHOT_REDIS_URL`, `SNAPSHOT_REDIS_REST_URL` or
      `SNAPSHOT_REDIS_REST_TOKEN`: they are injected by nothing.
 2. **Mainnet block fixture** (LEDGER-00 Q4): capture one post-NU5 mainnet block from the synced Zebra into `apps/indexer/test/fixtures/blocks/mainnet-<height>.json` and commit it, so `block-decoder.test.ts` stops self-skipping. Record the height, hash and RPC command used in `RUNBOOK-VPS.md`.
+   - 2a. **The capture must include a Sprout transaction — one carrying at least one JoinSplit.** The request stands after the L2 RESOLUTION for HANDOFF-06 closed the spelling question, because the two are different facts: `vjoinsplit` is confirmed as the wire name by two primary sources, and no transaction with a JoinSplit has ever been through this decoder. A captured one is the only thing that exercises `sproutValueBalanceZat` end to end against bytes a node produced.
+   - 2b. **Verify the pinned Zebra actually serialises `vjoinsplit`** on that captured transaction and record the observed `subversion` string beside the fixture. A node below PR #9805 omits the field, and the boundary check in `packages/zebra-rpc` reports that as indeterminate rather than as zero — the fixture is where "indeterminate" is turned into "observed".
+5. **Integration-test database isolation** (LEDGER-06 Q6): decide and implement one of database-per-worker, an advisory lock, or schema-per-run, and say which and why. The suite is not safe against two concurrent vitest processes on one Postgres — every integration suite TRUNCATEs shared tables in `beforeEach` — and HANDOFF-06's round 2 produced failures in BOTH directions when two workers ran side by side: one worker's TRUNCATE wiping the other's rows mid-test, and foreign rows landing in a count, including a corrupted conservation assertion. Both workers proved it pre-existing against `git show HEAD:` versions of their own files. CI is safe only because `.github/workflows/ci.yml` runs one vitest process per package and `apps/indexer/vitest.config.ts` sets `fileParallelism: false`; that is a configuration, not a property, and it is what HANDOFF-07 has been told not to change to buy wall clock. This handoff owns CI topology, so it owns the decision. *(L2 RESOLUTION for HANDOFF-06, fold 8.)*
 3. Bump the pinned GitHub Actions (`actions/checkout`, `actions/setup-node`, `actions/upload-artifact`, `pnpm/action-setup`) to versions whose runtime is not deprecated — the HANDOFF-00 run warned that all four are being forced onto Node 24 (LEDGER-00 NOTICED).
 4. **Playwright e2e CI job** (LEDGER-01 Q3, fold 6): a job separate from the main verify job, triggered only by a
    paths filter on `apps/web/**`, installing chromium in the job (`playwright install --with-deps chromium`) and

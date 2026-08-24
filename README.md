@@ -86,13 +86,14 @@ pnpm build          # turbo, topological
 pnpm typecheck      # all packages
 pnpm lint           # eslint flat config; Math.random is banned repo-wide
 pnpm -r test        # every workspace suite
-pnpm check          # the four static guards CI runs: no emoji, Vercel config,
+pnpm check          # the five static guards CI runs: no emoji, Vercel config,
                     # shared-Redis safety (docs/2.0/SNAPSHOT.md - the managed
-                    # store holds another production project's live data), and
-                    # no stale two-pool unions (the pool model is four pools)
+                    # store holds another production project's live data),
+                    # no stale two-pool unions (the pool model is four pools),
+                    # and no corpus citation pointing at a blank or missing line
 ```
 
-37 of the indexer's tests are Postgres-backed integration tests. They gate themselves on a
+60 of the indexer's tests are Postgres-backed integration tests (37 before HANDOFF-06, 56 before HANDOFF-07). They gate themselves on a
 live reachability probe, so without a database they skip silently and the suite still
 reports green. To run them:
 

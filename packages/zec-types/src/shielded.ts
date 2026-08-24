@@ -67,11 +67,44 @@ export interface DecodedOrchardAction {
 }
 
 /**
+ * One Ironwood action.
+ *
+ * STRUCTURALLY IDENTICAL TO {@link DecodedOrchardAction} AND DELIBERATELY NOT
+ * AN ALIAS OF IT. Zebra serialises the same struct for both bundles, so the RPC
+ * types share one declaration (`RpcIronwoodBundle` aliases `RpcOrchardBundle`);
+ * on the DECODED side the pools must not be interchangeable, because Orchard is
+ * exit-only from NU6.3 and Ironwood is where the value it loses goes. The
+ * literal `pool` field is what makes a mixed-up array a type error rather than a
+ * silently wrong migration.
+ *
+ * Ironwood reuses Orchard's Halo 2 circuit on the same Pallas curve, with the
+ * soundness bug fixed (docs/2.0/research/01-contemporary-zcash.md §2.2), which
+ * is why the action shape is the same: an action is simultaneously a spend and
+ * an output, publishing a nullifier and a cmx together. What ZIP 2005 changes -
+ * the quantum-recoverable note plaintext, lead byte `0x03` - is inside
+ * `encCiphertext`, which this project never decrypts without a viewing key, so
+ * nothing here can see it and nothing here claims to.
+ */
+export interface DecodedIronwoodAction {
+  pool: "ironwood";
+  index: number;
+  nullifier: Hex;
+  cmx: Hex;
+  cv: Hex;
+  rk: Hex;
+  ephemeralKey: Hex;
+  encCiphertextSize: number;
+  outCiphertextSize: number;
+}
+
+/**
  * SAPLING-SHAPED, DESPITE THE NAME. Both aliases resolve to the Sapling
  * structures, whose `pool` field is the literal `"sapling"` - there is no
- * four-pool decoded spend or output type, because Orchard's is an action and
- * Ironwood's needs the v6 decoder HANDOFF-07 owns. Kept as aliases because
- * callers import them; do not read the name as a promise about the union.
+ * four-pool decoded spend or output type, and there cannot be one: Orchard's
+ * and Ironwood's units are ACTIONS, each simultaneously a spend and an output,
+ * so neither has a spend type or an output type to unify with Sapling's. Sprout
+ * has no decoded structure at all. Kept as aliases because callers import them;
+ * do not read the name as a promise about the union.
  */
 export type DecodedShieldedSpend = DecodedSaplingSpend;
 export type DecodedShieldedOutput = DecodedSaplingOutput;
@@ -79,14 +112,20 @@ export type DecodedShieldedOutput = DecodedSaplingOutput;
 /**
  * What the decoder extracted from a transaction's shielded bundles.
  *
- * TWO POOLS ARE DECODED HERE, NOT FOUR, and the gap is deliberate rather than
- * overlooked. Sprout's movement is not a bundle at all - it is `vpub_new -
- * vpub_old` summed over the JoinSplits, which the analyser computes onto
+ * THREE POOLS ARE DECODED HERE, NOT FOUR, AND THE FOURTH IS ABSENT FOR A
+ * DIFFERENT REASON THAN IT USED TO BE. Through HANDOFF-06 the gap was Ironwood:
+ * its bundle is a v6 field, decoding v6 was out of scope, and an
+ * `ironwoodActions: []` that was always empty would have been a hardcoded zero
+ * the site renders as a fact. HANDOFF-07 decodes it, so the four fields below
+ * carry a measurement - `ironwoodActions: []` now means the transaction had no
+ * Ironwood bundle, which is a fact about the transaction rather than about this
+ * codebase.
+ *
+ * SPROUT IS THE ONE STILL MISSING, AND IT ALWAYS WILL BE. Sprout's movement is
+ * not a bundle at all: it is `vpub_new - vpub_old` summed over the JoinSplits,
+ * which the analyser computes onto
  * `ValueBalanceAnnotation.sproutValueBalanceZat` without a decoded structure.
- * Ironwood's bundle is a v6 transaction field, and decoding v6 is HANDOFF-07's
- * deliverable and explicitly out of HANDOFF-06's scope; adding an
- * `ironwoodActions: []` that is always empty would be a hardcoded zero the site
- * renders as a fact.
+ * There is nothing to decode, so there is no field here to add.
  */
 export interface DecodedShieldedBundle {
   saplingSpends: DecodedSaplingSpend[];
@@ -96,6 +135,14 @@ export interface DecodedShieldedBundle {
   orchardValueBalanceZat: Zatoshi;
   orchardAnchor: Hex | null;
   orchardFlags: {
+    enableSpends: boolean;
+    enableOutputs: boolean;
+  } | null;
+  /** Decoded since HANDOFF-07. Empty means the transaction carried no Ironwood bundle. */
+  ironwoodActions: DecodedIronwoodAction[];
+  ironwoodValueBalanceZat: Zatoshi;
+  ironwoodAnchor: Hex | null;
+  ironwoodFlags: {
     enableSpends: boolean;
     enableOutputs: boolean;
   } | null;
