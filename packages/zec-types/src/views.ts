@@ -767,9 +767,37 @@ export const mempoolViewSchema = z.object({
   entries: z.array(mempoolRowSchema),
   summary: z.object({
     unconfirmed: countSchema,
+    /**
+     * How many transactions touched a shielded pool without being a migration:
+     * `shield`, `deshield` and `shielded` together.
+     *
+     * WRITTEN DOWN BECAUSE THE TWO PRODUCERS OF THIS FIELD DISAGREED ABOUT IT,
+     * exactly as `conventionalFeeZat` below records for its own field. The
+     * gateway counted the residual class `shielded` alone and the fixture
+     * counted all three, so on thirteen rows one said 3 and the other said 7 -
+     * and /track renders whichever `NEXT_PUBLIC_DATA_MODE` selects, under the
+     * same header string and the same headline tile. A `shield` transaction
+     * moved value INTO a shielded pool; counting it out of this number leaves
+     * it in no bucket at all.
+     */
     shielded: countSchema,
     migrations: countSchema,
     transparent: countSchema,
+    /**
+     * How many transactions the decoder actually read - the denominator any
+     * share of the mempool is out of.
+     *
+     * NOT `unconfirmed`, for the reason `pricedCount` below is not `unconfirmed`
+     * either. An `undecoded` row is a transaction whose shape this build
+     * declined to read, so it is evidence of nothing; dividing by a total that
+     * includes it turns it into evidence AGAINST whatever is being measured.
+     * /track's shielded-share tile printed "8 of 13" while an undecoded row was
+     * miscounted INTO the numerator and "7 of 13" once it was taken out - four
+     * points of one statistic, manufactured twice from a single unreadable
+     * transaction, in opposite directions. The honest figure is out of the
+     * twelve anyone could read.
+     */
+    decodedCount: countSchema,
     bytes: countSchema,
     nextBlockSeconds: countSchema,
     /** Value crossing a boundary in the current mempool, split by direction. */

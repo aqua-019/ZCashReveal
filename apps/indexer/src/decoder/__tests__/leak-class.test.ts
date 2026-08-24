@@ -631,29 +631,39 @@ describe("MIGRATION_S2O — still detectable, because both pools publish a balan
     expect(report.leakClass).toBe("T_TO_Z");
   });
 
-  it("FAIL STATE: a third pool draining at the same time is not this crossing", async () => {
-    // ZIP 318's sibling shape and this one are both "one pool into one pool".
-    // A transaction that also drains Sprout moved value along a path this class
-    // does not name, and the shape test - exactly one drained, exactly one
-    // filled - is what says so. The old four-conjunct rule read only Sapling's
-    // and Orchard's own signs and never looked at what else moved.
-    const report = await analyze(
-      {
-        ...saplingToOrchard({ saplingZat: 500_000, orchardZat: -590_000 }),
-        version: 4,
-        vjoinsplit: [{ vpub_oldZat: 0, vpub_newZat: 100_000 }],
-      },
+  it("THERE IS NO THIRD-POOL CASE HERE, and the reason is the format rather than an oversight", async () => {
+    // O2I carries a shape test - exactly one pool drained, exactly one filled -
+    // and the first fix for this rule copied it. A gate round showed those
+    // clauses cannot fire for any transaction a node can send, so they were
+    // removed rather than kept as unreachable belt-and-braces, and this test
+    // records the argument instead of asserting a shape.
+    //
+    // A third pool has to coexist with Sapling draining into Orchard. Sprout
+    // needs `vjoinsplit`, which v5 removed (ZIP 225), and an Orchard bundle
+    // needs v5 or later - so no version carries both. Ironwood needs v6, and
+    // NU6.3 made Orchard exit-only in the same upgrade, so where Ironwood
+    // exists nothing can fill Orchard at all. The only fixture that reached
+    // those clauses was a v4 carrying an Orchard bundle AND a JoinSplit, which
+    // is exactly the "a pair `analyze()` cannot produce" objection this session
+    // raised against a gateway test in the round before.
+    //
+    // What is asserted here is the half that IS reachable and that the removal
+    // restored: with the shape clauses gone, the two sign conjuncts decide
+    // again, so the FAIL STATE above them is testing what its comment says.
+    const swapped = await analyze(
+      saplingToOrchard({ saplingZat: -490_000, orchardZat: 500_000 }),
       context(),
     );
-    expect(report.leakClass).not.toBe("MIGRATION_S2O");
-    expect(report.leakClass).toBe("MIXED");
-    // The Sprout leg is visible in the deltas, which is what the shape test
-    // reads. Without it in `perPoolZat` the old rule saw only two pools.
-    expect(report.valueFlow.perPoolZat.map((p) => p.pool)).toEqual([
-      "sprout",
-      "sapling",
-      "orchard",
-    ]);
+    expect(swapped.leakClass).not.toBe("MIGRATION_S2O");
+
+    // And the deltas the removed clauses would have read are still built for
+    // every pool that moved, so a future format that does allow a third leg
+    // finds the evidence waiting rather than absent.
+    const both = await analyze(
+      saplingToOrchard({ saplingZat: 500_000, orchardZat: -490_000 }),
+      context(),
+    );
+    expect(both.valueFlow.perPoolZat.map((p) => p.pool)).toEqual(["sapling", "orchard"]);
   });
 
   it("a coinbase is classified as one before any migration rule is consulted", async () => {

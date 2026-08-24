@@ -766,28 +766,38 @@ function classifyLeak(input: {
     return "MIGRATION_O2I";
   }
 
-  // THE SAME SHAPE TEST, BECAUSE IT IS THE SAME CLAIM ONE POOL PAIR OVER. This
-  // was the four-conjunct pile the block above was rewritten out of - two
-  // bundle counts and two signs, with no shape test and no transparent clauses
-  // - and a gate round found it fires on the shapes the O2I sibling now
-  // refuses: a Sapling-to-Orchard transfer that also pays a transparent address
-  // was published as a "textbook migration" while a public recipient stood in
-  // the same transaction, and so was one funded from a transparent input, and
-  // so was one draining Sprout at the same time.
+  // THE TRANSPARENT CLAUSES, BECAUSE IT IS THE SAME CLAIM ONE POOL PAIR OVER.
+  // This was the four-conjunct pile the block above was rewritten out of - two
+  // bundle counts and two signs, no transparent clauses - and a gate round
+  // found it fires on the shapes the O2I sibling now refuses: a
+  // Sapling-to-Orchard transfer that also pays a transparent address was
+  // published as a "textbook migration" while a public recipient stood in the
+  // same transaction, and so was one funded from a transparent input.
   //
-  // It is a smaller harm than the O2I case - no arithmetic creates ZEC here,
-  // and the row still draws a transparent lane swatch, so the public side stays
-  // visible while the label overstates - which is why it was rated LOW and is
-  // still fixed. A file that argues a rule for twenty lines and then declines
-  // to apply it three lines later is worse than one that never argued it: the
-  // next reader takes the argument as the file's practice.
+  // A smaller harm than the O2I case - no arithmetic creates ZEC here, and the
+  // row still draws a transparent lane swatch, so the public side stays visible
+  // while the label overstates - which is why it was rated LOW and is still
+  // fixed. A file that argues a rule at length and declines to apply it three
+  // lines later teaches the next reader that the argument was decorative.
+  //
+  // AND NO SHAPE TEST, WHICH IS THE HALF WORTH READING. The first fix here
+  // copied O2I's `exactly one pool drained, exactly one filled` as well, and a
+  // gate round showed those clauses CANNOT FIRE for any transaction a node can
+  // send. A third pool has to coexist with Sapling draining into Orchard, and
+  // no version of the format allows it: Sprout needs `vjoinsplit`, which v5
+  // removed (ZIP 225), and Orchard needs v5 or later; Ironwood needs v6, and
+  // NU6.3 made Orchard exit-only in the same upgrade, so nothing can fill
+  // Orchard where Ironwood exists. The only test that covered those clauses had
+  // to build a v4 carrying both an Orchard bundle and a JoinSplit - the very
+  // "a pair `analyze()` cannot produce" objection this session raised against
+  // someone else's test. So the clauses are gone rather than kept as
+  // unreachable belt-and-braces, and their removal returns the two sign
+  // conjuncts to work: while the shape test stood, `drained[0] === "sapling"`
+  // implied `saplingValueBalanceZat > 0n` and the sign clauses decided nothing,
+  // which quietly retired the FAIL STATE test that says they are load-bearing.
   if (
     saplingSpendCount > 0 &&
     orchardActionCount > 0 &&
-    drained.length === 1 &&
-    drained[0]?.pool === "sapling" &&
-    filled.length === 1 &&
-    filled[0]?.pool === "orchard" &&
     saplingValueBalanceZat > 0n &&
     orchardValueBalanceZat < 0n &&
     !hasTransparentInputs &&

@@ -397,6 +397,23 @@ const transparent = ROWS.filter((r) => r.cls === "transparent").length;
 const shielded = ROWS.filter(
   (r) => r.cls === "shield" || r.cls === "deshield" || r.cls === "shielded",
 ).length;
+
+/**
+ * How many rows the decoder read - the denominator a share of the mempool is
+ * out of.
+ *
+ * THE SAME UNREADABLE TRANSACTION MOVED THE HEADLINE STATISTIC TWICE, IN
+ * OPPOSITE DIRECTIONS, and the second move was made by the fix for the first.
+ * With the subtraction above, the undecoded row was counted as shielded and the
+ * tile printed "62% - 8 of 13". With the subtraction gone it left the
+ * numerator, stayed in the denominator, and the tile printed "54% - 7 of 13".
+ * The figure over the rows anyone could read is "58% - 7 of 12". A row that
+ * says "not decoded" in every cell cannot be evidence for shielded usage OR
+ * against it.
+ *
+ * `pricedCount` three fields down is the same rule, already learned once.
+ */
+const decodedCount = ROWS.filter((r) => r.cls !== "undecoded").length;
 /*
  * PRICED FIRST, and conventional only WITHIN the priced.
  *
@@ -435,6 +452,7 @@ export const MEMPOOL_VIEW: MempoolView = {
     shielded,
     migrations,
     transparent,
+    decodedCount,
     bytes: 38_100,
     nextBlockSeconds: 41,
     crossingZat: tToZ + zToT + oToI,

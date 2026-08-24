@@ -251,6 +251,27 @@ describe("the mempool summary is its own rows", () => {
     expect(undecoded[0]?.lanes).toEqual([]);
   });
 
+  it("the shielded share divides by what was decoded, not by every row", () => {
+    // THE SAME UNREADABLE TRANSACTION MOVED THIS STATISTIC TWICE, and the
+    // second move was made by the fix for the first. Counted into `shielded` it
+    // read "62% - 8 of 13"; taken out of the numerator but left in the
+    // denominator it read "54% - 7 of 13". Neither is a measurement of anything
+    // - a row that says "not decoded" in every cell is not evidence for
+    // shielded usage or against it - and the honest figure is over the twelve
+    // rows anyone could read.
+    expect(s.decodedCount).toBe(e.filter((r) => r.class !== "undecoded").length);
+    expect(s.decodedCount).toBe(s.unconfirmed - 1);
+    expect(s.shielded + s.migrations + s.transparent).toBe(s.decodedCount);
+
+    // The tile as /track renders it, so the number in this test is the number
+    // on the page rather than a restatement of the formula above it.
+    expect(`${Math.round((s.shielded / s.decodedCount) * 100)}% - ${s.shielded} of ${s.decodedCount}`).toBe(
+      "58% - 7 of 12",
+    );
+    // FAIL SIDE: the figure the wrong denominator produced.
+    expect(Math.round((s.shielded / s.unconfirmed) * 100)).toBe(54);
+  });
+
   it("the conventional-fee count is ZIP 317 applied to the rows that could be priced", () => {
     // The mockup says nine of twelve. Eleven of the twelve carry a fee at all -
     // one row is deliberately unpriced, because the fee is not on the wire and

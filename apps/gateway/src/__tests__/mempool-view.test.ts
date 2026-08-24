@@ -273,6 +273,26 @@ describe("mempoolRow class - a migration is a migration, whichever direction it 
     expect(built.summary.migrations).toBe(1);
   });
 
+  it("a pool crossing that ALSO pays a transparent address is not a migration on this surface either", () => {
+    // THE CLASSIFIER LEARNED THIS AND THE ROW PRODUCER DID NOT, for one gate
+    // round. `movedPools.length > 1` alone published `class: "migration"` and
+    // `flow: "S to O"` for a transfer paying a public recipient, on the surface
+    // a reader actually sees, while `analyze()` had just been taught to answer
+    // MIXED for the same transaction - so /tx and /track disagreed about one
+    // txid, which the docblock above the ternary and ASSERTION A9 both forbid.
+    const built = view({ ...saplingIntoOrchard, transparent: { vin: [], vout: [transparentOutput(0)] } });
+    expect(built.entries[0]?.class).not.toBe("migration");
+    expect(built.summary.migrations).toBe(0);
+  });
+
+  it("a pool crossing FUNDED from a transparent input is not a migration either", () => {
+    // The mirror clause. A public funding address is the same fact as a public
+    // recipient, arriving on the other side of the transaction.
+    const built = view({ ...saplingIntoOrchard, transparent: { vin: [transparentInput(0)], vout: [] } });
+    expect(built.entries[0]?.class).not.toBe("migration");
+    expect(built.summary.migrations).toBe(0);
+  });
+
   it("a single-pool DEPOSIT with a transparent input is still a shield", () => {
     // The fail side of the ordering rule. Moving the migration test to the
     // front must not swallow the crossings that are not migrations: this
@@ -436,6 +456,58 @@ describe("the four-pool row, and the two places Ironwood was half-added", () => 
     // failed validation at the wire boundary - which no test would have caught,
     // because nothing validated an unsupported row.
     expect(() => mempoolViewSchema.parse(built)).not.toThrow();
+  });
+
+  it("`summary.shielded` counts every row that touched a pool without crossing to the public side", () => {
+    // TWO PRODUCERS OF THIS FIELD MEANT DIFFERENT THINGS BY IT AND /track
+    // RENDERED WHICHEVER MODE IT WAS IN. This counted the residual class
+    // `shielded` alone while the fixture corpus counted `shield | deshield |
+    // shielded`; on the same three rows that is 1 against 3, published as the
+    // same header string and the same headline tile. A `shield` transaction
+    // moved value INTO a pool, so leaving it out of this number puts it in no
+    // bucket at all.
+    const built = view(
+      report({ txid: "f1", perPoolZat: [{ pool: "orchard", deltaZat: -ZEC }], vin: 2, orchardActions: 2 }),
+      report({ txid: "f2", perPoolZat: [{ pool: "orchard", deltaZat: ZEC }], vout: 2, orchardActions: 2 }),
+      report({ txid: "f3", ironwoodActions: 2 }),
+    );
+    expect(built.entries.map((e) => e.class)).toEqual(["shield", "deshield", "shielded"]);
+    expect(built.summary.shielded).toBe(3);
+    // FAIL SIDE: the residual-class-only reading, named so a regression reads
+    // as a regression rather than as an arbitrary number.
+    expect(built.summary.shielded).not.toBe(1);
+  });
+
+  it("`summary.decodedCount` is the denominator, and it leaves out the row nobody decoded", () => {
+    // A SHARE OF THE MEMPOOL DIVIDED BY EVERY ROW COUNTS AN UNREADABLE
+    // TRANSACTION AS EVIDENCE AGAINST WHATEVER IS BEING MEASURED. /track's
+    // shielded-share tile did exactly that in both directions across two gate
+    // rounds - "8 of 13" while the undecoded row was miscounted into the
+    // numerator, "7 of 13" once it was taken out, where the honest figure over
+    // the rows anyone could read is 7 of 12.
+    const undecodable: LeakReport = {
+      ...report({ txid: "f4" }),
+      txVersion: 7,
+      leakClass: "UNSUPPORTED_TX",
+      unsupported: { version: 7, reason: "version 7 is outside the modelled range", rawFieldNames: ["txid"] },
+    };
+    const built = view(report({ txid: "f5", ironwoodActions: 2 }), undecodable);
+
+    expect(built.summary.unconfirmed).toBe(2);
+    expect(built.summary.decodedCount).toBe(1);
+    expect(built.summary.shielded).toBe(1);
+    // FAIL SIDE: the two must not be the same number here, which is the whole
+    // point of having both.
+    expect(built.summary.decodedCount).not.toBe(built.summary.unconfirmed);
+  });
+
+  it("FAIL SIDE: with nothing undecodable, the denominator IS every row", () => {
+    // The discriminating half. `decodedCount` must not be "unconfirmed minus
+    // one" or a constant: on a mempool the decoder read in full it equals the
+    // row count exactly, so the tile does not quietly under-report.
+    const built = view(report({ txid: "f6", ironwoodActions: 2 }), report({ txid: "f7", vin: 1, vout: 1 }));
+    expect(built.summary.decodedCount).toBe(2);
+    expect(built.summary.decodedCount).toBe(built.summary.unconfirmed);
   });
 
   it("FAIL SIDE: a decodable transaction still names its version and counts its actions", () => {

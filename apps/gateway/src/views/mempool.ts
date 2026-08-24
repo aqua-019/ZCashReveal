@@ -56,9 +56,37 @@ export function buildMempoolView(
 ): MempoolView {
   const entries = reports.map((r) => mempoolRow(r, now));
 
-  const shielded = entries.filter((e) => e.class === "shielded").length;
+  // THE TWO PRODUCERS OF THIS FIELD MEANT DIFFERENT THINGS BY IT, AND /track
+  // RENDERS WHICHEVER MODE IT IS IN. This counted `class === "shielded"` alone
+  // - the RESIDUAL class, the one a transaction lands in when it touched a pool
+  // and crossed no boundary - while `apps/web/src/lib/api/fixtures/mempool.ts`
+  // counted `shield | deshield | shielded` under the heading "anything that
+  // touches a shielded pool and is not a migration". On thirteen rows that is 3
+  // against 7, published as the same header string and the same headline tile.
+  // A gate round rated it HIGH under CLAUDE.md's sweep rule, because HANDOFF-07
+  // is where the meaning of the number was decided and asserted - on one side.
+  //
+  // The fixture's reading wins, and not by seniority: a `shield` transaction
+  // moved value into a shielded pool, so counting it out of "shielded" leaves
+  // it in no bucket at all, and the three figures /track prints beside each
+  // other then account for less than the mempool without saying so.
+  const shielded = entries.filter(
+    (e) => e.class === "shield" || e.class === "deshield" || e.class === "shielded",
+  ).length;
   const migrations = entries.filter((e) => e.class === "migration").length;
   const transparent = entries.filter((e) => e.class === "transparent").length;
+  // THE DENOMINATOR FOR ANY SHARE OF THE MEMPOOL, and it is not `entries.length`.
+  // An `undecoded` row is a transaction the decoder declined to read, so it is
+  // evidence of nothing - and dividing by a total that includes it makes it
+  // evidence AGAINST whatever is being measured. /track's shielded-share tile
+  // read "8 of 13" while the undecoded row was counted as shielded and "7 of
+  // 13" after it was not: four points of the same statistic, manufactured twice
+  // out of one unreadable transaction, in opposite directions.
+  //
+  // `summary.pricedCount` exists for exactly this reason one field over
+  // (HANDOFF-06: "'N of 12' would be a claim about the transactions nobody
+  // priced"). This is that rule reused rather than rediscovered.
+  const decodedCount = entries.filter((e) => e.class !== "undecoded").length;
   // A MIGRATION CROSSES A POOL BOUNDARY, so it belongs in this count. It was
   // `shield || deshield` only, which was consistent while the migration class
   // was unreachable and became a self-contradiction the moment the ordering
@@ -142,6 +170,7 @@ export function buildMempoolView(
       shielded,
       migrations,
       transparent,
+      decodedCount,
       bytes: reports.reduce((acc, r) => acc + (sizes[r.txid]?.size ?? 0), 0),
       // The TARGET interval, and that is the right answer to "how long until
       // the next block" rather than a lazy one. Block arrival is a Poisson
@@ -349,8 +378,21 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
    * So the migration test goes first, and shield and deshield now require the
    * transparent half they name.
    */
+  // A MIGRATION IS A CROSSING WITH NO PUBLIC SIDE, HERE AS WELL AS IN THE
+  // CLASSIFIER. `movedPools.length > 1` alone published `class: "migration"`
+  // and `flow: "S to O"` for a Sapling-to-Orchard transfer that also paid a
+  // transparent address - a public recipient standing in the same row the site
+  // labels a pool-to-pool migration - and the indexer's classifier had just
+  // been taught to refuse exactly that shape. The two then disagreed about one
+  // transaction: /tx reads `leakClass` straight off the report and said MIXED
+  // while /track said migration, which is the divergence ASSERTION A9 and the
+  // docblock above this ternary both forbid. A gate round found the fix had
+  // landed in the classifier and not in the producer that renders it.
+  const crossesWithNoPublicSide =
+    movedPools.length > 1 && r.transparent.vin.length === 0 && r.transparent.vout.length === 0;
+
   const klass: MempoolRow["class"] =
-    movedPools.length > 1
+    crossesWithNoPublicSide
       ? "migration"
       : r.valueFlow.direction === "DEPOSIT" && r.transparent.vin.length > 0
         ? "shield"

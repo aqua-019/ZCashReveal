@@ -91,8 +91,16 @@ export default async function TrackPage() {
           />
           <Metric
             label="shielded share"
-            value={`${Math.round((s.shielded / s.unconfirmed) * 100)}%`}
-            sub={`by count - ${fmtInt(s.shielded)} of ${fmtInt(s.unconfirmed)}`}
+            // THE DENOMINATOR IS WHAT COULD BE DECODED, not everything
+            // unconfirmed - the same correction the conventional-fee tile below
+            // already carries, arriving here two handoffs later. It read
+            // `s.unconfirmed`, so a transaction the decoder declined to read
+            // counted against the shielded share: the tile said "7 of 13" about
+            // a mempool holding twelve readable transactions, seven of them
+            // shielded. An undecodable transaction is evidence of nothing, and
+            // a denominator is a claim as much as a numerator is.
+            value={`${Math.round((s.shielded / s.decodedCount) * 100)}%`}
+            sub={`by count - ${fmtInt(s.shielded)} of ${fmtInt(s.decodedCount)} decoded`}
           />
           <Metric
             label="value crossing boundaries"

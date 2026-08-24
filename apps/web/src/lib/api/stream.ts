@@ -328,6 +328,7 @@ function asView(v: unknown): MempoolView | null {
     !isCount(sum["shielded"]) ||
     !isCount(sum["migrations"]) ||
     !isCount(sum["transparent"]) ||
+    !isCount(sum["decodedCount"]) ||
     !isCount(sum["bytes"]) ||
     !isCount(sum["nextBlockSeconds"]) ||
     !isCount(sum["pricedCount"]) ||
@@ -347,6 +348,7 @@ function asView(v: unknown): MempoolView | null {
       shielded: sum["shielded"],
       migrations: sum["migrations"],
       transparent: sum["transparent"],
+      decodedCount: sum["decodedCount"],
       bytes: sum["bytes"],
       nextBlockSeconds: sum["nextBlockSeconds"],
       crossingZat,

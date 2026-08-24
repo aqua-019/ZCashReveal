@@ -23,8 +23,9 @@
  * two cannot pass as corroborated alongside the cited ones below.
  *
  * THE TWO TESTNET HEIGHTS NOW APPEAR IN THE CORPUS, AND THAT IS NOT
- * CORROBORATION. Until HANDOFF-07 they appeared nowhere in this tree, and these
- * docblocks said so. HANDOFF-07 added the consolidated activation table, which
+ * CORROBORATION. Until HANDOFF-07 they appeared nowhere in this tree except in
+ * this file and the test that pins these constants - which is the carve-out the
+ * corpus note makes and an earlier draft of this paragraph dropped. HANDOFF-07 added the consolidated activation table, which
  * carries 280,000 and 1,842,420 at `01-contemporary-zcash.md:66` and `:67`
  * marked *(uncorroborated)* - a transcription of these same two constants, made
  * by the session that wrote the table, from no source but this file. Reading
