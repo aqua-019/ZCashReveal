@@ -590,6 +590,72 @@ describe("MIGRATION_S2O — still detectable, because both pools publish a balan
     expect(report.leakClass).not.toBe("MIGRATION_S2O");
   });
 
+  it("FAIL STATE: a transfer that also pays a transparent address is not a migration", async () => {
+    // THE HARM THIS REFUSES IS THE SAME ONE THE O2I SIBLING REFUSES, and this
+    // rule did not refuse it until a gate round in HANDOFF-07. The class
+    // publishes the MEDIUM finding "Textbook Sapling->Orchard migration:
+    // Sapling spends paired with Orchard outputs" - a statement that the value
+    // moved between two shielded pools - and a transaction paying a public
+    // recipient in the same breath is not that. The label overstated while a
+    // transparent address stood in the row beside it.
+    const report = await analyze(
+      {
+        ...saplingToOrchard({ saplingZat: 500_000, orchardZat: -290_000 }),
+        vout: [transparentOutput(200_000)],
+      },
+      context(),
+    );
+    expect(report.leakClass).not.toBe("MIGRATION_S2O");
+    // And it lands on the admission rather than on another confident label:
+    // value moved between pools and a public recipient was paid, which this
+    // build does not have a name for.
+    expect(report.leakClass).toBe("MIXED");
+    expect(report.findings.map((f) => f.code)).not.toContain("MIGRATION_PATTERN");
+  });
+
+  it("FAIL STATE: a transfer FUNDED from a transparent input is not a migration", async () => {
+    // The mirror clause, and it is load-bearing in the opposite direction: a
+    // transparent INPUT is a public funding address, and calling the
+    // transaction a pool-to-pool migration hides it exactly as the output case
+    // hides a public recipient.
+    const report = await analyze(
+      {
+        ...saplingToOrchard({ saplingZat: 500_000, orchardZat: -490_000 }),
+        vin: [transparentInput()],
+      },
+      context(),
+    );
+    expect(report.leakClass).not.toBe("MIGRATION_S2O");
+    // `T_TO_Z` names the transparent side that is actually there, which is the
+    // fact the migration label was hiding.
+    expect(report.leakClass).toBe("T_TO_Z");
+  });
+
+  it("FAIL STATE: a third pool draining at the same time is not this crossing", async () => {
+    // ZIP 318's sibling shape and this one are both "one pool into one pool".
+    // A transaction that also drains Sprout moved value along a path this class
+    // does not name, and the shape test - exactly one drained, exactly one
+    // filled - is what says so. The old four-conjunct rule read only Sapling's
+    // and Orchard's own signs and never looked at what else moved.
+    const report = await analyze(
+      {
+        ...saplingToOrchard({ saplingZat: 500_000, orchardZat: -590_000 }),
+        version: 4,
+        vjoinsplit: [{ vpub_oldZat: 0, vpub_newZat: 100_000 }],
+      },
+      context(),
+    );
+    expect(report.leakClass).not.toBe("MIGRATION_S2O");
+    expect(report.leakClass).toBe("MIXED");
+    // The Sprout leg is visible in the deltas, which is what the shape test
+    // reads. Without it in `perPoolZat` the old rule saw only two pools.
+    expect(report.valueFlow.perPoolZat.map((p) => p.pool)).toEqual([
+      "sprout",
+      "sapling",
+      "orchard",
+    ]);
+  });
+
   it("a coinbase is classified as one before any migration rule is consulted", async () => {
     // Order matters here: a shielded coinbase carries bundles and balances, and
     // "the miner shielded the subsidy" is the more specific fact about it.

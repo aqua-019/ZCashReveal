@@ -394,8 +394,16 @@ describe("the four-pool row, and the two places Ironwood was half-added", () => 
     // flow "t to t", "no net crossing" and "Nothing this transaction publishes
     // distinguishes it from any other of its shape". Four confident statements
     // about a transaction nobody could decode.
+    // `txVersion` AND `unsupported.version` MUST AGREE, and the first draft of
+    // this test set them to 5 and 7. `analyze()` cannot produce that pair -
+    // `unsupportedReport` builds `unsupported.version` from `tx.version` - and
+    // the mismatch was not cosmetic: it hid a defect. The row derives its
+    // version cell from `txVersion`, so a test pinning that field at 5 asserted
+    // "claims nothing" over a row that read `v5` correctly, while the real
+    // shape published `v6` for a version-7 transaction. A gate round found it.
     const undecodable: LeakReport = {
       ...report({ txid: "e7" }),
+      txVersion: 7,
       leakClass: "UNSUPPORTED_TX",
       unsupported: {
         version: 7,
@@ -409,6 +417,15 @@ describe("the four-pool row, and the two places Ironwood was half-added", () => 
     expect(built.entries[0]?.flow).toBe("not decoded");
     expect(built.entries[0]?.valueBalanceText).toBe("not measured");
     expect(built.entries[0]?.feeZat).toBeNull();
+    // THE VERSION AND THE ACTION COUNT ARE ABSENCES TOO, and both were values
+    // until a gate round read them. The producer clamped the version into the
+    // three-member enum, so this row said `v6` two cells left of its own
+    // finding "transaction version 7 is outside the range this decoder models
+    // (1 to 6)"; and it supplied `logicalActions: 0`, which the panel renders
+    // as "not priced - L = 0" - a measurement of zero logical actions, a value
+    // ZIP 317's `max(2, L)` puts outside the quantity's range entirely.
+    expect(built.entries[0]?.version).toBe("unknown");
+    expect(built.entries[0]?.logicalActions).toBeNull();
     // No lane is claimed. A swatch is a claim that the transaction touched that
     // lane, and nothing here can make one.
     expect(built.entries[0]?.lanes).toEqual([]);
@@ -419,6 +436,29 @@ describe("the four-pool row, and the two places Ironwood was half-added", () => 
     // failed validation at the wire boundary - which no test would have caught,
     // because nothing validated an unsupported row.
     expect(() => mempoolViewSchema.parse(built)).not.toThrow();
+  });
+
+  it("FAIL SIDE: a decodable transaction still names its version and counts its actions", () => {
+    // The discriminating half of the two assertions above. The fix must not be
+    // "never state a version": a v5 the decoder read is a v5, and its logical
+    // actions were counted. Without this, `version: "unknown"` everywhere and
+    // `logicalActions: null` everywhere would pass the test above.
+    const built = view(report({ txid: "e8", vin: 1, vout: 1 }));
+    expect(built.entries[0]?.version).toBe("v5");
+    expect(built.entries[0]?.logicalActions).not.toBeNull();
+    expect(built.entries[0]?.class).not.toBe("undecoded");
+  });
+
+  it("a version this build does not model is `unknown` at BOTH ends of the range, not the nearest member", () => {
+    // The clamp was `>= 6 ? "v6" : === 5 ? "v5" : "v4"`, so it was wrong in two
+    // directions at once and only one of them involved an undecodable
+    // transaction. Zcash shipped v1, v2 and v3 before Overwinter; every one of
+    // them was published here as `v4`, a version this site states as fact
+    // beside a txid a reader can check in ten seconds.
+    expect(view({ ...report({ txid: "e9" }), txVersion: 7 }).entries[0]?.version).toBe("unknown");
+    expect(view({ ...report({ txid: "ea" }), txVersion: 2 }).entries[0]?.version).toBe("unknown");
+    expect(view({ ...report({ txid: "eb" }), txVersion: 4 }).entries[0]?.version).toBe("v4");
+    expect(view({ ...report({ txid: "ec" }), txVersion: 6 }).entries[0]?.version).toBe("v6");
   });
 });
 

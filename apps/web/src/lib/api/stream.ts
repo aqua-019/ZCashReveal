@@ -230,7 +230,13 @@ function asNullableZat(v: unknown): bigint | null | undefined {
 }
 
 const LANES = new Set(["transparent", "sprout", "sapling", "orchard", "ironwood"]);
-const VERSIONS = new Set(["v4", "v5", "v6"]);
+// `unknown` IS A VALID VERSION SINCE HANDOFF-07, and it is here for exactly the
+// reason `undecoded` is in CLASSES below: a row the decoder refused cannot name
+// a version, and a guard that rejects the honest answer drops the whole
+// snapshot. The two sets sit three lines apart and the first widening missed
+// this one - which is the same half-widening the comment below is about,
+// repeated one field over in the same commit that wrote the comment.
+const VERSIONS = new Set(["v4", "v5", "v6", "unknown"]);
 const SEVERITIES = new Set(["INFO", "LOW", "MED", "HIGH"]);
 // `undecoded` IS A VALID CLASS SINCE HANDOFF-07 AND LEAVING IT OUT DROPPED THE
 // WHOLE SNAPSHOT. `asRow` returns null for an unknown class and `asView`
@@ -269,7 +275,10 @@ function asRow(v: unknown): MempoolRow | null {
     lanes === null ||
     !isText(r["valueBalanceText"]) ||
     feeZat === undefined ||
-    !isCount(r["logicalActions"]) ||
+    // NULL IS LEGAL HERE, on the same terms as `feeZat` beside it: an
+    // undecoded row counted no logical actions, and `isCount` alone would
+    // reject the row and take the snapshot with it.
+    !(r["logicalActions"] === null || isCount(r["logicalActions"])) ||
     !isText(r["walletGuess"]) ||
     !isText(r["finding"]) ||
     typeof r["severity"] !== "string" ||
@@ -288,7 +297,7 @@ function asRow(v: unknown): MempoolRow | null {
     lanes,
     valueBalanceText: r["valueBalanceText"],
     feeZat,
-    logicalActions: r["logicalActions"],
+    logicalActions: r["logicalActions"] as number | null,
     walletGuess: r["walletGuess"],
     finding: r["finding"],
     severity: r["severity"] as MempoolRow["severity"],

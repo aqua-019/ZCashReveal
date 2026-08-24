@@ -17,11 +17,22 @@
  * The four pre-NU6 values - Sapling and NU5, mainnet and testnet - were already
  * here and carry no per-constant citation. The two MAINNET ones are corroborated
  * in this repository (Sapling 419,200 and NU5 1,687,104 both appear across the
- * research corpus); the two TESTNET ones appear nowhere in this tree, and the
- * file's original author sourced all four to the Zcash protocol spec and
- * `zcashd` chainparams, which are not here either. That sourcing is restated
- * rather than dropped, so those two cannot pass as corroborated alongside the
- * cited ones below.
+ * research corpus); the two TESTNET ones are NOT, and the file's original author
+ * sourced all four to the Zcash protocol spec and `zcashd` chainparams, which
+ * are not here either. That sourcing is restated rather than dropped, so those
+ * two cannot pass as corroborated alongside the cited ones below.
+ *
+ * THE TWO TESTNET HEIGHTS NOW APPEAR IN THE CORPUS, AND THAT IS NOT
+ * CORROBORATION. Until HANDOFF-07 they appeared nowhere in this tree, and these
+ * docblocks said so. HANDOFF-07 added the consolidated activation table, which
+ * carries 280,000 and 1,842,420 at `01-contemporary-zcash.md:66` and `:67`
+ * marked *(uncorroborated)* - a transcription of these same two constants, made
+ * by the session that wrote the table, from no source but this file. Reading
+ * them back out of it and citing the line would be this project's own claim
+ * returning as its own evidence. The corpus note under that table says the same
+ * thing from the other side and names this file; a gate round found the
+ * correction had landed there and not here, which is the failure mode
+ * CLAUDE.md rates HIGH - two files, one fact, and only one of them corrected.
  *
  * TWO KINDS OF CITATION LIVE HERE AND THEY ARE NOT INTERCHANGEABLE. Most
  * constants cite a line of `docs/2.0/research/`, which is this repository's
@@ -148,14 +159,29 @@ export const SPROUT_ACTIVATION_TESTNET = 0;
 /**
  * Sapling activated on testnet at this height.
  *
- * UNCORROBORATED IN THIS REPOSITORY - the value appears in no research file.
- * Pre-existing, sourced by the file's original author to the protocol spec and
- * `zcashd` chainparams. Stated so rather than left to look as sourced as the
- * heights above it.
+ * UNCORROBORATED IN THIS REPOSITORY. It appears in one research file - the
+ * activation table at `01-contemporary-zcash.md:66`, marked *(uncorroborated)*
+ * there - and that row was transcribed FROM THIS CONSTANT in HANDOFF-07, so
+ * citing it here would be circular. Pre-existing, sourced by the file's
+ * original author to the protocol spec and `zcashd` chainparams, neither of
+ * which is in this repository. Stated so rather than left to look as sourced as
+ * the heights above it.
  */
 export const SAPLING_ACTIVATION_TESTNET = 280_000;
 
-/** NU5 (Orchard) activated on testnet. UNCORROBORATED here, as Sapling's is. */
+/**
+ * NU5 (Orchard) activated on testnet.
+ *
+ * UNCORROBORATED here on exactly Sapling's terms, and the sourcing is written
+ * out rather than cross-referenced: the protocol specification and `zcashd`
+ * chainparams, per the file's original author, neither present in this
+ * repository. Its one appearance in the corpus is the same transcribed table
+ * row (`01-contemporary-zcash.md:67`, marked *(uncorroborated)*).
+ *
+ * The cross-reference form this replaces - "UNCORROBORATED here, as Sapling's
+ * is" - named no source at all, so the corpus note claiming this file states
+ * the sourcing at each of the two testnet constants was true of one of them.
+ */
 export const NU5_ACTIVATION_TESTNET = 1_842_420;
 
 /**

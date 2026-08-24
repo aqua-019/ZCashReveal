@@ -766,11 +766,32 @@ function classifyLeak(input: {
     return "MIGRATION_O2I";
   }
 
+  // THE SAME SHAPE TEST, BECAUSE IT IS THE SAME CLAIM ONE POOL PAIR OVER. This
+  // was the four-conjunct pile the block above was rewritten out of - two
+  // bundle counts and two signs, with no shape test and no transparent clauses
+  // - and a gate round found it fires on the shapes the O2I sibling now
+  // refuses: a Sapling-to-Orchard transfer that also pays a transparent address
+  // was published as a "textbook migration" while a public recipient stood in
+  // the same transaction, and so was one funded from a transparent input, and
+  // so was one draining Sprout at the same time.
+  //
+  // It is a smaller harm than the O2I case - no arithmetic creates ZEC here,
+  // and the row still draws a transparent lane swatch, so the public side stays
+  // visible while the label overstates - which is why it was rated LOW and is
+  // still fixed. A file that argues a rule for twenty lines and then declines
+  // to apply it three lines later is worse than one that never argued it: the
+  // next reader takes the argument as the file's practice.
   if (
     saplingSpendCount > 0 &&
     orchardActionCount > 0 &&
+    drained.length === 1 &&
+    drained[0]?.pool === "sapling" &&
+    filled.length === 1 &&
+    filled[0]?.pool === "orchard" &&
     saplingValueBalanceZat > 0n &&
-    orchardValueBalanceZat < 0n
+    orchardValueBalanceZat < 0n &&
+    !hasTransparentInputs &&
+    !hasTransparentOutputs
   ) {
     return "MIGRATION_S2O";
   }

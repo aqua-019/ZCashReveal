@@ -249,9 +249,25 @@ export function lanesTouched(tx: RpcTransaction): ("transparent" | "sprout" | "s
   return lanes;
 }
 
-/** The transaction version as the DTOs spell it. */
-export function versionText(version: number): "v4" | "v5" | "v6" {
-  if (version >= 6) return "v6";
+/**
+ * The transaction version as the DTOs spell it, or `unknown`.
+ *
+ * IT USED TO CLAMP, AND A CLAMP IS A FALSE STATEMENT WITH A CONFIDENT SHAPE.
+ * The rule was `>= 6 ? "v6" : === 5 ? "v5" : "v4"`, so every version outside
+ * 4-6 was published as its nearest neighbour: a version-7 transaction printed
+ * `v6` in the cell beside its own finding "transaction version 7 is outside the
+ * range this decoder models (1 to 6)", and a v1, v2 or v3 - Zcash shipped all
+ * three before Overwinter - printed `v4`. A gate round reproduced both ends.
+ *
+ * The version is one of the few fields on these surfaces that a reader can
+ * check against a block explorer in ten seconds, which is exactly why it must
+ * not be rounded. `unknown` is the third state the enum gained for it, on the
+ * same argument the `undecoded` mempool class was added on: the site says what
+ * it read, and says so when it read nothing.
+ */
+export function versionText(version: number): "v4" | "v5" | "v6" | "unknown" {
+  if (version === 6) return "v6";
   if (version === 5) return "v5";
-  return "v4";
+  if (version === 4) return "v4";
+  return "unknown";
 }

@@ -25,6 +25,7 @@ import type {
 } from "@zcashreveal/types";
 import { ZIP317_GRACE_ACTIONS, conventionalFeeZat, zip317LogicalActionsP2pkhApproximation } from "@zcashreveal/types";
 
+import { versionText } from "./context.js";
 import { countText, zecText } from "./units.js";
 
 /**
@@ -270,14 +271,21 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
     return {
       txid: r.txid,
       ageSeconds: Math.max(0, Math.round((now - r.seenAt) / 1000)),
-      version: r.txVersion >= 6 ? "v6" : r.txVersion === 5 ? "v5" : "v4",
+      // Through the shared helper, not a second copy of the rule. The inline
+      // ternary this replaces is where the false `v6` came from, and it was a
+      // second derivation of a quantity the module already imports one for -
+      // the split this file's own docblocks forbid.
+      version: versionText(r.txVersion),
       flow: "not decoded",
       // Empty rather than `["transparent"]`. A lane swatch is a claim that the
       // transaction touched that lane, and nothing here can make one.
       lanes: [],
       valueBalanceText: "not measured",
       feeZat: null,
-      logicalActions: 0,
+      // NOT `0`. Nothing counted them, and `L = 0` is a measurement no
+      // transaction can produce - ZIP 317 prices `max(2, L)`, so zero is
+      // outside the quantity's range rather than merely unusual.
+      logicalActions: null,
       walletGuess: r.fingerprint.likelyWallet,
       finding: r.unsupported.reason,
       severity: "INFO",
@@ -370,7 +378,10 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
   return {
     txid: r.txid,
     ageSeconds: Math.max(0, Math.round((now - r.seenAt) / 1000)),
-    version: r.txVersion >= 6 ? "v6" : r.txVersion === 5 ? "v5" : "v4",
+    // The same helper the unsupported branch above uses. Two copies of the
+    // version rule in one file is how the branch above came to publish `v6`
+    // for a version 7 while this one said the same thing about a v1.
+    version: versionText(r.txVersion),
     flow:
       klass === "shield"
         ? "t to z"

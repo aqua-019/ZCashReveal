@@ -483,7 +483,8 @@ export const poolDeltaSchema = z.object({
 
 export const txViewSchema = z.object({
   txid: txidSchema,
-  version: z.enum(["v4", "v5", "v6"]),
+  /** See `mempoolRowSchema.version`: `unknown` rather than a clamp. */
+  version: z.enum(["v4", "v5", "v6", "unknown"]),
   height: heightSchema,
   stamp: stampSchema,
   leakClass: z.string().min(1),
@@ -552,7 +553,8 @@ export const blockViewSchema = z.object({
   transactions: z.array(
     z.object({
       txid: txidSchema,
-      version: z.enum(["v4", "v5", "v6"]),
+      /** See `mempoolRowSchema.version`: `unknown` rather than a clamp. */
+      version: z.enum(["v4", "v5", "v6", "unknown"]),
       flow: z.string().min(1),
       valueText: z.string().min(1),
       severity: severitySchema,
@@ -680,7 +682,26 @@ export const mempoolRowSchema = z.object({
   txid: txidSchema,
   /** Seconds since the entry was first seen. A count, so `number`. */
   ageSeconds: countSchema,
-  version: z.enum(["v4", "v5", "v6"]),
+  /**
+   * The transaction version as the table prints it.
+   *
+   * `"unknown"` IS NEW IN HANDOFF-07 AND IT IS THE ONLY HONEST ANSWER FOR A ROW
+   * THE DECODER REFUSED. The three-member enum forced the producer to name a
+   * version for every transaction, and the producer obliged with a clamp -
+   * `>= 6 ? "v6" : === 5 ? "v5" : "v4"` - so a version-7 transaction was
+   * published as `v6` in the cell two columns left of its own finding,
+   * "transaction version 7 is outside the range this decoder models (1 to 6)".
+   * A gate round reproduced it at both ends: version 7 printed `v6`, version 0
+   * printed `v4`.
+   *
+   * The clamp is false about real transactions as well as refused ones. Zcash
+   * shipped v1, v2 and v3 before Overwinter, and every one of them printed
+   * `v4` here - a version this site states as fact beside a txid a reader can
+   * look up. `versionText` now answers `unknown` outside 4-6 rather than
+   * rounding into the nearest member, which is the same rule the `undecoded`
+   * class states one field over: an absence is not a value.
+   */
+  version: z.enum(["v4", "v5", "v6", "unknown"]),
   /** "t to z", "z to t", "O to I", "mixed" - the flow as the table prints it. */
   flow: z.string().min(1),
   /**
@@ -708,7 +729,18 @@ export const mempoolRowSchema = z.object({
    * rule a renderer needs, in one line: print an absence, never a zero.
    */
   feeZat: zatSchema.nullable(),
-  logicalActions: countSchema,
+  /**
+   * ZIP 317's logical action count, or `null` when nothing counted them.
+   *
+   * NULLABLE SINCE HANDOFF-07, FOR THE REASON `feeZat` ABOVE IS. The producer's
+   * unsupported branch had to supply a number and supplied `0`, which the panel
+   * renders as "not priced - L = 0" - a stated measurement of zero logical
+   * actions for a transaction nobody decoded. No transaction has L = 0: ZIP
+   * 317's own floor is `max(2, L)`, so zero is not merely unlikely here, it is
+   * outside the quantity's range. The row that says "not decoded" in four other
+   * cells must be able to say it in this one.
+   */
+  logicalActions: countSchema.nullable(),
   walletGuess: z.string().min(1),
   finding: z.string().min(1),
   severity: severitySchema,

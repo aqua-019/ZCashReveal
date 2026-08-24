@@ -77,7 +77,7 @@ const REASONING: Readonly<Record<MempoolRow["class"], readonly string[]>> = {
 interface Row {
   readonly txid: string;
   readonly ageSeconds: number;
-  readonly version: "v4" | "v5" | "v6";
+  readonly version: "v4" | "v5" | "v6" | "unknown";
   readonly flow: string;
   readonly lanes: MempoolRow["lanes"];
   /**
@@ -99,7 +99,7 @@ interface Row {
    * priced" cell reached a gate round having been seen by nobody.
    */
   readonly feeZat: bigint | null;
-  readonly logicalActions: number;
+  readonly logicalActions: number | null;
   readonly walletGuess: string;
   readonly finding: string;
   readonly severity: MempoolRow["severity"];
@@ -315,15 +315,31 @@ const ROWS: readonly Row[] = [
      * pools, its fee and its flow are unknown and not zero. `lanes` is empty -
      * a swatch would claim the transaction touched that lane - and this is the
      * only row in the corpus with no lane at all.
+     *
+     * THAT SENTENCE WAS FALSE IN TWO CELLS WHEN IT WAS FIRST WRITTEN, which is
+     * the reason it is worth reading twice rather than trusting. `version` said
+     * `v6` and `logicalActions` said `0`, and both are values. The DTO forced
+     * them: its version was a three-member enum and its action count was a
+     * plain count, so the honest answer could not be expressed and the row
+     * supplied the nearest expressible lie. Both fields gained a null state in
+     * the same commit. A docblock is not evidence that the fields under it obey
+     * it - only a gate round reading them one at a time is.
      */
     txid: "7e6d5c4b3a2f1e0d9c8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d",
     ageSeconds: 61,
-    version: "v6",
+    // `"unknown"`, not `"v6"`. The first draft of this row said `v6` two cells
+    // left of its own finding, "transaction version 7 is outside the range this
+    // decoder models (1 to 6)" - the row contradicted itself on the surface a
+    // reader sees, under a docblock claiming every field says an absence. A
+    // gate round found it here and in the gateway producer at the same time.
+    version: "unknown",
     flow: "not decoded",
     lanes: [],
     valueBalanceText: "not measured",
     feeZat: null,
-    logicalActions: 0,
+    // `null`, not `0`. "not priced - L = 0" is a measurement, and no
+    // transaction has L = 0 - ZIP 317 prices `max(2, L)`.
+    logicalActions: null,
     walletGuess: "UNKNOWN_UNPRICED",
     finding: "transaction version 7 is outside the range this decoder models (1 to 6)",
     severity: "INFO",
@@ -358,8 +374,29 @@ const ENTRIES: readonly MempoolRow[] = ROWS.map((r) => ({
 
 const migrations = ROWS.filter((r) => r.cls === "migration").length;
 const transparent = ROWS.filter((r) => r.cls === "transparent").length;
-/** Anything that touches a shielded pool and is not a migration. */
-const shielded = ROWS.length - migrations - transparent;
+/**
+ * Anything that touches a shielded pool and is not a migration.
+ *
+ * COUNTED, NOT SUBTRACTED, AND THE DIFFERENCE COST FOUR POINTS OFF THE SITE'S
+ * HEADLINE STATISTIC. This read `ROWS.length - migrations - transparent`, which
+ * is correct only while every class is one of the three - and HANDOFF-07 added
+ * a sixth, `undecoded`, whose entire meaning is that it touches no pool. The
+ * subtraction swept it into `shielded`, so /track's header printed "13
+ * unconfirmed - 8 shielded" and the tile printed "62% - by count - 8 of 13"
+ * while only 7 rows touched a pool at all. The transaction whose own row says
+ * "not decoded", "not measured" and carries no lane swatch was being counted
+ * as evidence of shielded usage.
+ *
+ * This is HANDOFF-06's lesson arriving in a new file: widening a union runs
+ * arithmetic that the narrow union kept correct. A subtraction over a closed
+ * set is a silent assertion that the set is still closed, and nothing in
+ * TypeScript checks it - which is why the three counts below are now three
+ * predicates over the classes they name, and a seventh class would be absent
+ * from the summary rather than folded into one of them.
+ */
+const shielded = ROWS.filter(
+  (r) => r.cls === "shield" || r.cls === "deshield" || r.cls === "shielded",
+).length;
 /*
  * PRICED FIRST, and conventional only WITHIN the priced.
  *
@@ -372,7 +409,9 @@ const shielded = ROWS.length - migrations - transparent;
  * by the tile above this table.
  */
 const priced = ROWS.filter((r) => r.feeZat !== null);
-const conventional = priced.filter((r) => r.feeZat === conventionalFeeZat(r.logicalActions)).length;
+const conventional = priced.filter(
+  (r) => r.logicalActions !== null && r.feeZat === conventionalFeeZat(r.logicalActions),
+).length;
 const findingsHigh = ROWS.filter((r) => r.severity === "HIGH").length;
 
 const crossingBy = (kind: "t-to-z" | "z-to-t" | "o-to-i"): bigint =>

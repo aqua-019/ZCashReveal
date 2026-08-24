@@ -218,8 +218,37 @@ describe("the mempool summary is its own rows", () => {
     expect(s.unconfirmed).toBe(e.length);
     expect(s.migrations).toBe(e.filter((r) => r.class === "migration").length);
     expect(s.transparent).toBe(e.filter((r) => r.class === "transparent").length);
-    expect(s.shielded).toBe(e.length - s.migrations - s.transparent);
-    expect(s.shielded + s.migrations + s.transparent).toBe(s.unconfirmed);
+
+    // COUNTED BY CLASS, NOT RESTATED FROM THE FIXTURE'S OWN FORMULA. This line
+    // read `e.length - s.migrations - s.transparent`, which is the arithmetic
+    // the fixture uses to PRODUCE the number - so the test asserted that the
+    // fixture agrees with itself and passed no matter what the rows said. It
+    // stayed green while HANDOFF-07 added an `undecoded` row that the
+    // subtraction swept into `shielded`, moving /track's headline shielded
+    // share from 7 of 12 to 8 of 13 with one row nobody could decode.
+    expect(s.shielded).toBe(
+      e.filter((r) => r.class === "shield" || r.class === "deshield" || r.class === "shielded")
+        .length,
+    );
+  });
+
+  it("FAIL STATE: an undecoded row is counted into no bucket at all", () => {
+    // The discriminating half, and the one that would have caught the defect
+    // above on the day it landed. `undecoded` means the decoder declined to
+    // read the transaction, so it is evidence of nothing - not of shielded
+    // usage, not of transparent usage, not of a migration. The three counts
+    // therefore do NOT partition the rows, and asserting that they do is what
+    // forced the miscount: a partition is only available when every class
+    // belongs in one of the buckets, and this one belongs in none.
+    const undecoded = e.filter((r) => r.class === "undecoded");
+    expect(undecoded).toHaveLength(1);
+    expect(s.shielded + s.migrations + s.transparent).toBe(s.unconfirmed - undecoded.length);
+
+    // And the row itself claims nothing in the cells a reader sees.
+    expect(undecoded[0]?.version).toBe("unknown");
+    expect(undecoded[0]?.logicalActions).toBeNull();
+    expect(undecoded[0]?.feeZat).toBeNull();
+    expect(undecoded[0]?.lanes).toEqual([]);
   });
 
   it("the conventional-fee count is ZIP 317 applied to the rows that could be priced", () => {
@@ -237,10 +266,16 @@ describe("the mempool summary is its own rows", () => {
     const priced = e.filter((r) => r.feeZat !== null);
     expect(s.pricedCount).toBe(priced.length);
     expect(priced).toHaveLength(11);
-    const conventional = priced.filter((r) => r.feeZat === conventionalFeeZat(r.logicalActions));
+    // A PRICED ROW ALWAYS COUNTED ITS ACTIONS, and that is asserted rather than
+    // assumed: `logicalActions` became nullable in HANDOFF-07 for the undecoded
+    // row, and a null reaching `conventionalFeeZat` would price it at the
+    // 10,000 floor and quietly call it conventional.
+    expect(priced.every((r) => r.logicalActions !== null)).toBe(true);
+    const L = (r: (typeof priced)[number]): number => r.logicalActions ?? -1;
+    const conventional = priced.filter((r) => r.feeZat === conventionalFeeZat(L(r)));
     expect(s.conventionalCount).toBe(conventional.length);
     expect(s.conventionalCount).toBe(10);
-    const odd = priced.filter((r) => r.feeZat !== conventionalFeeZat(r.logicalActions));
+    const odd = priced.filter((r) => r.feeZat !== conventionalFeeZat(L(r)));
     expect(odd).toHaveLength(1);
     expect(odd[0]?.logicalActions).toBe(1);
     expect(odd[0]?.feeZat).toBe(5_000n);
