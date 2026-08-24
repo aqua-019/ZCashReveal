@@ -72,7 +72,8 @@ Decode v6 transactions and Ironwood actions from Zebra 6.x RPC JSON into the fou
 STATUS: DONE-WITH-ASSUMPTIONS
 
 BRANCH / PR: claude/new-session-ux5kkt (the harness names the branch; the handoff's
-suggested `feat/v2-07-v6-decoder` was not available). PR: see LOG.md.
+suggested `feat/v2-07-v6-decoder` was not available). PR: #38, opened as a draft
+and stopped there.
 
 DIRECTORS SPAWNED (lead names each + spawn mode proven):
   SPAWN MODE, first output of the session and proven by a tool attempt, not asserted:
