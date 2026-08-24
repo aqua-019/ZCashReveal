@@ -17,7 +17,15 @@
  * function the test calls, which is what this module is for.
  */
 
-import { fmtInt } from "./format.js";
+// EXTENSIONLESS, LIKE EVERY OTHER IMPORT IN THIS DIRECTORY. The first draft
+// wrote `./format.js` - correct for the indexer and the gateway, which are ESM
+// packages compiled by tsc, and wrong here: `next build` resolves through
+// webpack and answers "Module not found: Can't resolve './format.js'". Nothing
+// in this repository's gate caught it. `pnpm -r test`, `pnpm typecheck`,
+// `pnpm lint` and `pnpm check` were all green on the commit that shipped it,
+// because none of them runs a production Next build; the Vercel deployment on
+// the PR is the first thing that does. Noted in the report.
+import { fmtInt } from "./format";
 
 /** The four counts /track prints beside each other in the block header. */
 export interface MempoolCounts {

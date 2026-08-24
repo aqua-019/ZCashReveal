@@ -473,6 +473,25 @@ GATE ROUNDS: 4 rounds, 10 review lenses, 31 adversarial verifiers. 68 findings
   because "review only the fix commit" has now found six fix-created defects in one
   session and this project has no written rule for when that ends.
 
+  POSTSCRIPT, ADDED AFTER THE PR OPENED AND BEFORE ANY REVIEW: CI AND THE VERCEL
+  PREVIEW BOTH FAILED ON THE FIRST PUSH, ON A DEFECT NONE OF THE FIVE GATE
+  COMMANDS COULD SEE. `apps/web/src/lib/mempool-summary.ts` - the module round 4
+  extracted so the /track tile would be testable - imported `./format.js`.
+  That extension is correct in the indexer and the gateway, which are ESM
+  packages compiled by `tsc`, and unresolvable in Next, which builds through
+  webpack: `Module not found: Can't resolve './format.js'`. Every other import in
+  `apps/web/src/lib` is extensionless.
+  `pnpm -r test`, `pnpm typecheck`, `pnpm lint`, `pnpm --filter content validate`
+  and `pnpm check` were all green on the commit that shipped it, because none of
+  them runs a production Next build - and the handoff's own §3 contract lists
+  exactly those five. CI does run `pnpm build`, and caught it in twenty seconds.
+  This is the same shape as the note CLAUDE.md already carries about `pnpm check`
+  ("they were absent from this list, so a session could satisfy the contract
+  exactly and never run the guard that protects another project's database"), so
+  `pnpm build` is added to that list in the same commit as the fix. Reproduced
+  locally before the fix and green after: `pnpm build` -> 7 successful, /track
+  prerendered at 10.2 kB.
+
 PREVIEW URL (if any): none. A session cannot reach a preview host - Deployment
   Protection returns 302 to the SSO endpoint and this container's egress proxy
   refuses the CONNECT tunnel with 403 before that. No apps/web route changed
