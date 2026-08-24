@@ -2201,3 +2201,158 @@ CI on 6fda93f: run 32663016953, job "typecheck, lint, test", success, 1m 56s.
 holds as written. Verdict: every assertion holds, two gate rounds plus a CI round, NO FINDINGS -
 the first handoff in this project to come back from L2 with nothing to fix.
 ```
+
+## HANDOFF-07 (Indexer: v6 / Ironwood decoder + migration detection) - L3 session, 24 Aug 2026
+
+```
+QUESTIONS (for the operator / L2):
+
+Q1. `RoundTripIndex` MANUFACTURES HIGH-VISIBILITY LINKS BETWEEN UNRELATED WALLETS,
+    and ZIP 318 turns that from a coincidence into a design. `ingest()` reads every
+    `perPoolZat` leg as a shielding deposit or an unshielding withdrawal, and a
+    pool-to-pool crossing is neither - it did not come from the transparent side and
+    it did not go there. One migration's arriving leg is filed as a deposit, a later
+    unrelated migration's departing leg matches it on amount, and a `LinkRecord` is
+    emitted whose two address fields are both `null` because no transparent end
+    exists. Reproduced end to end on committed code, in two polarities: Orchard to
+    Ironwood twice at 500 ZEC gives one MEDIUM FEE_TOLERANT link between strangers,
+    and so does Orchard to Sapling twice at the same amount - and the second uses
+    only pools whose `perPoolZat` legs are byte-identical to base eba5b03, which is
+    how I know the defect is PRE-EXISTING rather than this handoff's.
+    What HANDOFF-07 changes is the rate. ZIP 318 MANDATES that migration amounts
+    repeat - quantising to `n x 10^k` is the entire scheme - so once Ironwood is
+    live the collision is the expected case rather than the rare one.
+    NOT FIXED HERE, and the reason is scope rather than difficulty: §1 puts analysis
+    changes out of scope, and the narrowest correct guard contradicts an assertion
+    HANDOFF-06 wrote and tested ("one transaction moving two pools yields a deposit
+    and a withdrawal from a single report"). I wrote the guard, ran it, watched it
+    turn that test red, and reverted it. HANDOFF-08 owns the analysis toolkit.
+    ASK: does L2 confirm this is HANDOFF-08's, and does it want the narrow guard
+    (skip a report whose `perPoolZat` both gained and lost) or the wide one (a
+    deposit requires a transparent input, a withdrawal a transparent output)? The
+    wide rule is the correct one and it breaks 13 of the 17 existing round-trip
+    tests - because every round-trip fixture in the tree has no transparent side at
+    all, which is a second finding hiding inside the first.
+
+Q2. A POOL CROSSING WITH A PUBLIC SIDE HAS NO HONEST CLASS ON /track, and the fix
+    is a DTO widening this session declined to make unreviewed. The row class enum
+    is `shield | deshield | shielded | migration | transparent | undecoded`. A
+    Sapling-to-Orchard transfer that also pays a transparent address is none of
+    them: it is not a migration - a public recipient stands in it, which is why the
+    gateway stopped calling it one - and `shield`/`deshield` name a direction of
+    transparent flow it has on one end only. It falls to the residual `shielded`,
+    while `analyze()` answers MIXED, which the enum cannot say. ASK: add a `mixed`
+    member? It is the right answer and it is the exact shape - widen an enum, find
+    the consumer nobody swept - that produced a defect in each of the last three
+    gate rounds of this handoff, so it wants a round of its own rather than the tail
+    of this one.
+    SETTLED IN PASSING, and flagged in case L2 disagrees: `summary.shielded` meant
+    two different things on the two producers of one DTO - the gateway counted the
+    residual class alone, the fixture counted all three, 3 against 7 on the same
+    thirteen rows, under the same header string and the same tile. This session
+    settled it on the fixture's reading (a `shield` transaction moved value INTO a
+    pool, so counting it out leaves it in no bucket at all), swept the gateway,
+    wrote the arbitration into the DTO docblock and into `docs/2.0/API.md`, and
+    asserted it on both sides.
+
+Q3. `DENOM_CAP` IS STATED TWO WAYS IN THIS REPOSITORY and the difference is legal
+    tender. `docs/2.0/research/01-contemporary-zcash.md` §2.7 gives "10,000 ZEC plus
+    canonical fee"; `docs/2.0/TRACKING-MATH.md` §3.9 gives a flat 10,000 ZEC. A
+    crossing between the two is compliant under one and over-cap under the other.
+    `isOverDenomCap` answers the FLAT form deliberately - it raises a finding on the
+    ambiguous band rather than passing it silently - and never rejects, because the
+    chain is the authority on what happened. ASK: which is the ZIP's text?
+
+Q4. FOUR OF THE FIVE WALLET FINGERPRINTS §3 ASKS FOR HAVE NO SOURCE IN THIS
+    REPOSITORY. ZODL is implemented because the corpus gives its expiry delta.
+    Vizor, Zkool, Zingo and Cake are named in `UNSOURCED_WALLET_HYPOTHESES` and left
+    unimplemented, because a fingerprint with an invented threshold publishes a
+    wallet name beside a txid on the strength of nothing. ASK: relay the deltas, or
+    strike the four from the spec.
+
+Q5. §2 ASKS FOR THE ZIP TEXTS AND THIS CONTAINER CANNOT REACH THEM. `zips.z.cash` is
+    refused by the egress proxy, exactly as the preview host and the VPS are. Every
+    ZIP fact on this branch is cited to `docs/2.0/research/` or to L2's relayed
+    reading and labelled as such at the constant. The one that matters most is the
+    `ironwood` RPC field name, which has no citation of any kind and is an inference
+    from `tx.orchard` - see UNVERIFIED in §7. ASK: is L2 able to confirm the field
+    name and `finalironwoodroot` against Zebra 6.x, before HANDOFF-12 wires the live
+    path to a decoder built on a guess?
+
+Q6. WHEN DOES "REVIEW ONLY THE FIX COMMIT" STOP? This session ran four gate rounds.
+    Rounds 2, 3 and 4 each reviewed only the previous round's fix commit, and each
+    found that about half its surviving findings were defects that fix had just
+    created - three of five, three of seven, three of six. HANDOFF-06 recorded the
+    same thing once. Four sessions in a row makes it a property of this codebase
+    rather than an accident: a fix commit here widens a union, redefines a number or
+    narrows a predicate, and the consumer that was correct by accident is never in
+    the diff.
+    Loop 4's cap is three rounds PER FINDING and no finding repeated, so nothing
+    stopped a fifth round except the lead's judgement, and I do not claim
+    convergence: the honest extrapolation is that a fifth round finds one or two
+    more. What changed across the four is severity and reach rather than count -
+    round 1's HIGHs dropped whole snapshots from /track and published a wallet name
+    on no source; round 4's are a caption disagreeing with its own tile and a JSON
+    example in a document. Every round-4 fix carries a two-polarity mutation probe
+    the lead executed on the committed tree, which is most of what a fifth round
+    would do to that diff.
+    ASK: does L2 want a written stopping rule - a severity floor, a fixed round
+    budget, or "run rounds until one returns no HIGH"? This is the first handoff
+    where the gate's own recursion, rather than any finding in it, was the thing
+    that needed a decision.
+
+INFERRED (non-empty inferences a worker made):
+  - `tx.ironwood` and `block.finalironwoodroot` as the Zebra 6.x JSON names, by
+    analogy from their Orchard siblings. Load-bearing for the whole decoder and
+    labelled at every site; `IRONWOOD_FIELD_ABSENT` is the alarm that fires if the
+    guess is wrong, and it is tested in both directions.
+  - `NU6_ACTIVATION_TESTNET = 2_976_000` from L2's relayed reading of ZIP 253.
+  - The ZIP 318 denomination ladder's zatoshi exponent, derived rather than cited,
+    because the research states the ladder in ZEC and the database stores zatoshi.
+
+NOT-MATCHED (patterns handed over that did not apply):
+  - §6 suggested `chain-integrator` (Sonnet) plus `test-engineer` (Haiku) after
+    PREFLIGHT. The lead built it directly: every dispatchable unit touched either the
+    RPC boundary or the classifier, and this project's own evidence is that fan-out
+    pays at the gate rather than at the build. Fan-out was spent there: three gate
+    rounds, ten review lenses and thirty-one adversarial verifiers.
+  - §3's "Fingerprints for Zodl 3.x, Vizor, Zkool, Zingo, Cake" - four of five have
+    no source. See Q4.
+  - §3's migration rule as a two-conjunct test - implemented as a shape test, which
+    is strictly narrower. See §7 assumptions.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+  - A4 states the ZIP 318 denomination as `(n, k)` over ZEC while migration 003's
+    `denom_k` is an exponent over ZATOSHI with `CHECK (denom_k >= 0)`. 500 ZEC is
+    (5,2) in one and (5,10) in the other, and 0.5 ZEC needs a negative exponent in
+    one and not the other. Resolved by carrying both under names that say which is
+    which, with neither called `k`.
+  - Deliverable 2 names a call site (`apps/indexer/src/index.ts`) rather than a
+    behaviour. Filling it there would have made the live path work while every other
+    caller read an undecoded pool. Implemented in `analyze()` instead, with the
+    context field kept as a three-state override so A8's fail side can withhold it.
+
+GATE ROUND COUNTS: 4 rounds. Round 1: 5 lenses, 38 findings, 17 survived (3 HIGH).
+  Round 2: 3 lenses over the round-1 fix commit ONLY, 13 findings, 6 survived (5
+  distinct, 1 HIGH). Round 3: 2 lenses over the round-2 fix commit ONLY, 11 findings,
+  7 survived (1 HIGH). Round 4: 1 lens over the round-3 fix commit ONLY.
+  THE FINDING THAT MATTERS MORE THAN ANY INDIVIDUAL ONE: three of round 2's five
+  surviving findings were defects the ROUND-1 FIX created, and three of round 3's
+  seven were defects the ROUND-2 FIX created. HANDOFF-06 recorded the same thing
+  once. It is now three sessions in a row, which makes it a property of this
+  codebase rather than an accident: a fix commit here is the most dangerous commit
+  in the branch, because it widens a union, redefines a number or narrows a
+  predicate, and the consumer that was correct by accident is never in the diff.
+  Reviewing ONLY the fix commit, with the reviewer told to hunt exactly that, is
+  what found all six.
+
+DEFERRED ASSUMPTIONS:
+  - Vizor, Zkool, Zingo, Cake fingerprints (Q4).
+  - `DENOM_CAP`'s two readings (Q3).
+  - ZIP 258 is Draft; every Ironwood height and every Orchard-exit-only gate rests
+    on a document that may still be edited. Standing entry, carried from HANDOFF-06.
+  - `txViewSchema.logicalActions` is a plain count while the mempool row's is
+    nullable. Correct today because /tx has no undecodable path; whoever gives it
+    one must widen the field in the same commit.
+  - The round-trip false-link defect (Q1).
+```
