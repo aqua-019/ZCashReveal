@@ -492,11 +492,23 @@ GATE ROUNDS: 4 rounds, 10 review lenses, 31 adversarial verifiers. 68 findings
   locally before the fix and green after: `pnpm build` -> 7 successful, /track
   prerendered at 10.2 kB.
 
-PREVIEW URL (if any): none. A session cannot reach a preview host - Deployment
-  Protection returns 302 to the SSO endpoint and this container's egress proxy
-  refuses the CONNECT tunnel with 403 before that. No apps/web route changed
-  behaviour except /track's mempool header and shielded-share tile, both covered by
-  unit tests against the shipped fixture corpus.
+PREVIEW URL (if any): https://zecreveal-git-claude-new-session-ux5kkt-aquatic-17b9f112.vercel.app
+  CORRECTED AFTER THE FACT. This line first read "none", which was true when it was
+  written - the first two deployments on this branch ERRORed on the `./format.js`
+  import above - and false within four minutes, once the fix deployed. The
+  deployment on `66cd1a8` is READY (`7wSQeQjj1vA6eNWQtYW6UppoWgLd`), and that is
+  worth more than a URL: it is the fix confirmed in the real build environment
+  rather than only on this container.
+  THE SESSION STILL CANNOT REACH IT, and that is now Executed rather than restated
+  from CLAUDE.md: `curl -I` against the preview returns
+  `curl: (56) CONNECT tunnel failed, response 403` - this container's egress proxy
+  refuses the tunnel before Deployment Protection's 302 to the SSO endpoint is even
+  reached. So no Lighthouse number and no in-browser check comes from this session;
+  that measurement is the operator's, per CLAUDE.md.
+  No apps/web route changed behaviour except /track's block header and
+  shielded-share tile, both covered by unit tests against the shipped fixture
+  corpus, and both extracted into `lib/mempool-summary.ts` precisely so a test can
+  reach the strings the page renders.
 ```
 
 ## §8 LEDGER — appended to `handoffs/LEDGER.md` by docs-scribe; read by L2 before the next handoff
