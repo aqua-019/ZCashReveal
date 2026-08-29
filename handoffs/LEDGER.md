@@ -3143,3 +3143,65 @@ WHAT ROUND 4 BUILT, AND WHAT BUILDING IT FOUND. The guards are not the interesti
  mean a guard is a piece of code with the same defect rate as any other, and its first output should
  be read as a finding list about ITSELF as much as about the tree.
 ```
+
+---
+
+## HANDOFF-08 round 4 ADDENDUM — the guard commit reviewed as its own commit (29 Aug 2026)
+
+Appended rather than edited: the block above was accurate when written, and this corrects two
+claims in it.
+
+```
+FIFTEEN FINDINGS ON `4422f78`, FIVE HIGH, AND THE TWO WORST ARE THE GUARDS CERTIFYING THEIR OWN
+FAILURE. Both reproduced by execution before being fixed.
+
+ THE ACKNOWLEDGEMENT WAS THE BLANKET IGNORE ITS OWN HEADER SAYS IT IS NOT. The `conservation`
+ entry listed all six of the variant's fields, so every subset of the current shape was covered.
+ Deleting the `exitZat` render - the one substantive fix round 4 made - left the guard GREEN.
+ The entry's `why` claimed the variant is split across two blocks, "a partial read of a whole
+ that IS fully read", and nothing checked it. `coveredElsewhere` now enforces that claim against
+ the union of what every block of that label reads. A claim in a comment that the code does not
+ check is precisely how a guard comes to certify the defect it was written to catch.
+
+ THE CASE-BLOCK BOUNDARY WAS WRONG IN BOTH DIRECTIONS. It ended a block at the first literal
+ `default:` found by `indexOf`, at any depth, over un-stripped comments: a nested switch BEFORE
+ the reads made the block invisible, one AFTER them reported correct code as a partial read.
+
+ AND THREE MUTATIONS SURVIVED THE SELF-TESTS, one of them `.every` -> `.some` on the suppression
+ check - a single character that destroys the property the round was announced with.
+
+TWO CORRECTIONS TO THE BLOCK ABOVE.
+
+ 1. "THE ONE SUBSTANTIVE DEFECT ROUND 4 FOUND IN SHIPPED CODE" OVERSTATES `exitZat`. The field was
+    published and rendered by nothing, which is real; but no reader saw it. `legacy/dashboard`'s
+    `parsers.ts` coerces any record it does not know - `conservation` included - into an inert
+    `time_window`, and nothing in that app produces a conservation record, so the arm is
+    unreachable there today. The record-to-render seam was wrong; no page was.
+
+ 2. "THE GUARD COUNT WAS STALE IN THREE ASSERTING PLACES" was four. The fourth is
+    `.github/workflows/ci.yml`, which read "THE FOUR STATIC GUARDS", in the hunk that same commit
+    was editing.
+
+WHAT THIS ROUND ACTUALLY DEMONSTRATED, which is not what it set out to.
+
+ The guards were built to stop two shapes recurring. On their first review they were found to be
+ carrying BOTH shapes themselves: an acknowledgement that silenced its own site (a partial read
+ of a whole nobody checked) and a correction that landed in three places out of four. The
+ instrument reproduced the disease on contact.
+
+ That is not an argument against mechanising, and the reason is the one useful result here: every
+ one of those defects was found by RUNNING the guards, and one of them - a correction restating
+ the phrase it was disclaiming - was caught BEFORE the commit, for the first time in four rounds.
+ A wrong guard fails loudly on its first run; a wrong rule failed silently for five commits. The
+ honest form of the claim is therefore narrow: mechanising did not stop the shape from recurring,
+ it shortened the interval between committing an instance and learning of it, from "the next
+ gate round" to "the next run of `pnpm check`".
+
+ A FIFTH ROUND IS NOT PROPOSED, and this is the first time this handoff has said that with a
+ reason rather than a hope. The stopping bar is LEDGER-07 Q6's: no finding a user could see, and
+ no finding whose fix changes behaviour. Round 4's own findings are now all in one of two classes
+ - defects in the guards, and statements about the guards - and the one finding that touched
+ rendered output turned out to touch no reader. That is a different condition from rounds 1-3,
+ where each round found live defects in the estimator. Whoever merges this should still run
+ `pnpm check` on the merge commit, because that is now cheap and is the whole point.
+```
