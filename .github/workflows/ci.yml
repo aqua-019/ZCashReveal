@@ -48,7 +48,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      # THE FOUR STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose. None of
+      # THE SEVEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose. None of
       # them needs node_modules or a build - they are bash, grep and dependency-free
       # node - and putting them after meant a PR whose build broke never got its
       # verdict on any of them. The Redis one in particular protects another
@@ -90,6 +90,25 @@ jobs:
       # number compiles and the suite stays green.
       - name: Corpus citations (no citation points at nothing)
         run: node scripts/check-corpus-citations.mjs
+
+      # A discriminated union's exhaustiveness check protects the SET of variants
+      # and says nothing about the SHAPE of one. HANDOFF-08 added a field to the
+      # `conservation` variant's params and left its only renderer summing two of
+      # the three rejection counts, so a window in which two links were refused
+      # rendered "Nothing was refused" - with countIn 3 and countOut 1 on the
+      # same record. `tsc` was silent because reading two fields of three is
+      # legal. This also stands in for a test that cannot exist: legacy/dashboard
+      # has no test script, so that fix shipped with no fail-side transcript.
+      - name: Audit consumers (no partial read of a variant's params)
+        run: node scripts/check-audit-consumers.mjs
+
+      # A gate finding that names several sites is not closed until every site
+      # is. CLAUDE.md has said so since LEDGER-03 Q3 and this session then broke
+      # it five times in one handoff, the fifth inside the commit that fixed the
+      # fourth. A rule an agent has violated more often than it has honoured is
+      # evidence about the instrument, so the finding's site list is now data.
+      - name: Finding sites (a multi-site finding is closed at every site)
+        run: node scripts/check-finding-sites.mjs
 
       - name: Install
         run: pnpm install --frozen-lockfile

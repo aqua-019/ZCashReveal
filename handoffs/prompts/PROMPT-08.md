@@ -100,3 +100,29 @@ accounts of one handoff into one ledger entry.
 You remain the sole writer for HANDOFF-08's section 7, its LEDGER section 8 block, the LOG.md
 row and `status: shipped`.
 ```
+
+---
+
+## 4. Round 4 kickoff — arrived after PR #41 merged (29 Aug 2026)
+
+The `L2 RESOLUTION` block it carried is appended verbatim to `handoffs/LEDGER.md` rather than
+duplicated here; this is the instruction half.
+
+```
+Aqua Stack v4.1 - HANDOFF-08 round 4. Branch from current `origin/main` after #41 merges, and
+open a new PR titled `HANDOFF-08 round 4: the two shapes, mechanised`. Same handoff, same ledger
+entry. Stop at PR opened.
+
+[the L2 RESOLUTION - HANDOFF-08 round 3, PR #41 block follows in the original message, and is
+appended verbatim to handoffs/LEDGER.md]
+
+OPERATOR CLICKS (Aqua, not any agent):
+  - Merge #41 first. It fixes two HIGHs that are live on `main`, CI is green on 4a6a578, and my
+    one finding is a docblock number that round 4 sweeps.
+  - Then this round 4 PR. Do not start HANDOFF-09 until it lands: the analysis toolkit has had a
+    defect found in every round so far, and 09's turnstile accounting builds directly on it.
+  - The Infra session's branch is named `claude/handoff-08-completion-wngbjj` but carries
+    HANDOFF-10 work (compose stack, Zebra 6.2.3, schema-per-run isolation, e2e job, RUNBOOK-VPS).
+    The name is a harness artefact from a misrouted prompt. Its PR title and `BRANCH-CLEANUP.md`
+    should say HANDOFF-10 so the ledger is not misread later.
+```

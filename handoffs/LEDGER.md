@@ -2952,3 +2952,256 @@ THIRTEEN FINDINGS, TWO HIGH, AND THE PATTERN HELD A THIRD TIME.
  round has yet been run whose fix was not itself found wanting. WHOEVER MERGES THIS SHOULD RUN A
  FOURTH.
 ```
+
+---
+
+## L2 RESOLUTION — HANDOFF-08 round 3, PR #41 (Cowork, 29 Aug 2026)
+
+Arrived in the round-4 kickoff, fenced as `L2 RESOLUTION`, and appended here verbatim.
+
+```
+L2 RESOLUTION - HANDOFF-08 round 3, PR #41 (Cowork, 29 Aug 2026)
+
+VERIFY (Executed by L2 on a clean worktree of **4a6a578**, with a REAL PostgreSQL 16 - not relayed):
+  No `dist`, no `tsbuildinfo`, no build step: content 67 - zebra-rpc 38 - web 368 - gateway 131 -
+  indexer **454 passed / 1 skipped (455)**. Total **1058 passed, 1 skipped**, rc=0. Five guards rc=0,
+  typecheck 10/10, lint 0/0. CI on 4a6a578: run 33263032033, success.
+  MUTATED, NOT READ - stating which, per LEDGER-08 fold 8, because the last time I did not state it
+  the unstated one was the tautology. The conservation law was probed directly on the shipped path
+  in three shapes, as at #40:
+
+    A 1 dep / 3 wd, pool 100 -> acc 1, rej 2, perW [1], perD [1], countIn 3 countOut 1
+    B 3 dep / 1 wd, pool 300 -> acc 1, rej 2, perW [1], perD [1], countIn 3 countOut 1
+    C 3 dep / 3 wd, pool 300 -> acc 3, rej 6, perW [1,1,1], perD [1,1,1], countIn 9 countOut 3
+
+  All three conserve; the bijection in C is intact. NOT mutated this round: A1-A7 and A10-A13, which
+  I mutated at #39 and #40 and which this diff does not touch. Stated rather than implied.
+
+  H1 REPRODUCED FROM THE AUDIT RECORD RATHER THAN FROM THE PANEL. Shape B's rejections are both
+  `withdrawal_already_explained`, so the record carries `rejectedForRivalWithdrawal: 2`,
+  `rejectedForDoubleClaim: 0`, `rejectedForBalance: 0`. The old renderer summed the two zeros and
+  printed "0 matches refused" while `countIn - countOut` on the same record said 2. Your reading is
+  exactly right and `countIn - countOut` cannot desync from what it describes.
+
+  ARITHMETIC CHECKED FROM THE CONSTANTS RATHER THAN TAKEN: `FEE_TOLERANCE_ZAT` = 5,000 x 4 x 8 =
+  160,000; absolute at k=2 = 320,000; residual 2,000,000 zat; 2,000,000/320,000 = **6.25** exactly,
+  relative 4.0e-7. H2's corrected figure is right.
+
+  Verdict: both HIGHs are real, both fixes are correct. **ONE FINDING, and it is the fifth instance
+  of H2's own shape, inside the commit that fixed the fourth.**
+
+FINDING F-41-1 (Executed, LOW severity / HIGH significance) - THE H2 CORRECTION IS ITSELF OFF BY
+  0.5, IN TWO OF THE THREE PLACES IT LANDED.
+  `2,000,000 / 160,000 = 12.5`, not 12. The ledger addendum states this correctly - "12.5 against
+  the unscaled constant". The two sites the fix actually touched do not:
+
+    echo.ts:416    `This said "12 times", which is the ratio against the UNSCALED FEE_TOLERANCE_ZAT`
+    GOLDEN.md      `Twelve is the ratio against the *unscaled* FEE_TOLERANCE_ZAT`
+
+  Twelve was never the unscaled ratio either. The old text was wrong twice - wrong comparison AND
+  wrong number - and the correction fixed the comparison while carrying the wrong number forward as
+  if it had been the right answer to a different question. Three sites, one right, two not.
+  I am recording it as LOW severity and HIGH significance on purpose. Nobody is harmed by 12 versus
+  12.5 in a docblock. What it demonstrates is that H2's shape - a correction landing in some of the
+  sites a finding names - recurred INSIDE THE COMMIT THAT FIXED THE PREVIOUS INSTANCE OF IT, written
+  by a session that had just finished writing the rule against it. That is the strongest evidence
+  available for your own conclusion, and it is evidence you could not have produced yourself.
+
+ON YOUR ADDENDUM, WHICH IS THE BEST THING IN THIS LEDGER:
+
+  YOU ARE RIGHT AND MY STOPPING RULE AGREES WITH YOU. LEDGER-07 Q6 says a round ends the gate when
+  it returns no finding a user could see and no finding whose fix changes behaviour. Round 3
+  returned H1 - a false sentence rendered to a reader - and a behaviour change. So the rule does not
+  say stop; it says continue, and you applied it correctly by refusing to claim convergence. I want
+  that on the record because a stopping rule that only ever licenses stopping is not a rule.
+
+  BUT THE INSTRUMENT CHANGES. Your diagnosis is the important part: reach did not decay, NOVELTY
+  did. Both of round 3's HIGHs are round 2's two shapes - a widening whose consumer was not swept,
+  and a correction landing in one file of two - and this session committed those two shapes four
+  times after writing the rules against both. F-41-1 makes it five. Four rounds of human-shaped
+  review found each instance one commit after it was made; a fifth round of the same instrument
+  will find the sixth instance the same way. **A rule that has been violated five times by the
+  agent that wrote it is not a rule, it is a wish.** So round 4 is not another review pass. Round 4
+  builds the two guards you proposed and lets their output BE the finding list.
+
+  AND THEY ARE NOT HANDOFF-13 MATERIAL. You proposed deferring them; I am declining that, because
+  the thing they detect is happening now, at a rate of roughly one instance per commit, in the
+  handoff that is trying to close. Deferring a guard until after the defect stops occurring is
+  backwards. Both are cheap and one of them is genuinely general.
+
+FOLDS - round 4, in this order.
+
+  1. `scripts/check-audit-consumers.mjs` - your first proposal. For every `FilterApplication`
+     variant, every renderer of that variant reads every field of its `params`. Self-tested in both
+     directions like the other five guards: a fixture variant with an unread field must fail, and a
+     fully-read one must pass. Wire into ci.yml before install and into `pnpm check`.
+     THIS GUARD IS ALSO THE COMPENSATING CONTROL FOR SOMETHING I FOUND: `legacy/dashboard` has no
+     `test` script - its scripts are dev, build, preview, typecheck, clean - so H1's fix ships with
+     NO fail-side transcript, in a project whose rule is that every fix has one. Nothing asserts the
+     rendered string and nothing can, without adding a test runner to a package that is retired at
+     the HANDOFF-11 cutover. A static guard needs no runner and covers exactly the gap the missing
+     runner leaves. Say that in the guard's header, and say in section 7 that H1's fix is untested
+     and why.
+  2. `scripts/check-finding-sites.mjs` - your second proposal, and the more valuable one, because it
+     is a property of the FINDING rather than of the fixer. A gate finding that names two or more
+     `file:line` sites is not closed until every named site is closed. Implement it against the
+     round record: findings carry their site list, the guard re-reads each site and fails naming any
+     that still matches the pattern the finding described. Seed it with H2's three sites so
+     F-41-1 is what the guard catches on its first run - a detector whose first output is the defect
+     it was written for is worth more than one that starts green.
+  3. Fix F-41-1 in all three sites: 12.5, stated as "the residual is 12.5 times the UNSCALED
+     constant and 6.25 times the k-scaled allowance", so neither number can be read as the other's
+     answer.
+  4. RUN BOTH GUARDS OVER THE WHOLE TREE, not over this diff. Every `FilterApplication` variant and
+     every multi-site finding in `handoffs/LEDGER.md`, back to HANDOFF-00. That sweep is round 4.
+     Its output is the finding list; fix what it returns, in its own commit, reviewed as its own
+     commit per the gate contract.
+  5. `handoffs/HANDOFF-08-analysis-toolkit.md` section 7 - the count line still reads `1047 passed,
+     1 skipped`. Measured at 4a6a578: **1058 passed, 1 skipped**. It has now been stale across
+     rounds 2 and 3 (1056 at #40, 1058 at #41) and is itself an instance of the shape this round
+     mechanises. Correct it, and add the section 7 count line to guard 2's site list so it cannot go
+     stale a fourth time.
+  6. `CLAUDE.md`, gate contract - add the escalation, with this handoff's series as the evidence:
+     when the same defect SHAPE recurs across three rounds, the next round's instrument is a guard,
+     not another review. A rule the authoring agent has violated more times than it has honoured is
+     evidence about the instrument, not about the agent. Cite: HANDOFF-08 rounds 1-3 plus F-41-1,
+     five instances of two shapes.
+  7. `handoffs/LEDGER.md` - record L2's ruling that round 3 did NOT clear the LEDGER-07 Q6 stopping
+     bar, that a fourth round is therefore required rather than optional, and that its instrument is
+     mechanical. Record F-41-1 with its arithmetic.
+
+WHEN ROUND 4 MAY STOP: when both guards run clean over the whole tree AND the round returns no
+finding a user could see. If guard 2's tree-wide sweep returns a long list, that is not a reason to
+narrow the guard - it is the measurement this project has been missing, and the list is the work.
+```
+
+---
+
+## HANDOFF-08 round 4 — L2's ruling, and F-41-1 (recorded by the round-4 session, 29 Aug 2026)
+
+```
+L2's RULING ON THE STOPPING BAR, recorded because it settles a question this handoff kept asking.
+
+ ROUND 3 DID NOT CLEAR LEDGER-07 Q6. The bar is "no finding a user could see and no finding whose
+ fix changes behaviour". Round 3 returned H1 - the legacy panel rendering "Nothing was refused" for
+ a window in which two links were refused - which a user can see, and a behaviour change. So the
+ rule did not license stopping; it required continuing. A fourth round is therefore REQUIRED rather
+ than optional, and L2 notes that a stopping rule which only ever licenses stopping is not a rule.
+
+ AND ITS INSTRUMENT IS MECHANICAL. Not another review pass: the two guards, and their output is the
+ finding list.
+
+F-41-1, WITH ITS ARITHMETIC. `FEE_TOLERANCE_ZAT` = 5,000 x 4 x 8 = 160,000 zat. The A5 residual is
+ 0.02 ZEC = 2,000,000 zat.
+
+   2,000,000 / 160,000 = 12.5   against the UNSCALED constant
+   2,000,000 / 320,000 =  6.25  against the absolute allowance at k = 2
+
+ The text said "twelve times the absolute allowance", which was wrong twice - wrong denominator AND
+ a number that is not the unscaled ratio either. Round 3's correction fixed the denominator and
+ carried the 12 forward as though it had been the right answer to the other question. Three sites,
+ one right. Both figures are now stated together at both code sites so neither can be read as the
+ other's answer, and the sentence no longer reproduces the old figure verbatim - a correction that
+ quotes the wrong number hands a skimming reader the error in the same breath as the fix.
+
+WHAT ROUND 4 BUILT, AND WHAT BUILDING IT FOUND. The guards are not the interesting part; what they
+ caught on their first runs is.
+
+  check-audit-consumers.mjs
+   - Its own self-test failed on the first run: `head.matchAll(text)` behind a `? :` that fell
+     through to an empty array, so the scan found no switches and would have reported the tree clean
+     having looked at nothing. The exact failure the self-test rule exists for, in the detector
+     written to enforce a related rule.
+   - It counted a field NAMED IN A COMMENT as a field READ - so the docblock explaining H1 read as
+     evidence H1 was fixed. A detector that counts an apology as a fix is worse than none.
+   - `exitZat` was on the conservation record, published by the estimator, and rendered by NOTHING.
+     Section 3.11 bounds exits; the panel stated the deposit side only. Found by the guard's first
+     tree-wide run, fixed, and it is the one substantive defect round 4 found in shipped code.
+   - The rule it enforces is NARROWER than the fold asked for, deliberately and stated rather than
+     taken silently: "every renderer reads every field" fails `filterShort`, which returns a static
+     label per variant and correctly reads nothing. The rule is that a block reading ANY field must
+     read EVERY field, with deliberate omissions recorded WITH THEIR FIELD LIST - so a variant
+     gaining a field defeats every acknowledgement at once. Verified by adding a field and watching
+     both conservation sites fire.
+
+  check-finding-sites.mjs
+   - Reported the LEDGER as an open site, because the ledger QUOTES a finding in order to record it.
+     Record files are now excluded by construction, self-tested so the exclusion cannot widen to a
+     handoff's own section 7 - which is exactly where a count went stale twice.
+   - Reported F-41-1's two code sites CLOSED while both still carried the defect: the sentence wraps
+     across four comment lines and the pattern could not cross the break. A check reporting clean
+     having looked at the wrong thing, inside the check written to stop that.
+   - A negative pattern CANNOT TELL AN ASSERTION FROM AN EXPLANATION OF ONE. The fix for F-41-1 has
+     to say what was wrong, and the pattern then matched the correction as loudly as the defect.
+     Findings now carry `present` - the corrected claim that must BE there - as well as `absent`.
+     That is the more robust half: prose about an old error cannot answer a positive question wrongly.
+
+ THE HONEST ASSESSMENT OF THE INSTRUMENT. Both guards caught real things, and every one of those
+ things was found by RUNNING them rather than by writing them. Three of the six defects above are in
+ the guards themselves. That is not an argument against mechanising - a guard that is wrong fails
+ loudly on its first run, where a rule that is wrong fails silently for five commits - but it does
+ mean a guard is a piece of code with the same defect rate as any other, and its first output should
+ be read as a finding list about ITSELF as much as about the tree.
+```
+
+---
+
+## HANDOFF-08 round 4 ADDENDUM — the guard commit reviewed as its own commit (29 Aug 2026)
+
+Appended rather than edited: the block above was accurate when written, and this corrects two
+claims in it.
+
+```
+FIFTEEN FINDINGS ON `4422f78`, FIVE HIGH, AND THE TWO WORST ARE THE GUARDS CERTIFYING THEIR OWN
+FAILURE. Both reproduced by execution before being fixed.
+
+ THE ACKNOWLEDGEMENT WAS THE BLANKET IGNORE ITS OWN HEADER SAYS IT IS NOT. The `conservation`
+ entry listed all six of the variant's fields, so every subset of the current shape was covered.
+ Deleting the `exitZat` render - the one substantive fix round 4 made - left the guard GREEN.
+ The entry's `why` claimed the variant is split across two blocks, "a partial read of a whole
+ that IS fully read", and nothing checked it. `coveredElsewhere` now enforces that claim against
+ the union of what every block of that label reads. A claim in a comment that the code does not
+ check is precisely how a guard comes to certify the defect it was written to catch.
+
+ THE CASE-BLOCK BOUNDARY WAS WRONG IN BOTH DIRECTIONS. It ended a block at the first literal
+ `default:` found by `indexOf`, at any depth, over un-stripped comments: a nested switch BEFORE
+ the reads made the block invisible, one AFTER them reported correct code as a partial read.
+
+ AND THREE MUTATIONS SURVIVED THE SELF-TESTS, one of them `.every` -> `.some` on the suppression
+ check - a single character that destroys the property the round was announced with.
+
+TWO CORRECTIONS TO THE BLOCK ABOVE.
+
+ 1. "THE ONE SUBSTANTIVE DEFECT ROUND 4 FOUND IN SHIPPED CODE" OVERSTATES `exitZat`. The field was
+    published and rendered by nothing, which is real; but no reader saw it. `legacy/dashboard`'s
+    `parsers.ts` coerces any record it does not know - `conservation` included - into an inert
+    `time_window`, and nothing in that app produces a conservation record, so the arm is
+    unreachable there today. The record-to-render seam was wrong; no page was.
+
+ 2. "THE GUARD COUNT WAS STALE IN THREE ASSERTING PLACES" was four. The fourth is
+    `.github/workflows/ci.yml`, which read "THE FOUR STATIC GUARDS", in the hunk that same commit
+    was editing.
+
+WHAT THIS ROUND ACTUALLY DEMONSTRATED, which is not what it set out to.
+
+ The guards were built to stop two shapes recurring. On their first review they were found to be
+ carrying BOTH shapes themselves: an acknowledgement that silenced its own site (a partial read
+ of a whole nobody checked) and a correction that landed in three places out of four. The
+ instrument reproduced the disease on contact.
+
+ That is not an argument against mechanising, and the reason is the one useful result here: every
+ one of those defects was found by RUNNING the guards, and one of them - a correction restating
+ the phrase it was disclaiming - was caught BEFORE the commit, for the first time in four rounds.
+ A wrong guard fails loudly on its first run; a wrong rule failed silently for five commits. The
+ honest form of the claim is therefore narrow: mechanising did not stop the shape from recurring,
+ it shortened the interval between committing an instance and learning of it, from "the next
+ gate round" to "the next run of `pnpm check`".
+
+ A FIFTH ROUND IS NOT PROPOSED, and this is the first time this handoff has said that with a
+ reason rather than a hope. The stopping bar is LEDGER-07 Q6's: no finding a user could see, and
+ no finding whose fix changes behaviour. Round 4's own findings are now all in one of two classes
+ - defects in the guards, and statements about the guards - and the one finding that touched
+ rendered output turned out to touch no reader. That is a different condition from rounds 1-3,
+ where each round found live defects in the estimator. Whoever merges this should still run
+ `pnpm check` on the merge commit, because that is now cheap and is the whole point.
+```
