@@ -27,7 +27,7 @@ Aqua Stack v4.1 session. Read CLAUDE.md, then handoffs/LEDGER.md, then execute t
 | 05 | [Gateway REST read API v2 + hardening (Zebra address-index RPCs with a cache)](HANDOFF-05-gateway-api.md) | `claude/gateway-api-handoff-05-12ogr3` | Data | 00 (uses the DTOs from 04 if merged; otherwise defines them) | `closed` |
 | 06 | [Indexer: four pools + migration 003 + post-NU6.3 invariants](HANDOFF-06-four-pools.md) | `claude/new-session-s4er6f` | Data | 00 | `closed` |
 | 07 | [Indexer: v6 / Ironwood decoder (module 7A.2) + migration detection](HANDOFF-07-v6-decoder.md) | `claude/new-session-ux5kkt` | Data | 06 (closed) | `closed` |
-| 08 | [Indexer analysis toolkit: echo, clustering, labels, posterior, taint (+ golden cases)](HANDOFF-08-analysis-toolkit.md) | `claude/handoff-08-analysis-toolkit-bjvz3i` | Data | 06, 07 (both closed) | `shipped` |
+| 08 | [Indexer analysis toolkit: echo, clustering, labels, posterior, taint (+ golden cases)](HANDOFF-08-analysis-toolkit.md) | `claude/handoff-08-analysis-toolkit-bjvz3i` | Data | 06, 07 (both closed) | `in-progress` (round 4) |
 | 09 | [Turnstile accounting, migration lens, Ironwood birth, snapshot publisher](HANDOFF-09-instruments-snapshot.md) | session-designated | Data | 06, 08 | `queued` |
 | 10 | [Infra: Zebra 6.2.x compose, VPS runbook, tunnel, DEPLOY-2.0](HANDOFF-10-infra.md) | session-designated | Infra | 00 | `open` |
 | 11 | [Live wiring: snapshot baseline → WS upgrade, smoke tests, cutover checklist](HANDOFF-11-live-wiring.md) | session-designated | Integration | 04, 05, 09, 10 | `queued` |

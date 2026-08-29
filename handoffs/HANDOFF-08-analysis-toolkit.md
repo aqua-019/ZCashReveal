@@ -1,7 +1,7 @@
 ---
 handoff: 08
 title: Indexer analysis toolkit: echo, clustering, labels, posterior, taint (+ golden cases)
-status: shipped
+status: in-progress
 branch: the session-designated branch (name it `feat/v2-08-analysis-toolkit` if you may choose)
 track: Data
 depends_on: 06
