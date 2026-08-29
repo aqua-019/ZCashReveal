@@ -81,10 +81,13 @@ const A6_REQUIRED = [
   //
   // Both real invocations are accepted, because the runbook uses each in a
   // different place: the container form in sections 2.2, 4 and 8, and the
-  // workspace form for a host-run migration on the dev box.
+  // workspace form for a host-run migration on the dev box. `run` and `exec`
+  // are both accepted for the container form - the sections next door already
+  // use `exec` for pg_dump and pg_restore, neither verb is a sentence, so
+  // pinning one of them would only have bought a false alarm.
   {
     topic: "migrations",
-    re: /docker\s+compose\s+run\s+[^\n]*indexer\s+node\s+dist\/migrate|pnpm\s+--filter\s+@zcashreveal\/indexer\s+migrate/,
+    re: /docker\s+compose\s+(?:run|exec)\s+[^\n]*indexer\s+node\s+dist\/migrate|pnpm\s+--filter\s+@zcashreveal\/indexer\s+migrate/,
   },
   { topic: "upgrade", re: /docker\s+compose\s+pull\s+zebrad/ },
   { topic: "tunnel create", re: /cloudflared\s+tunnel\s+create\s+\S+/ },
@@ -183,6 +186,7 @@ function selfTest() {
     // recognising the command it was tightened to require.
     ["migrations", "docker compose run --rm indexer node dist/migrate.js"],
     ["migrations", "pnpm --filter @zcashreveal/indexer migrate"],
+    ["migrations", "docker compose exec -T indexer node dist/migrate.js"],
     ["snapshot age alert", '[ $((TIP - INDEXED)) -gt 20 ] && echo "ALERT: the indexer is behind the node"'],
     ["node subversion recorded", `python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["subversion"])'`],
     ["node subversion recorded", "jq -r .result.subversion"],
