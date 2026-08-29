@@ -388,12 +388,13 @@ describe("A4 — the ZIP 318 denomination, in both units and both polarities", (
 
   it("both magnitudes are recorded, because the fee sits between them", async () => {
     // A migration pays its fee out of the note it spends, so what leaves
-    // Orchard and what enters Ironwood are different numbers. Which one ZIP 318
-    // means by "the net amount crossing between the pools" is not settled by
-    // anything in this repository - the corpus gives DENOM_CAP both as
-    // "10,000 ZEC plus canonical fee" and as a flat 10,000, which only makes
-    // sense if the two statements had different sides in mind. So both are kept
-    // and the question is carried as a deferred assumption.
+    // Orchard and what enters Ironwood are different numbers, and both are
+    // recorded so the fee is recoverable as their difference. The denomination
+    // is tested on the Orchard side, because ZIP 318's phase 1 quantises the
+    // note that is later spent across the boundary - and that is also the side
+    // the Orchard drain measures. (This comment used to carry an open question
+    // about which side `DENOM_CAP` was about; LEDGER-07 Q3 closed it, and the
+    // answer is that DENOM_CAP is about neither - it bounds the funding note.)
     const report = await analyze(
       orchardToIronwood({ orchardZat: FIVE_HUNDRED_ZEC, ironwoodZat: -(FIVE_HUNDRED_ZEC - 10_000) }),
       context(),
@@ -462,8 +463,8 @@ describe("A4 — the ZIP 318 denomination, in both units and both polarities", (
   });
 
   it("MIGRATION_DENOMINATION fires on an over-cap crossing, canonical or not", async () => {
-    // 20,000 ZEC is `2 x 10^4` - structurally canonical and twice DENOM_CAP on
-    // the flat reading TRACKING-MATH 3.9 gives. Until this assertion existed
+    // 20,000 ZEC is `2 x 10^4` - structurally canonical and twice the largest
+    // crossing ZIP 318 permits. Until this assertion existed
     // the over-cap arm had never run: the only end-to-end probe used a
     // NON-canonical amount and entered through the other arm, so the two `why`
     // strings quoting the corpus were dead code with the suite green.
@@ -475,10 +476,10 @@ describe("A4 — the ZIP 318 denomination, in both units and both polarities", (
 
     expect(report.leakClass).toBe("MIGRATION_O2I");
     expect(report.migration?.canonical).toBe(true);
-    expect(report.migration?.overDenomCap).toBe(true);
+    expect(report.migration?.overMaxCrossing).toBe(true);
     expect(report.findings.map((f) => f.code)).toContain("MIGRATION_DENOMINATION");
     expect(report.findings.find((f) => f.code === "MIGRATION_DENOMINATION")?.message).toContain(
-      "DENOM_CAP",
+      "above 10,000 ZEC",
     );
   });
 
@@ -495,10 +496,10 @@ describe("A4 — the ZIP 318 denomination, in both units and both polarities", (
 
     expect(report.migration?.canonical).toBe(true);
     expect(report.migration?.belowMaxResidual).toBe(true);
-    expect(report.migration?.overDenomCap).toBe(false);
+    expect(report.migration?.overMaxCrossing).toBe(false);
     const message = report.findings.find((f) => f.code === "MIGRATION_DENOMINATION")?.message;
     expect(message).toContain("MAX_RESIDUAL_VALUE");
-    expect(message).not.toContain("DENOM_CAP");
+    expect(message).not.toContain("above 10,000 ZEC");
   });
 
   it("FAIL SIDE: an in-range canonical crossing raises no denomination finding at all", async () => {
@@ -512,7 +513,7 @@ describe("A4 — the ZIP 318 denomination, in both units and both polarities", (
     );
 
     expect(report.migration?.canonical).toBe(true);
-    expect(report.migration?.overDenomCap).toBe(false);
+    expect(report.migration?.overMaxCrossing).toBe(false);
     expect(report.migration?.belowMaxResidual).toBe(false);
     expect(report.findings.map((f) => f.code)).not.toContain("MIGRATION_DENOMINATION");
   });

@@ -56,15 +56,32 @@ function context(tipHeight: number): AnalyzeContext {
 }
 
 describe("the RPC boundary maps the wire's casing onto the names the decoder reads", () => {
-  it("PASS STATE: a real-shaped response yields a real expiry delta and a wallet tell", async () => {
+  it("PASS STATE: a real-shaped response yields a real expiry delta", async () => {
     const tx = throughBoundary(loadRaw());
-    // 3,456,240 - 3,456,200 = 40, inside the y-wallet window of 35 to 50.
+    // 3,456,240 - 3,456,200 = 40. That is the delta TRACKING-MATH §3.6 sources
+    // for Zashi/Zodl, and it is the value the fixture was built around when it
+    // was also the middle of Ywallet's 35-50 band.
     expect(tx.expiryHeight).toBe(3_456_240);
     expect(tx.versionGroupId).toBe("26a7270a");
 
     const report = await analyze(tx, context(3_456_200));
     expect(report.fingerprint.expiryDelta).toBe(40);
-    expect(report.fingerprint.likelyWallet).toBe("YWALLET");
+
+    // THE WALLET NAME IS NO LONGER THE DISCRIMINATOR HERE, AND SAYING SO IS THE
+    // POINT. This assertion read `toBe("YWALLET")` until HANDOFF-08 withdrew
+    // that signature (F-07-1: the 35-50 band was hardcoded at HANDOFF-00 and
+    // never cited). Under the new rule the fixture answers `UNKNOWN_UNPRICED`
+    // in BOTH polarities of this pair, because this suite has no prevout
+    // resolver and an unknown fee is neither of the two verdicts about one.
+    //
+    // Per CLAUDE.md's rule, a fail-side probe that stops failing is itself
+    // reported rather than quietly repaired: the wallet half of this pair no
+    // longer discriminates, the expiry-delta half above still does and is what
+    // this suite is actually for, and the wallet rules that DO still turn on a
+    // delta are exercised in `wallet signatures the expiry fix revived` below.
+    // The assertion is kept in both states rather than deleted, so a future
+    // change that makes a name reappear here is visible.
+    expect(report.fingerprint.likelyWallet).toBe("UNKNOWN_UNPRICED");
   });
 
   it("FAIL STATE: the same response without the field is blind, and says UNKNOWN", async () => {
@@ -177,35 +194,55 @@ describe("which wallet signatures the fix actually revives, and which stay inert
     hasOrchardBundle: true,
     hasSaplingBundle: false,
     // No Ironwood by default. HANDOFF-07 made this a real input rather than an
-    // absent one, and YWALLET now requires it to be false: Ywallet's last
-    // release "will not be updated for Ironwood"
-    // (docs/2.0/research/01-contemporary-zcash.md §2.6), so a transaction
-    // carrying an Ironwood bundle is not Ywallet whatever its expiry delta.
+    // absent one. It gated YWALLET until HANDOFF-08 withdrew that signature;
+    // it now gates ZODL, which is the one delta rule this repository can cite.
     hasIronwoodBundle: false,
     ironwoodActionCount: 0,
   };
 
-  it("YWALLET is now reachable, and was not before", () => {
-    expect(guessWallet({ ...base, expiryDelta: 40 })).toBe("YWALLET");
+  it("an expiry delta in 35-50 names NO wallet - the band was never sourced", () => {
+    // FOLD 1 / F-07-1. `guessWallet` returned "YWALLET" for any Orchard-only
+    // transaction with two or more actions and an expiry delta in [35, 50].
+    // That band was hardcoded at HANDOFF-00 and has never carried a citation:
+    // `docs/2.0/TRACKING-MATH.md` §3.6 is the only line in this repository that
+    // gives any delta, and it says "zcashd 20, Zashi/Zodl 40, others vary" -
+    // "others vary" being the corpus DECLINING to state one for Ywallet. The
+    // value was rendered to users beside a txid, so it was a named product
+    // published on nothing.
+    //
+    // Every point in the closed band, including both endpoints, and the shape
+    // the old rule required. None of them may produce a product name.
+    const named = ["ZCASHD_RUST", "ZECWALLET_LITE", "NIGHTHAWK", "EDGE", "ZODL"];
+    for (const expiryDelta of [35, 36, 40, 45, 49, 50]) {
+      const guess = guessWallet({ ...base, expiryDelta });
+      expect(named, `delta ${expiryDelta} must not name a product`).not.toContain(guess);
+      // base carries feeZat 0n - a KNOWN fee, non-conventional against the
+      // 10,000 grace floor - so the honest answer is a verdict about the fee
+      // and nothing about the wallet.
+      expect(guess, `delta ${expiryDelta}`).toBe("UNKNOWN_NONSTANDARD");
+    }
+    // Just outside the old band, for symmetry: the answer is the same, which is
+    // what "the band carried no information" means.
+    expect(guessWallet({ ...base, expiryDelta: 34 })).toBe("UNKNOWN_NONSTANDARD");
+    expect(guessWallet({ ...base, expiryDelta: 51 })).toBe("UNKNOWN_NONSTANDARD");
     expect(guessWallet({ ...base, expiryDelta: null })).toBe("UNKNOWN_NONSTANDARD");
   });
 
-  it("an Ironwood bundle rules YWALLET out and reaches ZODL instead", () => {
-    // THE ONLY EVIDENCE THAT SEPARATES THE TWO. TRACKING-MATH §3.6 gives
-    // Zashi/Zodl an expiry delta of 40, which sits inside Ywallet's sourced
-    // 35-50 band, so the delta alone cannot tell them apart. The corpus
-    // supplies the tiebreaker: Zodl 3.8.0 supports Ironwood and Ywallet 1.15.3
-    // "will not be updated for Ironwood" (§2.6, `med`).
+  it("ZODL needs BOTH its sourced conjuncts, and 40 alone is not one of them", () => {
+    // TRACKING-MATH §3.6 gives Zashi/Zodl an expiry delta of 40; the corpus
+    // gives Zodl 3.8.0 Ironwood support and Ywallet 1.15.3 "will not be updated
+    // for Ironwood" (§2.6, `med`). Both halves are sourced, and the rule
+    // requires both - which matters more now than it did as a tiebreaker,
+    // because the band it used to break the tie against is gone.
     const withIronwood = { ...base, hasIronwoodBundle: true, ironwoodActionCount: 2 };
     expect(guessWallet({ ...withIronwood, expiryDelta: 40 })).toBe("ZODL");
 
-    // FAIL SIDE, AND IT DISCRIMINATES ON EACH HALF SEPARATELY. Remove the
-    // Ironwood bundle and the same delta is Ywallet again; keep the bundle and
-    // move the delta off 40 and it is neither, because ZODL's tell is a point
-    // value and Ywallet has been ruled out by the bundle.
-    expect(guessWallet({ ...base, expiryDelta: 40 })).toBe("YWALLET");
+    // FAIL SIDE, EACH CONJUNCT SEPARATELY. Drop the Ironwood bundle and 40 is
+    // no longer Zodl - and, since HANDOFF-08, no longer anything else either.
+    // Keep the bundle and move the delta off 40 and it is not Zodl, because
+    // Zodl's tell is a point value rather than a band.
+    expect(guessWallet({ ...base, expiryDelta: 40 })).not.toBe("ZODL");
     expect(guessWallet({ ...withIronwood, expiryDelta: 41 })).not.toBe("ZODL");
-    expect(guessWallet({ ...withIronwood, expiryDelta: 41 })).not.toBe("YWALLET");
   });
 
   it("ZECWALLET_LITE is now reachable, and was not before", () => {

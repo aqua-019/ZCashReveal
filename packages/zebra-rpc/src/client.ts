@@ -373,10 +373,13 @@ function asRpcBlock(v: z.infer<typeof rpcBlockSchema>, selector: string): RpcBlo
     tx,
     ...(v.finalsaplingroot === undefined ? {} : { finalsaplingroot: v.finalsaplingroot }),
     ...(v.finalorchardroot === undefined ? {} : { finalorchardroot: v.finalorchardroot }),
-    // Forwarded on the same terms as the two above. If the wire name turns out
-    // to be something else, this is inert rather than wrong - and `decodeBlock`
-    // is where that inertness becomes visible instead of silent.
-    ...(v.finalironwoodroot === undefined ? {} : { finalironwoodroot: v.finalironwoodroot }),
+    // NO IRONWOOD ROOT IS FORWARDED, BECAUSE `getblock` SENDS NONE. A
+    // `finalironwoodroot` was forwarded here through HANDOFF-07 on the same
+    // terms as the two above, inferred by analogy; L2 confirmed against Zebra's
+    // source that the field does not exist (LEDGER-07 Q5). `trees` below is
+    // what this response carries about Ironwood at block level, and it carries
+    // a SIZE rather than a root.
+    ...(v.trees === undefined ? {} : { trees: v.trees }),
     ...(v.previousblockhash === undefined ? {} : { previousblockhash: v.previousblockhash }),
     ...(v.nextblockhash === undefined ? {} : { nextblockhash: v.nextblockhash }),
     ...(v.confirmations === undefined ? {} : { confirmations: v.confirmations }),

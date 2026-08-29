@@ -431,6 +431,119 @@ describe("the four-pool row, and the two places Ironwood was half-added", () => 
     expect(built.entries[0]?.class).toBe("transparent");
     expect(built.summary.transparent).toBe(1);
   });
+});
+
+describe("A13 - a pool crossing with a PUBLIC SIDE is `mixed`, not the residual", () => {
+  /**
+   * A Sapling-to-Orchard transfer that also pays a transparent address.
+   *
+   * NONE OF THE OTHER SIX CLASSES FITS IT, which is what HANDOFF-07 escalated
+   * (LEDGER-07 Q2). It is not a `migration` - a public recipient stands in it,
+   * and the gateway stopped calling it one. It is not `shield` or `deshield` -
+   * those name the direction of a transparent side it has on one end only. It
+   * fell to the residual `shielded` while `analyze()` answered MIXED, so /tx and
+   * /track said different things about one transaction.
+   */
+  const crossingWithPublicSide = () =>
+    report({
+      txid: "f1",
+      perPoolZat: [
+        { pool: "sapling", deltaZat: 120n * 100_000_000n },
+        { pool: "orchard", deltaZat: -(120n * 100_000_000n - 15_000n) },
+      ],
+      saplingSpends: 1,
+      orchardActions: 2,
+      vin: 1,
+      vout: 1,
+    });
+
+  it("PASS STATE: the class is `mixed`", () => {
+    const built = view(crossingWithPublicSide());
+    expect(built.entries[0]?.class).toBe("mixed");
+    // Explicitly NOT the two classes it used to be mistaken for.
+    expect(built.entries[0]?.class).not.toBe("shielded");
+    expect(built.entries[0]?.class).not.toBe("migration");
+  });
+
+  it("PASS STATE: the flow caption names both halves, and never 't to t'", () => {
+    // The old ternary chain ended `: "t to t"`, so a class it did not name got a
+    // transparent-to-transparent caption beside two pool lane swatches. That is
+    // a false statement rather than a missing one, and it is the same defect the
+    // Ironwood case above records being fixed.
+    const built = view(crossingWithPublicSide());
+    expect(built.entries[0]?.flow).not.toBe("t to t");
+    expect(built.entries[0]?.flow).toContain("+ t");
+    expect(built.entries[0]?.lanes).toContain("sapling");
+    expect(built.entries[0]?.lanes).toContain("orchard");
+  });
+
+  it("PASS STATE: it is counted, and the four figures still account for every row", () => {
+    // THE CONSUMER SWEEP, ASSERTED RATHER THAN DESCRIBED. `mixed` in the
+    // denominator and in no numerator is the failure this checks for: the four
+    // counts /track prints beside each other would then account for less than
+    // the mempool with nothing saying so.
+    const built = view(crossingWithPublicSide(), report({ txid: "f2", vin: 1, vout: 1 }));
+    expect(built.summary.shielded).toBe(1);
+    expect(built.summary.transparent).toBe(1);
+    expect(built.summary.migrations).toBe(0);
+    expect(built.summary.decodedCount).toBe(2);
+    expect(
+      built.summary.shielded + built.summary.migrations + built.summary.transparent,
+    ).toBe(built.summary.decodedCount);
+  });
+
+  it("FAIL SIDE: remove the public side and the SAME crossing is a migration", () => {
+    // The discriminating half, and it isolates exactly one variable: the same
+    // pool legs with no `vin` and no `vout`. If `mixed` were reachable for any
+    // multi-pool transaction rather than for one with a public side, this would
+    // also be `mixed`.
+    const built = view(
+      report({
+        txid: "f3",
+        perPoolZat: [
+          { pool: "sapling", deltaZat: 120n * 100_000_000n },
+          { pool: "orchard", deltaZat: -(120n * 100_000_000n - 15_000n) },
+        ],
+        saplingSpends: 1,
+        orchardActions: 2,
+      }),
+    );
+    expect(built.entries[0]?.class).toBe("migration");
+    expect(built.summary.migrations).toBe(1);
+    expect(built.summary.shielded).toBe(0);
+  });
+
+  it("FAIL SIDE: a SINGLE-pool transaction with a public side is not `mixed`", () => {
+    // The other variable, isolated the other way. One pool plus a transparent
+    // side is a shield or a deshield, which are the classes that name a
+    // direction - so `mixed` must not swallow them.
+    const shield = view(
+      report({
+        txid: "f4",
+        perPoolZat: [{ pool: "orchard", deltaZat: -(100n * 100_000_000n) }],
+        orchardActions: 2,
+        vin: 1,
+      }),
+    );
+    expect(shield.entries[0]?.class).toBe("shield");
+
+    const deshield = view(
+      report({
+        txid: "f5",
+        perPoolZat: [{ pool: "orchard", deltaZat: 100n * 100_000_000n }],
+        orchardActions: 2,
+        vout: 1,
+      }),
+    );
+    expect(deshield.entries[0]?.class).toBe("deshield");
+  });
+
+  it("the row parses as its own DTO, so the enum really carries the member", () => {
+    // The widening has to reach `mempoolRowSchema` too, or the gateway would
+    // build a row its own `respond()` refuses to serialise.
+    const built = view(crossingWithPublicSide());
+    expect(() => mempoolViewSchema.parse(built)).not.toThrow();
+  });
 
   it("an undecodable transaction gets a row that claims nothing, and it parses as a DTO", () => {
     // The `UNSUPPORTED_TX` path had no test at all, and every field on the row

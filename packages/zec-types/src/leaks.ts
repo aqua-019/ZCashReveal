@@ -190,7 +190,6 @@ export interface FingerprintAnnotation {
 export type WalletGuess =
   | "ZCASHD_RUST"
   | "ZECWALLET_LITE"
-  | "YWALLET"
   | "NIGHTHAWK"
   | "EDGE"
   /**
@@ -204,6 +203,18 @@ export type WalletGuess =
    * no member here: a `WalletGuess` no rule can return is a branch that reads
    * as covered and never runs, which is the defect this project keeps finding.
    * See `fingerprint.ts` for what each of the four would need.
+   *
+   * `"YWALLET"` WAS REMOVED FROM THIS UNION IN HANDOFF-08 UNDER THE SAME RULE.
+   * It was returned on an `expiryDelta` in 35-50, a band hardcoded at
+   * HANDOFF-00 that never carried a citation; §3.6's "others vary" is the
+   * corpus declining to state one for Ywallet. `guessWallet` no longer returns
+   * it, so leaving the member would have left precisely the unreachable branch
+   * the paragraph above refuses (L2 finding F-07-1, LEDGER-07 fold 1). Ywallet
+   * is now listed in `UNSOURCED_WALLET_HYPOTHESES` beside the other four, which
+   * is where a wallet this project can name but cannot fingerprint belongs.
+   * Nothing about the CHAIN changed: transactions Ywallet sent are still
+   * classified, by their fee, as `UNKNOWN_BUT_STANDARD` or
+   * `UNKNOWN_NONSTANDARD`, or as `UNKNOWN_UNPRICED` when the fee is unknown.
    */
   | "ZODL"
   /** Not one of the five signatures, but it paid ZIP 317's conventional fee. */
@@ -294,13 +305,16 @@ export interface Zip318MigrationRecord {
    * The magnitude that ENTERED Ironwood. Positive, and smaller than
    * `amountZat` by the fee.
    *
-   * RECORDED BECAUSE WHICH SIDE ZIP 318 MEANS BY "the net amount crossing
-   * between the pools" IS NOT SETTLED HERE. The corpus states `DENOM_CAP` both
-   * as "10,000 ZEC plus canonical fee" and as a flat 10,000, a difference that
-   * only makes sense if the two statements had different sides in mind. Both
-   * magnitudes are therefore kept, the fee is their difference, and the
-   * question is a deferred assumption rather than one closed by picking a side
-   * quietly.
+   * RECORDED BECAUSE A CROSSING HAS TWO MAGNITUDES AND THEY DIFFER BY THE FEE.
+   * Keeping both was originally defended on a premise that has since been
+   * retired: that the corpus stated `DENOM_CAP` two irreconcilable ways, so
+   * this record could not know which side the cap was about. L2 read ZIP 318
+   * (LEDGER-07 Q3) and the two statements are two quantities, not two readings
+   * - `DENOM_CAP` bounds the FUNDING NOTE at 10,000 ZEC plus the canonical fee,
+   * and 10,000 ZEC is the largest CROSSING. Both magnitudes are still carried,
+   * because the fee is recoverable as their difference and because the Orchard
+   * side is the one the drain and `pool_snapshots` measure - but they are
+   * carried as a measurement now rather than as an open question.
    */
   arrivedZat: Zatoshi;
   /**
@@ -315,14 +329,26 @@ export interface Zip318MigrationRecord {
   /** `denomination !== null`. Mirrors `migrations_zip318.canonical`. */
   canonical: boolean;
   /**
-   * Whether the amount exceeds `DENOM_CAP` on the flat 10,000 ZEC reading.
+   * Whether the amount exceeds the largest crossing ZIP 318 permits, 10,000 ZEC.
    *
-   * A FLAG FOR A HUMAN, NOT A VERDICT. The corpus states the cap two ways -
-   * 10,000 ZEC "plus canonical fee" in the research, a flat 10,000 in
-   * TRACKING-MATH §3.9 - so a crossing in the band between them is legal under
-   * one reading and over-cap under the other. See `ZIP318_DENOM_CAP_ZAT`.
+   * A FLAG FOR A HUMAN, NOT A VERDICT - the chain is the authority on what
+   * happened, so this is raised as a finding and never used to reject a record.
+   *
+   * RENAMED FROM `overDenomCap` IN HANDOFF-08, and the old name was the defect.
+   * It was believed to answer "the stricter of two readings of DENOM_CAP"; there
+   * is one reading, it is over the funding note rather than the crossing, and
+   * 10,000 ZEC is simply the crossing bound. The value this field carries has
+   * never changed. See `ZIP318_MAX_CROSSING_ZAT` for both quantities, and note
+   * that ZIP 318 is status Draft.
+   *
+   * THE RENAME MOVES A KEY INSIDE THE `report` JSONB COLUMN, which is a wire
+   * shape and would normally be left alone. It is free exactly now: `grep` over
+   * `apps/` finds no reader of that column - it is written by
+   * `persistence/leak-reports.ts` and read by nothing yet - so no row is
+   * mis-read by the change and no compatibility shim is owed. Whoever writes
+   * the first reader inherits one name instead of two.
    */
-  overDenomCap: boolean;
+  overMaxCrossing: boolean;
   /**
    * Whether the amount is below `MAX_RESIDUAL_VALUE` (0.01 ZEC), the size ZIP
    * 318 says is stranded in Orchard permanently.

@@ -11,12 +11,20 @@
 // Nothing else would have: a wrong line number compiles, tests green, and the
 // next reader follows it to the wrong place or to nothing at all.
 //
-// WHAT IT CHECKS, AND WHY THAT IS ENOUGH. That every cited line EXISTS and is
-// not blank. It deliberately does not try to check that the line says what the
-// citing comment claims - that is a judgement, and a script pretending to make
-// it would give the citation a false air of verification, which is worse than
-// no check. Blankness is the failure mode that actually occurred, it is the one
-// that means "this citation points at nothing", and it is decidable.
+// WHAT IT CHECKS, AND WHY THAT IS ENOUGH. That every cited line EXISTS, is not
+// blank, and is not STRUCTURAL-ONLY - a `---` rule or front-matter fence, a bare
+// `#`, or a `|---|---|` table separator. It deliberately does not try to check
+// that the line says what the citing comment claims - that is a judgement, and a
+// script pretending to make it would give the citation a false air of
+// verification, which is worse than no check.
+//
+// THE STRUCTURAL CASE WAS ADDED IN HANDOFF-08 BECAUSE L2 PROBED THE GUARD AND
+// GOT THROUGH. Testing the guard rather than reading it (LEDGER-07, probe f),
+// L2 pointed a citation at line 12 of the corpus - the `---` closing the YAML
+// front matter - and it passed, because `---` is not blank. That is the same
+// failure the blank-line rule exists for: the citation points at nothing a
+// reader can check. It is a bounded guard either way, and the bound is now one
+// notch tighter than "the line has characters on it".
 //
 // The section tags beside each citation (§1.4, §2.1) are the human half of the
 // same job and are not checked here: a section survives an edit that moves a
@@ -91,6 +99,31 @@ function linesOf(path) {
 }
 
 /**
+ * What kind of structure-only line this is, or `null` if it carries content.
+ *
+ * THREE SHAPES, EACH ONE A LINE A CITATION CAN LAND ON AND SAY NOTHING FROM.
+ * A `---` is a horizontal rule or a front-matter fence; a heading marker with
+ * no words after it is a heading of nothing; a `|---|:--:|` row is a Markdown
+ * table's separator, which is the line most likely to be hit when a citation is
+ * re-pinned by arithmetic into the middle of a table.
+ *
+ * A heading WITH text ("## 1.4 Activation heights") is content and passes - it
+ * is a perfectly good thing to cite, and refusing it would push citations off
+ * section headers, which are the most durable target in the document.
+ */
+export function structuralKind(line) {
+  const t = line.trim();
+  if (/^-{3,}$/.test(t) || /^\*{3,}$/.test(t) || /^_{3,}$/.test(t)) {
+    return "a horizontal rule or front-matter fence";
+  }
+  if (/^#+$/.test(t)) return "a heading marker with no heading text";
+  // A table separator row: pipes, colons, dashes and spaces only, and at least
+  // one dash - so `| a | b |` (a real header row) is content and passes.
+  if (/^\|[\s|:-]*\|$/.test(t) && t.includes("-")) return "a table separator row";
+  return null;
+}
+
+/**
  * Check one file's citations. Returns a list of problems.
  *
  * Exported shape rather than inlined so the self-test can drive it over a
@@ -117,12 +150,23 @@ export function citationProblems(sourceLabel, sourceText) {
         });
         continue;
       }
-      if (targetLines[n - 1].trim() === "") {
+      const targetLine = targetLines[n - 1];
+      if (targetLine.trim() === "") {
         problems.push({
           source: sourceLabel,
           sourceLine: i + 1,
           citation: `${basename}:${lineNo}`,
           why: "points at a blank line",
+        });
+        continue;
+      }
+      const structural = structuralKind(targetLine);
+      if (structural !== null) {
+        problems.push({
+          source: sourceLabel,
+          sourceLine: i + 1,
+          citation: `${basename}:${lineNo}`,
+          why: `points at ${structural}, which carries no claim a reader can check`,
         });
       }
     }
@@ -153,16 +197,42 @@ function selfTest() {
   const pastEnd = citationProblems("self-test", `// 01-contemporary-zcash.md:${lines.length + 500}`);
   const notCorpus = citationProblems("self-test", "// README.md:999999");
 
+  // THE STRUCTURAL DETECTOR IS SELF-TESTED AGAINST THE EXACT LINE L2 GOT
+  // THROUGH WITH, not against a synthetic one: the first `---` in the real
+  // corpus, which is its front-matter fence. If the corpus stops having one,
+  // the self-test says so rather than reporting a detector it never exercised.
+  const rule = lines.findIndex((l) => structuralKind(l) !== null) + 1;
+  if (rule === 0) {
+    console.error("[citations] FAIL self-test: the corpus has no structural-only line to probe");
+    return false;
+  }
+  const structuralFires = citationProblems("self-test", `// 01-contemporary-zcash.md:${rule}`);
+
+  // And the negative direction, on the shapes that must NOT be called
+  // structural: a heading with text, and a table's header row.
+  const negatives = [
+    "## 1.4 Activation heights",
+    "| Upgrade | Mainnet | Testnet |",
+    "- a bullet",
+    "text --- with a rule inside it",
+  ].filter((l) => structuralKind(l) !== null);
+
   const ok =
     shouldFire.length === 1 &&
     shouldNotFire.length === 0 &&
     pastEnd.length === 1 &&
-    notCorpus.length === 0;
+    notCorpus.length === 0 &&
+    structuralFires.length === 1 &&
+    negatives.length === 0;
   if (!ok) {
     console.error(
       `[citations] FAIL self-test: blank=${shouldFire.length} (want 1), ` +
         `good=${shouldNotFire.length} (want 0), pastEnd=${pastEnd.length} (want 1), ` +
-        `nonCorpus=${notCorpus.length} (want 0)`,
+        `nonCorpus=${notCorpus.length} (want 0), ` +
+        `structural=${structuralFires.length} (want 1), ` +
+        `falsePositives=${negatives.length} (want 0)${
+          negatives.length > 0 ? `: ${JSON.stringify(negatives)}` : ""
+        }`,
     );
   }
   return ok;
@@ -190,5 +260,5 @@ if (problems.length > 0) {
 
 console.log(
   `[citations] OK: every corpus line citation in ${SCAN_DIRS.join(", ")} points at a real, ` +
-    "non-blank line (detector self-tested in both directions).",
+    "non-blank, non-structural line (both detectors self-tested in both directions).",
 );

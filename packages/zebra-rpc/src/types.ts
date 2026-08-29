@@ -14,6 +14,7 @@
  * interface rather than a cast asserting it.
  */
 import type { Hex, RpcTransaction } from "@zcashreveal/types";
+import type { RpcBlockTrees } from "./schemas.js";
 
 export interface BlockchainInfoResult {
   chain: string;
@@ -37,6 +38,12 @@ export interface BlockHeaderResult {
  * `finalorchardroot` is absent before NU5 activation (see
  * decoder/activation-heights.ts). Treat their absence as "pool not yet
  * active at this height", not as "no commitments in this block".
+ *
+ * TWO ROOTS, THREE POOLS THAT HAVE ONE, AND THAT IS THE NODE'S SHAPE RATHER
+ * THAN THIS TYPE'S OMISSION. Ironwood's block-level root is not on `getblock`
+ * under any name - confirmed against Zebra's source, LEDGER-07 Q5 - so it is
+ * absent here on purpose and `trees.ironwood.size` is what this response can
+ * tell you about that pool.
  */
 export interface RpcBlock {
   hash: Hex;
@@ -46,16 +53,22 @@ export interface RpcBlock {
   finalsaplingroot?: Hex | undefined;
   /** Orchard NCT root as of this block. Absent pre-NU5-activation. */
   finalorchardroot?: Hex | undefined;
-  /**
-   * Ironwood NCT root as of this block. Absent pre-NU6.3-activation - and
-   * absent, on every block, if this field name is wrong.
-   *
-   * INFERRED BY ANALOGY FROM ITS TWO SIBLINGS AND NEVER OBSERVED. See the note
-   * on `finalironwoodroot` in `schemas.ts`. `decodeBlock` reports a block that
-   * added Ironwood commitments while carrying no root, so the guess cannot fail
-   * quietly.
+  /*
+   * THERE IS NO IRONWOOD ROOT ON THIS RESPONSE. `finalironwoodroot` was
+   * declared here through HANDOFF-07 as an inference from the two fields above,
+   * and L2 confirmed against Zebra's source that no such field exists
+   * (`zebra-rpc/src/methods.rs` on `main`; LEDGER-07 Q5). It is removed rather
+   * than kept as an always-undefined optional. What `getblock` does carry for
+   * Ironwood is a tree SIZE, in `trees` below; the root is on `z_gettreestate`,
+   * which HANDOFF-12 wires.
    */
-  finalironwoodroot?: Hex | undefined;
+  /**
+   * Per-pool note-commitment-tree state as of this block, when the node sends
+   * it. `trees.ironwood.size` is the count of Ironwood commitments, so the
+   * highest occupied position is `size - 1` - the `maxPosition` an anchor
+   * needs, arriving one RPC before the root does.
+   */
+  trees?: RpcBlockTrees | undefined;
   /** Full transaction objects (verbosity 2). */
   tx: RpcTransaction[];
   previousblockhash?: Hex | undefined;

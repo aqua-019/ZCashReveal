@@ -71,7 +71,7 @@ function loadFixture(): RpcBlock {
     tx,
     ...(parsed.finalsaplingroot === undefined ? {} : { finalsaplingroot: parsed.finalsaplingroot }),
     ...(parsed.finalorchardroot === undefined ? {} : { finalorchardroot: parsed.finalorchardroot }),
-    ...(parsed.finalironwoodroot === undefined ? {} : { finalironwoodroot: parsed.finalironwoodroot }),
+    ...(parsed.trees === undefined ? {} : { trees: parsed.trees }),
   };
 }
 
@@ -175,29 +175,46 @@ describe("A2 - the v6 fixture yields Ironwood commitments with contiguous positi
 
     expect(decoded.txs.every((t) => t.ironwoodActions.length === 0)).toBe(true);
     expect(boundaryDeltasOf(decoded).filter((d) => d.pool === "ironwood")).toHaveLength(0);
-    expect(decoded.ironwoodAnchor).toBeNull();
-    // And the absence is reported as an absence rather than as "the pool did
-    // not move": no commitments were appended, so there is nothing to flag.
-    expect(decoded.ironwoodRootUnobserved).toBe(false);
+    // Nothing is pending a treestate lookup either: no Ironwood commitments
+    // were appended, so no Ironwood anchor exists for this height to fetch.
+    expect(decoded.ironwoodAnchorPendingTreestate).toBe(false);
   });
 
-  it("a block that adds Ironwood commitments with no root says so, instead of reading as empty", () => {
-    // THE ALARM ON THE INFERRED FIELD NAME. `finalironwoodroot` is guessed by
-    // analogy from its two siblings; if the guess is wrong the anchor is null
-    // on every block forever, and null is indistinguishable from "this block
-    // added no Ironwood commitments". The flag separates the two.
+  it("a block that adds Ironwood commitments names itself as owing a z_gettreestate lookup", () => {
+    // WHAT THIS ASSERTION USED TO BE, AND WHY IT CHANGED. It was the alarm on
+    // an inferred field name: `finalironwoodroot` was guessed by analogy from
+    // `finalsaplingroot`/`finalorchardroot`, and the flag existed so a wrong
+    // guess could not read as "this block added no Ironwood commitments".
+    //
+    // L2 read Zebra's source and the guess was wrong (LEDGER-07 Q5): there is
+    // no Ironwood root on `getblock` under any spelling. So the alarm would
+    // have fired on every block that moved the pool, which is a broken build
+    // rather than a signal. The boolean survives because the question it
+    // answers survives - it is now HANDOFF-12's work list, naming the heights
+    // at which `z_gettreestate` must be called.
     const block = loadFixture();
-    const { finalironwoodroot: _dropped, ...withoutRoot } = block;
-    const decoded = decodeBlock(withoutRoot);
+    const decoded = decodeBlock(block);
 
-    expect(decoded.ironwoodAnchor).toBeNull();
-    expect(decoded.ironwoodRootUnobserved).toBe(true);
+    expect(decoded.txs.some((t) => t.ironwoodActions.length > 0)).toBe(true);
+    expect(decoded.ironwoodAnchorPendingTreestate).toBe(true);
 
-    // Pass state: with the root present the anchor is emitted and the flag is
-    // down, so the flag is not simply always true.
-    const withRoot = decodeBlock(block);
-    expect(withRoot.ironwoodAnchor?.root).toBe(block.finalironwoodroot);
-    expect(withRoot.ironwoodRootUnobserved).toBe(false);
+    // THE SIZE IS THE HALF OF AN ANCHOR THAT `getblock` DOES CARRY.
+    // PR #10888 gives `trees.ironwood.size`, so `maxPosition` is size - 1 and
+    // only the root is still owed. The fixture's size equals the number of
+    // Ironwood actions its own transactions contain, so this is a measurement
+    // rather than a constant copied into two places.
+    const actions = decoded.txs.reduce((n, t) => n + t.ironwoodActions.length, 0);
+    expect(decoded.ironwoodTreeSize).toBe(BigInt(actions));
+
+    // FAIL SIDE: a node that sends no `trees.ironwood` at all - an older node,
+    // or PR #10888's `skip_serializing_if` on an empty tree - yields `null` and
+    // never `0n`. A zero would be a measurement nobody took.
+    const { trees: _dropped, ...withoutTrees } = block;
+    const blind = decodeBlock(withoutTrees);
+    expect(blind.ironwoodTreeSize).toBeNull();
+    // ...while the pending flag is unchanged, because it is derived from the
+    // transactions rather than from the node's tree reporting.
+    expect(blind.ironwoodAnchorPendingTreestate).toBe(true);
   });
 });
 

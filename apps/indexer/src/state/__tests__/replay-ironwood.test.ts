@@ -58,7 +58,7 @@ function loadBlock(): RpcBlock {
     height: parsed.height as number,
     time: parsed.time as number,
     tx,
-    ...(parsed.finalironwoodroot === undefined ? {} : { finalironwoodroot: parsed.finalironwoodroot }),
+    ...(parsed.trees === undefined ? {} : { trees: parsed.trees }),
   };
 }
 
@@ -238,16 +238,29 @@ describe("A7 - Bal_orchard falls by what left it and Bal_ironwood rises by what 
     expect(positions).toEqual(positions.map((_p, i) => BigInt(i)));
     expect(ironwood.commitments.size()).toBe(BigInt(positions.length));
 
-    // The block-level anchor can now be recorded, because its maxPosition
-    // references a commitment that exists. Recording it before the appends
-    // would throw AnchorOutOfBoundsError, which is the cross-index invariant.
-    expect(decoded.ironwoodAnchor).not.toBeNull();
+    // THE BLOCK-LEVEL ANCHOR CANNOT COME FROM `decodeBlock`, AND THAT IS THE
+    // POINT OF THIS BLOCK OF ASSERTIONS SINCE HANDOFF-08. `getblock` carries no
+    // Ironwood root under any name (LEDGER-07 Q5), so what this fixture proves
+    // is the half the response DOES carry - the tree size, which is the
+    // anchor's `maxPosition` - and that the decoder says the root is still
+    // owed. HANDOFF-12 supplies it from `z_gettreestate`.
+    expect(decoded.ironwoodAnchorPendingTreestate).toBe(true);
+    expect(decoded.ironwoodTreeSize).toBe(ironwood.commitments.size());
+
+    // With the root supplied from that other RPC - modelled here as a literal,
+    // because this suite has no node - the anchor records cleanly, because its
+    // maxPosition references a commitment that exists. Recording it before the
+    // appends would throw AnchorOutOfBoundsError, the cross-index invariant.
+    const rootFromTreestate = "ee".repeat(32) as Hex;
     expect(() =>
       ironwood.recordAnchor({
         pool: "ironwood",
-        root: decoded.ironwoodAnchor?.root as Hex,
+        root: rootFromTreestate,
         heightCreated: decoded.height,
-        maxPosition: ironwood.commitments.size() - 1n,
+        // `size - 1`, taken from the decoder's own reading of the block rather
+        // than from the index, so a disagreement between the two is a failure
+        // rather than a tautology.
+        maxPosition: (decoded.ironwoodTreeSize as bigint) - 1n,
       }),
     ).not.toThrow();
     expect(ironwood.anchors.snapshot().anchorCount).toBe(1);

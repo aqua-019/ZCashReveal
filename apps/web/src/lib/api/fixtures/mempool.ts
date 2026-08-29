@@ -52,6 +52,18 @@ const REASONING: Readonly<Record<MempoolRow["class"], readonly string[]>> = {
     "Intra-pool. The public fields are nullifiers, commitments, anchor and fee. No amounts, no endpoints, and no estimate to make.",
   ],
   /**
+   * A crossing between two shielded pools that ALSO pays a transparent address.
+   *
+   * NEW IN HANDOFF-08, and this `Record` is the one consumer of the class enum
+   * the compiler could enforce - adding the member failed `tsc` here until these
+   * words existed, which is what an exhaustive map is for. Every other consumer
+   * had to be swept by hand.
+   */
+  mixed: [
+    "Value moved between two shielded pools and a transparent address stands in the same transaction, so it is neither a migration nor a one-directional shield.",
+    "The pool crossing is exact and public. The transparent leg is exact. What connects them inside the pools is not, and no estimate here claims it does.",
+  ],
+  /**
    * The one class whose reasoning is not about a flow, because there is no flow
    * to reason about. `undecoded` says the decoder declined to read the
    * transaction's shape, so every number on the row is absent rather than zero,
@@ -273,6 +285,38 @@ const ROWS: readonly Row[] = [
     cls: "shielded",
   },
   {
+    /**
+     * THE ONE ROW THAT CROSSES POOLS AND HAS A PUBLIC SIDE, added in HANDOFF-08
+     * with the `mixed` class itself - and for the same reason the unpriced and
+     * undecoded rows above exist: a branch nothing renders is a branch nobody
+     * has seen.
+     *
+     * It is the row that proves the sweep. Without it, `stream.ts`'s hand-copied
+     * `CLASSES` set could have rejected `mixed` while `frame-guard.test.ts` -
+     * which iterates exactly these rows - stayed green, which is verbatim the
+     * defect HANDOFF-07 shipped for `undecoded`. It is also what makes the two
+     * partition assertions in `fixtures.test.ts` say something about the new
+     * member rather than passing vacuously.
+     *
+     * The shape: a Sapling-to-Orchard transfer that also pays a transparent
+     * address. Not a migration, because a public recipient stands in it; not a
+     * shield or a deshield, because those name the direction of a transparent
+     * side it has on only one end.
+     */
+    txid: "5e2c1b7a9d8f0e3c6b4a2d1f9e8c7b5a3d2f1e0c9b8a7d6f5e4c3b2a1d0f9e8c",
+    ageSeconds: 88,
+    version: "v5",
+    flow: "S to O + t",
+    lanes: ["sapling", "orchard", "transparent"],
+    valueBalanceText: "+120.0000 S / -119.9950 O",
+    feeZat: 15_000n,
+    logicalActions: 3,
+    walletGuess: "not classified",
+    finding: "pool crossing with a transparent recipient - neither a migration nor a one-directional shield",
+    severity: "MED",
+    cls: "mixed",
+  },
+  {
     txid: "41ab9cd3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e855e6a7",
     ageSeconds: 500,
     version: "v4",
@@ -395,7 +439,15 @@ const transparent = ROWS.filter((r) => r.cls === "transparent").length;
  * from the summary rather than folded into one of them.
  */
 const shielded = ROWS.filter(
-  (r) => r.cls === "shield" || r.cls === "deshield" || r.cls === "shielded",
+  (r) =>
+    r.cls === "shield" ||
+    r.cls === "deshield" ||
+    r.cls === "shielded" ||
+    // `mixed` joins the numerator in HANDOFF-08, matching the gateway. It moved
+    // value between shielded pools; leaving it out would put it in the
+    // denominator below and in no numerator, so the four figures /track prints
+    // beside each other would account for less than the mempool.
+    r.cls === "mixed",
 ).length;
 
 /**

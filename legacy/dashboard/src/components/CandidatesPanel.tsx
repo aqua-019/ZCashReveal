@@ -225,29 +225,86 @@ function FilterBar({ filter }: { filter: FilterApplication }) {
   );
 }
 
+/**
+ * THESE THREE FUNCTIONS USED AN IMPLICIT ELSE, AND HANDOFF-08 FOUND IT.
+ *
+ * Each was written as `if (f.filter === "time_window") ... else <amount_match>`,
+ * which is correct only while `FilterApplication` has exactly two members. It
+ * gained a third - `amount_echo`, TRACKING-MATH section 3.4 - and `tsc` failed
+ * here on `matchedDepositHeight`, which is the compiler doing the sweep the
+ * project's own rule asks a human to do. They are switches with an
+ * exhaustiveness check now, so the NEXT member is a compile error at the site
+ * rather than an else-branch quietly describing it as something it is not.
+ *
+ * This dashboard is v0.2 and retired at the HANDOFF-11 cutover. It is fixed
+ * rather than left red because a package that does not typecheck stops the
+ * whole workspace's `pnpm typecheck`, and because an else-branch that labels an
+ * amount echo "amount-match narrowing, deposit at h=undefined" is a wrong
+ * caption rather than a missing one.
+ */
+function assertNever(x: never): never {
+  throw new Error(`unhandled FilterApplication: ${JSON.stringify(x)}`);
+}
+
 function filterShort(f: FilterApplication): string {
-  if (f.filter === "time_window") return "time-window narrowing";
-  return "amount-match narrowing";
+  switch (f.filter) {
+    case "time_window":
+      return "time-window narrowing";
+    case "amount_match":
+      return "amount-match narrowing";
+    case "amount_echo":
+      return "amount echo";
+    default:
+      return assertNever(f);
+  }
 }
 
 function filterParams(f: FilterApplication): string {
-  if (f.filter === "time_window") {
-    return `W=${f.params.windowBlocks} blocks · range (${f.params.lowHeight.toLocaleString()} , ${f.params.highHeight.toLocaleString()}]`;
+  switch (f.filter) {
+    case "time_window":
+      return `W=${f.params.windowBlocks} blocks · range (${f.params.lowHeight.toLocaleString()} , ${f.params.highHeight.toLocaleString()}]`;
+    case "amount_match": {
+      const tol = Number(f.params.toleranceZat) / 100_000_000;
+      return `${f.params.matchKind} · deposit at h=${f.params.matchedDepositHeight.toLocaleString()} · Δ ${tol.toFixed(4)} ZEC tolerance`;
+    }
+    case "amount_echo": {
+      const residual = Number(f.params.residualZat) / 100_000_000;
+      const split = f.params.splitCount > 1 ? ` · ${f.params.splitCount}-way split` : "";
+      return `${f.params.matchKind} · ${f.params.grade} · residual ${residual.toFixed(4)} ZEC (${f.params.relativeError.toExponential(1)} relative)${split}`;
+    }
+    default:
+      return assertNever(f);
   }
-  const tol = Number(f.params.toleranceZat) / 100_000_000;
-  return `${f.params.matchKind} · deposit at h=${f.params.matchedDepositHeight.toLocaleString()} · Δ ${tol.toFixed(4)} ZEC tolerance`;
 }
 
 function assumptionGloss(f: FilterApplication): string {
-  if (f.filter === "time_window") {
-    const hours = Math.round((f.params.windowBlocks * 2.5) / 60);
-    return `Assumes: spender received the note within ~${hours}h of proving against the anchor at height ${f.params.highHeight.toLocaleString()}.`;
+  switch (f.filter) {
+    case "time_window": {
+      const hours = Math.round((f.params.windowBlocks * 2.5) / 60);
+      return `Assumes: spender received the note within ~${hours}h of proving against the anchor at height ${f.params.highHeight.toLocaleString()}.`;
+    }
+    case "amount_match": {
+      if (f.params.matchKind === "EXACT") {
+        return `Assumes: this unshielding consumes the note created by the matched shielding deposit at height ${f.params.matchedDepositHeight.toLocaleString()}, with exact amount match.`;
+      }
+      const tol = Number(f.params.toleranceZat) / 100_000_000;
+      return `Assumes: this unshielding consumes the note from a shielding deposit at height ${f.params.matchedDepositHeight.toLocaleString()}, within ${tol.toFixed(4)} ZEC fee tolerance.`;
+    }
+    case "amount_echo": {
+      if (f.params.partial) {
+        return "Assumes nothing about which note was spent: a smaller amount returned to the same transparent address within the window. A partial echo is the weakest signal here and never grades above LOW.";
+      }
+      if (f.params.matchKind === "SUBSET_SUM") {
+        return `Assumes: this unshielding is the sum of ${f.params.splitCount} shielding deposits within the window, to ${f.params.relativeEpsilon.toExponential(0)} relative tolerance.`;
+      }
+      // `countOut` is on the RECORD, not in `params` - it is the count of
+      // candidates that survived the filter, which is what makes a single
+      // exact match HIGH and two of them MEDIUM.
+      return `Assumes: this unshielding consumes value from the matched shielding deposit, on amount closeness alone (${f.params.matchKind}). ${f.countOut > 1n ? `${f.countOut} deposits satisfy the same rule.` : "It is the only deposit that does."}`;
+    }
+    default:
+      return assertNever(f);
   }
-  if (f.params.matchKind === "EXACT") {
-    return `Assumes: this unshielding consumes the note created by the matched shielding deposit at height ${f.params.matchedDepositHeight.toLocaleString()}, with exact amount match.`;
-  }
-  const tol = Number(f.params.toleranceZat) / 100_000_000;
-  return `Assumes: this unshielding consumes the note from a shielding deposit at height ${f.params.matchedDepositHeight.toLocaleString()}, within ${tol.toFixed(4)} ZEC fee tolerance.`;
 }
 
 function formatBig(n: bigint): string {

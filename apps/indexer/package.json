@@ -17,6 +17,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@zcashreveal/content": "workspace:*",
     "@zcashreveal/types": "workspace:*",
     "@zcashreveal/zebra-rpc": "workspace:*",
     "ioredis": "^5.4.1",

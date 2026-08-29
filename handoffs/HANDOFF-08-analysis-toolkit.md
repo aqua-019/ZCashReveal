@@ -1,7 +1,7 @@
 ---
 handoff: 08
 title: Indexer analysis toolkit: echo, clustering, labels, posterior, taint (+ golden cases)
-status: queued
+status: in-progress
 branch: the session-designated branch (name it `feat/v2-08-analysis-toolkit` if you may choose)
 track: Data
 depends_on: 06
@@ -60,6 +60,22 @@ Implement the process-of-elimination toolkit from TRACKING-MATH §1, §3, §4 as
 
 1. Five modules + tests; `analysis/index.ts` exports; a `GOLDEN.md` in `apps/indexer/src/analysis/__tests__/` describing each golden case and its source transactions.
 
+2. **`RoundTripIndex.ingest()` takes the WIDE rule** (added by LEDGER-07 fold 2, answering LEDGER-07 Q1). A **deposit requires a transparent input**; a **withdrawal requires a transparent output**. Today `ingest()` reads every `perPoolZat` leg as a deposit or a withdrawal, and a pool-to-pool crossing is neither - it did not come from the transparent side and it did not go there. One migration's arriving leg is filed as a deposit, a later unrelated migration's departing leg matches it on amount, and a `LinkRecord` is emitted whose two address fields are both `null`, because no transparent end exists. HANDOFF-07 reproduced it end to end in two polarities on committed code, one of them on pool legs byte-identical to base `eba5b03`, so the defect predates that handoff.
+
+   The **narrow** guard L2 also considered (skip a report whose `perPoolZat` both gained and lost) is a symptom filter: it catches migrations because migrations happen to have that shape, and would keep letting through any future one-sided pool crossing. The wide rule is the definition of the thing. A round-trip is a claim about value entering and leaving the **transparent** side; a link between two addresses that do not exist is not a weak link, it is a category error, and a `LinkRecord` with two null address fields is the type system saying so.
+
+   **ZIP 318 turns the collision from a coincidence into the expected case**, which is why this is not a tidy-up: quantising to `n x 10^k` is the entire migration scheme, so once Ironwood is live, two unrelated migrations of the same denomination are ordinary rather than rare.
+
+3. **The 17 round-trip fixtures are rebuilt with a transparent side** (same fold). Deliverable 2 breaks 13 of the 17 existing round-trip tests, and they are **not 13 regressions - they are 13 fixtures that have been asserting the defect**, because every round-trip fixture in the tree has no transparent side at all. Give each the transparent end its assertion actually means: a shielding deposit gets a `vin` carrying an address, an unshielding withdrawal gets a `vout` carrying one. A fixture that keeps its null addresses after this deliverable is a fixture whose test is claiming something the wide rule forbids.
+
+4. **`mixed` joins the `/track` row-class enum, and the SWEEP is the deliverable rather than the member** (LEDGER-07 fold 3, answering Q2). The enum is `shield | deshield | shielded | migration | transparent | undecoded`. A Sapling-to-Orchard transfer that also pays a transparent address is none of them: it is not a `migration` - a public recipient stands in it - and `shield`/`deshield` name a direction of transparent flow it has on one end only. It falls to the residual `shielded` while `analyze()` answers `MIXED`, which the enum cannot say.
+
+   **Before widening it, enumerate every consumer of the enum and list them in §7** - producers, zod schemas, view builders, React components, fixtures, tests, and any `switch`, lookup table, CSS class map or sort order keyed on a member. This is the fourth session in a row in which widening a type produced the defect (HANDOFF-06's `Pool`, HANDOFF-07's `LeakClass` and `PoolPath`, and this), and in each the defect was in a consumer nobody swept, never in the widening. A consumer with a `default:` arm is not thereby swept: a default that silently absorbs a new member is how a wrong class renders without an error.
+
+## §4b — SWEEP DISCIPLINE (applies to deliverables 2, 3 and 4)
+
+Per CLAUDE.md's post-fan-out rule, `git status --porcelain` runs after every fan-out and before every commit, and §7 states what it returned. Per LEDGER-06 Q3, a widening or a narrowing runs every branch the old shape kept unreachable - enumerate the consumers and exercise the new member before shipping, and expect the type checker not to help wherever a value crosses a JSON, SQL or `zod` boundary.
+
 ## §5 ASSERTIONS — binary, machine-checkable, each needs a pass-state and a fail-state transcript
 
 - **A1.** Golden 1: shield 50,000.960 at t, unshield 50,000.5541 at t+52 min in a window with no other candidates → grade `MEDIUM`, relative error `8.1e-6 ± 1e-7`, audit record `filter: 'amount_echo'`, `matchKind: 'RELATIVE'`.
@@ -72,6 +88,9 @@ Implement the process-of-elimination toolkit from TRACKING-MATH §1, §3, §4 as
 - **A8.** Posterior: three candidates with weights 0.8/0.1/0.1 → `H ≈ 0.92 bits`, `N_eff ≈ 1.9`, claim `requires_disclosure` (unit test with tolerance 1e-3).
 - **A9.** Property test: for random windows of shields/unshields, `Σ estimated exits ≤ Bal_pool` always holds and any estimator output violating it is rejected with a logged audit record (fast-check ≥ 300 runs).
 - **A10.** `grep -rn 'fetch(\|postgres\|ioredis' apps/indexer/src/analysis` is empty (purity).
+- **A11.** (LEDGER-07 fold 2, both polarities.) Two 500 ZEC Orchard-to-Ironwood migrations, ingested into one `RoundTripIndex` inside the window, produce **NO** `LinkRecord` *(fail side: revert `ingest()` to the pre-transparent rule and observe a `MEDIUM` `FEE_TOLERANT` link appear between strangers, with `senderAddress` and `recipientAddress` both `null`)*. The same must hold for the Orchard-to-Sapling pair HANDOFF-07 reproduced, whose pool legs are byte-identical to base `eba5b03`.
+- **A12.** (LEDGER-07 fold 2.) A genuine shield/unshield pair **with** a transparent input on the deposit and a transparent output on the withdrawal still links, at the same grade it linked at before the wide rule *(fail side: strip the transparent side from the fixture and observe the link disappear)*. Without this, A11 is satisfiable by a `RoundTripIndex` that emits nothing at all.
+- **A13.** (LEDGER-07 fold 3.) A transaction that moves value between two shielded pools **and** pays a transparent address renders as row class `mixed`, not as the residual `shielded` *(fail side: remove the `mixed` arm and observe it fall to `shielded`, disagreeing with `analyze()`'s `MIXED`)*. Every consumer enumerated under deliverable 4 either handles `mixed` explicitly or is asserted to be unreachable for it.
 
 ## §6 DISPATCH HINTS (director-build decides; these are L2's routing suggestions)
 

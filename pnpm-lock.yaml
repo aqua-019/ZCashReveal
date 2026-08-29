@@ -87,6 +87,9 @@ importers:
 
   apps/indexer:
     dependencies:
+      '@zcashreveal/content':
+        specifier: workspace:*
+        version: link:../../packages/content
       '@zcashreveal/types':
         specifier: workspace:*
         version: link:../../packages/zec-types

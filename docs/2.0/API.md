@@ -427,12 +427,30 @@ call per request. It used to be a hardcoded `0`, which the site renders as
 ```
 
 `shielded` counts every transaction that touched a shielded pool without being
-a migration - classes `shield`, `deshield` and `shielded` together. Written down
-because the two producers of this field disagreed about it until HANDOFF-07: the
-gateway counted the residual class `shielded` alone and the fixture counted all
-three, so on thirteen rows one said 3 and the other said 7, under the same
-header string and the same headline tile. A `shield` transaction moved value
-INTO a pool, and counting it out of this number leaves it in no bucket at all.
+a migration - classes `shield`, `deshield`, `shielded` and, since HANDOFF-08,
+`mixed`. Written down because the two producers of this field disagreed about it
+until HANDOFF-07: the gateway counted the residual class `shielded` alone and the
+fixture counted all three, so on thirteen rows one said 3 and the other said 7,
+under the same header string and the same headline tile. A `shield` transaction
+moved value INTO a pool, and counting it out of this number leaves it in no
+bucket at all. `mixed` joins on the same argument rather than a new one.
+
+`mixed` IS NEW IN HANDOFF-08 AND IT IS THE CLASS THE ENUM WAS MISSING. The row
+class is now `shield | deshield | shielded | mixed | migration | transparent |
+undecoded`. A transfer between two shielded pools that ALSO pays a transparent
+address is none of the other six: not a `migration`, because a public recipient
+stands in it; not `shield` or `deshield`, because those name the direction of a
+transparent side it has on one end only. It fell to the residual `shielded` while
+`analyze()` answered `MIXED`, so `/tx` and `/track` stated different things about
+one transaction - the divergence assertion A9 forbids. LEDGER-07 Q2 asked for the
+member and L2 ruled that the CONSUMER SWEEP was the deliverable rather than the
+member: the classifier now tests multi-pool BEFORE `shield`/`deshield` (because
+`direction` is `DEPOSIT` whenever any pool leg is negative, so a crossing with a
+transparent input would otherwise have been published as `shield` / `t to z`),
+the flow caption is an exhaustive switch instead of a ternary chain ending
+`: "t to t"`, and `apps/web`'s hand-copied frame-guard class set was widened -
+without which one `mixed` transaction would have emptied `/track` entirely, which
+is verbatim the defect HANDOFF-07 shipped for `undecoded`.
 
 `decodedCount` is HANDOFF-07's, and it is the DENOMINATOR for any share of the
 mempool - not `unconfirmed`. A row of class `undecoded` is a transaction whose

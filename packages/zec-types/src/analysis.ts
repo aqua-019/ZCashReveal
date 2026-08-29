@@ -141,6 +141,15 @@ export type ClaimLevel =
  * the TypeScript layer (CandidateRange<P> only exists for a known anchor,
  * and the generic P prevents cross-pool composition), so no runtime audit
  * entry would carry new information.
+ *
+ * WIDENING THIS UNION IS NOT FREE, and the compiler is only half the guard.
+ * `views.ts`'s `filterNameSchema` is a CLOSED zod enum and
+ * `auditRecordToEstimateFilter` assigns this `filter` into it, so a new member
+ * here fails `tsc` until the enum gains it - that is the compile-time proof
+ * working, and it is why `amount_echo` appears in both files in one commit.
+ * What the compiler does NOT catch is a consumer that switches on `filter` with
+ * a `default:` arm, or a `params` bag flattened into strings for the UI. Sweep
+ * those by hand; HANDOFF-08 listed them in its section 7.
  */
 export type FilterApplication =
   | {
@@ -170,6 +179,50 @@ export type FilterApplication =
         readonly toleranceZat: bigint;
         /** Whether the match was exact (amounts equal) or fee-tolerant (within toleranceZat). */
         readonly matchKind: "EXACT" | "FEE_TOLERANT";
+      };
+      readonly countIn: bigint;
+      readonly countOut: bigint;
+    }
+  | {
+      /**
+       * TRACKING-MATH section 3.4's amount echo, in all four of its tolerances
+       * plus the partial echo section 6 requires.
+       *
+       * ONE FILTER NAME FOR FOUR TOLERANCES, ON PURPOSE. Section 3.4 is a
+       * single estimator - "Amount echo (Kappos round-trip), three tolerances"
+       * with subset-sum added as a fourth bullet under the same heading - so
+       * `matchKind` discriminates INSIDE the record rather than forking it into
+       * four filter names. A reader of the inference chain sees one step that
+       * says which rule admitted the candidate, which is the honest rendering:
+       * the assumption being bought is "the amounts are close enough", and
+       * `matchKind` is what "enough" meant.
+       *
+       * `countOut` IS THE CANDIDATE COUNT AT THE MATCH'S GRADE, not 1. The
+       * grade is derived from how many candidates survived, so a record whose
+       * `countOut` disagreed with the grade printed beside it would be an audit
+       * trail contradicting its own conclusion.
+       */
+      readonly filter: "amount_echo";
+      readonly params: {
+        /** Which of section 3.4's tolerances admitted this match. */
+        readonly matchKind: "EXACT" | "FEE_TOLERANT" | "RELATIVE" | "SUBSET_SUM" | "PARTIAL";
+        readonly grade: "HIGH" | "MEDIUM" | "LOW";
+        readonly withdrawalTxid: Hex;
+        readonly withdrawalAmountZat: bigint;
+        /** One txid, or up to three for a subset-sum split. */
+        readonly depositTxids: ReadonlyArray<Hex>;
+        /** The summed deposit magnitude the withdrawal was compared against. */
+        readonly depositAmountZat: bigint;
+        /** Signed: `depositAmountZat - withdrawalAmountZat`. */
+        readonly residualZat: bigint;
+        readonly relativeError: number;
+        readonly timeDeltaMs: number;
+        readonly splitCount: number;
+        readonly partial: boolean;
+        /** The absolute fee tolerance in force; documents the envelope. */
+        readonly toleranceZat: bigint;
+        /** The relative tolerance in force. */
+        readonly relativeEpsilon: number;
       };
       readonly countIn: bigint;
       readonly countOut: bigint;

@@ -465,8 +465,42 @@ export type RpcTransactionObject = z.infer<typeof rpcTransactionSchema>;
  * whichever verbosity the caller asked for and the caller narrows on what it
  * got. `finalorchardroot` appears only from NU5 activation, and
  * `finalsaplingroot` only from Sapling - absence means "the pool was not active
- * at this height", never "this block committed nothing".
+ * at this height", never "this block committed nothing". There is no Ironwood
+ * root on this response at all; see the note where one used to be declared.
  */
+/**
+ * One pool's note-commitment-tree state in `getblock`'s `trees` object.
+ *
+ * `size` is the number of commitments in the tree as of this block, so the
+ * highest occupied position is `size - 1`. `.passthrough()` because Zebra has
+ * added keys here before and will again.
+ */
+export const poolTreeSchema = z
+  .object({ size: z.number().int().nonnegative().optional() })
+  .passthrough();
+
+/**
+ * `getblock`'s `trees` object - typed, since HANDOFF-08, rather than left as an
+ * unknown record.
+ *
+ * IT IS THE ONLY BLOCK-LEVEL IRONWOOD SIGNAL `getblock` CARRIES. There is no
+ * `finalironwoodroot` (see `rpcBlockSchema`); what ZcashFoundation/zebra
+ * PR #10888 added is `ironwood: IronwoodTrees { size: u64 }` on `GetBlockTrees`,
+ * marked `#[serde(default, skip_serializing_if = "IronwoodTrees::is_empty")]` -
+ * so it is ABSENT on a block whose Ironwood tree is empty, which is why every
+ * member here is optional. A size without a root is not an anchor, but it IS
+ * the `maxPosition` an anchor needs, and it is a real measurement of a pool
+ * this build could otherwise say nothing about at block level.
+ */
+export const blockTreesSchema = z
+  .object({
+    sapling: poolTreeSchema.optional(),
+    orchard: poolTreeSchema.optional(),
+    ironwood: poolTreeSchema.optional(),
+  })
+  .passthrough();
+export type RpcBlockTrees = z.infer<typeof blockTreesSchema>;
+
 export const blockTxSchema = z.union([hash32Schema, rpcTransactionSchema]);
 
 export const rpcBlockSchema = z
@@ -478,19 +512,31 @@ export const rpcBlockSchema = z
     merkleroot: hexLowerSchema.optional(),
     finalsaplingroot: hexLowerSchema.optional(),
     finalorchardroot: hexLowerSchema.optional(),
-    /**
-     * The block-level Ironwood note-commitment-tree root.
+    /*
+     * THERE IS NO `finalironwoodroot`, AND THAT IS CONFIRMED RATHER THAN
+     * UNTESTED. This schema declared one through HANDOFF-07, inferred by
+     * analogy from the two roots above and labelled as a guess at every site.
+     * L2 read Zebra's source (LEDGER-07 Q5): `zebra-rpc/src/methods.rs` on
+     * `main` defines `finalsaplingroot` and `finalorchardroot` on the verbose
+     * block and contains no `ironwoodroot` or `ironwood_root` anywhere. The
+     * analogy was a reasonable method and it was wrong, because Ironwood's tree
+     * surface was DESIGNED differently rather than named differently.
      *
-     * THE NAME IS INFERRED, NOT READ. `finalsaplingroot` and `finalorchardroot`
-     * are both taken from Zebra's source; this one is the obvious continuation
-     * of that pattern and nothing in this repository has seen it. Declaring it
-     * `.optional()` means a wrong guess costs an absent anchor rather than a
-     * failed parse - and `decodeBlock` reports the absence explicitly on a
-     * block that DID add Ironwood commitments, so a wrong name announces itself
-     * instead of reading as "this block added none". HANDOFF-10's captured
-     * mainnet block settles it.
+     * What Ironwood got on `getblock` instead is a SIZE, not a root:
+     * ZcashFoundation/zebra PR #10888 (merged 2 Jul 2026) adds
+     * `ironwood: IronwoodTrees` to `GetBlockTrees`, with
+     * `pub struct IronwoodTrees { size: u64 }` - parsed as `trees` below. The
+     * block-level Ironwood ROOT comes from `z_gettreestate`, and
+     * `z_getsubtreesbyindex` accepts `pool = "ironwood"`; Zebra 6.0.0
+     * (10 Jul 2026) names exactly those three RPCs as the Ironwood tree
+     * surface. Wiring them is HANDOFF-12's, which owns the live path.
+     *
+     * The declaration is REMOVED rather than kept and commented, because
+     * `.passthrough()` means a field this schema does not name still survives
+     * the parse if a node ever sends one - so nothing is lost by not declaring
+     * it, while a declared field no node emits is a branch that reads as
+     * covered and never runs.
      */
-    finalironwoodroot: hexLowerSchema.optional(),
     blockcommitments: hexLowerSchema.optional(),
     nTx: z.number().int().nonnegative().optional(),
     tx: z.array(blockTxSchema),
@@ -504,7 +550,7 @@ export const rpcBlockSchema = z
     nextblockhash: hash32Schema.optional(),
     valuePools: z.array(valuePoolBalanceSchema).optional(),
     chainSupply: valuePoolBalanceSchema.optional(),
-    trees: z.record(z.string(), z.unknown()).optional(),
+    trees: blockTreesSchema.optional(),
   })
   .passthrough();
 export type RpcBlockObject = z.infer<typeof rpcBlockSchema>;

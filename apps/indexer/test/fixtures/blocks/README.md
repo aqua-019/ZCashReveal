@@ -21,13 +21,28 @@ intra-Ironwood transfer, and it exists because no captured v6 block exists.
 > it — drop a conforming file in this directory and the guarded test picks it
 > up on the next run.
 >
-> **What the synthetic Ironwood fixture cannot settle.** Its `ironwood` bundle
-> key and the block's `finalironwoodroot` are both INFERRED — the first by
-> analogy with `orchard` from a read of Zebra's source, the second by analogy
-> with `finalsaplingroot`/`finalorchardroot` and from nothing at all. A fixture
-> written from that belief cannot test it, so A2's evidence is
-> self-referential and is reported as such. The capture below is what settles
-> it.
+> **What the synthetic Ironwood fixture cannot settle — and what has since
+> been settled without it.** Its `ironwood` bundle key and the block's
+> `finalironwoodroot` were both INFERRED, and a fixture written from a belief
+> cannot test that belief, so A2's evidence was self-referential and was
+> reported as such. L2 then read Zebra's source directly (LEDGER-07 Q5) and
+> split the two:
+>
+> - `tx.ironwood` is **CONFIRMED**, from
+>   `zebra-rpc/src/methods/types/transaction.rs` on `main`, and confirmed at the
+>   shape level too — Zebra models the Ironwood bundle with the same struct as
+>   Orchard, which is why `ironwood.ts` mirroring `orchard.ts` was right.
+> - `block.finalironwoodroot` is **CONFIRMED ABSENT**. No `ironwoodroot` under
+>   any spelling exists in `zebra-rpc/src/methods.rs`. What Ironwood got on
+>   `getblock` is a SIZE — `GetBlockTrees.ironwood: IronwoodTrees { size: u64 }`,
+>   ZcashFoundation/zebra PR #10888, merged 2 Jul 2026. The block-level root is
+>   on `z_gettreestate`, and `z_getsubtreesbyindex` accepts `pool = "ironwood"`.
+>
+> The fixture was rewritten in HANDOFF-08 to match: the `finalironwoodroot` key
+> is gone and a `trees` object carries the real per-pool sizes, with
+> `trees.ironwood.size` equal to the number of Ironwood actions the fixture's
+> own transactions contain. The capture below is still owed — the field NAMES
+> are settled, the end-to-end path is not.
 
 ## Capture procedure
 
@@ -59,8 +74,10 @@ Pick a block that exercises the pools and stays small enough to commit:
   guarded suite would then report as coverage of a four-pool decoder while
   exercising three.
 - **Sapling, Orchard _and_ Ironwood activity** — at least one transaction of
-  each, so every block-level anchor is exercised and `finalironwoodroot` is
-  either confirmed or shown to be the wrong name.
+  each, so both block-level anchors are exercised and the capture shows what a
+  real node puts in `trees` for a block that moved Ironwood. (The question this
+  bullet used to ask — whether `finalironwoodroot` is the right name — is
+  answered: there is no such field. See the status note above.)
 - **At least one v6 transaction**, and ideally one ZIP 318 Orchard→Ironwood
   crossing, since that is the transaction shape this project exists to measure.
 - **A Sprout transaction if one can be found** — one carrying at least one

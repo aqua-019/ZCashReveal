@@ -1,7 +1,7 @@
 ---
 handoff: 07
 title: Indexer: v6 / Ironwood decoder (module 7A.2) + migration detection
-status: shipped
+status: closed
 branch: the session-designated branch (name it `feat/v2-07-v6-decoder` if you may choose)
 track: Data
 depends_on: 06
@@ -42,7 +42,7 @@ Decode v6 transactions and Ironwood actions from Zebra 6.x RPC JSON into the fou
 - Unknown version or bundle → a structured `UNSUPPORTED_TX` leak report (severity INFO) with the raw field names logged — never a throw.
 - Migration detection: `valueBalanceOrchard > 0 && valueBalanceIronwood < 0` with no transparent components → `MIGRATION_O2I`; amount recorded with `(n, k)` where amount = `n × 10^k` ZEC, `n ∈ {1,2,5}`, `canonical` false otherwise.
 - Post-NU6.2 sanity: `proofsOrchard` length must equal `2720 + 2272 × nActionsOrchard` — a violation is recorded as a finding (decoder sanity), not a crash.
-- Fingerprints: add expiryDelta/padding signatures for Zodl 3.x, Vizor, Zkool, Zingo, Cake as documented hypotheses with their source.
+- ~~Fingerprints: add expiryDelta/padding signatures for Zodl 3.x, Vizor, Zkool, Zingo, Cake as documented hypotheses with their source.~~ **STRUCK by LEDGER-07 Q4 (fold 1), satisfied by refusal.** Zodl was implemented, because the corpus gives it a delta. For Vizor, Zkool, Zingo and Cake, L2 searched and found NO PUBLIC SOURCE stating a default expiry delta for any of the four, so this line asked for something to be read that does not exist. They stay named in `UNSOURCED_WALLET_HYPOTHESES` in `apps/indexer/src/decoder/fingerprint.ts`, with what each would need to become a signature, rather than being given invented bands. The same standard was then applied upward: HANDOFF-08 withdrew YWALLET, whose 35-50 band was hardcoded at HANDOFF-00 and equally uncited (L2 finding F-07-1), which is what makes the refusal principled rather than selective.
 
 ## §4 DELIVERABLES
 
