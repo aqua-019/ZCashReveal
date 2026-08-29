@@ -190,6 +190,19 @@ export const filterNameSchema = z.enum([
   "spent_count",
   "time_window",
   "amount_match",
+  /**
+   * TRACKING-MATH section 3.4's amount echo. Added in HANDOFF-08 with the
+   * estimator that emits it, and it had to be: `auditRecordToEstimateFilter` at
+   * the foot of this file assigns a `FilterApplication`'s `filter` into this
+   * enum, so widening the union without widening this fails `tsc`. That is the
+   * compile-time proof this file already carried, doing its job.
+   *
+   * `subset_sum` below is NOT what a split echo emits. A subset-sum match is one
+   * of section 3.4's four tolerances of the SAME estimator, so it carries
+   * `amount_echo` with `params.matchKind: "SUBSET_SUM"`; splitting it out would
+   * put one estimator under two step names in the inference chain.
+   */
+  "amount_echo",
   "subset_sum",
   "fee_actions",
   "fingerprint",

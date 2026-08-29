@@ -45,6 +45,15 @@ function makeReport(opts: {
   ironwoodValueBalanceZat?: bigint;
   senderAddress?: string;
   recipientAddress?: string;
+  /**
+   * Override the derived transparent side. Only the fixtures that are ABOUT the
+   * transparent side pass these; everything else takes the derivation below,
+   * which is what makes each fixture describe a transaction that could exist.
+   */
+  transparentIn?: boolean;
+  transparentOut?: boolean;
+  /** Make the single transparent input a coinbase. See the coinbase rule. */
+  coinbaseInput?: boolean;
 }): LeakReport {
   const sproutValueBalanceZat = opts.sproutValueBalanceZat ?? 0n;
   const saplingValueBalanceZat = opts.saplingValueBalanceZat ?? 0n;
@@ -68,6 +77,59 @@ function makeReport(opts: {
 
   const crossesPoolBoundary = perPoolZat.length > 0;
 
+  // THE TRANSPARENT SIDE IS DERIVED FROM THE DIRECTION, AND THAT IS THE WHOLE
+  // REPAIR HANDOFF-08 MADE HERE.
+  //
+  // Every fixture in this file used to carry `transparent: { vin: [], vout: [] }`
+  // - no transparent side at all - while asserting that shields and unshields
+  // linked. Under `RoundTripIndex`'s wide rule (a deposit requires a transparent
+  // input, a withdrawal a transparent output) exactly 13 of the 17 tests here
+  // went red, and L2's ruling is the right reading of that: they are not 13
+  // regressions, they are 13 fixtures that were asserting the defect. A report
+  // that shields value with no transparent input describes a transaction that
+  // cannot exist.
+  //
+  // The derivation says what each shape really is, straight from
+  // `cases.json`'s own descriptions of the 2 Jan 2026 transactions:
+  //   value only ENTERS pools  -> a shield: "spends all four of its UTXOs into a
+  //                               transaction with zero transparent outputs"
+  //   value only LEAVES pools  -> an unshield: "a transaction with zero
+  //                               transparent inputs creates a single output"
+  //   value does BOTH          -> a pool-to-pool crossing, which has NEITHER.
+  //                               This is the case that manufactured the false
+  //                               links, and under the derivation a migration
+  //                               fixture gets no transparent side without any
+  //                               test having to remember to ask for that.
+  //   value moves NEITHER way  -> nothing to give it.
+  //
+  // A real transaction can of course have both ends - that is a `mixed`
+  // transaction - and the fixtures that need one say so explicitly.
+  const movesIn = perPoolZat.some((p) => p.deltaZat < 0n);
+  const movesOut = perPoolZat.some((p) => p.deltaZat > 0n);
+  const transparentIn = opts.transparentIn ?? (movesIn && !movesOut);
+  const transparentOut = opts.transparentOut ?? (movesOut && !movesIn);
+
+  const vin = transparentIn
+    ? [
+        {
+          index: 0,
+          coinbase: opts.coinbaseInput ?? false,
+          address: opts.senderAddress ?? null,
+          sequence: 0xffff_ffff,
+        },
+      ]
+    : [];
+  const vout = transparentOut
+    ? [
+        {
+          index: 0,
+          valueZat: 0n as Zatoshi,
+          addresses: opts.recipientAddress ? [opts.recipientAddress] : [],
+          scriptType: "pubkeyhash",
+        },
+      ]
+    : [];
+
   return {
     txid: opts.txid,
     seenAt: opts.seenAt,
@@ -88,7 +150,7 @@ function makeReport(opts: {
       ironwoodAnchor: null,
       ironwoodFlags: null,
     },
-    transparent: { vin: [], vout: [] },
+    transparent: { vin, vout },
     identity: {
       sender: {
         transparentAddresses: opts.senderAddress ? [opts.senderAddress] : [],
@@ -375,10 +437,19 @@ describe("RoundTripIndex — poolPath", () => {
     expect(links).toEqual([]);
   });
 
-  it("one transaction moving two pools yields a deposit and a withdrawal from a single report", () => {
-    // A migration is one transaction draining one pool into another, so both
-    // halves arrive on the same report. Reading a list rather than two named
-    // fields is what lets the index see both without a second ingest.
+  it("one transaction moving two pools with a PUBLIC END on both yields both halves", () => {
+    // WHAT THIS ASSERTION USED TO SAY, AND WHY IT CHANGED. HANDOFF-06 wrote it
+    // as "one transaction moving two pools yields a deposit and a withdrawal",
+    // over a fixture with no transparent side at all, and it was the assertion
+    // HANDOFF-07 found itself unable to satisfy alongside the fix for the false
+    // links (LEDGER-07 Q1). L2 ruled for the wide rule, so the general claim is
+    // false and the narrower one below is what was actually true about the
+    // mechanism it was written to protect.
+    //
+    // The mechanism is unchanged and is still what this tests: reading the
+    // single `perPoolZat` list rather than two named balance fields is what lets
+    // ONE report contribute BOTH halves without a second ingest. It just also
+    // has to have somewhere for the value to come from and go to.
     const rti = new RoundTripIndex({ now: () => 0 });
     rti.ingest(
       makeReport({
@@ -386,11 +457,198 @@ describe("RoundTripIndex — poolPath", () => {
         seenAt: 0,
         orchardValueBalanceZat: 100n,
         ironwoodValueBalanceZat: -100n,
+        transparentIn: true,
+        transparentOut: true,
       }),
     );
     const snap = rti.snapshot();
     expect(snap.depositCount).toBe(1);
     expect(snap.withdrawalCount).toBe(1);
+  });
+});
+
+describe("A11/A12 - the WIDE RULE: a round trip needs a transparent side", () => {
+  const FIVE_HUNDRED_ZEC = 500n * 100_000_000n;
+
+  /**
+   * Two Orchard-to-Ironwood migrations of the same denomination, an hour apart.
+   *
+   * ZIP 318 MAKES THIS THE ORDINARY CASE RATHER THAN A CONTRIVANCE. Quantising
+   * to `n x 10^k` is the whole migration scheme, so two unrelated wallets
+   * migrating 500 ZEC in the same window is what the protocol is designed to
+   * produce. That is why HANDOFF-07 escalated it instead of filing it as an
+   * edge case.
+   */
+  function twoMigrations(pools: { from: "orchard" | "sapling"; to: "ironwood" | "sapling" }) {
+    const leg = (txid: Hex, seenAt: number) =>
+      makeReport({
+        txid,
+        seenAt,
+        ...(pools.from === "orchard"
+          ? { orchardValueBalanceZat: FIVE_HUNDRED_ZEC }
+          : { saplingValueBalanceZat: FIVE_HUNDRED_ZEC }),
+        ...(pools.to === "ironwood"
+          ? { ironwoodValueBalanceZat: -FIVE_HUNDRED_ZEC }
+          : { saplingValueBalanceZat: -FIVE_HUNDRED_ZEC }),
+      });
+    return [leg(h(0xa1), 0), leg(h(0xa2), HOUR)] as const;
+  }
+
+  it("A11 PASS: two 500 ZEC Orchard-to-Ironwood migrations produce NO LinkRecord", () => {
+    const rti = new RoundTripIndex({ now: () => 0 });
+    const [first, second] = twoMigrations({ from: "orchard", to: "ironwood" });
+
+    expect(rti.ingest(first)).toEqual([]);
+    expect(rti.ingest(second)).toEqual([]);
+
+    // And nothing was even recorded, so a later ordinary withdrawal cannot match
+    // one of these legs either. A rule that merely suppressed the LINK while
+    // still filing the deposit would leave the defect one ingest away.
+    const snap = rti.snapshot();
+    expect(snap.depositCount).toBe(0);
+    expect(snap.withdrawalCount).toBe(0);
+  });
+
+  it("A11 PASS: the same holds for Orchard-to-Sapling, on legs that predate HANDOFF-07", () => {
+    // HANDOFF-07 reproduced the defect twice, and this is the polarity that
+    // proves it PRE-DATES that handoff: these pool legs are byte-identical to
+    // base eba5b03, so nothing Ironwood-specific is involved.
+    const rti = new RoundTripIndex({ now: () => 0 });
+    const [first, second] = twoMigrations({ from: "orchard", to: "sapling" });
+    expect(rti.ingest(first)).toEqual([]);
+    expect(rti.ingest(second)).toEqual([]);
+    expect(rti.snapshot().depositCount).toBe(0);
+  });
+
+  it("A11 FAIL SIDE: under the PRE-TRANSPARENT rule the same pair links strangers", () => {
+    // THE PRE-FOLD BEHAVIOUR, REPRODUCED RATHER THAN DESCRIBED. `ingest()`'s
+    // wide rule is two `continue`s; withholding them is what the old code did,
+    // so this models the old code by feeding the same reports through a report
+    // that DOES have both transparent ends. If the guard were removed, a
+    // migration would look exactly like this to the index.
+    const rti = new RoundTripIndex({ now: () => 0 });
+    const asIfUnguarded = (txid: Hex, seenAt: number) =>
+      makeReport({
+        txid,
+        seenAt,
+        orchardValueBalanceZat: FIVE_HUNDRED_ZEC,
+        ironwoodValueBalanceZat: -FIVE_HUNDRED_ZEC,
+        transparentIn: true,
+        transparentOut: true,
+      });
+
+    rti.ingest(asIfUnguarded(h(0xb1), 0));
+    const links = rti.ingest(asIfUnguarded(h(0xb2), HOUR));
+
+    // One link, between two transactions with no relationship whatsoever - and
+    // the two null address fields are the type system saying so.
+    expect(links).toHaveLength(1);
+    expect(links[0]!.confidence).toBe("HIGH");
+    expect(links[0]!.senderAddress).toBeNull();
+    expect(links[0]!.recipientAddress).toBeNull();
+  });
+
+  it("A12 PASS: a GENUINE pair with both public ends still links, at its old grade", () => {
+    // WITHOUT THIS, A11 IS SATISFIED BY AN INDEX THAT EMITS NOTHING AT ALL.
+    // A fail-side probe that does not discriminate is itself a finding
+    // (CLAUDE.md, LEDGER-05 fold 7), and "no links" is the easiest possible way
+    // to pass an assertion whose subject is a missing link.
+    const rti = new RoundTripIndex({ now: () => 0 });
+    rti.ingest(
+      makeReport({
+        txid: h(0xc1),
+        seenAt: 0,
+        saplingValueBalanceZat: -FIVE_HUNDRED_ZEC,
+        senderAddress: "t1XKfbZYsdxR5HSnP25ee5VaAxgCNUtFkFK",
+      }),
+    );
+    const links = rti.ingest(
+      makeReport({
+        txid: h(0xc2),
+        seenAt: HOUR,
+        saplingValueBalanceZat: FIVE_HUNDRED_ZEC,
+        recipientAddress: "t1dP1MJwfYr9z7EwWxSpefP6s2p7ewaKx9e",
+      }),
+    );
+
+    expect(links).toHaveLength(1);
+    expect(links[0]!.matchKind).toBe("EXACT");
+    expect(links[0]!.confidence).toBe("HIGH");
+    // AND BOTH ADDRESSES ARE PRESENT, which is the difference that matters: a
+    // link this project will publish names two real ends.
+    expect(links[0]!.senderAddress).toBe("t1XKfbZYsdxR5HSnP25ee5VaAxgCNUtFkFK");
+    expect(links[0]!.recipientAddress).toBe("t1dP1MJwfYr9z7EwWxSpefP6s2p7ewaKx9e");
+  });
+
+  it("A12 FAIL SIDE: stripping the transparent side from the same pair removes the link", () => {
+    const rti = new RoundTripIndex({ now: () => 0 });
+    rti.ingest(
+      makeReport({
+        txid: h(0xd1),
+        seenAt: 0,
+        saplingValueBalanceZat: -FIVE_HUNDRED_ZEC,
+        transparentIn: false,
+      }),
+    );
+    const links = rti.ingest(
+      makeReport({
+        txid: h(0xd2),
+        seenAt: HOUR,
+        saplingValueBalanceZat: FIVE_HUNDRED_ZEC,
+        transparentOut: false,
+      }),
+    );
+    expect(links).toEqual([]);
+    expect(rti.snapshot()).toMatchObject({ depositCount: 0, withdrawalCount: 0 });
+  });
+
+  it("each half is required SEPARATELY, not just one of the two", () => {
+    // A guard that required only a transparent input would still file every
+    // unshield, and vice versa. Both directions are checked one at a time.
+    const depositOnly = new RoundTripIndex({ now: () => 0 });
+    depositOnly.ingest(
+      makeReport({ txid: h(0xe1), seenAt: 0, saplingValueBalanceZat: -100n, transparentIn: false }),
+    );
+    expect(depositOnly.snapshot().depositCount).toBe(0);
+
+    const withdrawalOnly = new RoundTripIndex({ now: () => 0 });
+    withdrawalOnly.ingest(
+      makeReport({ txid: h(0xe2), seenAt: 0, saplingValueBalanceZat: 100n, transparentOut: false }),
+    );
+    expect(withdrawalOnly.snapshot().withdrawalCount).toBe(0);
+  });
+
+  it("a COINBASE input is not a transparent source, because it has no prior owner", () => {
+    // ZIP 213 forces coinbase through a shielded pool, so a miner's issuance
+    // really does enter the pool - but there is no transparent COUNTERPARTY to
+    // link it to. TRACKING-MATH section 2 defines a shield event as
+    // `a IN inputs(T)` for a transparent address `a`, and a coinbase input has
+    // no `a`. Admitting it would file a deposit whose `senderAddress` is null,
+    // which is the shape the wide rule exists to remove.
+    //
+    // NARROWER THAN THE FOLD'S WORDING, AND STATED RATHER THAN SLIPPED IN: L2's
+    // rule says "a deposit requires a transparent input", and a coinbase input
+    // is a transparent input by the type. This reading is recorded in section 8
+    // as an inference.
+    const rti = new RoundTripIndex({ now: () => 0 });
+    rti.ingest(
+      makeReport({
+        txid: h(0xf1),
+        seenAt: 0,
+        saplingValueBalanceZat: -100n,
+        transparentIn: true,
+        coinbaseInput: true,
+      }),
+    );
+    expect(rti.snapshot().depositCount).toBe(0);
+
+    // FAIL SIDE: the same report with an ordinary input IS a deposit, so the
+    // exclusion is about the coinbase flag and not about the shape.
+    const ordinary = new RoundTripIndex({ now: () => 0 });
+    ordinary.ingest(
+      makeReport({ txid: h(0xf2), seenAt: 0, saplingValueBalanceZat: -100n, transparentIn: true }),
+    );
+    expect(ordinary.snapshot().depositCount).toBe(1);
   });
 });
 

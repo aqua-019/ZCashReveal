@@ -6,6 +6,12 @@
  * entries, records the report's contribution as a deposit and/or
  * withdrawal, and emits LinkRecords for any newly-matchable pairs.
  *
+ * SINCE HANDOFF-08 A REPORT MUST HAVE A TRANSPARENT SIDE TO CONTRIBUTE ONE.
+ * See the wide rule inside `ingest()`. It is the one change to this class's
+ * behaviour since it replaced the v0.1 LinkEngine, and it removes links rather
+ * than adding them: the links it removes were between wallets with no
+ * relationship and no addresses.
+ *
  * Match algorithm preserved BIT-FOR-BIT from link-engine.ts:
  *   - EXACT amount match takes precedence over FEE_TOLERANT
  *   - Single EXACT candidate  → confidence HIGH
@@ -79,6 +85,9 @@ export class RoundTripIndex {
    * record the report's deposit and/or withdrawal contribution, match
    * any new withdrawals against in-window deposits, and return the
    * resulting LinkRecords (which the caller assigns onto report.links).
+   *
+   * A report with no transparent side contributes NOTHING, however much value
+   * it moved between pools. See the wide rule below.
    */
   ingest(report: LeakReport): LinkRecord[] {
     this.prune(this.now());
@@ -96,8 +105,38 @@ export class RoundTripIndex {
     // Sign convention, as everywhere: negative is value ENTERING the pool (a
     // shielding deposit), positive is value LEAVING it (an unshielding
     // withdrawal).
+    // THE WIDE RULE (HANDOFF-08 deliverable 2, LEDGER-07 Q1). A deposit requires
+    // a transparent INPUT and a withdrawal a transparent OUTPUT, and without
+    // those two guards this index manufactured high-visibility links between
+    // unrelated wallets.
+    //
+    // The mechanism, reproduced end to end on committed code by HANDOFF-07: a
+    // pool-to-pool crossing is neither a deposit nor a withdrawal - it did not
+    // come from the transparent side and it did not go there - but the loop
+    // below read every `perPoolZat` leg as one or the other. One migration's
+    // ARRIVING leg was filed as a deposit, a later unrelated migration's
+    // DEPARTING leg matched it on amount, and out came a `LinkRecord` whose two
+    // address fields were both `null`, because no transparent end existed. The
+    // `LinkRecord` shape was the type system saying so and nobody was reading it.
+    //
+    // ZIP 318 IS WHY THIS IS URGENT RATHER THAN TIDY. Quantising migration
+    // amounts to `n x 10^k` is the entire scheme, so two unrelated migrations of
+    // the same denomination are the EXPECTED case once Ironwood is live, not a
+    // coincidence. The defect's rate goes up with adoption.
+    //
+    // WHY THE WIDE RULE AND NOT THE NARROW ONE. The narrow guard considered -
+    // skip a report whose `perPoolZat` both gained and lost - is a symptom
+    // filter: it catches migrations because migrations happen to have that
+    // shape, and it would keep admitting any future one-sided pool crossing. A
+    // round-trip is a claim about value entering and leaving the TRANSPARENT
+    // side, so requiring a transparent side is the definition rather than a
+    // heuristic about it.
+    const hasTransparentSource = report.transparent.vin.some((v) => !v.coinbase);
+    const hasTransparentSink = report.transparent.vout.length > 0;
+
     for (const { pool, deltaZat } of report.valueFlow.perPoolZat) {
       if (deltaZat < 0n) {
+        if (!hasTransparentSource) continue;
         this.deposits.push({
           txid: report.txid,
           senderAddress: report.identity.sender.transparentAddresses[0] ?? null,
@@ -107,6 +146,7 @@ export class RoundTripIndex {
           pool,
         });
       } else if (deltaZat > 0n) {
+        if (!hasTransparentSink) continue;
         const w: UnshieldingWithdrawal = {
           txid: report.txid,
           recipientAddress:
