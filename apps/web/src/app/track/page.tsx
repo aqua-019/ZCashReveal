@@ -126,7 +126,8 @@ export default async function TrackPage() {
 
         {IS_FIXTURE ? (
           <p className="note" style={{ marginTop: 12, maxWidth: "72ch" }} data-ui="fixture-note">
-            <b>These are committed values, not a live mempool.</b> The feed is a replay of twelve transcribed transactions and
+            <b>These are committed values, not a live mempool.</b> The feed is a replay of{" "}
+            {fmtInt(mempool.summary.unconfirmed)} transcribed transactions and
             it closes and reopens on a cycle, which is why the badge above spends part of its time reconnecting - the
             reconnect path running in ordinary operation rather than only under fault. The gateway arrives at HANDOFF-05 and
             the live socket at the HANDOFF-11 cutover; nothing in this panel changes when they do.

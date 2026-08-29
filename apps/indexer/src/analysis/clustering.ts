@@ -127,7 +127,16 @@ export function clusterByCommonInput(txs: ReadonlyArray<ClusterTx>): ReadonlyArr
       (v): v is ClusterInput & { address: string } => !v.coinbase && v.address !== null,
     );
     for (const v of spendable) add(v.address, v.scriptType);
-    if (spendable.length < 2) continue;
+
+    // TWO DISTINCT ADDRESSES, NOT TWO INPUTS. Common-input-ownership is a claim
+    // that address X and address Y were spent by one key-holder; a transaction
+    // spending three UTXOs of ONE address makes no such claim, and recording
+    // its txid as `evidence` would put a justification under a cluster it did
+    // not widen. Consolidations are the commonest shape on the transparent
+    // side, so this was not a corner: it would have attached most of the
+    // chain's txids to singleton clusters as evidence of nothing.
+    const distinct = new Set(spendable.map((v) => v.address));
+    if (distinct.size < 2) continue;
 
     const first = spendable[0]!.address;
     for (const v of spendable.slice(1)) {
@@ -193,6 +202,34 @@ export interface ChangeGuess {
  * `seenAddresses` is the caller's view of what the chain has seen before. It has
  * to be passed in rather than derived, because "never seen before" is a property
  * of the whole chain up to this height and this module is pure.
+ *
+ * SECTION 1.4's SHAPE OVERRIDES SECTION 1.3's PRIOR, BECAUSE ON 1.4's OWN
+ * EXAMPLE THE TWO DISAGREE AND 1.4 IS THE ONE WITH A CASE UNDER IT. Section 1.3
+ * says "the fresh one is change". Section 1.4 says an exchange withdrawal is
+ * "one payout + change back to the *same* address", and gives the transaction:
+ * `t1PKBiv7...` on 24 Dec 2025, 120,552.69 in, 29,999.99 out, 90,552.70 back to
+ * itself. There the change is the REUSED output and the payout is the fresh
+ * one, so 1.3's rule applied naively returns the exact opposite - and the
+ * consequence is not a cosmetic mislabel: a change output extends the cluster
+ * with weight `p_change`, so naming the payout as change would soft-merge the
+ * WITHDRAWING CUSTOMER's address into the exchange's cluster, which is a claim
+ * about two different parties being one. `detectExchangeShapes` in this same
+ * module already named that output correctly, so until HANDOFF-08's gate the
+ * module answered one transaction two contradictory ways.
+ *
+ * So the order is: if exactly one output pays back an address this transaction
+ * spends from, that output is the change and the fresh-address rule does not
+ * run. Note that this branch adds NOTHING to any cluster - the address is
+ * already in it by section 1.2 - which is precisely why it is the safe answer
+ * and 1.3's is the dangerous one.
+ *
+ * AND THE OVERRIDE IS ONLY AVAILABLE WHEN THE CALLER RESOLVED THE INPUT
+ * ADDRESSES. `spending` is built from `vin` entries that are neither coinbase
+ * nor null-addressed, so a transaction with an unresolved prevout falls through
+ * to section 1.3's rule with no 1.4 guard above it - and that is the condition
+ * under which the mislabel this ordering exists to prevent still happens. It is
+ * stated rather than fixed because the fix is upstream: resolve the prevout, or
+ * pass the caller's own view of the spending set.
  */
 export function guessChange(
   tx: ClusterTx,
@@ -216,29 +253,78 @@ export function guessChange(
     return none("The two outputs are different script types, so neither is the 'same script type' the rule requires.");
   }
 
+  const spending = new Set(
+    tx.vin.filter((v) => !v.coinbase && v.address !== null).map((v) => v.address as string),
+  );
+  const backToSelf = tx.vout.filter((o) => o.addresses.some((x) => spending.has(x)));
+  if (backToSelf.length === 1) {
+    const change = backToSelf[0]!;
+    const payout = change.index === a.index ? b : a;
+    return {
+      changeIndex: change.index,
+      pChange: P_CHANGE_UNCALIBRATED,
+      calibrated: false,
+      reason: `Output ${change.index} pays back an address this transaction spends from, and output ${payout.index} does not. Section 1.4's exchange-withdrawal shape names the return to the spending address as the change, which is the OPPOSITE of what section 1.3's fresh-address rule would say here - section 1.4's own worked case (t1PKBiv7..., 120,552.69 in, 29,999.99 out, 90,552.70 back) is exactly this shape. This guess extends no cluster: the address is already a member by section 1.2. p_change = ${P_CHANGE_UNCALIBRATED}, NOT calibrated on Zcash (TRACKING-MATH section 1.3).`,
+    };
+  }
+  if (backToSelf.length === 2) {
+    return none(
+      "Both outputs pay back addresses this transaction spends from, so the transaction is a self-split rather than a payment and neither output is change in section 1.3's sense.",
+    );
+  }
+
   const fresh = (o: ClusterOutput) =>
     o.addresses.length > 0 && o.addresses.every((x) => !seenAddresses.has(x));
   const aFresh = fresh(a);
   const bFresh = fresh(b);
 
-  if (aFresh === bFresh) {
+  if (aFresh && bFresh) {
+    // ABSTAIN, AND THE ROUNDNESS TIE-BREAK THAT BRIEFLY STOOD HERE WAS WORSE
+    // THAN THE DEAD BRANCH IT REPLACED.
+    //
+    // Gate round 1 found that `isRoundAmount` could never decide anything on
+    // the one-fresh path below - for an addressed output, `fresh` being false
+    // already ENTAILS reuse - and gate round 2 found the repair. Making the
+    // disjunct live here meant: both outputs pay never-seen addresses, one
+    // amount is round, so name the OTHER one change at `p_change`. Run that on
+    // a batched payment - Alice pays 1.0 ZEC to Bob and 0.37 ZEC to Carol -
+    // and it names CAROL's address as Alice's change and soft-merges a third
+    // party into Alice's cluster, where the previous code abstained.
+    //
+    // That is worse than a dead branch by the module's own standard. The
+    // `backToSelf` branch above is safe precisely because it extends NO
+    // cluster - the address is already a member by section 1.2 - and this one
+    // did the opposite: it attached a never-seen address on the weakest signal
+    // section 1.3 offers, at the highest `p_change` this module issues, with
+    // `calibrated: false`. A dead branch makes no claims; this one made a false
+    // one about someone who is not party to the transaction being analysed.
+    //
+    // The lesson kept rather than the code: a branch is not made honest by
+    // being made reachable. `isRoundAmount` stays exported and stays used on
+    // the one-fresh path for an output with no decodable address, which is the
+    // only place section 1.3's disjunct can do work without inventing a
+    // membership claim.
     return none(
-      aFresh
-        ? "Both outputs pay addresses never seen before, so freshness does not distinguish them."
-        : "Neither output pays a fresh address, so there is no change candidate under this rule.",
+      "Both outputs pay addresses never seen before. Roundness alone does not name one of them change: doing so would attach a never-seen address to this spender's cluster on a prior nobody has calibrated on Zcash, and a batched payment to two recipients has exactly this shape.",
     );
+  }
+
+  if (!aFresh && !bFresh) {
+    return none("Neither output pays a fresh address, so there is no change candidate under this rule.");
   }
 
   const change = aFresh ? a : b;
   const payment = aFresh ? b : a;
 
-  // The second conjunct: the OTHER output must be round or reused. A reused
-  // address is already established by `fresh` being false for it, so only
-  // roundness is checked here, and either satisfies the rule.
+  // The second conjunct on this path: the OTHER output must be round or reused.
+  // For an addressed output, `fresh` being false ENTAILS reuse (see the
+  // both-fresh branch above), so `reused` is false here only for an output with
+  // no decodable address at all - an OP_RETURN or a script the decoder could
+  // not parse - and roundness is what the rule falls back to for it.
   const reused = payment.addresses.some((x) => seenAddresses.has(x));
   if (!reused && !isRoundAmount(payment.valueZat)) {
     return none(
-      "The non-fresh output is neither a round amount nor a reused address, so the rule's second conjunct fails.",
+      "The non-fresh output has no decodable address and is not a round amount, so the rule's second conjunct fails.",
     );
   }
 

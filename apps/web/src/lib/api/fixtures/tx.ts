@@ -61,7 +61,7 @@ const CHAIN = [
   { n: 4_918_402n, filter: "anchor_bound" as const, label: "raw candidate set, anchor bound", params: { pool: "orchard", anchorHeight: 3_191_050, anchorDepth: 1 } },
   { n: 3_105_911n, filter: "spent_count" as const, label: "spent-count subtraction", params: { nullifiersBeforeAnchor: 1_812_491 } },
   { n: 41_208n, filter: "time_window" as const, label: "time window, W = 576 blocks", params: { windowBlocks: 576, hoursApprox: 12 } },
-  { n: 1n, filter: "amount_match" as const, label: "amount echo, epsilon = 1e-4", params: { epsilon: "1e-4", relativeDelta: "8.1e-6", deltaZec: "0.4059", matchKind: "RELATIVE" } },
+  { n: 1n, filter: "amount_echo" as const, label: "amount echo, epsilon = 1e-4", params: { epsilon: "1e-4", relativeDelta: "8.1e-6", deltaZec: "0.4059", matchKind: "RELATIVE" } },
 ];
 
 const ROUND_TRIP_ESTIMATE: Estimate = {

@@ -169,6 +169,56 @@ describe("results - validation at the boundary", () => {
     expect(tx.ironwood?.actions).toEqual([]);
   });
 
+  it("forwards `trees`, which is the only block-level Ironwood signal getblock carries", async () => {
+    // ADDED IN HANDOFF-08's GATE, BECAUSE THE FIELD SHIPPED WITHOUT ONE. Fold 5
+    // removed `finalironwoodroot` - a field L2 confirmed against Zebra's source
+    // does not exist - and put `trees` in its place as the thing that DOES carry
+    // Ironwood at block level. The replacement went in untested, so the branch
+    // that forwards it, the schema that types it and the optionality that
+    // matters most were all unexercised.
+    const { rpc } = client([
+      OK({
+        hash: hex64("aa"),
+        height: 3_428_200,
+        time: 9,
+        tx: [],
+        trees: { sapling: { size: 12 }, orchard: { size: 34 }, ironwood: { size: 7 } },
+      }),
+    ]);
+    const block = await rpc.getBlock({ height: 3_428_200 });
+    expect(block.trees?.ironwood?.size).toBe(7);
+    expect(block.trees?.orchard?.size).toBe(34);
+    expect(block.trees?.sapling?.size).toBe(12);
+    // A SIZE IS NOT A ROOT, and no root is invented from it.
+    expect((block as unknown as Record<string, unknown>).finalironwoodroot).toBeUndefined();
+  });
+
+  it("accepts a block whose Ironwood tree is empty, because Zebra omits the key entirely", async () => {
+    // `ironwood: IronwoodTrees { size: u64 }` is declared
+    // `#[serde(default, skip_serializing_if = "IronwoodTrees::is_empty")]`
+    // (ZcashFoundation/zebra PR #10888), so a block before the tree has any
+    // commitments carries NO `ironwood` key - which is every block this project
+    // can currently reach. A schema that required it would reject the whole
+    // response, and the failure would look like a bad node.
+    const { rpc } = client([
+      OK({ hash: hex64("ab"), height: 3_191_017, time: 9, tx: [], trees: { sapling: { size: 12 }, orchard: { size: 34 } } }),
+    ]);
+    const block = await rpc.getBlock({ height: 3_191_017 });
+    expect(block.trees).toBeDefined();
+    expect(block.trees?.ironwood).toBeUndefined();
+    expect(block.trees?.orchard?.size).toBe(34);
+  });
+
+  it("omits `trees` entirely when the node sent none, rather than fabricating an empty one", async () => {
+    // The fail side of the two above: `trees` is spread conditionally, so its
+    // absence has to survive as an absence. An empty object here would read
+    // downstream as "every pool's tree is empty", which is a measurement.
+    const { rpc } = client([OK({ hash: hex64("ac"), height: 3, time: 9, tx: [] })]);
+    const block = await rpc.getBlock({ height: 3 });
+    expect(block.trees).toBeUndefined();
+    expect("trees" in block).toBe(false);
+  });
+
   it("rejects a zatoshi amount that has been through a double", async () => {
     const { rpc } = client([OK({ balance: 1.5, received: 2 })]);
     await expect(rpc.getAddressBalance(["t1a"])).rejects.toBeInstanceOf(RpcSchemaError);

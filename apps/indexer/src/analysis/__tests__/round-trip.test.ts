@@ -146,7 +146,15 @@ function makeReport(opts: {
       orchardAnchor: null,
       orchardFlags: null,
       ironwoodActions: [],
-      ironwoodValueBalanceZat: 0n,
+      // THE CALLER'S VALUE, NOT A ZERO. This was hardcoded `0n` in both the
+      // bundle and the value flow while `perPoolZat` above carried the real
+      // number, so every "Orchard-to-Ironwood migration" fixture in this file
+      // described a report that contradicted itself: the per-pool list said
+      // 500 ZEC of Ironwood moved and the two balance fields said none did. Any
+      // consumer reading the balance rather than the list - which is most of
+      // them - saw a transaction with no Ironwood side at all, in the very
+      // tests whose subject is the Ironwood crossing.
+      ironwoodValueBalanceZat,
       ironwoodAnchor: null,
       ironwoodFlags: null,
     },
@@ -171,7 +179,7 @@ function makeReport(opts: {
       sproutValueBalanceZat,
       saplingValueBalanceZat,
       orchardValueBalanceZat,
-      ironwoodValueBalanceZat: 0n,
+      ironwoodValueBalanceZat,
       perPoolZat,
       netTransparentInflowZat: 0n,
       isPureShielded: false,
@@ -525,14 +533,29 @@ describe("A11/A12 - the WIDE RULE: a round trip needs a transparent side", () =>
     expect(rti.snapshot().depositCount).toBe(0);
   });
 
-  it("A11 FAIL SIDE: under the PRE-TRANSPARENT rule the same pair links strangers", () => {
-    // THE PRE-FOLD BEHAVIOUR, REPRODUCED RATHER THAN DESCRIBED. `ingest()`'s
-    // wide rule is two `continue`s; withholding them is what the old code did,
-    // so this models the old code by feeding the same reports through a report
-    // that DOES have both transparent ends. If the guard were removed, a
-    // migration would look exactly like this to the index.
+  it("A11 CONTROL: the transparent side is the ONLY variable, and adding it links the same pair", () => {
+    // THIS TEST USED TO CLAIM SOMETHING IT DID NOT DO, AND THAT IS RECORDED
+    // RATHER THAN QUIETLY REPAIRED (CLAUDE.md, LEDGER-05 fold 7). It was
+    // labelled "A11 FAIL SIDE: under the PRE-TRANSPARENT rule..." and its
+    // comment said it "models the old code". It did not: it built a DIFFERENT
+    // report - one with `transparentIn` and `transparentOut` set - and asserted
+    // that report links. That is true with the wide rule in place and true with
+    // the wide rule reverted, so the assertion passed under both polarities and
+    // discriminated nothing. HANDOFF-08's gate reverted the rule and watched it
+    // stay green.
+    //
+    // A fail side for a guard cannot be written in-suite without a way to turn
+    // the guard off, and `RoundTripIndex` has none - deliberately, since a
+    // switch that disables a correctness rule is a worse thing to ship than a
+    // missing test. So this is honestly labelled a CONTROL instead: it takes
+    // the exact legs `twoMigrations` produces and changes ONE thing, the
+    // transparent side. The discriminating pair is this test together with the
+    // two A11 PASS tests above - reverting the wide rule turns those red, and
+    // this stays green, which is what shows the rule is keyed on the
+    // transparent side and on nothing else about these transactions.
     const rti = new RoundTripIndex({ now: () => 0 });
-    const asIfUnguarded = (txid: Hex, seenAt: number) =>
+    const [bare] = twoMigrations({ from: "orchard", to: "ironwood" });
+    const withPublicEnds = (txid: Hex, seenAt: number) =>
       makeReport({
         txid,
         seenAt,
@@ -542,11 +565,22 @@ describe("A11/A12 - the WIDE RULE: a round trip needs a transparent side", () =>
         transparentOut: true,
       });
 
-    rti.ingest(asIfUnguarded(h(0xb1), 0));
-    const links = rti.ingest(asIfUnguarded(h(0xb2), HOUR));
+    // The one-variable claim, enforced rather than asserted in a comment: the
+    // pool movements are identical and only the transparent side differs.
+    const probe = withPublicEnds(h(0xb1), 0);
+    expect(probe.valueFlow.perPoolZat).toEqual(bare.valueFlow.perPoolZat);
+    expect(probe.valueFlow.direction).toBe(bare.valueFlow.direction);
+    expect(bare.transparent.vin).toEqual([]);
+    expect(bare.transparent.vout).toEqual([]);
+    expect(probe.transparent.vin).toHaveLength(1);
+    expect(probe.transparent.vout).toHaveLength(1);
+
+    rti.ingest(probe);
+    const links = rti.ingest(withPublicEnds(h(0xb2), HOUR));
 
     // One link, between two transactions with no relationship whatsoever - and
-    // the two null address fields are the type system saying so.
+    // the two null address fields are the type system saying so. This is what
+    // the index did to EVERY migration before the wide rule.
     expect(links).toHaveLength(1);
     expect(links[0]!.confidence).toBe("HIGH");
     expect(links[0]!.senderAddress).toBeNull();

@@ -67,7 +67,9 @@ const STATE_TEXT: Readonly<Record<SocketState, string>> = {
  *
  * SERVER-RENDERED FIRST. The component is handed the snapshot the page already
  * fetched, so the table is in the HTML before any script runs and a reader with
- * JavaScript off sees twelve real rows rather than a spinner. The subscription
+ * JavaScript off sees every committed row rather than a spinner - the count is
+ * the fixture's, not a number repeated here, because this one said twelve for
+ * two rows after the corpus had fourteen. The subscription
  * upgrades it; it does not create it. That also means the Playwright assertions
  * about this table are assertions about shipped output.
  *
@@ -104,7 +106,7 @@ export function MempoolPanel({ initial }: { readonly initial: MempoolView }) {
           setState("open");
           setView((v) => {
             // Dedupe by txid, newest first, and cap the list. The legacy
-            // dashboard capped at 250; twelve committed rows never reach it,
+            // dashboard capped at 250; the committed corpus never reaches it,
             // and the cap is here so the live path cannot grow without bound.
             const rest = v.entries.filter((e) => e.txid !== frame.entry.txid);
             return { ...v, entries: [frame.entry, ...rest].slice(0, 250) };

@@ -73,6 +73,19 @@ const transparentInput = (index: number): TransparentInput => ({
   sequence: 0xffff_ffff,
 });
 
+/**
+ * A coinbase input, which is what the harness could not express until gate
+ * round 2. `report()` builds vin from `transparentInput` alone, so the fix that
+ * stopped a ZIP 213 coinbase being called a `shield` had no test that could
+ * fail - `grep -rn coinbase` over this directory returned nothing.
+ */
+const coinbaseInput = (index: number): TransparentInput => ({
+  index,
+  coinbase: true,
+  address: null,
+  sequence: 0xffff_ffff,
+});
+
 const transparentOutput = (index: number): TransparentOutput => ({
   index,
   valueZat: ZEC,
@@ -137,6 +150,8 @@ interface Shape {
    */
   readonly perPoolZat?: ReadonlyArray<{ readonly pool: ShieldedPool; readonly deltaZat: Zatoshi }>;
   readonly vin?: number;
+  /** Build the vin from COINBASE inputs. See `coinbaseInput`. */
+  readonly coinbaseVin?: boolean;
   readonly vout?: number;
   readonly saplingSpends?: number;
   readonly saplingOutputs?: number;
@@ -149,7 +164,11 @@ const deltaOf = (deltas: Shape["perPoolZat"], pool: ShieldedPool): Zatoshi =>
 
 function report(shape: Shape): LeakReport {
   const perPoolZat = shape.perPoolZat ?? [];
-  const vin = times(shape.vin ?? 0, transparentInput);
+  // `coinbaseVin` builds the vin from coinbase inputs instead of ordinary ones.
+  // Added in gate round 2: the harness could not express a coinbase at all, so
+  // the rule that a coinbase is not a transparent source had no test that could
+  // fail.
+  const vin = times(shape.vin ?? 0, shape.coinbaseVin === true ? coinbaseInput : transparentInput);
   const vout = times(shape.vout ?? 0, transparentOutput);
   const saplingSpends = times(shape.saplingSpends ?? 0, saplingSpend);
   const saplingOutputs = times(shape.saplingOutputs ?? 0, saplingOutput);
@@ -279,7 +298,8 @@ describe("mempoolRow class - a migration is a migration, whichever direction it 
     // `flow: "S to O"` for a transfer paying a public recipient, on the surface
     // a reader actually sees, while `analyze()` had just been taught to answer
     // MIXED for the same transaction - so /tx and /track disagreed about one
-    // txid, which the docblock above the ternary and ASSERTION A9 both forbid.
+    // txid, which the docblock above the ternary rules out as a consequence of
+    // applying HANDOFF-06's ASSERTION A9 in both places.
     const built = view({ ...saplingIntoOrchard, transparent: { vin: [], vout: [transparentOutput(0)] } });
     expect(built.entries[0]?.class).not.toBe("migration");
     expect(built.summary.migrations).toBe(0);
@@ -308,6 +328,85 @@ describe("mempoolRow class - a migration is a migration, whichever direction it 
     const built = view(report({ txid: "ed", vin: 1, vout: 1 }));
     expect(built.summary.crossingZat).toBe(0n);
     expect(built.summary.crossingSplit).toBe("Nothing in the mempool crosses a pool boundary.");
+  });
+
+  it("a ZIP 213 coinbase paying into the pool is NOT a shield", () => {
+    // ONE RULE, TWO ANSWERS, AND THIS IS THE TEST THAT WAS MISSING. A coinbase
+    // input has no prior owner: the value is issuance, not somebody's
+    // transparent funds entering the pool, which is why `round-trip.ts` has
+    // always written `vin.some(v => !v.coinbase)`. Here the test was
+    // `vin.length > 0`, so a coinbase paying a shielded recipient published
+    // `class: "shield"`, `flow: "t to z"` - a transparent sender for a
+    // transaction that has none. Gate round 2 reverted the fix and the whole
+    // suite stayed green.
+    //
+    // ONE POOL, NOT TWO. The first version of this test used a two-pool fixture,
+    // which `mixed` claims before the `shield` test is ever reached - so it
+    // asserted a class the mutation could not change, and the mutation survived
+    // it. A coinbase paying into a SINGLE pool is the shape that reaches the
+    // branch under test.
+    const built = view(
+      report({ txid: "cb", vin: 1, coinbaseVin: true, orchardActions: 2,
+               perPoolZat: [{ pool: "orchard", deltaZat: -ZEC }] }),
+    );
+    expect(built.entries[0]?.class).not.toBe("shield");
+    expect(built.entries[0]?.flow).not.toBe("t to z");
+    // ...and the lane swatch does not assert one either. A missing lane says
+    // the transaction did not touch that pool, so a present one says it did.
+    expect(built.entries[0]?.lanes).not.toContain("transparent");
+  });
+
+  it("the coinbase rule reaches the MIGRATION test too, not only the shield test", () => {
+    // BOTH GATE LENSES FOUND THIS INDEPENDENTLY. The fix derived
+    // `hasTransparentSource` and used it for `shield` while
+    // `crossesWithNoPublicSide` two lines above kept `vin.length === 0` - so a
+    // coinbase moving two pools was denied `migration` on the strength of a vin
+    // the very next predicate refused to count, and published flow "S/O + t",
+    // asserting a transparent side the same expression says it has not. One
+    // rule with two answers, now inside one function, in the expression whose
+    // docblock spends four paragraphs arguing against exactly that.
+    const built = view(
+      report({
+        txid: "cd", vin: 1, coinbaseVin: true, saplingSpends: 1, orchardActions: 2,
+        perPoolZat: [
+          { pool: "sapling", deltaZat: ZEC },
+          { pool: "orchard", deltaZat: -ZEC },
+        ],
+      }),
+    );
+    expect(built.entries[0]?.class).toBe("migration");
+    expect(built.entries[0]?.flow).not.toContain("+ t");
+
+    // FAIL SIDE: an ORDINARY transparent input on the same shape is a real
+    // public side, so it is NOT a migration - the rule still discriminates.
+    const funded = view(
+      report({
+        txid: "ce", vin: 1, saplingSpends: 1, orchardActions: 2,
+        perPoolZat: [
+          { pool: "sapling", deltaZat: ZEC },
+          { pool: "orchard", deltaZat: -ZEC },
+        ],
+      }),
+    );
+    expect(funded.entries[0]?.class).not.toBe("migration");
+  });
+
+  it("FAIL SIDE: an ORDINARY transparent input still makes it a shield", () => {
+    // The discriminating half. The fix must not be "no transaction is ever a
+    // shield": a real transparent input is a real transparent source, and a
+    // miner's payout OUTPUT still lights the transparent lane.
+    const shield = view(
+      report({ txid: "ba", vin: 1, orchardActions: 2,
+               perPoolZat: [{ pool: "orchard", deltaZat: -ZEC }] }),
+    );
+    expect(shield.entries[0]?.class).toBe("shield");
+    expect(shield.entries[0]?.lanes).toContain("transparent");
+
+    const payout = view({
+      ...saplingIntoOrchard,
+      transparent: { vin: [coinbaseInput(0)], vout: [transparentOutput(0)] },
+    });
+    expect(payout.entries[0]?.lanes).toContain("transparent");
   });
 
   it("a pool crossing FUNDED from a transparent input is not a migration either", () => {
@@ -473,6 +572,15 @@ describe("A13 - a pool crossing with a PUBLIC SIDE is `mixed`, not the residual"
     const built = view(crossingWithPublicSide());
     expect(built.entries[0]?.flow).not.toBe("t to t");
     expect(built.entries[0]?.flow).toContain("+ t");
+    // AND IT ASSERTS NO DIRECTION BETWEEN THE POOLS. A gate lens found the first
+    // version calling `migrationFlowText`, which reads direction off the sign of
+    // each leg - sound only when there is no transparent side. For a
+    // transparent-funded two-pool shield it printed the literal word
+    // "migration"; here it would have asserted a Sapling-to-Orchard crossing
+    // that the chain does not show.
+    expect(built.entries[0]?.flow).toBe("S/O + t");
+    expect(built.entries[0]?.flow).not.toContain("migration");
+    expect(built.entries[0]?.flow).not.toContain(" to ");
     expect(built.entries[0]?.lanes).toContain("sapling");
     expect(built.entries[0]?.lanes).toContain("orchard");
   });
@@ -511,6 +619,27 @@ describe("A13 - a pool crossing with a PUBLIC SIDE is `mixed`, not the residual"
     expect(built.entries[0]?.class).toBe("migration");
     expect(built.summary.migrations).toBe(1);
     expect(built.summary.shielded).toBe(0);
+  });
+
+  it("a transparent-funded shield into TWO pools does not print the word migration", () => {
+    // The case the first `mixed` caption got wrong: both legs NEGATIVE, so
+    // `migrationFlowText`'s "no source" guard returned the literal "migration"
+    // and the row read "migration + t" for a transaction that migrated nothing.
+    const built = view(
+      report({
+        txid: "f6",
+        perPoolZat: [
+          { pool: "sapling", deltaZat: -(1n * 100_000_000n) },
+          { pool: "orchard", deltaZat: -(1n * 100_000_000n) },
+        ],
+        saplingOutputs: 1,
+        orchardActions: 2,
+        vin: 1,
+      }),
+    );
+    expect(built.entries[0]?.class).toBe("mixed");
+    expect(built.entries[0]?.flow).toBe("S/O + t");
+    expect(built.entries[0]?.flow).not.toContain("migration");
   });
 
   it("FAIL SIDE: a SINGLE-pool transaction with a public side is not `mixed`", () => {

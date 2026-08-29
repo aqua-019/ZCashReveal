@@ -12,10 +12,28 @@
  * round: on a shielded chain the mass that stays unresolved is what the
  * measurement actually establishes, and the resolved paths are the small
  * remainder. So `unresolvedMass` is a required field beside the edges, and
- * `estimateTaint` conserves mass exactly: `unresolvedMass + resting.terminal +
- * resting.hopLimit === startingMass`, reported as `accountedMass` so a caller
- * can assert it rather than recompute it. A taint graph whose weights do not
- * account for the input is a picture rather than an estimate.
+ * `estimateTaint` accounts for every unit of the starting mass:
+ * `unresolvedMass + resting.terminal + resting.hopLimit` is `startingMass`,
+ * reported as `accountedMass` so a caller can assert it rather than recompute
+ * it. A taint graph whose weights do not account for the input is a picture
+ * rather than an estimate.
+ *
+ * THAT SUM IS FLOATING-POINT AND THE ASSERTION MUST BE TOO. The mass is
+ * repeatedly multiplied by normalised shares and re-summed, so `accountedMass`
+ * is `startingMass` up to accumulated representation error and `===` is the
+ * wrong comparison.
+ *
+ * NO WORKED FIGURE IS GIVEN, AND THE REASON IS ITSELF THE POINT. This docblock
+ * first claimed "three edges of `p = 1/3` already return 0.9999999999999999",
+ * and a gate lens executed it: the answer is exactly 1, because the true sum
+ * `1 - 2^-54` is a tie that rounds to even. So did `0.3` three times and `0.1`
+ * seven times. An invented measurement inside a paragraph arguing for rigour is
+ * the defect that paragraph is arguing against, and it is the second time this
+ * branch has produced one. Callers, and this module's own tests, compare within
+ * a tolerance - `toBeCloseTo(1, 12)` - because the error is real in general and
+ * not because any particular small case demonstrates it. The docblock used to say `===`, which is the kind of
+ * claim that reads as rigour and would have made a correct implementation fail
+ * its own contract.
  *
  * WHY "TAINT" IS IN QUOTES EVERYWHERE IN THIS PROJECT. The word comes from
  * Bitcoin forensics, where it means a deterministic property of a UTXO graph.
@@ -111,9 +129,10 @@ export interface TaintEstimate {
     readonly hopLimit: number;
   };
   /**
-   * `unresolvedMass + resting.terminal + resting.hopLimit`, which equals
-   * `startingMass`. Carried explicitly so a caller can assert conservation
-   * rather than recompute the sum and trust it.
+   * `unresolvedMass + resting.terminal + resting.hopLimit`, which is
+   * `startingMass` up to floating-point accumulation. Carried explicitly so a
+   * caller can assert conservation rather than recompute the sum and trust it -
+   * and compared with a tolerance, never with `===`. See the module docblock.
    */
   readonly accountedMass: number;
   readonly assumptions: ReadonlyArray<string>;
@@ -136,6 +155,15 @@ export interface TaintOptions {
  * value can return to an address it left - and a depth-first walk over one would
  * not terminate.
  *
+ * A NON-FINITE WEIGHT IS TREATED AS ZERO, NOT PROPAGATED. `NaN` or `Infinity`
+ * in an edge's `p` - or in `startingMass` - would flow through the
+ * normalisation into every downstream number, including the residual bar the
+ * UI prints as this module's headline result, and `NaN` compares false against
+ * every threshold so no conservation check would catch it. A weight that is not
+ * a finite number is not a probability, so it carries no mass. The estimator
+ * does not throw: it is pure and its callers are batch consumers, and a bad
+ * edge in one window should not lose the window.
+ *
  * Pure. No I/O, no clock, no mutation of the inputs.
  */
 export function estimateTaint(
@@ -144,8 +172,11 @@ export function estimateTaint(
   options?: TaintOptions,
 ): TaintEstimate {
   const maxHops = Math.min(options?.maxHops ?? MAX_TAINT_HOPS, MAX_TAINT_HOPS);
-  const cutP = options?.cutP ?? TAINT_CUT_P;
-  const startingMass = options?.startingMass ?? 1;
+  const requestedCut = options?.cutP ?? TAINT_CUT_P;
+  const cutP = Number.isFinite(requestedCut) ? requestedCut : TAINT_CUT_P;
+  const requestedMass = options?.startingMass ?? 1;
+  const startingMass =
+    Number.isFinite(requestedMass) && requestedMass > 0 ? requestedMass : 0;
 
   const out = new Map<string, TaintEdge[]>();
   for (const e of edges) {
@@ -182,12 +213,12 @@ export function estimateTaint(
       // exactly `1 - sum(p)` when that is positive. Skipping this and treating
       // raw weights as fractions would silently create or destroy mass, which is
       // the conservation violation section 3.11 forbids.
-      const total = outgoing.reduce((acc, e) => acc + Math.max(0, e.p), 0);
+      const total = outgoing.reduce((acc, e) => acc + safeP(e.p), 0);
       const explained = Math.min(1, total);
       if (explained < 1) unresolvedBy.unexplained += mass * (1 - explained);
 
       for (const e of outgoing) {
-        const share = total <= 0 ? 0 : (Math.max(0, e.p) / total) * explained;
+        const share = total <= 0 ? 0 : (safeP(e.p) / total) * explained;
         const carried = mass * share;
         if (carried <= 0) continue;
 
@@ -196,7 +227,7 @@ export function estimateTaint(
         // Cutting on carried mass instead would make an edge's survival depend
         // on how much value happened to be flowing, so the same link would be
         // shown for a large transfer and hidden for a small one.
-        if (e.p < cutP) {
+        if (safeP(e.p) < cutP) {
           unresolvedBy.belowCut += carried;
           continue;
         }
@@ -217,15 +248,41 @@ export function estimateTaint(
   // named transaction; it simply has not been followed further. It rests there,
   // classified by whether following it further would have been possible.
   for (const { mass, txid } of frontier) {
-    const hasMore = (out.get(txid) ?? []).some((e) => e.p >= cutP);
-    if (hasMore) resting.hopLimit += mass;
-    else resting.terminal += mass;
+    const outgoing = out.get(txid) ?? [];
+    if (outgoing.length === 0) {
+      resting.terminal += mass;
+      continue;
+    }
+    // THE TRAIL DID NOT END AND WAS NOT FOLLOWED, AND WHICH OF THOSE IT IS
+    // DECIDES WHERE THE MASS GOES. `hopLimit` is a knob the caller can turn;
+    // a trail whose every onward link is below the cut is one this estimate
+    // REFUSES to draw, which is `belowCut` and therefore unresolved. Until
+    // HANDOFF-08's gate this branch filed the second case as `terminal` - "the
+    // value came to rest here" - so the same node was answered two different
+    // ways depending on whether the hop limit happened to fall on it, and mass
+    // the cut had discarded was reported as a destination.
+    if (outgoing.some((e) => safeP(e.p) >= cutP)) resting.hopLimit += mass;
+    else unresolvedBy.belowCut += mass;
   }
 
   const unresolvedMass = unresolvedBy.unexplained + unresolvedBy.belowCut;
   const accountedMass = unresolvedMass + resting.terminal + resting.hopLimit;
   const unresolvedShare = startingMass === 0 ? 0 : unresolvedMass / startingMass;
+  // A REFUSED STARTING MASS IS SAID OUT LOUD, NOT SILENTLY ZEROED. The clamp
+  // above turns a negative, NaN or Infinite mass into 0, and without this
+  // sentence the estimate then prints "0.0 per cent unresolved ... 0.0 per cent
+  // rests at a transaction with no onward link" - four confident figures about
+  // a measurement that did not happen, and a caller told by the docblock to
+  // assert `accountedMass ~= startingMass` fails on an input this module chose
+  // to refuse with nothing saying why. `posterior.ts` fixes exactly this shape
+  // in the same branch; this module did not get the sweep until gate round 2.
+  const refused = requestedMass !== startingMass;
   const assumptions = [
+    ...(refused
+      ? [
+          `The starting mass supplied (${String(requestedMass)}) is not a usable quantity, so it was refused and this estimate carries no mass. Every share below is 0 because nothing was measured, not because nothing was found.`,
+        ]
+      : []),
     `Flow followed at most ${maxHops} boundary crossings, cutting links below p = ${cutP}.`,
     `${(unresolvedShare * 100).toFixed(1)} per cent of the starting mass is unresolved inside the pool - no link accounts for it. Of the rest, ${((resting.terminal / (startingMass || 1)) * 100).toFixed(1)} per cent rests at a transaction with no onward link and ${((resting.hopLimit / (startingMass || 1)) * 100).toFixed(1)} per cent was still moving when the hop limit stopped this estimate.`,
     "Each edge is a heuristic link with its own claim level, not a proof that value moved between the two transactions. Multiplying weights along a path multiplies the uncertainty with them.",
@@ -240,6 +297,11 @@ export function estimateTaint(
     accountedMass,
     assumptions,
   };
+}
+
+/** A weight that is not a finite number is not a probability; it carries no mass. */
+function safeP(p: number): number {
+  return Number.isFinite(p) && p > 0 ? p : 0;
 }
 
 function record(nodes: Map<string, TaintNode>, txid: Hex, mass: number, hops: number): void {
