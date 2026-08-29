@@ -298,18 +298,81 @@ EVIDENCE (per §5 assertion: pass transcript + fail transcript, provenance)
       rollback conserve balances across four pools. That is the corrupted
       conservation assertion the handoff names.
 
-  FULL GATE, Executed on the finished tree, against a real PostgreSQL 16:
-      pnpm -r test        1036 passed, 1 skipped, rc=0
-                          (content 67, zebra-rpc 35, web 368, gateway 127,
-                           indexer 439/1 skipped)
-      pnpm typecheck      10/10
-      pnpm lint           0 errors, 0 warnings
-      content validate    OK
-      pnpm check          8 guards, rc=0
-      pnpm build          7/7
-      Test count is unchanged from HANDOFF-08's 1036: this handoff adds no test and
-      removes none. It changes how the existing ones are ISOLATED, which is why the
-      evidence for deliverable 5 is a concurrency probe rather than a count.
+  FULL GATE, Executed on the finished tree AFTER MERGING origin/main at 4ae0796,
+  against a real PostgreSQL 16. These supersede the pre-merge numbers; the earlier
+  reading was 1036/1 with 8 guards, which L2 independently confirmed at c4488f1 and
+  which is the pre-#40 base:
+      pnpm -r test        1058 passed, 1 skipped, rc=0
+                          (content 67, zebra-rpc 38, web 368, gateway 131,
+                           indexer 454/1 skipped)
+      pnpm typecheck      10/10, rc=0
+      pnpm lint           0 errors, 0 warnings, rc=0
+      content validate    OK (190 cited source refs), rc=0
+      pnpm check          10 guards, rc=0
+      pnpm build          7/7, 0 cached, rc=0
+      The build was run with --force. Turbo had cached five of seven tasks after the
+      merge, and `pnpm build` is in this list for exactly one reason - it is the only
+      command that runs `next build`, which is what HANDOFF-07 shipped past. A cached
+      pass is not that measurement.
+
+      THE +22 IS ALL #42's AND THIS HANDOFF STILL ADDS NO TEST. zebra-rpc +3,
+      gateway +4, indexer +15. Executed rather than assumed:
+      `git diff origin/main...HEAD -- '*test*' '*spec*'` touches four files and
+      grepping the diff for added `it(` / `test(` / `describe(` returns nothing. The
+      four are isolation infrastructure - test/global-setup.ts, vitest.config.ts,
+      _setup.ts and migrations.test.ts rewired onto the per-run schema. This handoff
+      changes how the existing tests are ISOLATED, which is why the evidence for
+      deliverable 5 is a concurrency probe rather than a count, and why its own
+      verification instrument is three guards with self-tests rather than vitest.
+
+      THE 1 SKIPPED IS A9 ITSELF, located rather than carried forward:
+      `apps/indexer/src/decoder/__tests__/block-decoder.test.ts:164`,
+      `describe.skipIf(fixturePaths.length === 0)`. It is fixture-gated, not
+      Postgres-gated - every Postgres-gated suite ran, which is what a schema name
+      in the log line proves: `[global-setup] migrated 5 migration(s) into schema
+      zr_test_3078_8heduae0`, dropped at the end of the run.
+
+  A1 AND A2 RE-MEASURED AT THE MERGED HEAD, because fold 2 asks which of the two
+  was operator-verified and which was refused, and the answer differs between them:
+
+      A1  docker compose config - EXECUTED HERE, NOT THE OPERATOR'S, rc=0 on both
+          files. The compose plugin parses without a daemon, so this measurement was
+          never blocked in this container; L2 reported it as unrunnable because L2's
+          container has no docker binary at all, which is a different limit.
+          Re-executed at this head with the four required variables supplied:
+          base rc=0, base+dev rc=0, six services and seven under --profile publisher.
+          Docker's own parser also confirms what check-compose.mjs asserts: a
+          healthcheck on all six, depends_on service_healthy edges from indexer to
+          zebrad/postgres/redis and from cloudflared to gateway, and exactly one
+          service bound to 0.0.0.0 - zebrad:8233. Postgres publishes 5433 on
+          127.0.0.1, which is loopback and not an exposure. The dev override really
+          does zero the three application services and the tunnel: replicas=0 on
+          each, confirmed in the merged output rather than in the file.
+
+      A2  docker build - STILL BLOCKED, and the transcript is now current and more
+          precise than the one it replaces. The daemon is no longer the obstacle:
+          dockerd 29.3.1 (overlayfs) was started for this measurement and
+          `docker info` answers. Nor is it the registry, which responds:
+          registry-1.docker.io/v2/ -> 401, the normal unauthenticated answer. It is
+          the LAYER CDN. All four Dockerfiles - indexer, gateway, publisher on
+          node:22-alpine and cloudflared on busybox:1.37-musl - load, transfer, and
+          resolve the instruction graph, then stop at the base image blob:
+            failed to resolve source metadata for docker.io/library/node:22-alpine:
+            httpReadSeeker: failed open: ... production.cloudfront.docker.com
+            /registry-v2/docker/registry/v2/blobs/sha256/39/395425e5... : Forbidden
+          The proxy names it as policy rather than as a network failure:
+            production.cloudfront.docker.com:443 - connect_rejected
+            (the egress proxy denied the CONNECT (organization policy))
+          /root/.ccr/README.md says to report a 403 rather than route around it, so
+          it is reported. What that leaves verified is the Dockerfile SYNTAX of all
+          four; what stays UNVERIFIED is every layer - the pnpm filtered install, the
+          native musl build of zeromq, the migrations COPY, and the image sizes §5
+          asks for. The operator's first `docker compose build` is the first real
+          execution, and it is the first thing the runbook's section 2.1 does.
+
+      NO CONTAINER WAS STARTED, which §1 forbids outright. `docker ps -a` and
+      `docker images` are both empty at the end of this session: no build completed,
+      so no image exists to run.
 
 ASSUMPTIONS (each: ACCEPTED / CORRECTED / DEFERRED — reason)
 

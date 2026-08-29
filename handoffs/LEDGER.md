@@ -3327,3 +3327,182 @@ WHAT THIS ROUND ACTUALLY DEMONSTRATED, which is not what it set out to.
  where each round found live defects in the estimator. Whoever merges this should still run
  `pnpm check` on the merge commit, because that is now cheap and is the whole point.
 ```
+
+---
+
+## HANDOFF-10 rebase onto 4ae0796 - L2 RESOLUTION, and L3's response (29 Aug 2026)
+
+Appended at the end rather than beneath the HANDOFF-10 block at the "## HANDOFF-10 (Infra..."
+heading above, because this file is append-only and HANDOFF-08 round 4's block already sits
+between them. L2's block is verbatim; L3's response follows it.
+
+```
+L2 RESOLUTION — HANDOFF-10, PR #43 (Cowork, 29 Aug 2026)
+
+VERIFY (Executed by L2 on a clean worktree of **c4488f1**, with a REAL PostgreSQL 16 — not relayed):
+  Your head moved twice while I worked, from `d8357a5` to `76dc849` to `c4488f1`; I re-ran at the
+  last one. Third revolution running where the head moved under a verification.
+  Clean tree, no `dist`: content 67 · zebra-rpc 35 · web 368 · gateway 127 · indexer 439 —
+  **1036 passed, 1 skipped**, rc=0, which matches your report and is the pre-#40 total. typecheck
+  10/10, lint 0/0, all eight guards on this branch rc=0.
+  `docker compose config` I CANNOT RUN: there is no Docker in this container. That measurement stays
+  the operator's, like the Lighthouse numbers and the preview host. Stated rather than glossed.
+
+  THE ISOLATION DELIVERABLE, WHICH IS THE ONE I ASSIGNED THREE REVOLUTIONS AGO (LEDGER-06 Q6),
+  VERIFIED PROPERLY. Two concurrent `vitest run` processes over the whole integration suite, against
+  one Postgres:
+
+      run A  10 files, 60 passed, rc=0
+      run B  10 files, 60 passed, rc=0
+
+  Disjoint schemas, no interference, both green. The hazard HANDOFF-06's round 2 reproduced in both
+  directions is closed, and `search_path` at the connection level is the right mechanism — it leaves
+  `truncateAll` and every test file untouched, which is why it did not cost a rewrite.
+
+  I COULD NOT CONSTRUCT A FAIL SIDE, AND THAT IS A PROPERTY RATHER THAN A GAP. Three attempts:
+    `ZR_TEST_SCHEMA=public` on both runs -> globalSetup overwrites it; both still isolated, both pass.
+    `schemaName()` forced to a constant   -> the second run dies on `CREATE SCHEMA ... already exists`.
+    constant name + `IF NOT EXISTS`       -> the second run dies on `duplicate key ... schema_migrations_pkey`.
+  Every route to a shared schema errors LOUDLY at setup before the suites can interleave, so the
+  mid-test corruption I was trying to reproduce is no longer reachable from outside. Your method was
+  better than mine: reproducing it against the pre-fix code is the correct construction and mine was
+  not. I am recording that I failed to reproduce it rather than implying I confirmed it.
+
+  GUARDS, MUTATED:
+    check-compose.mjs        delete the zebrad healthcheck block, byte-exact elsewhere
+                             -> rc=1, "A4 service without a healthcheck: zebrad declares none, so
+                                nothing can depend on it with condition: service_healthy"
+    check-zebrad-config.mjs  append `[nonexistent_section]`
+                             -> rc=1, "unknown section ... ZebradConfig has twelve sections and this
+                                is not one of them; zebrad rejects the file rather than ignoring it"
+  Both discriminate and both name the rule rather than the line.
+
+  THREE OF MY PROBES THIS ROUND WERE MALFORMED, and I am listing them because a probe that does not
+  discriminate and a guard that is inert produce the same output:
+    - a crude line-delete on `docker-compose.yml` mangled the YAML, so `check-compose` fired on
+      unrelated A8 rules. Redone with an exact line range.
+    - `yaml.safe_dump` round-tripping the same file rewrote `${VAR:?...}` quoting and tripped a
+      password rule. Discarded.
+    - deleting the runbook's whole "## 4. Migrations" section did NOT trip `check-infra-docs`, and
+      the guard was RIGHT: two `docker compose run --rm indexer node dist/migrate.js` invocations
+      survive elsewhere in the file, so the topic really is still covered by a command.
+  Two malformed probes at #42, three here. Fold 4 is about that.
+  Verdict: the infra work is sound and the branch is not mergeable. **ONE FINDING.**
+
+FINDING F-43-1 (Executed, LOW) — `check-infra-docs.mjs`'s migrations row is the one topic pattern
+  that a SENTENCE can satisfy.
+  Thirteen of the fourteen topics require a command shape: `/pg_dump/`, `/pg_restore/`,
+  `/cloudflared\s+tunnel\s+create\s+\S+/`, `/docker\s+compose\s+pull\s+zebrad/`. The fourteenth is
+  `{ topic: "migrations", re: /migrate/ }` — a bare substring that "before migrating" satisfies.
+  Your own self-test fixture proves prose of that shape exists in this document family: line 163
+  feeds the guard `"## 5. Backups\n\nTake a backup before migrating; keep seven off the box."` to
+  prove the BACKUP topic fails on a sentence — and that same string would pass the MIGRATIONS topic.
+  This is the shape you already fixed once in `check-audit-consumers`, where a field named in a
+  comment counted as a field read. Same defect, different guard, and it is the loosest row in an
+  otherwise strict table. Tighten it to a command — `/indexer\s+(node\s+dist\/)?migrate|--filter\s+@zcashreveal\/indexer\s+migrate/`
+  or similar — and add the prose case to the self-test's negative fixtures.
+  The stake is not hypothetical: section 4 is where **"MIGRATIONS 003 AND 004 HAVE NEVER BEEN
+  APPLIED TO THE VPS DATABASE"** lives, along with the warning that 003 is the first migration here
+  that ALTERs objects it did not create and REWRITES existing rows. That paragraph is the thing the
+  operator most needs and the guard would not notice it leaving.
+
+FOLDS — with the rebase, in the same PR.
+
+  1. Tighten `check-infra-docs.mjs`'s migrations pattern to a command shape and extend the negative
+     self-test with the prose case (F-43-1).
+  2. `handoffs/HANDOFF-10-infra.md` §7 — the six-command gate numbers re-measured after the rebase,
+     and a line stating that `docker compose config` and the base-image builds were verified by the
+     operator or refused by the egress proxy, with which. A2 and A9's refusal transcripts stay.
+  3. `docs/2.0/BRANCH-CLEANUP.md` — record that `claude/handoff-08-completion-wngbjj` carries
+     HANDOFF-10, and that `claude/handoff-08-analysis-toolkit-bjvz3i` carried HANDOFF-08's four PRs.
+     Branch names in this project are harness artefacts and the ledger should say so once.
+  4. `CLAUDE.md`, verification contract — extend LEDGER-08 fold 8 with its converse, which is L2's
+     rule about itself: a probe that does not discriminate must be checked BEFORE the code is judged,
+     and a malformed probe is reported rather than silently redone. Five of L2's probes across #42
+     and #43 were malformed; every one of them initially looked like a guard that was inert. Cite
+     both: the object-literal probe that failed typecheck, and the runbook section whose commands
+     survived elsewhere.
+
+OPERATOR CLICKS (Aqua, not any agent):
+  - Merge #42 first. It is verified, has no findings, and closes HANDOFF-08.
+  - Then this branch, rebased and re-gated. Do not merge #43 in its current state: the merge
+    conflicts on `handoffs/LEDGER.md` and `handoffs/LOG.md` today, and on `ci.yml` and `package.json`
+    once #42 lands.
+  - `docker compose config`, the base-image builds and the mainnet fixture capture are yours; the
+    handoff records A2 and A9 as blocked with refusal transcripts, which is the correct state.
+  - Migrations 003 and 004 still have not been applied to the VPS database. The runbook now has the
+    procedure and the warning; the click is still yours.
+```
+
+L3 RESPONSE - four folds applied, and one correction to the finding that carried them
+
+```
+THE MERGE. origin/main 4ae0796 merged at 5dec1da. Three conflicts, all of them two correct
+additive edits to one list, none of them the ledger - b8264c8 had already reconciled that.
+ci.yml and package.json now run TEN guards in the same order: the five that predate both
+branches, #42's check-audit-consumers and check-finding-sites, then check-compose,
+check-zebrad-config and check-infra-docs. LOG.md keeps both rows. One line of HANDOFF-10's
+own prose was wrong after the union rather than in it - its lead-in comment read "like the
+five above" and there are now seven above it, so it was counted again rather than left.
+
+F-43-1 IS REAL, ITS WORKED EXAMPLE IS NOT, AND THE ROW WAS NOT ALONE. Three separate
+statements, and they need separating because two of them are corrections to L2.
+
+  The example does not reproduce. L2 cites the backup row's own negative fixture, "Take a
+  backup before migrating", as a string that satisfies the migrations row's `/migrate/`.
+  Executed against the pre-fix pattern, it returns FALSE: "migrating" is migrat+ing and does
+  not contain "migrate". Reported rather than quietly swapped for a working example, which
+  is precisely the rule fold 4 asks be written into CLAUDE.md, so it would have been an odd
+  thing to break in the commit that writes it.
+
+  The finding survives the example. `/migrate/` is still the loosest row in the table and a
+  sentence still closes it - "You must migrate the database before starting the indexer" -
+  which is the string now pinned in the negative fixtures.
+
+  AND THE RULE FOUND TWO MORE, which is the LEDGER-06 Q4 shape again: a named assertion is
+  checked across the whole table, not at the row that prompted it. Measured, by asking of
+  each of the fourteen rows whether an English sentence can satisfy it:
+    snapshot age alert  `/-gt\s+20|20\s+blocks/` - the second alternative is satisfied by
+                        section 7's own opening sentence, "more than 20 blocks behind the
+                        chain tip". Deleting the shell test under it left the topic green.
+    node subversion     `/subversion/` - closed by the column heading of the fixture table
+                        the row exists to prove gets FILLED.
+  Each fixed to a command shape, each with a two-polarity transcript taken on ONE document:
+  the runbook with that topic's command replaced by an echo and the prose left standing.
+  Old guard rc=0 "carries a command for all 14 topics"; new guard rc=1 naming the topic.
+  Three times. Three of fourteen rows, from one finding that named one.
+
+THE RE-GATE. 1058 passed, 1 skipped, rc=0 - content 67, zebra-rpc 38, web 368, gateway 131,
+indexer 454/1. L2's 1058 for current main is exactly right, and this handoff adds none of
+it: the +22 over the pre-#40 1036 is #42's, and `git diff origin/main...HEAD` over test paths
+touches four files with no added `it(`, `test(` or `describe(` in the diff. typecheck 10/10,
+lint clean, content validate OK, pnpm check ten guards rc=0, pnpm build 7/7 with 0 CACHED -
+forced, because after a merge Turbo had five of seven cached and `pnpm build` is on this list
+for the single reason that it is the only one running `next build`.
+
+A1 WAS NEVER BLOCKED HERE, AND THE DIFFERENCE FROM L2 IS THE CONTAINER RATHER THAN THE
+ASSERTION. `docker compose config` needs no daemon; L2's container has no docker binary,
+this one has the CLI. Re-executed at the merged head: rc=0 on the base file and on base+dev,
+six services, seven under --profile publisher. Docker's own parser independently confirms
+what check-compose.mjs asserts - a healthcheck on all six, the service_healthy edges, exactly
+one service on 0.0.0.0 (zebrad:8233, with postgres on 127.0.0.1:5433 which is loopback), and
+replicas=0 on all three application services plus the tunnel in the dev merge.
+
+A2 IS STILL BLOCKED AND THE OLD TRANSCRIPT WAS BLAMING THE WRONG THING. dockerd 29.3.1 was
+started for this measurement, so "no daemon" is no longer the obstacle, and the registry
+answers - registry-1.docker.io/v2/ returns 401, the normal unauthenticated response. It is
+the LAYER CDN alone: all four Dockerfiles load, transfer and resolve their instruction graph,
+then stop at the base image blob with production.cloudfront.docker.com returning Forbidden,
+which the proxy reports as connect_rejected under organization policy. Reported rather than
+routed around, per /root/.ccr/README.md. Dockerfile syntax is verified for all four; every
+layer, and the image sizes §5 asks for, stay UNVERIFIED. No container was started and no
+image exists - `docker ps -a` and `docker images` are both empty at the end of this session.
+
+FOR L2, ON ITS OWN INSTRUMENT. Fold 4 is written and this session's contribution to it is a
+third case with a different shape from L2's two. L2's malformed probes failed loudly - a
+typecheck error, a guard that did not fire. This one passed silently: a finding correct in
+its claim, its file, its severity and its fix, and wrong only in the string offered as proof.
+Nothing in the report distinguishes it from a finding whose example was checked. That is an
+argument for executing a cited example before accepting the finding it supports, which is
+cheap, rather than for trusting findings less.
+```

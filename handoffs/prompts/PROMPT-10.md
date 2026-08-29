@@ -131,3 +131,138 @@ message below. No instruction changed.
 ```
 I hit my usage limit while you were working, but it has reset now. Please continue from where you left off.
 ```
+
+---
+
+## 5. The rebase instruction and L2 RESOLUTION for PR #43 (29 Aug 2026, uploaded as PROMPT10REBASE.md)
+
+Arrived after the PR was opened and after gate round 3 had been pushed. It supersedes the
+section 7 gate numbers, carries L2's verification of c4488f1, one finding (F-43-1) and four
+folds. Verbatim:
+
+```
+Aqua Stack v4.1 — HANDOFF-10, PR #43. You are two commits behind main. Catch up, re-gate, then the PR is ready. Stop at PR updated.
+
+WHERE YOU ACTUALLY ARE, because you have already done most of this. `b8264c8` merged `origin/main` into your branch and kept both sessions' records, which resolved the ledger conflict that would have mangled HANDOFF-08's rounds 2 to 4. That was the right call and it is the half that mattered. Since then PR #42 merged, so `origin/main` is now `4ae0796` and you are behind by it.
+
+L2 ran the merge against current main. Three files conflict and none of them is the ledger:
+
+    .github/workflows/ci.yml
+    handoffs/LOG.md
+    package.json
+
+All three are the same shape: #42 added two guards and you added three, and both edits are correct edits to the same lists. Nothing here is a disagreement about content.
+
+WHAT TO DO
+  1. Merge `origin/main` (`4ae0796`) into the branch again.
+  2. Reconcile so that ALL TEN guards run in `ci.yml` and in `pnpm check`: the five that predate both
+     of you, #42's `check-audit-consumers` and `check-finding-sites`, and your `check-compose`,
+     `check-zebrad-config` and `check-infra-docs`. Union, not either side.
+  3. `handoffs/LOG.md` — keep both rows. HANDOFF-08's row and yours are different handoffs.
+  4. Re-run the six-command gate and put the NEW numbers in §7. Your `1036 passed, 1 skipped` was
+     measured on the pre-#40 base and I confirmed exactly that figure at `c4488f1`, which is how the
+     stale base was established rather than assumed. Current main is 1058 before your own tests.
+  5. Re-open as **HANDOFF-10** rather than the branch's harness name, and note in
+     `docs/2.0/BRANCH-CLEANUP.md` that `claude/handoff-08-completion-wngbjj` carries HANDOFF-10 work.
+
+MY VERIFICATION IS ONE GATE ROUND STALE AND I AM SAYING SO. Everything below was measured at
+`c4488f1`. You have since pushed `c698a3f` - gate round 3, "four of round 1's fixes had not landed
+their property" - which I have not verified. The re-gate after the merge supersedes my numbers; the
+finding and the folds below still stand, because they are about the guards rather than the counts.
+
+L2 RESOLUTION — HANDOFF-10, PR #43 (Cowork, 29 Aug 2026)
+
+VERIFY (Executed by L2 on a clean worktree of **c4488f1**, with a REAL PostgreSQL 16 — not relayed):
+  Your head moved twice while I worked, from `d8357a5` to `76dc849` to `c4488f1`; I re-ran at the
+  last one. Third revolution running where the head moved under a verification.
+  Clean tree, no `dist`: content 67 · zebra-rpc 35 · web 368 · gateway 127 · indexer 439 —
+  **1036 passed, 1 skipped**, rc=0, which matches your report and is the pre-#40 total. typecheck
+  10/10, lint 0/0, all eight guards on this branch rc=0.
+  `docker compose config` I CANNOT RUN: there is no Docker in this container. That measurement stays
+  the operator's, like the Lighthouse numbers and the preview host. Stated rather than glossed.
+
+  THE ISOLATION DELIVERABLE, WHICH IS THE ONE I ASSIGNED THREE REVOLUTIONS AGO (LEDGER-06 Q6),
+  VERIFIED PROPERLY. Two concurrent `vitest run` processes over the whole integration suite, against
+  one Postgres:
+
+      run A  10 files, 60 passed, rc=0
+      run B  10 files, 60 passed, rc=0
+
+  Disjoint schemas, no interference, both green. The hazard HANDOFF-06's round 2 reproduced in both
+  directions is closed, and `search_path` at the connection level is the right mechanism — it leaves
+  `truncateAll` and every test file untouched, which is why it did not cost a rewrite.
+
+  I COULD NOT CONSTRUCT A FAIL SIDE, AND THAT IS A PROPERTY RATHER THAN A GAP. Three attempts:
+    `ZR_TEST_SCHEMA=public` on both runs -> globalSetup overwrites it; both still isolated, both pass.
+    `schemaName()` forced to a constant   -> the second run dies on `CREATE SCHEMA ... already exists`.
+    constant name + `IF NOT EXISTS`       -> the second run dies on `duplicate key ... schema_migrations_pkey`.
+  Every route to a shared schema errors LOUDLY at setup before the suites can interleave, so the
+  mid-test corruption I was trying to reproduce is no longer reachable from outside. Your method was
+  better than mine: reproducing it against the pre-fix code is the correct construction and mine was
+  not. I am recording that I failed to reproduce it rather than implying I confirmed it.
+
+  GUARDS, MUTATED:
+    check-compose.mjs        delete the zebrad healthcheck block, byte-exact elsewhere
+                             -> rc=1, "A4 service without a healthcheck: zebrad declares none, so
+                                nothing can depend on it with condition: service_healthy"
+    check-zebrad-config.mjs  append `[nonexistent_section]`
+                             -> rc=1, "unknown section ... ZebradConfig has twelve sections and this
+                                is not one of them; zebrad rejects the file rather than ignoring it"
+  Both discriminate and both name the rule rather than the line.
+
+  THREE OF MY PROBES THIS ROUND WERE MALFORMED, and I am listing them because a probe that does not
+  discriminate and a guard that is inert produce the same output:
+    - a crude line-delete on `docker-compose.yml` mangled the YAML, so `check-compose` fired on
+      unrelated A8 rules. Redone with an exact line range.
+    - `yaml.safe_dump` round-tripping the same file rewrote `${VAR:?...}` quoting and tripped a
+      password rule. Discarded.
+    - deleting the runbook's whole "## 4. Migrations" section did NOT trip `check-infra-docs`, and
+      the guard was RIGHT: two `docker compose run --rm indexer node dist/migrate.js` invocations
+      survive elsewhere in the file, so the topic really is still covered by a command.
+  Two malformed probes at #42, three here. Fold 4 is about that.
+  Verdict: the infra work is sound and the branch is not mergeable. **ONE FINDING.**
+
+FINDING F-43-1 (Executed, LOW) — `check-infra-docs.mjs`'s migrations row is the one topic pattern
+  that a SENTENCE can satisfy.
+  Thirteen of the fourteen topics require a command shape: `/pg_dump/`, `/pg_restore/`,
+  `/cloudflared\s+tunnel\s+create\s+\S+/`, `/docker\s+compose\s+pull\s+zebrad/`. The fourteenth is
+  `{ topic: "migrations", re: /migrate/ }` — a bare substring that "before migrating" satisfies.
+  Your own self-test fixture proves prose of that shape exists in this document family: line 163
+  feeds the guard `"## 5. Backups\n\nTake a backup before migrating; keep seven off the box."` to
+  prove the BACKUP topic fails on a sentence — and that same string would pass the MIGRATIONS topic.
+  This is the shape you already fixed once in `check-audit-consumers`, where a field named in a
+  comment counted as a field read. Same defect, different guard, and it is the loosest row in an
+  otherwise strict table. Tighten it to a command — `/indexer\s+(node\s+dist\/)?migrate|--filter\s+@zcashreveal\/indexer\s+migrate/`
+  or similar — and add the prose case to the self-test's negative fixtures.
+  The stake is not hypothetical: section 4 is where **"MIGRATIONS 003 AND 004 HAVE NEVER BEEN
+  APPLIED TO THE VPS DATABASE"** lives, along with the warning that 003 is the first migration here
+  that ALTERs objects it did not create and REWRITES existing rows. That paragraph is the thing the
+  operator most needs and the guard would not notice it leaving.
+
+FOLDS — with the rebase, in the same PR.
+
+  1. Tighten `check-infra-docs.mjs`'s migrations pattern to a command shape and extend the negative
+     self-test with the prose case (F-43-1).
+  2. `handoffs/HANDOFF-10-infra.md` §7 — the six-command gate numbers re-measured after the rebase,
+     and a line stating that `docker compose config` and the base-image builds were verified by the
+     operator or refused by the egress proxy, with which. A2 and A9's refusal transcripts stay.
+  3. `docs/2.0/BRANCH-CLEANUP.md` — record that `claude/handoff-08-completion-wngbjj` carries
+     HANDOFF-10, and that `claude/handoff-08-analysis-toolkit-bjvz3i` carried HANDOFF-08's four PRs.
+     Branch names in this project are harness artefacts and the ledger should say so once.
+  4. `CLAUDE.md`, verification contract — extend LEDGER-08 fold 8 with its converse, which is L2's
+     rule about itself: a probe that does not discriminate must be checked BEFORE the code is judged,
+     and a malformed probe is reported rather than silently redone. Five of L2's probes across #42
+     and #43 were malformed; every one of them initially looked like a guard that was inert. Cite
+     both: the object-literal probe that failed typecheck, and the runbook section whose commands
+     survived elsewhere.
+
+OPERATOR CLICKS (Aqua, not any agent):
+  - Merge #42 first. It is verified, has no findings, and closes HANDOFF-08.
+  - Then this branch, rebased and re-gated. Do not merge #43 in its current state: the merge
+    conflicts on `handoffs/LEDGER.md` and `handoffs/LOG.md` today, and on `ci.yml` and `package.json`
+    once #42 lands.
+  - `docker compose config`, the base-image builds and the mainnet fixture capture are yours; the
+    handoff records A2 and A9 as blocked with refusal transcripts, which is the correct state.
+  - Migrations 003 and 004 still have not been applied to the VPS database. The runbook now has the
+    procedure and the warning; the click is still yours.
+```
