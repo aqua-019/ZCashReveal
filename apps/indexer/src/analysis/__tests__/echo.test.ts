@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asHex, type Hex } from "@zcashreveal/types";
+import { asHex } from "@zcashreveal/types";
 
 import {
   RELATIVE_EPSILON,

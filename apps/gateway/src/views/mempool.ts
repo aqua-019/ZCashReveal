@@ -71,8 +71,16 @@ export function buildMempoolView(
   // moved value into a shielded pool, so counting it out of "shielded" leaves
   // it in no bucket at all, and the three figures /track prints beside each
   // other then account for less than the mempool without saying so.
+  // `mixed` JOINS THIS NUMERATOR IN HANDOFF-08 under the arbitration above,
+  // applied rather than re-argued: a `mixed` transaction moved value between
+  // shielded pools, so counting it out leaves it in no bucket while
+  // `decodedCount` still counts it in the denominator.
   const shielded = entries.filter(
-    (e) => e.class === "shield" || e.class === "deshield" || e.class === "shielded",
+    (e) =>
+      e.class === "shield" ||
+      e.class === "deshield" ||
+      e.class === "shielded" ||
+      e.class === "mixed",
   ).length;
   const migrations = entries.filter((e) => e.class === "migration").length;
   const transparent = entries.filter((e) => e.class === "transparent").length;
@@ -243,6 +251,45 @@ export function buildMempoolView(
  * The fixture corpus already spelled the right thing - `apps/web`'s mempool
  * fixture says "O to I" - so the producer and the fixture disagreed as well.
  */
+/**
+ * The flow caption for a row class.
+ *
+ * A SWITCH WITH AN EXHAUSTIVENESS CHECK, NOT A TERNARY CHAIN WITH A TRAILING
+ * ELSE. The chain this replaces ended `: "t to t"`, so every member it did not
+ * name - including any future one - was published as a transparent-to-transparent
+ * flow. That is not a missing caption, it is a false one, and on a site whose
+ * thesis is that a transparent transaction publishes its addresses it is the
+ * worst available default. `assertNeverClass` makes the next widening fail `tsc`
+ * at this site instead.
+ */
+function flowTextFor(klass: MempoolRow["class"], r: LeakReport): string {
+  switch (klass) {
+    case "shield":
+      return "t to z";
+    case "deshield":
+      return "z to t";
+    case "migration":
+      return migrationFlowText(r.valueFlow.perPoolZat);
+    case "mixed":
+      // It crossed pools AND has a public side, so the caption names both halves
+      // rather than picking one. `migrationFlowText` renders the pool crossing;
+      // the suffix is what distinguishes this row from a migration.
+      return `${migrationFlowText(r.valueFlow.perPoolZat)} + t`;
+    case "shielded":
+      return "shielded";
+    case "transparent":
+      return "t to t";
+    case "undecoded":
+      return "not decoded";
+    default:
+      return assertNeverClass(klass);
+  }
+}
+
+function assertNeverClass(k: never): never {
+  throw new Error(`unhandled mempool row class: ${JSON.stringify(k)}`);
+}
+
 function migrationFlowText(deltas: ReadonlyArray<{ pool: ShieldedPool; deltaZat: bigint }>): string {
   // DIRECTION COMES FROM THE SIGN, NOT FROM THE ORDER OF THE LIST. `perPoolZat`
   // is built in canonical pool order - sprout, sapling, orchard - regardless of
@@ -410,7 +457,22 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
   const klass: MempoolRow["class"] =
     crossesWithNoPublicSide
       ? "migration"
-      : r.valueFlow.direction === "DEPOSIT" && r.transparent.vin.length > 0
+      : // A POOL CROSSING WITH A PUBLIC SIDE IS `mixed`, AND IT IS TESTED BEFORE
+        // `shield` AND `deshield` RATHER THAN AFTER THEM. That ordering is the
+        // whole substance of the member: `direction` is DEPOSIT whenever ANY
+        // pool leg is negative, so a Sapling-to-Orchard transfer with a
+        // transparent input satisfies the `shield` test - and would have been
+        // published as `shield`, `flow: "t to z"`, for a transaction whose
+        // transparent side is one end of three.
+        //
+        // `shield` and `deshield` name the direction of a SINGLE pool's
+        // movement across the transparent boundary. Once more than one pool
+        // moved, there is no single direction to name, which is why the test
+        // for that has to come first. This is the same argument the migration
+        // test above already makes, one class further down.
+        movedPools.length > 1
+        ? "mixed"
+        : r.valueFlow.direction === "DEPOSIT" && r.transparent.vin.length > 0
         ? "shield"
         : r.valueFlow.direction === "WITHDRAWAL" && r.transparent.vout.length > 0
           ? "deshield"
@@ -425,19 +487,12 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
             // PURE_SHIELDED. On a site whose thesis is that a transparent
             // transaction publishes its addresses, that is a false statement
             // about the transaction and not a missing one.
-            // AND `shielded` IS A RESIDUAL, NOT A CLAIM THAT NOTHING CROSSED.
-            // A pool crossing that also pays a transparent address lands here:
-            // it is not a migration (a public recipient stands in it), and
-            // neither `shield` nor `deshield` fits, because those name the
-            // direction of a transparent side this transaction has on only one
-            // end. The classifier's own answer for it is MIXED, which this
-            // six-member enum cannot say - so the row states the crossing in
-            // its finding text, its lanes and its `valueBalanceText`, and the
-            // class is the coarsest of the four. Adding a `mixed` member is
-            // the right fix and it is a DTO widening, which this handoff has
-            // now been bitten by three times in three gate rounds; it is
-            // written up in the report and asked as a ledger question rather
-            // than pushed through unreviewed.
+            // AND `shielded` REMAINS THE RESIDUAL, NOW FOR A SINGLE POOL ONLY.
+            // An ordinary z-to-z transfer inside one pool lands here, which is
+            // what most shielded traffic becomes after NU6.3. Every multi-pool
+            // shape has been claimed above it by `migration` or `mixed`, so this
+            // residual no longer absorbs a crossing it cannot describe -
+            // which is what it was doing until HANDOFF-08.
             hasSprout || hasSapling || hasOrchard || hasIronwood
             ? "shielded"
             : "transparent";
@@ -453,16 +508,12 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
     // version rule in one file is how the branch above came to publish `v6`
     // for a version 7 while this one said the same thing about a v1.
     version: versionText(r.txVersion),
-    flow:
-      klass === "shield"
-        ? "t to z"
-        : klass === "deshield"
-          ? "z to t"
-          : klass === "migration"
-            ? migrationFlowText(r.valueFlow.perPoolZat)
-            : klass === "shielded"
-              ? "shielded"
-              : "t to t",
+    // THE TRAILING ARM USED TO BE `: "t to t"` AND WOULD HAVE PRINTED A
+    // TRANSPARENT FLOW BESIDE TWO POOL LANE SWATCHES for a `mixed` row - the
+    // same false statement the Ironwood case above records being fixed. It is a
+    // switch with an exhaustiveness check now, so the NEXT member is a compile
+    // error here rather than a wrong caption.
+    flow: flowTextFor(klass, r),
     lanes,
     valueBalanceText: net === 0n ? "no net crossing" : zecText(net < 0n ? -net : net),
     feeZat: r.fingerprint.feeZat,

@@ -17,9 +17,15 @@ import { mempoolHeaderText, shieldedShareTile } from "@/lib/mempool-summary";
  */
 describe("the shielded-share tile", () => {
   it("divides by what was decoded, over the corpus the site actually ships", () => {
+    // THE FIGURES MOVED IN HANDOFF-08 BECAUSE THE CORPUS GAINED A ROW, not
+    // because the rule changed. A `mixed` fixture row was added with the `mixed`
+    // class, so that the partition assertions and `stream.ts`'s frame guard
+    // actually see the new member - the gap that let HANDOFF-07's `undecoded`
+    // class be rejected by the guard while every test stayed green. Thirteen
+    // rows became fourteen and twelve decoded became thirteen.
     const tile = shieldedShareTile(MEMPOOL_VIEW.summary);
-    expect(tile.value).toBe("58%");
-    expect(tile.sub).toBe("by count - 7 of 12 decoded");
+    expect(tile.value).toBe("62%");
+    expect(tile.sub).toBe("by count - 8 of 13 decoded");
   });
 
   it("FAIL SIDE: the wrong denominator is a different, and worse, answer", () => {
@@ -27,9 +33,9 @@ describe("the shielded-share tile", () => {
     // counted first into the numerator and then into the denominator. Named so
     // a regression to either reads as a regression rather than as a number.
     const s = MEMPOOL_VIEW.summary;
-    expect(Math.round((s.shielded / s.unconfirmed) * 100)).toBe(54);
-    expect(shieldedShareTile(s).value).not.toBe("54%");
-    expect(shieldedShareTile({ ...s, shielded: 8 }).value).not.toBe("58%");
+    expect(Math.round((s.shielded / s.unconfirmed) * 100)).toBe(57);
+    expect(shieldedShareTile(s).value).not.toBe("57%");
+    expect(shieldedShareTile({ ...s, shielded: 9 }).value).not.toBe("62%");
   });
 
   it("a mempool nobody could decode is NOT MEASURED, and never NaN per cent", () => {
@@ -69,11 +75,17 @@ describe("the block header's enumeration of the mempool", () => {
     // where the thirteenth went. That is the harm the gateway's own comment
     // cites when it argues for the shielded count's definition: figures printed
     // beside each other that account for less than the total, silently.
+    //
+    // Fourteen rows since HANDOFF-08 added a `mixed` one. The property this
+    // asserts is unchanged and is the point: the stated figures plus the named
+    // remainder still account for EVERY row, which is what would have broken had
+    // `mixed` been left out of `summary.shielded` while staying in
+    // `decodedCount`.
     const line = mempoolHeaderText(MEMPOOL_VIEW.summary, MEMPOOL_VIEW.summary.feeWeather);
-    expect(line).toContain("13 unconfirmed");
+    expect(line).toContain("14 unconfirmed");
     expect(line).toContain("1 not decoded");
 
-    const stated = 7 + 2 + 3 + 1;
+    const stated = 8 + 2 + 3 + 1;
     expect(stated).toBe(MEMPOOL_VIEW.summary.unconfirmed);
   });
 

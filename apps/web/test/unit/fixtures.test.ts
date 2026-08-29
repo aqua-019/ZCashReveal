@@ -226,9 +226,19 @@ describe("the mempool summary is its own rows", () => {
     // stayed green while HANDOFF-07 added an `undecoded` row that the
     // subtraction swept into `shielded`, moving /track's headline shielded
     // share from 7 of 12 to 8 of 13 with one row nobody could decode.
+    // `mixed` JOINS THE PREDICATE IN HANDOFF-08. It moved value between
+    // shielded pools, so it belongs in this numerator on the same argument that
+    // put `shield` in it: `decodedCount` counts it in the denominator, and a
+    // member in no numerator would make the four figures /track prints beside
+    // each other account for less than the mempool.
     expect(s.shielded).toBe(
-      e.filter((r) => r.class === "shield" || r.class === "deshield" || r.class === "shielded")
-        .length,
+      e.filter(
+        (r) =>
+          r.class === "shield" ||
+          r.class === "deshield" ||
+          r.class === "shielded" ||
+          r.class === "mixed",
+      ).length,
     );
   });
 
@@ -265,11 +275,18 @@ describe("the mempool summary is its own rows", () => {
 
     // The tile as /track renders it, so the number in this test is the number
     // on the page rather than a restatement of the formula above it.
+    //
+    // THE FIGURES MOVED IN HANDOFF-08 BECAUSE THE CORPUS GAINED A ROW, not
+    // because the rule changed: a `mixed` fixture row was added so the partition
+    // assertions in this file actually exercise the new class rather than
+    // passing vacuously over a corpus that never carries it. Thirteen rows
+    // became fourteen, twelve decoded became thirteen, and seven shielded became
+    // eight.
     expect(`${Math.round((s.shielded / s.decodedCount) * 100)}% - ${s.shielded} of ${s.decodedCount}`).toBe(
-      "58% - 7 of 12",
+      "62% - 8 of 13",
     );
     // FAIL SIDE: the figure the wrong denominator produced.
-    expect(Math.round((s.shielded / s.unconfirmed) * 100)).toBe(54);
+    expect(Math.round((s.shielded / s.unconfirmed) * 100)).toBe(57);
   });
 
   it("the conventional-fee count is ZIP 317 applied to the rows that could be priced", () => {
@@ -286,7 +303,10 @@ describe("the mempool summary is its own rows", () => {
     // denominator is the same false statement `feeZat: 0n` used to make.
     const priced = e.filter((r) => r.feeZat !== null);
     expect(s.pricedCount).toBe(priced.length);
-    expect(priced).toHaveLength(11);
+    // Twelve since HANDOFF-08: the `mixed` row added to exercise the new class
+    // carries a real fee, because a row whose class is the point of the fixture
+    // should not also be the one nobody could price.
+    expect(priced).toHaveLength(12);
     // A PRICED ROW ALWAYS COUNTED ITS ACTIONS, and that is asserted rather than
     // assumed: `logicalActions` became nullable in HANDOFF-07 for the undecoded
     // row, and a null reaching `conventionalFeeZat` would price it at the
@@ -295,7 +315,11 @@ describe("the mempool summary is its own rows", () => {
     const L = (r: (typeof priced)[number]): number => r.logicalActions ?? -1;
     const conventional = priced.filter((r) => r.feeZat === conventionalFeeZat(L(r)));
     expect(s.conventionalCount).toBe(conventional.length);
-    expect(s.conventionalCount).toBe(10);
+    // Eleven since HANDOFF-08: the `mixed` row pays 15,000 zat on L = 3, which
+    // is ZIP 317's conventional fee for three logical actions exactly. That is
+    // deliberate rather than incidental - the row exists to exercise a class,
+    // so it must not also perturb the fee arithmetic by being an exception.
+    expect(s.conventionalCount).toBe(11);
     const odd = priced.filter((r) => r.feeZat !== conventionalFeeZat(L(r)));
     expect(odd).toHaveLength(1);
     expect(odd[0]?.logicalActions).toBe(1);

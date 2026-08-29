@@ -479,7 +479,12 @@ describe("A11/A12 - the WIDE RULE: a round trip needs a transparent side", () =>
    * produce. That is why HANDOFF-07 escalated it instead of filing it as an
    * edge case.
    */
-  function twoMigrations(pools: { from: "orchard" | "sapling"; to: "ironwood" | "sapling" }) {
+  // `ShieldedPool` RATHER THAN AN INLINE PAIR, because `check-pool-union.mjs`
+  // is right to refuse one even in a test helper: a two-member pool union is
+  // the shape that made Sprout and Ironwood invisible to this very index, and a
+  // guard that exempted test files would miss the fixtures that pin the
+  // behaviour. Caught by the guard on its first run over this file.
+  function twoMigrations(pools: { from: ShieldedPool; to: ShieldedPool }) {
     const leg = (txid: Hex, seenAt: number) =>
       makeReport({
         txid,

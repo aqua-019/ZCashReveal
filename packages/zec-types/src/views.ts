@@ -769,8 +769,40 @@ export const mempoolRowSchema = z.object({
    * "no net crossing" / "Nothing this transaction publishes distinguishes it
    * from any other of its shape" - four statements, all false, about a
    * transaction nobody could decode.
+   *
+   * `mixed` IS NEW IN HANDOFF-08 AND IT IS THE MEMBER THE ENUM WAS MISSING.
+   * A transfer between two shielded pools that ALSO pays a transparent address
+   * is none of the other six: it is not a `migration`, because a public
+   * recipient stands in it and the gateway stopped calling it one; and
+   * `shield`/`deshield` name a direction of transparent flow it has on one end
+   * only. It fell to the residual `shielded` while `analyze()` answered `MIXED`,
+   * so /tx and /track said different things about one transaction - the
+   * divergence assertion A9 forbids. HANDOFF-07 declined to widen the enum
+   * unreviewed and asked (LEDGER-07 Q2); L2 ruled for the member and for the
+   * consumer sweep being the deliverable rather than the member.
+   *
+   * THE SWEEP IS WHY THIS DOCBLOCK IS LONG. Widening a type produced the defect
+   * in each of the last four sessions, and never at the declaration - always in
+   * a consumer nobody enumerated. The consumers of this enum that a compiler
+   * CANNOT catch: `summary.shielded` and `summary.decodedCount` below (positive
+   * and negative filters that would leave `mixed` in a denominator and no
+   * numerator), the gateway's flow-label chain (whose trailing `: "t to t"`
+   * would print a transparent flow beside two pool lanes),
+   * `apps/web/src/lib/api/stream.ts`'s hand-copied `CLASSES` set (which would
+   * reject the row, and `asView` then returns null for the WHOLE snapshot - one
+   * `mixed` transaction would empty /track), and `mempool-summary.ts`'s tile and
+   * header. All were swept in the same commit; the fixture corpus gained a
+   * `mixed` row so the partition assertions actually exercise it.
    */
-  class: z.enum(["shield", "deshield", "shielded", "migration", "transparent", "undecoded"]),
+  class: z.enum([
+    "shield",
+    "deshield",
+    "shielded",
+    "mixed",
+    "migration",
+    "transparent",
+    "undecoded",
+  ]),
   reasoning: z.array(z.string().min(1)).min(1),
 });
 export type MempoolRow = z.infer<typeof mempoolRowSchema>;
@@ -782,7 +814,14 @@ export const mempoolViewSchema = z.object({
     unconfirmed: countSchema,
     /**
      * How many transactions touched a shielded pool without being a migration:
-     * `shield`, `deshield` and `shielded` together.
+     * `shield`, `deshield`, `shielded` and - since HANDOFF-08 - `mixed`.
+     *
+     * `mixed` JOINS THE NUMERATOR FOR THE SAME REASON `shield` DID. It moved
+     * value between shielded pools; counting it out leaves it in no bucket at
+     * all, while `decodedCount` below still counts it in the denominator, so the
+     * four figures /track prints beside each other would account for less than
+     * the mempool without saying so. That is the arbitration below, applied to
+     * the new member rather than re-litigated.
      *
      * WRITTEN DOWN BECAUSE THE TWO PRODUCERS OF THIS FIELD DISAGREED ABOUT IT,
      * exactly as `conventionalFeeZat` below records for its own field. The

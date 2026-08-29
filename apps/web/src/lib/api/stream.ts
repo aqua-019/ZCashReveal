@@ -244,10 +244,27 @@ const SEVERITIES = new Set(["INFO", "LOW", "MED", "HIGH"]);
 // transaction removed every other transaction from /track too - the exact
 // outcome the comment below says the relaxed `lanes` test exists to prevent.
 // The two checks were three lines apart and only one of them was widened.
+// `mixed` IS THE SECOND MEMBER THIS SET HAS HAD TO BE TAUGHT, AND THE COST OF
+// MISSING IT IS THE SAME AS LAST TIME: one `mixed` transaction would make
+// `asRow` return null, `asView` return null for the whole snapshot, and /track
+// render nothing at all. HANDOFF-08's consumer sweep listed this site FIRST for
+// exactly that reason.
+//
+// THE REAL DEFECT IS THAT THIS SET EXISTS AT ALL, and it is worth stating rather
+// than fixing twice more. It is a hand-copied duplicate of
+// `mempoolRowSchema`'s `class` enum in `packages/zec-types/src/views.ts`, with
+// no compile-time link to it - the enum is a zod schema, this is a runtime
+// `Set<string>`, and nothing makes them agree. Deriving it from the schema
+// (`mempoolRowSchema.shape.class.options`) would remove the whole failure mode,
+// and it is not done here because this module is the untrusted-frame guard: it
+// deliberately validates a socket frame against a hand-written allowlist rather
+// than against the schema it is trying to protect. Recorded in section 8 as a
+// standing exposure with a named fix.
 const CLASSES = new Set([
   "shield",
   "deshield",
   "shielded",
+  "mixed",
   "migration",
   "transparent",
   "undecoded",
