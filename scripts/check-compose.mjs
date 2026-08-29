@@ -98,9 +98,23 @@ function hasHealthcheck(blockLines) {
   // inherited healthcheck. Both leave a `healthcheck:` key, so a guard that
   // counts keys - as the first draft did - reports a service as checked while
   // compose treats it as unchecked. The gate found it.
-  const body = blockLines.slice(i + 1, i + 12).join("\n");
-  if (/^\s*disable:\s*true\s*$/m.test(body)) return false;
-  if (/test:\s*\[\s*["']NONE["']\s*\]/.test(body)) return false;
+  // THE WHOLE healthcheck BLOCK, not a fixed-size window. The first fix read 12
+  // lines, and zebrad's healthcheck carries a comment longer than that - so a
+  // `test: ["NONE"]` appended at the end of the block fell outside the window
+  // and was missed. Read to the next key at or above the healthcheck's own
+  // indentation instead, which is where the block actually ends.
+  const indentOf = (l) => l.length - l.trimStart().length;
+  const base = indentOf(blockLines[i]);
+  const body = [];
+  for (let j = i + 1; j < blockLines.length; j += 1) {
+    const l = blockLines[j];
+    if (l.trim() === "") continue;
+    if (indentOf(l) <= base) break;
+    body.push(l);
+  }
+  const bodyText = body.join("\n");
+  if (/^\s*disable:\s*true\s*$/m.test(bodyText)) return false;
+  if (/test:\s*\[\s*["']NONE["']\s*\]/.test(bodyText)) return false;
   return true;
 }
 
@@ -137,28 +151,45 @@ const SECRET_SHAPES = [
  * asking whether the secret shape still matches gets both cases right: the
  * shape survives only when the sensitive token sits outside an interpolation.
  */
+const BLANK = "\u0000";
+
 function blankInterpolations(line) {
-  // TWO CONSTRUCTS, TREATED DIFFERENTLY, and the difference is the whole point.
+  // COMPOSE HAS SIX OPERATOR FORMS, NOT ONE, AND THEY SPLIT TWO WAYS.
   //
-  //   ${VAR}        and  ${VAR:?message}   carry NO value. The message is prose
-  //                                        the operator reads when the variable
-  //                                        is missing. Both blank entirely.
-  //   ${VAR:-default}                      carries a LITERAL VALUE, used verbatim
-  //                                        when the variable is unset. Its
-  //                                        default text is kept, because a
-  //                                        secret written there is every bit as
-  //                                        committed as one written bare.
+  //   ${VAR}                       no value
+  //   ${VAR:?msg}   ${VAR?msg}     msg is PROSE the operator reads on failure
+  //   ${VAR:-dflt}  ${VAR-dflt}    dflt is a LITERAL VALUE, used when unset
+  //   ${VAR:+alt}   ${VAR+alt}     alt is a LITERAL VALUE, used when set
   //
-  // The first draft blanked all three alike, so A5 could not see
-  // `TUNNEL_TOKEN: ${TUNNEL_TOKEN:-eyJhIjoiZGVhZGJlZWYifQ}` - a real literal
-  // secret in a real shape - and a mustNotFlag entry pinned the hole open. The
-  // first gate round found it. Blanking the `:?` half as well was the correction
-  // to the correction: keeping those messages made the guard flag
-  // `${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}`, which is the CORRECT
-  // form, on the strength of prose.
-  return line.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)(:-)?([^}]*)\}/g, (_m, _name, dash, rest) =>
-    dash === undefined ? "${}" : `\${}${rest}`,
-  );
+  // The value-bearing four are kept and the other two are blanked, because a
+  // secret written into any of those four is as committed as one written bare.
+  //
+  // THIS FUNCTION HAS BEEN WRONG TWICE AND BOTH WERE CAUGHT BY A PROBE RATHER
+  // THAN BY READING. The first draft blanked every construct, so A5 could not
+  // see `${TUNNEL_TOKEN:-eyJhIjoi...}`. The correction handled `:-` alone, so
+  // `${VAR:+secret}` and `${VAR-secret}` - both accepted by compose, verified
+  // with `docker compose config` - were still invisible, and a nested
+  // `${PW:-${FALLBACK}}` was falsely flagged because the inner braces were left
+  // behind as literal text.
+  //
+  // Innermost-first, repeatedly, so nesting resolves from the inside out and no
+  // `${` survives to be mistaken for a value.
+  // The blank marker is BLANK (a NUL), not "${}", because a marker containing
+  // braces stops the enclosing interpolation from matching on the next pass -
+  // which is exactly why `${PW:-${FALLBACK}}` was still being flagged after the
+  // first attempt at this fix. Callers strip BLANK before asking whether a
+  // literal value remains.
+  let out = line;
+  const INNERMOST = /\$\{([A-Za-z_][A-Za-z0-9_]*)(:?[-+?])?([^{}]*)\}/;
+  for (let guard = 0; guard < 20; guard += 1) {
+    const m = INNERMOST.exec(out);
+    if (m === null) break;
+    const [whole, , op, rest] = m;
+    // `?` carries a message, not a value. Everything else carries a value.
+    const keeps = op !== undefined && op !== ":?" && op !== "?";
+    out = out.replace(whole, keeps ? BLANK + rest : BLANK);
+  }
+  return out;
 }
 
 function scanSecrets(text) {
@@ -174,7 +205,7 @@ function scanSecrets(text) {
       // KEY and carries no value at all, which is the correct form.
       const sep = blanked.search(/[=:]/);
       const value = sep >= 0 ? blanked.slice(sep + 1) : "";
-      if (!/[A-Za-z0-9]/.test(value.replace(/\$\{\}/g, ""))) continue;
+      if (!/[A-Za-z0-9]/.test(value.split(BLANK).join(""))) continue;
       findings.push({ line: idx + 1, rule, text: trimmed });
     }
   });
@@ -277,6 +308,10 @@ function selfTest() {
     // construct made this invisible until the first gate round.
     "      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-eyJhIjoiZGVhZGJlZWYifQ}",
     "      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hunter2}",
+    // The other four value-bearing operator forms, all accepted by compose.
+    "      TUNNEL_TOKEN: ${TUNNEL_TOKEN-eyJhIjoiZGVhZGJlZWYifQ}",
+    "      TUNNEL_TOKEN: ${TUNNEL_TOKEN:+eyJhIjoiZGVhZGJlZWYifQ}",
+    "      TUNNEL_TOKEN: ${TUNNEL_TOKEN+eyJhIjoiZGVhZGJlZWYifQ}",
     "      TUNNEL_TOKEN: eyJhIjoiZXhhbXBsZSJ9",
     "      STRIPE: sk_live_abcdef",
     "      SNAPSHOT_REDIS_KV_REST_API_TOKEN: AX8sASQgN2E",
@@ -290,7 +325,17 @@ function selfTest() {
     // text around real references, none of it a secret.
     "      DATABASE_URL: postgres://${POSTGRES_USER:-zcashreveal}:${POSTGRES_PASSWORD:?x}@postgres:5432/${POSTGRES_DB:-zcashreveal}",
     "      SNAPSHOT_REDIS_KV_URL: ${SNAPSHOT_REDIS_KV_URL:-}",
+    // Nested interpolation: no literal anywhere, and the first fix flagged it
+    // because the inner braces survived as text.
+    "      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-${FALLBACK_PW}}",
+    "      TUNNEL_TOKEN: ${TUNNEL_TOKEN?set it in .env}",
   ];
+
+  // A healthcheck disabled AFTER a long comment, which a fixed-size window missed.
+  const longBlock = ["    healthcheck:", ...Array.from({ length: 14 }, (_, n) => `      # comment ${n}`), '      test: ["NONE"]'];
+  if (hasHealthcheck(longBlock)) fail("A4 missed test: [\"NONE\"] past a fixed-size window");
+  const nextKey = ["    healthcheck:", '      test: ["CMD","true"]', "    deploy:", "      disable: true"];
+  if (!hasHealthcheck(nextKey)) fail("A4 read a sibling key's body as part of the healthcheck block");
   for (const s of mustFlag) {
     if (scanSecrets(s).length === 0) fail(`A5 did not flag a literal secret: ${JSON.stringify(s)}`);
   }

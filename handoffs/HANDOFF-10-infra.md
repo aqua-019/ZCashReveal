@@ -509,7 +509,35 @@ GATE ROUNDS: 1 round, 4 lenses (compose-correctness, facts, runbook, guards),
       all stated in the scripts' headers, none reachable by the tree as it is.
       Widening a guard to shapes nothing uses is how a detector grows a bug.
 
-  THE HONEST EXTRAPOLATION, per LEDGER-07 Q6's stopping rule: a second round
+  ROUND 2 - THE FIX COMMIT REVIEWED AS ITS OWN COMMIT, per LEDGER-07 Q6, and it
+  found FIVE MORE DEFECTS THAT THE ROUND-1 FIX ITSELF HAD CREATED. All five are
+  in `scripts/check-compose.mjs`, all five were found by EXECUTING probes rather
+  than by reading, and four of the five made the guard blind again in a new way:
+
+    `${VAR:+secret}`, `${VAR-secret}` and `${VAR+secret}` were all still
+      invisible to A5. The round-1 fix handled `:-` alone; compose accepts six
+      operator forms and four of them carry a literal value. Confirmed with
+      `docker compose config` that all four are real, not theoretical.
+    `${PW:-${FALLBACK}}` was FALSELY FLAGGED - a nested interpolation with no
+      literal anywhere in it. The blank marker the fix used contained braces, so
+      the enclosing interpolation never matched on the next pass.
+    `test: ["NONE"]` at the END of zebrad's healthcheck block was missed, because
+      the fix read a fixed 12-line window and that block's comment is longer than
+      twelve lines.
+
+  Fixed by resolving interpolations innermost-first with a brace-free sentinel,
+  handling all six operator forms, and reading the healthcheck block to its next
+  sibling key rather than to a fixed offset. Every one is now a self-test case,
+  and the six probes were re-executed against the real tree afterwards: four
+  secret forms caught, the message form and the nested form correctly silent.
+
+  THAT IS TWO CONSECUTIVE FIX COMMITS IN THIS ONE HANDOFF THAT INTRODUCED
+  DEFECTS - round 1's fix created the SQL error and these five - which is the
+  strongest evidence this branch offers for LEDGER-07 Q6's rule. Reviewing the
+  fix commit is not ceremony here; it was the most productive review of the
+  session, per unit of effort, by a wide margin.
+
+  THE HONEST EXTRAPOLATION, per LEDGER-07 Q6's stopping rule: a third round
   would find one or two more of round 1's reach, and the most likely place is the
   three guard scripts rather than the compose or the runbook - round 1's guard
   lens was the most productive of the four and its findings were the least
