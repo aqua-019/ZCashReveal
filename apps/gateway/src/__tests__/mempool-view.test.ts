@@ -356,39 +356,56 @@ describe("mempoolRow class - a migration is a migration, whichever direction it 
     expect(built.entries[0]?.lanes).not.toContain("transparent");
   });
 
-  it("the coinbase rule reaches the MIGRATION test too, not only the shield test", () => {
-    // BOTH GATE LENSES FOUND THIS INDEPENDENTLY. The fix derived
+  it("the coinbase rule reaches the MIGRATION test too, and a coinbase is not a migration", () => {
+    // BOTH ROUND-2 LENSES FOUND THE FIRST HALF INDEPENDENTLY: the fix derived
     // `hasTransparentSource` and used it for `shield` while
-    // `crossesWithNoPublicSide` two lines above kept `vin.length === 0` - so a
-    // coinbase moving two pools was denied `migration` on the strength of a vin
-    // the very next predicate refused to count, and published flow "S/O + t",
-    // asserting a transparent side the same expression says it has not. One
-    // rule with two answers, now inside one function, in the expression whose
-    // docblock spends four paragraphs arguing against exactly that.
+    // `crossesWithNoPublicSide` kept `vin.length === 0`, so a coinbase moving
+    // two pools was denied `migration` on the strength of a vin the very next
+    // predicate refused to count.
+    //
+    // ROUND 3 FOUND WHAT FIXING THAT DID, AND THIS TEST WAS PART OF THE
+    // PROBLEM. Aligning the two predicates made a previously unreachable branch
+    // live: a coinbase into two pools became a `migration`, and
+    // `migrationFlowText`'s empty-source fallback printed the literal caption
+    // "migration" for a transaction that migrated nothing, counted into
+    // `summary.migrations`. The test written to cover the alignment used
+    // `perPoolZat: [{sapling, +ZEC}, {orchard, -ZEC}]` - a POSITIVE leg means
+    // value LEFT Sapling, i.e. a shielded spend inside a coinbase, which cannot
+    // exist. So it asserted a class for an impossible input and left the
+    // realisable one uncovered. A coinbase can only pay IN, so every pool leg
+    // is negative.
     const built = view(
       report({
-        txid: "cd", vin: 1, coinbaseVin: true, saplingSpends: 1, orchardActions: 2,
+        txid: "cd", vin: 1, coinbaseVin: true, saplingOutputs: 1, orchardActions: 2,
         perPoolZat: [
-          { pool: "sapling", deltaZat: ZEC },
+          { pool: "sapling", deltaZat: -ZEC },
           { pool: "orchard", deltaZat: -ZEC },
         ],
       }),
     );
-    expect(built.entries[0]?.class).toBe("migration");
+    // No pool sourced the value - issuance did - so it is not a migration.
+    expect(built.entries[0]?.class).not.toBe("migration");
+    expect(built.summary.migrations).toBe(0);
+    // ...and whatever it is called, the caption does not assert a transparent
+    // side, because the class already refused one.
     expect(built.entries[0]?.flow).not.toContain("+ t");
+    expect(built.entries[0]?.flow).not.toBe("migration");
+    expect(built.entries[0]?.lanes).not.toContain("transparent");
 
-    // FAIL SIDE: an ORDINARY transparent input on the same shape is a real
-    // public side, so it is NOT a migration - the rule still discriminates.
-    const funded = view(
+    // FAIL SIDE: a GENUINE pool-to-pool crossing with no public side - one leg
+    // out of Orchard, one into Ironwood - is still a migration, so the extra
+    // conjuncts did not just switch the branch off.
+    const genuine = view(
       report({
-        txid: "ce", vin: 1, saplingSpends: 1, orchardActions: 2,
+        txid: "ce", orchardActions: 2, ironwoodActions: 2,
         perPoolZat: [
-          { pool: "sapling", deltaZat: ZEC },
-          { pool: "orchard", deltaZat: -ZEC },
+          { pool: "orchard", deltaZat: ZEC },
+          { pool: "ironwood", deltaZat: -ZEC },
         ],
       }),
     );
-    expect(funded.entries[0]?.class).not.toBe("migration");
+    expect(genuine.entries[0]?.class).toBe("migration");
+    expect(genuine.summary.migrations).toBe(1);
   });
 
   it("FAIL SIDE: an ORDINARY transparent input still makes it a shield", () => {
@@ -430,7 +447,7 @@ describe("mempoolRow class - a migration is a migration, whichever direction it 
   });
 
   it("a DEPOSIT with NO transparent input is not a shield, because there is no transparent side", () => {
-    // Assertion A9's rule on the row /track renders: a class naming the
+    // HANDOFF-06's assertion A9 on the row /track renders: a class naming the
     // transparent side requires one.
     const built = view(report({ txid: "d4", perPoolZat: [{ pool: "orchard", deltaZat: -ZEC }], orchardActions: 2 }));
     expect(built.entries[0]?.class).toBe("shielded");

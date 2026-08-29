@@ -384,11 +384,46 @@ describe("A6 - clustering: the Dec 2025 withdrawals are an exchange-withdrawal s
     expect(g.pChange).toBe(0);
     expect(g.reason).toContain("Roundness alone");
 
-    // ...and roundness is still a real predicate, used where it cannot invent a
-    // membership claim: the corpus's own 29,999.99 is not round, which is what
-    // keeps the one-fresh path off the wrong output on section 1.4's example.
+    // ...and roundness is still a real predicate. NOT on section 1.4's example,
+    // though: this comment said so and was wrong, because there the
+    // `backToSelf` branch returns before the one-fresh path is reached, as the
+    // sibling test above asserts by requiring "Section 1.4" in the reason. The
+    // predicate's live call site is the one-fresh path's address-less output.
     expect(isRoundAmount(zec("29999.99"))).toBe(false);
     expect(isRoundAmount(zec("1"))).toBe(true);
+  });
+
+  it("roundness decides for an output with NO decodable address, which is its live call site", () => {
+    // `isRoundAmount` is asserted as a pure predicate elsewhere, and gate round
+    // 3 showed that proved nothing about the branch: deleting the whole
+    // `!reused && !isRoundAmount(...)` condition left the suite green. The
+    // predicate has exactly one live call site - the one-fresh path, for an
+    // output the decoder could not resolve to an address, where "not fresh"
+    // does NOT entail reuse - and this is a test of that site rather than of
+    // the function.
+    const withOpReturn = (valueZat: bigint): ClusterTx => ({
+      txid: "opreturn",
+      vin: [{ address: "t1spender", coinbase: false, scriptType: "p2pkh" }],
+      vout: [
+        { index: 0, valueZat: zec("5"), addresses: ["t1neverseen"], scriptType: "pubkeyhash" },
+        { index: 1, valueZat, addresses: [], scriptType: "pubkeyhash" },
+      ],
+    });
+    const seen = new Set(["t1spender"]);
+
+    // A ROUND address-less output satisfies section 1.3's second conjunct, so
+    // the fresh output is named change.
+    const round = guessChange(withOpReturn(zec("12")), seen);
+    expect(isRoundAmount(zec("12"))).toBe(true);
+    expect(round.changeIndex).toBe(0);
+    expect(round.reason).toContain("round amount");
+
+    // FAIL SIDE: the same shape at a NON-round value fails the conjunct and the
+    // module abstains - which is the half that dies if the call site is deleted.
+    const notRound = guessChange(withOpReturn(zec("12.34")), seen);
+    expect(isRoundAmount(zec("12.34"))).toBe(false);
+    expect(notRound.changeIndex).toBeNull();
+    expect(notRound.reason).toContain("no decodable address");
   });
 
   it("a co-spend of ONE address with itself is not evidence of a cluster", () => {
@@ -801,7 +836,11 @@ describe("taint: three hops, a cut at 0.02, and a conserved residual", () => {
     // onward link" - about a measurement that did not happen, and a caller
     // asserting `accountedMass ~= startingMass` fails on an input the module
     // chose to refuse. `posterior.ts` fixes this shape in the same branch.
-    for (const bad of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    // 0 and -0 INCLUDED. The guard was `requestedMass !== startingMass`, and
+    // `-0 !== 0` is false, so a negative zero took the silent branch; at exactly
+    // 0 the four "0.0 per cent" figures printed with nothing saying nothing was
+    // measured. Both are cases the docblock already claimed to cover.
+    for (const bad of [-1, 0, -0, Number.NaN, Number.POSITIVE_INFINITY]) {
       const est = estimateTaint(hx(1), [edge(1, 2, 0.5)], { startingMass: bad });
       expect(est.accountedMass).toBe(0);
       expect(est.assumptions.join(" "), String(bad)).toContain("not a usable quantity");
@@ -1091,6 +1130,12 @@ describe("A9 - property: estimated exits never exceed the pool balance", () => {
     expect(violatesConservation(result.accepted, balance)).toBe(false);
     if (result.audit.filter !== "conservation") throw new Error("not a conservation record");
     expect(result.audit.params.rejectedForRivalWithdrawal).toBe(2);
+    // The PUBLISHED exit total, not just the returned one. `legacy/dashboard`
+    // renders this record, so a field on it that no test can distinguish from
+    // zero is a number nobody is checking.
+    expect(result.audit.params.exitZat).toBe(zec("100"));
+    // And the rejection carries the running total that actually refused it.
+    expect(result.rejected.every((r) => r.exitBeforeZat >= 0n)).toBe(true);
   });
 
   it("the law is bounded on EXITS, which is not the deposit side for an inexact match", () => {
@@ -1113,7 +1158,18 @@ describe("A9 - property: estimated exits never exceed the pool balance", () => {
     expect(sumClaimed(raw)).toBe(balance); // the deposit side fits exactly
     expect(raw[0]!.withdrawalAmountZat > balance).toBe(true); // the exits do not
     expect(violatesConservation(raw, balance)).toBe(true);
-    expect(enforceConservation(raw, balance).accepted).toEqual([]);
+    const refused = enforceConservation(raw, balance);
+    expect(refused.accepted).toEqual([]);
+    expect(refused.rejected).toHaveLength(1);
+    expect(refused.rejected[0]!.reason).toBe("exceeds_pool_balance");
+    // THE RECORD HAS TO EXPLAIN ITSELF. `claimedBeforeZat` is 0 and the deposit
+    // is exactly the balance, so the deposit-side numbers say this match should
+    // have been accepted; `exitBeforeZat` is the side that refused it, and
+    // without it on the record a reader cannot tell which rule fired.
+    expect(refused.rejected[0]!.claimedBeforeZat).toBe(0n);
+    expect(refused.rejected[0]!.exitBeforeZat).toBe(0n);
+    expect(raw[0]!.depositAmountZat).toBe(balance);
+    expect(raw[0]!.withdrawalAmountZat > balance).toBe(true);
   });
 
   it("the assignment keeps the BEST-evidenced claim, and the tightest residual breaks a grade tie", () => {
@@ -1155,6 +1211,41 @@ describe("A9 - property: estimated exits never exceed the pool balance", () => {
     const byResidual = enforceConservation([far, near], zec("30.001"));
     expect(byResidual.accepted).toHaveLength(1);
     expect(byResidual.accepted[0]!.depositTxids).toEqual(near.depositTxids);
+  });
+
+  it("two subsets of ONE withdrawal are ordered by the whole deposit set", () => {
+    // THE COMPARATOR KEY THAT SHIPPED UNVERIFIED, and the reason the property
+    // test cannot reach it: `matchEcho` runs the subset-sum search only when
+    // nothing else matched, `findSubsetSum` returns a single best subset, and
+    // there is one push under it - so one withdrawal never yields two
+    // SUBSET_SUM matches, and every other kind cites exactly one deposit.
+    // `depositTxids[0]` was therefore already total over anything the estimator
+    // can produce, and the comment claiming otherwise described a pair the
+    // estimator cannot make. The key still earns its place for hand-built and
+    // future input, but it has to be tested on hand-built input, which is what
+    // this does rather than pretending the property test covers it.
+    const base = matchEcho(
+      { txid: hx(900), amountZat: zec("30"), seenAt: 60_000, height: 2, pool: "orchard", address: null },
+      [{ txid: hx(1), amountZat: zec("30"), seenAt: 0, height: 1, pool: "orchard", address: null }],
+    )[0]!;
+    const a: EchoMatch = { ...base, kind: "SUBSET_SUM", depositTxids: [hx(1), hx(2)] };
+    const b: EchoMatch = { ...base, kind: "SUBSET_SUM", depositTxids: [hx(1), hx(3)] };
+    const shape = (r: ReturnType<typeof enforceConservation>) =>
+      r.accepted.map((m) => `${m.kind}:${m.depositTxids.join("+")}`).join();
+    expect(shape(enforceConservation([a, b], zec("30")))).toBe(
+      shape(enforceConservation([b, a], zec("30"))),
+    );
+
+    // THE TERMINAL KEY, which nothing the estimator produces can reach either.
+    // Two matches agreeing on grade, residual, withdrawal AND deposits can
+    // still differ in `kind` - not from `matchEcho`, whose kind partitions are
+    // disjoint per pair, but from any hand-built or future input. Without this
+    // pair the last tie-break is a line no test can exercise, which is how the
+    // three keys above came to be claimed as verified when they were not.
+    const sameDeposits: EchoMatch = { ...a, kind: "PARTIAL" };
+    expect(shape(enforceConservation([a, sameDeposits], zec("30")))).toBe(
+      shape(enforceConservation([sameDeposits, a], zec("30"))),
+    );
   });
 
   it("FAIL STATE: a conserving set passes through the sieve untouched", () => {

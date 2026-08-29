@@ -2887,3 +2887,68 @@ DEFERRED ASSUMPTIONS:
     `apps/gateway/src/address.ts`, which decodes it.
   - The standing `IRONWOOD_HEIGHTS_REST_ON_A_DRAFT_ZIP` exposure is unchanged.
 ```
+
+---
+
+## HANDOFF-08 ADDENDUM - gate round 3, found after PR #40 merged (29 Aug 2026)
+
+Round 3 reviewed `23257e4`, round 2's fix commit, and returned after PR
+[#40](https://github.com/aqua-019/ZCashReveal/pull/40) had been merged - so its findings were live
+on `main` and land as a second follow-up PR off `09b9e9c`. A merged PR is finished and cannot
+carry new work; this is a new change, not a reopening.
+
+```
+THIRTEEN FINDINGS, TWO HIGH, AND THE PATTERN HELD A THIRD TIME.
+
+ H1. THE LEGACY PANEL PUBLISHED "Nothing was refused" FOR A WINDOW IN WHICH TWO LINKS WERE.
+     Round 2 widened the `conservation` audit record with `rejectedForRivalWithdrawal` and did
+     not update its only renderer, which kept computing `dropped = rejectedForDoubleClaim +
+     rejectedForBalance`. Reproduced on round 2's own regression scenario: `countIn 3n`,
+     `countOut 1n`, `rejectedForRivalWithdrawal: 2`, and the panel printing "Nothing was
+     refused". Section 3.11's words are "rejected AND LOGGED"; this is the logging surface,
+     stating the opposite of what happened.
+
+     `assertNever` DID NOT CATCH IT BECAUSE THE UNION GAINED A FIELD, NOT A MEMBER. That is the
+     consumer-sweep lesson (LEDGER-06 Q3) in the one shape its guard misses, and it is worth
+     stating as its own rule: an exhaustiveness check protects the SET of variants and says
+     nothing about the SHAPE of one. Both sites now derive the count from `countIn - countOut`,
+     which cannot desync from the rejections it describes.
+
+ H2. THE "12 TIMES" CORRECTION LANDED IN ONE FILE OF THE TWO THE FINDING NAMED. Round 2's facts
+     lens reported it at `echo.ts:413` AND `GOLDEN.md:153`. The session fixed the first and left
+     the second, in the same commit whose message claims the sweep - so the tree carried both
+     numbers for one worked case. LEDGER-03 Q3 rates this HIGH. 6.25 is the ratio against the
+     k-scaled allowance; 12.5 against the unscaled constant.
+
+ THE FIX FOR ROUND 2's FINDING CREATED A NEW ONE, AGAIN. Excluding the coinbase vin from
+ `hasTransparentSource` made a branch live that had never been reachable: a ZIP 213 coinbase can
+ only pay INTO pools, so every leg is negative, and with two pools and no transparent output it
+ classified `migration` - `migrationFlowText` printing the literal caption "migration" for a
+ transaction that migrated nothing, counted into `summary.migrations`. A migration now requires a
+ pool SOURCE and a pool SINK. The test written for that alignment pinned an IMPOSSIBLE input (a
+ positive pool leg on a coinbase, i.e. a shielded spend inside issuance), so it passed for the
+ wrong reason and covered nothing.
+
+ WHAT THE THREE ROUNDS MEASURE, which is the part worth keeping. Round 1's fix introduced two
+ HIGHs; round 2's introduced two more. The reach did NOT decay the way LEDGER-07 Q6 predicts -
+ round 3's H1 is a false sentence rendered to a reader, which is as user-visible as this project
+ gets. What decayed was NOVELTY: both of round 3's HIGHs are the same two shapes as round 2's - a
+ widening whose consumer was not swept, and a correction that landed in one file of two. This
+ session committed those two shapes four times between them, after writing the rules against
+ both. That is not a reviewer-attention problem and another round budget will not fix it; the
+ shapes are mechanically detectable and the honest next step is a guard, not a rule:
+   - a `FilterApplication` variant's `params` gaining a field could fail a check that every
+     renderer of that variant reads every field, the way `check-pool-union.mjs` already refuses a
+     stale union;
+   - a gate finding that names two file:line sites could be required to close both, which is a
+     property of the finding rather than of the fixer.
+ Proposed to L2 as HANDOFF-13 material rather than taken here.
+
+ TWO EXTRAPOLATIONS, TWO UNDERESTIMATES. After round 1 this session predicted "one or two more,
+ of LOWER reach"; round 2 found four HIGHs. After round 2 it predicted "one or two more of round
+ 2's reach" and named the likeliest files; the files were right and the severity was understated
+ again. Both predictions were about commits this session had itself written. The honest statement
+ for a fourth round is not a number: this branch has never had a round come back empty, and no
+ round has yet been run whose fix was not itself found wanting. WHOEVER MERGES THIS SHOULD RUN A
+ FOURTH.
+```
