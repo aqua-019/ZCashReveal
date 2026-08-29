@@ -153,9 +153,13 @@ module says about everything.
 ### A5 — subset-sum
 
 Shields of 30,000 and 20,000 ZEC against an unshield of 49,999.98 ZEC. Residual
-0.02 ZEC, which is 4 × 10⁻⁷ relative and **twelve times** the absolute
-allowance — which is why `subsetSumTolerance` takes the looser of the absolute
-and relative rules rather than one of them.
+0.02 ZEC, which is 4 × 10⁻⁷ relative and **6.25 times** the absolute allowance
+at `k = 2` — 2,000,000 zat against 320,000. Twelve is the ratio against the
+*unscaled* `FEE_TOLERANCE_ZAT`, and the absolute term scales with `k`; the same
+error stood in `echo.ts` and was corrected there one gate round before it was
+corrected here, which is the split LEDGER-03 Q3 rates HIGH. Either way it is
+why `subsetSumTolerance` takes the looser of the absolute and relative rules
+rather than one of them.
 
 Graded `LOW` on loose timing and `MEDIUM` when the gap is under an hour **and**
 the split is two, per §3.4 — and, in this implementation, **and** the split is

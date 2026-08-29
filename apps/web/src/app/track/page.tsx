@@ -21,8 +21,10 @@ export const metadata: Metadata = {
  * affordance over a stated gap; this is the page behind it.
  *
  * The mempool is fetched on the server and passed to the client panel as its
- * initial state, so the table is twelve real rows in the HTML before any script
- * runs. The subscription upgrades that; it does not create it.
+ * initial state, so the table is every committed row in the HTML before any
+ * script runs - the count is the fixture's, not a number repeated here, because
+ * this sentence said twelve for two rows after the corpus reached fourteen, and
+ * was the THIRD site of that one stale number. The subscription upgrades that; it does not create it.
  */
 export default async function TrackPage() {
   const zec = api();

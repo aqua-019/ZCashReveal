@@ -271,7 +271,10 @@ function flowTextFor(klass: MempoolRow["class"], r: LeakReport): string {
     case "migration":
       return migrationFlowText(r.valueFlow.perPoolZat);
     case "mixed":
-      return mixedFlowText(r.valueFlow.perPoolZat);
+      return mixedFlowText(
+        r.valueFlow.perPoolZat,
+        r.transparent.vin.some((v) => !v.coinbase) || r.transparent.vout.length > 0,
+      );
     case "shielded":
       return "shielded";
     case "transparent":
@@ -310,9 +313,20 @@ function assertNeverClass(k: never): never {
  * moved in these pools and a transparent address stands in the transaction, and
  * what connects them is exactly what the shielded pool does not publish.
  */
-function mixedFlowText(deltas: ReadonlyArray<{ pool: ShieldedPool; deltaZat: bigint }>): string {
+function mixedFlowText(
+  deltas: ReadonlyArray<{ pool: ShieldedPool; deltaZat: bigint }>,
+  hasPublicSide: boolean,
+): string {
   const moved = deltas.filter((d) => d.deltaZat !== 0n).map((d) => poolInitial(d.pool));
-  return moved.length === 0 ? "t" : `${moved.join("/")} + t`;
+  if (moved.length === 0) return "t";
+  // THE "+ t" IS A CLAIM AND IS NOW CONDITIONAL ON THERE BEING ONE. It was
+  // appended unconditionally, which was true of every shape that reached
+  // `mixed` until the migration predicate learned that a coinbase is not a
+  // public source - after which a ZIP 213 coinbase into two pools lands here
+  // and would have printed "S/O + t" for a transaction whose only input is
+  // issuance. The class refuses a transparent side; the caption must not
+  // assert one three characters later.
+  return hasPublicSide ? `${moved.join("/")} + t` : moved.join("/");
 }
 
 function migrationFlowText(deltas: ReadonlyArray<{ pool: ShieldedPool; deltaZat: bigint }>): string {
@@ -525,8 +539,27 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
   // against exactly that. Both gate lenses found it independently.
   const hasTransparentSource = r.transparent.vin.some((v) => !v.coinbase);
 
+  // A MIGRATION NEEDS A SOURCE POOL **AND** A SINK POOL, and this condition
+  // learned that one gate round after it learned about coinbase inputs - which
+  // is the pattern this file keeps demonstrating: the fix for round N's defect
+  // was round N+1's.
+  //
+  // Excluding the coinbase vin from `hasTransparentSource` made a branch live
+  // that had never been reachable. A ZIP 213 coinbase can only pay INTO pools,
+  // so every pool leg is negative; with two pools and no transparent output it
+  // satisfied `movedPools.length > 1 && !hasTransparentSource`, classified
+  // `migration`, and `migrationFlowText`'s `from.length === 0` fallback printed
+  // the literal caption "migration" - the exact string `mixedFlowText`'s
+  // docblock rules out, for a transaction that migrated nothing. It also
+  // counted issuance into `summary.migrations`.
+  const hasPoolSource = r.valueFlow.perPoolZat.some((p) => p.deltaZat > 0n);
+  const hasPoolSink = r.valueFlow.perPoolZat.some((p) => p.deltaZat < 0n);
   const crossesWithNoPublicSide =
-    movedPools.length > 1 && !hasTransparentSource && r.transparent.vout.length === 0;
+    movedPools.length > 1 &&
+    hasPoolSource &&
+    hasPoolSink &&
+    !hasTransparentSource &&
+    r.transparent.vout.length === 0;
 
   const klass: MempoolRow["class"] =
     crossesWithNoPublicSide

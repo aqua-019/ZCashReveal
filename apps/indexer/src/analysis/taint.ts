@@ -276,7 +276,13 @@ export function estimateTaint(
   // assert `accountedMass ~= startingMass` fails on an input this module chose
   // to refuse with nothing saying why. `posterior.ts` fixes exactly this shape
   // in the same branch; this module did not get the sweep until gate round 2.
-  const refused = requestedMass !== startingMass;
+  // THE CLAMP'S OWN CONDITION, NOT AN EQUALITY ON ITS RESULT. `-0 !== 0` is
+  // false in JavaScript, so a negative zero - which the clamp does refuse - took
+  // the silent branch; and a requested mass of exactly 0 printed the same four
+  // "0.0 per cent" figures the sentence exists to prevent, with nothing saying
+  // nothing was measured. Both are cases the docblock above already claimed to
+  // cover.
+  const refused = !(Number.isFinite(requestedMass) && requestedMass > 0);
   const assumptions = [
     ...(refused
       ? [

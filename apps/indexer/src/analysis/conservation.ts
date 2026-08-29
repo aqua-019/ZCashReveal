@@ -82,8 +82,21 @@ export type ConservationRejection =
 export interface RejectedMatch {
   readonly match: EchoMatch;
   readonly reason: ConservationRejection;
-  /** The running claimed total at the moment it was refused. */
+  /** The running claimed (DEPOSIT-side) total at the moment it was refused. */
   readonly claimedBeforeZat: Zatoshi;
+  /**
+   * The running EXIT total at the moment it was refused - the quantity section
+   * 3.11 actually bounds.
+   *
+   * WITHOUT IT AN EXIT-SIDE REFUSAL RECORDS A NUMBER SAYING IT SHOULD HAVE BEEN
+   * ACCEPTED. A 100 ZEC deposit matched to a 100.009 ZEC withdrawal against a
+   * 100 ZEC pool is refused on the exit side, and the record read
+   * `claimedBefore = 0` against a 100 ZEC balance and a 100 ZEC deposit: nothing
+   * in it explained the rejection, because the quantity that caused it was never
+   * written down. An audit record that cannot explain its own reason is the
+   * shape section 3.11's "rejected AND LOGGED" exists to prevent.
+   */
+  readonly exitBeforeZat: Zatoshi;
 }
 
 export interface ConservationResult {
@@ -132,6 +145,23 @@ const GRADE_ORDER: Readonly<Record<EchoGrade, number>> = { HIGH: 0, MEDIUM: 1, L
  * REFUSE claims, and a rule a reader can follow in one sentence is worth more
  * here than one that finds two extra links by an argument nobody will check.
  *
+ * ONE POOL PER CALL: THE CALLER MUST PARTITION THE INPUT, and nothing in this
+ * signature enforces it. Section 3.11 quantifies over "every pool AND window",
+ * `poolBalanceZat` is one pool's balance, and `EchoMatch` carries no pool at
+ * all - so a caller that mixes pools makes BOTH one-to-one rules conflate a
+ * transaction with itself. `echo.ts`'s subset-sum guard records exactly why:
+ * "one transaction contributes one `BoundaryEvent` PER POOL it moved", so a
+ * transaction deshielding Sapling and Orchard is two exits sharing one txid,
+ * and this sieve would refuse the second as a rival explanation of the first.
+ * Verified: a 10 ZEC Sapling exit and a 20 ZEC Orchard exit under one txid come
+ * back as one accepted match and one `withdrawal_already_explained`.
+ *
+ * The stronger fix is to carry `pool` on `EchoMatch` and key both sets on
+ * `pool:txid`. It is not taken here because it widens the estimator's public
+ * type and no assertion in this handoff covers it; it is section 8's Q7(a) and
+ * is HANDOFF-09's to rule on. Until then this contract is the guard, and it is
+ * stated where a caller will read it rather than in a ledger nobody imports.
+ *
  * Pure. No I/O, no clock, no mutation of the input array.
  */
 export function enforceConservation(
@@ -164,7 +194,7 @@ export function enforceConservation(
 
   for (const m of ordered) {
     if (m.depositTxids.some((d) => claimedDeposits.has(d))) {
-      rejected.push({ match: m, reason: "deposit_already_claimed", claimedBeforeZat: claimedZat });
+      rejected.push({ match: m, reason: "deposit_already_claimed", claimedBeforeZat: claimedZat, exitBeforeZat: exitZat });
       continue;
     }
     if (explainedWithdrawals.has(m.withdrawalTxid)) {
@@ -172,6 +202,7 @@ export function enforceConservation(
         match: m,
         reason: "withdrawal_already_explained",
         claimedBeforeZat: claimedZat,
+        exitBeforeZat: exitZat,
       });
       continue;
     }
@@ -181,7 +212,7 @@ export function enforceConservation(
       claimedZat + m.depositAmountZat > poolBalanceZat ||
       exitZat + m.withdrawalAmountZat > poolBalanceZat
     ) {
-      rejected.push({ match: m, reason: "exceeds_pool_balance", claimedBeforeZat: claimedZat });
+      rejected.push({ match: m, reason: "exceeds_pool_balance", claimedBeforeZat: claimedZat, exitBeforeZat: exitZat });
       continue;
     }
     for (const d of m.depositTxids) claimedDeposits.add(d);

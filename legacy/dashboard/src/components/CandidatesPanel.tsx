@@ -277,7 +277,13 @@ function filterParams(f: FilterApplication): string {
     case "conservation": {
       const claimed = Number(f.params.claimedZat) / 100_000_000;
       const balance = Number(f.params.poolBalanceZat) / 100_000_000;
-      const dropped = f.params.rejectedForDoubleClaim + f.params.rejectedForBalance;
+      // FROM THE RECORD'S OWN COUNTS, NOT FROM A HAND-ADDED LIST OF REASONS.
+      // This summed `rejectedForDoubleClaim + rejectedForBalance`, and when the
+      // sieve gained a third reason it kept summing two - so a window in which
+      // two matches were refused rendered "0 matches refused" while `countIn`
+      // and `countOut` on the same record said 3 and 1. `assertNever` could not
+      // catch it because the union gained a FIELD, not a member.
+      const dropped = Number(f.countIn - f.countOut);
       return `${claimed.toFixed(4)} of ${balance.toFixed(4)} ZEC claimed · ${dropped} match${dropped === 1 ? "" : "es"} refused`;
     }
     default:
@@ -315,10 +321,15 @@ function assumptionGloss(f: FilterApplication): string {
       // Assumes NOTHING extra - this step only ever removes claims. TRACKING-MATH
       // section 3.11's law: a note is spent once, and the estimator may not
       // attribute more value out of a pool than the pool held.
-      const dropped = f.params.rejectedForDoubleClaim + f.params.rejectedForBalance;
+      // SAME DERIVATION, SAME REASON. Section 3.11 says a violating output is
+      // "rejected AND LOGGED", and this is the logging surface: it printed
+      // "Nothing was refused" for a window in which two links were, which is a
+      // false statement about the estimator on the page that exists to explain
+      // the estimator.
+      const dropped = Number(f.countIn - f.countOut);
       return dropped === 0
         ? "Turnstile conservation: every surviving link is consistent with the pool balance and with each note being spent once. Nothing was refused."
-        : `Turnstile conservation refused ${dropped} link${dropped === 1 ? "" : "s"}: ${f.params.rejectedForDoubleClaim} claimed a note another link had already claimed, ${f.params.rejectedForBalance} would have attributed more value out of the pool than it held. A refusal means this build's heuristics were wrong, never that the chain was.`;
+        : `Turnstile conservation refused ${dropped} link${dropped === 1 ? "" : "s"}: ${f.params.rejectedForDoubleClaim} claimed a note another link had already claimed, ${f.params.rejectedForRivalWithdrawal} explained a withdrawal another link had already explained, ${f.params.rejectedForBalance} would have attributed more value out of the pool than it held. A refusal means this build's heuristics were wrong, never that the chain was.`;
     }
     default:
       return assertNever(f);
