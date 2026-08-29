@@ -70,19 +70,45 @@ const A6_REQUIRED = [
   { topic: "wipe and resync", re: /docker\s+volume\s+rm\s+\S*zebrad-data/ },
   { topic: "backup", re: /pg_dump/ },
   { topic: "restore", re: /pg_restore/ },
-  { topic: "migrations", re: /migrate/ },
+  // AN INVOCATION, NOT THE WORD. `/migrate/` was the one row in this table a
+  // SENTENCE could satisfy - "you must migrate the database first" carries no
+  // command and closed the topic. What is behind this row is section 4, which
+  // is where "MIGRATIONS 003 AND 004 HAVE NEVER BEEN APPLIED TO THE VPS
+  // DATABASE" lives together with the warning that 003 is the first migration
+  // here that ALTERs objects it did not create and REWRITES existing rows.
+  // That paragraph is the thing the operator most needs and the loose pattern
+  // would not have noticed it leaving.
+  //
+  // Both real invocations are accepted, because the runbook uses each in a
+  // different place: the container form in sections 2.2, 4 and 8, and the
+  // workspace form for a host-run migration on the dev box.
+  {
+    topic: "migrations",
+    re: /docker\s+compose\s+run\s+[^\n]*indexer\s+node\s+dist\/migrate|pnpm\s+--filter\s+@zcashreveal\/indexer\s+migrate/,
+  },
   { topic: "upgrade", re: /docker\s+compose\s+pull\s+zebrad/ },
   { topic: "tunnel create", re: /cloudflared\s+tunnel\s+create\s+\S+/ },
   { topic: "tunnel route", re: /cloudflared\s+tunnel\s+route\s+dns\s+\S+/ },
   { topic: "tunnel run", re: /docker\s+compose\s+up\s+-d\s+cloudflared|cloudflared\s+tunnel\s+run/ },
   { topic: "tunnel ingress to gateway:8080", re: /service:\s*http:\/\/gateway:8080/ },
-  { topic: "snapshot age alert", re: /-gt\s+20|20\s+blocks/ },
+  // THE `20\s+blocks` ALTERNATIVE IS GONE, and it was the same defect as the
+  // migrations row above: section 7 opens "Alert when the published snapshot
+  // is more than 20 blocks behind the chain tip", which satisfied the row on
+  // its own. Deleting the shell test underneath it would have left the topic
+  // green. `-gt 20 ]` closes a POSIX test and cannot occur in a sentence.
+  { topic: "snapshot age alert", re: /-gt\s+20\s*\]/ },
   // Escaped as `\"method\":\"getblock\"` inside a shell double-quoted string in
   // the runbook, so the pattern must tolerate the backslashes. The first draft
   // did not and the PASS side caught it, which is what the self-test pair below
   // now pins.
   { topic: "fixture capture", re: /method\\?":\s*\\?"getblock/ },
-  { topic: "node subversion recorded", re: /subversion/ },
+  // Third row of the same shape: the fixture table's own column heading is
+  // literally `subversion`, so the row was closed by the heading of the table
+  // it was meant to prove gets FILLED. Both extraction shapes are accepted -
+  // the bracket-quoted JSON key the runbook uses today, and a jq path - so
+  // that rewriting the command is not a false alarm while deleting it is a
+  // real one.
+  { topic: "node subversion recorded", re: /\[\s*["']subversion["']\s*\]|\.result\.subversion/ },
 ];
 
 /** Every name read from `process.env` under a directory tree. */
@@ -152,6 +178,14 @@ function selfTest() {
     ["fixture capture", '-d "{\\"jsonrpc\\":\\"2.0\\",\\"method\\":\\"getblock\\",\\"params\\":[\\"$HEIGHT\\",2]}"'],
     // And unescaped, which is how it would appear in a plain JSON example.
     ["fixture capture", '{"method":"getblock","params":["3430000",2]}'],
+    // The three rows tightened after F-43-1. Each real invocation the runbook
+    // actually carries, so that tightening the pattern cannot quietly stop
+    // recognising the command it was tightened to require.
+    ["migrations", "docker compose run --rm indexer node dist/migrate.js"],
+    ["migrations", "pnpm --filter @zcashreveal/indexer migrate"],
+    ["snapshot age alert", '[ $((TIP - INDEXED)) -gt 20 ] && echo "ALERT: the indexer is behind the node"'],
+    ["node subversion recorded", `python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["subversion"])'`],
+    ["node subversion recorded", "jq -r .result.subversion"],
   ];
   for (const [topic, line] of shouldMatch) {
     const entry = A6_REQUIRED.find((e) => e.topic === topic);
@@ -164,6 +198,19 @@ function selfTest() {
     ["tunnel create", "Create the tunnel in the Cloudflare dashboard."],
     ["upgrade", "Upgrading Zebra is safe within one major version."],
     ["fixture capture", "Capture a mainnet block with getblock at verbosity 2."],
+    // F-43-1 AND THE TWO ROWS OF ITS SHAPE THE FINDING DID NOT NAME. Each of
+    // these sentences closed its topic before the patterns above were
+    // tightened, which means the runbook could have lost the command and
+    // stayed green.
+    //
+    // L2 reported the migrations case with a worked example that does not
+    // reproduce it - the backup fixture two entries above, "Take a backup
+    // before migrating", does NOT contain "migrate" - so the sentence pinned
+    // here is one that really did satisfy `/migrate/`. The finding was right
+    // and its example was not; see HANDOFF-10 section 7.
+    ["migrations", "You must migrate the database before starting the indexer."],
+    ["snapshot age alert", "Alert when the published snapshot is more than 20 blocks behind the chain tip."],
+    ["node subversion recorded", "| Height | Block hash | `subversion` observed | `vjoinsplit` present |"],
   ];
   for (const [topic, line] of shouldNotMatch) {
     const entry = A6_REQUIRED.find((e) => e.topic === topic);
