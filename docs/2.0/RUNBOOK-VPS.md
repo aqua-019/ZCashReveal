@@ -45,13 +45,33 @@ cp .env.example .env
 
 # Fill in the four variables that have no default. The stack REFUSES TO START
 # without them rather than defaulting to something wrong in production:
-#   POSTGRES_PASSWORD        openssl rand -base64 32
-#   GATEWAY_CORS_ORIGIN      the Vercel origin, e.g. https://zecreveal.vercel.app
-#   GATEWAY_TRUSTED_PROXIES  see section 6, after the tunnel is up
-#   TUNNEL_TOKEN             see section 6
+#   POSTGRES_PASSWORD   openssl rand -hex 32
+#                       HEX, NOT base64. The password is interpolated into a
+#                       DATABASE_URL, and base64's +, / and = are reserved in a
+#                       URL userinfo field - a generated password containing one
+#                       makes every Node service fail to parse its own
+#                       connection string, intermittently, depending on which
+#                       characters that run happened to produce. Hex has no
+#                       reserved characters and 32 bytes is the same entropy.
+#   GATEWAY_CORS_ORIGIN the Vercel origin, e.g. https://zecreveal.vercel.app
+#                       The value shipped in .env.example is a v0.2 localhost
+#                       origin; it must be replaced, not kept.
+#   TUNNEL_TOKEN        section 2 creates the tunnel and prints it
 ${EDITOR:-nano} .env
 chmod 600 .env
 ```
+
+> **THE THREE REQUIRED VARIABLES MUST ALL BE SET BEFORE THE FIRST COMPOSE
+> COMMAND, INCLUDING `config`.** Compose interpolates the entire file before it
+> decides what to start, so a missing `TUNNEL_TOKEN` fails `docker compose config`
+> and even `docker compose up -d zebrad`, which touch no tunnel at all. That is
+> why section 2 below creates the tunnel FIRST and syncs second: the first draft
+> of this runbook deferred the token to section 6 and was circular, and the gate
+> caught it.
+>
+> `GATEWAY_TRUSTED_PROXIES` is deliberately NOT required - it defaults to the
+> RFC 1918 block Docker allocates compose networks from, which is correct for
+> this topology and knowable before anything runs. Section 6.1 narrows it.
 
 Confirm the stack parses before starting anything:
 
@@ -61,7 +81,37 @@ docker compose -f docker-compose.yml config >/dev/null && echo "compose OK"
 
 ---
 
-## 2. First sync
+## 2. The tunnel, then the first sync
+
+### 2.0 Create the tunnel first
+
+It comes first because of the interpolation rule above, not because the tunnel is
+urgent - nothing serves traffic for days yet. Full ingress and hardening are in
+section 6.
+
+```bash
+# cloudflared is not installed by section 1. On Debian/Ubuntu:
+curl -fsSL https://pkg.cloudflare.com/cloudflare-main.gpg \
+  | sudo tee /usr/share/keyrings/cloudflare-main.gpg >/dev/null
+echo "deb [signed-by=/usr/share/keyrings/cloudflare-main.gpg] https://pkg.cloudflare.com/cloudflared any main" \
+  | sudo tee /etc/apt/sources.list.d/cloudflared.list
+sudo apt-get update && sudo apt-get install -y cloudflared
+
+cloudflared tunnel login
+cloudflared tunnel create zecreveal-gateway
+cloudflared tunnel token zecreveal-gateway   # paste into .env as TUNNEL_TOKEN
+```
+
+### 2.1 Build the images
+
+Nothing pulls these - they are built from this repository, and no step before
+this one builds them.
+
+```bash
+docker compose build indexer gateway
+```
+
+### 2.2 First sync
 
 Zebra syncs mainnet from scratch. **Expect two to four days** on the sizing
 above, and expect it to be the longest step by an order of magnitude.
@@ -103,7 +153,9 @@ When `/ready` answers, bring up the rest:
 docker compose up -d postgres redis
 docker compose run --rm indexer node dist/migrate.js   # or see section 4
 docker compose up -d indexer gateway
-docker compose ps           # every service should read (healthy)
+# The five services started so far. `cloudflared` is section 6 and `publisher`
+# is behind a profile until HANDOFF-09 ships, so neither appears here.
+docker compose ps zebrad postgres redis indexer gateway
 ```
 
 ---
@@ -112,12 +164,19 @@ docker compose ps           # every service should read (healthy)
 
 `ZEBRAD_ZMQ_URL` is set, `docker-compose.yml` passes it, and **it does nothing.**
 
-Zebra has no ZMQ. Not disabled, not unconfigured - the feature does not exist at
-any version, in any section of `ZebradConfig`. ZMQ was zcashd's mechanism.
+Zebrad exposes no ZMQ socket. Not disabled, not unconfigured - there is no zmq
+section in `ZebradConfig` at any version. ZMQ was zcashd's mechanism.
+
+(Precisely: Zebra 6.x can supervise a **zcashd sidecar** under `[zcashd_compat]`,
+and that zcashd does speak ZMQ. This stack does not run it - the setting is
+absent from `infra/zebrad/zebrad.toml` and the indexer points `ZEBRAD_ZMQ_URL` at
+the `zebrad` service - so nothing below changes. The distinction is recorded
+because the first draft said "Zebra has no ZMQ at any version", which is a
+stronger claim than the evidence supports.)
 `apps/indexer/src/index.ts` constructs a subscriber, fails to connect, logs
 
 ```
-zmq unavailable - falling back to polling only
+zmq unavailable — falling back to polling only
 ```
 
 once at WARN, and then polls every `INDEXER_POLL_INTERVAL_MS` forever. That is
@@ -197,10 +256,13 @@ docker compose exec -T postgres \
   pg_dump -U zcashreveal --format=custom zcashreveal \
   > /var/backups/zecreveal-$(date +%F).dump
 
-# Restore into an empty database.
+# Restore. STOP THE WRITERS FIRST - `--clean` drops objects the indexer and the
+# gateway hold open, and a restore racing a live writer half-succeeds.
+docker compose stop indexer gateway
 docker compose exec -T postgres \
   pg_restore -U zcashreveal --dbname=zcashreveal --clean --if-exists \
   < /var/backups/zecreveal-2026-08-29.dump
+docker compose up -d indexer gateway
 ```
 
 Keep at least the last seven, off the box. A backup on the same NVMe as the
@@ -240,10 +302,15 @@ rotates on restart), and it is safe solely because nothing outside the compose
 network can reach it. Exposing it through the tunnel would hand the node's full
 RPC surface to the internet.
 
-Configure ingress in the Cloudflare dashboard for this tunnel, or in a config
-file:
+**Configure ingress in the Cloudflare dashboard**, under this tunnel's public
+hostnames. The YAML below is what that configuration is equivalent to, and is
+shown so the intent is unambiguous - it is NOT a file this stack reads. A
+token-run tunnel (`TUNNEL_TOKEN`, which is how the compose service runs) takes
+its ingress from Cloudflare, not from a local config file, so dropping this into
+`/etc/cloudflared/` would have no effect and would look like it had one.
 
 ```yaml
+# Equivalent to the dashboard configuration. Not read by this stack.
 ingress:
   - hostname: api.zecreveal.example
     service: http://gateway:8080
@@ -321,6 +388,19 @@ At roughly 75 seconds per block that is about 25 minutes of staleness, which is
 long enough not to page on a slow block and short enough that nobody reads an
 hour-old number believing it is live.
 
+**THE READER-SIDE VERSION OF THIS ALERT CANNOT BE WRITTEN YET, AND SAYING SO IS
+THE POINT.** The right measurement is the height the public site is serving,
+because a publisher that believes it is publishing and a store that is not
+receiving look identical from the box. But `/api/pools` answers **503** today -
+deliberately, naming the handoffs that owe it data rather than fabricating any -
+and there is no published snapshot to read until HANDOFF-09 ships the publisher.
+An alert written against a field that does not exist would fire on day one,
+every day, and be muted within a week. The first draft of this runbook had
+exactly that, and the gate caught it.
+
+Until the publisher ships, measure the INDEXER's progress against the node,
+which is real today and is the same question one hop earlier:
+
 ```bash
 # Chain tip according to the node.
 TIP=$(docker compose exec -T zebrad curl -s http://127.0.0.1:8232 \
@@ -328,17 +408,19 @@ TIP=$(docker compose exec -T zebrad curl -s http://127.0.0.1:8232 \
   -d '{"jsonrpc":"2.0","id":1,"method":"getblockcount","params":[]}' \
   | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"])')
 
-# Height the gateway is serving.
-SERVED=$(curl -s https://api.zecreveal.example/api/pools \
-  | python3 -c 'import sys,json; print(json.load(sys.stdin).get("height", 0))')
+# Highest block the indexer has committed.
+INDEXED=$(docker compose exec -T postgres \
+  psql -U zcashreveal -tAc "SELECT COALESCE(MAX(height), 0) FROM pool_boundary_flows;")
 
-echo "tip=$TIP served=$SERVED lag=$((TIP - SERVED))"
-[ $((TIP - SERVED)) -gt 20 ] && echo "ALERT: snapshot is stale"
+echo "tip=$TIP indexed=$INDEXED lag=$((TIP - INDEXED))"
+[ $((TIP - INDEXED)) -gt 20 ] && echo "ALERT: the indexer is behind the node"
 ```
 
-Measure it from the **reader's** side, as above, rather than from the publisher's.
-A publisher that thinks it is publishing and a store that is not receiving look
-identical from the box, and the reader is the only place the difference shows.
+**WHEN HANDOFF-09 SHIPS THE PUBLISHER, MOVE THIS TO THE READER'S SIDE** - poll
+the public site for the snapshot's height and compare that with the node - and
+delete the version above. The one-hop-earlier measurement cannot see a publisher
+that has stopped writing, which is the failure the reader-side one exists to
+catch.
 
 Container health is the cheap complement:
 
@@ -390,12 +472,17 @@ no failing test.
 For a corrupted state directory, an unsupported downgrade, or a major upgrade.
 
 ```bash
-# Stop the node and everything that reads it.
+# Stop AND REMOVE the containers that reference the volume. `stop` alone is not
+# enough: a stopped container still holds a reference and `docker volume rm`
+# fails with "volume is in use".
 docker compose stop indexer gateway zebrad
+docker compose rm -f zebrad
 
 # Remove ONLY the Zebra state volume. Naming it explicitly matters: `down -v`
 # would take Postgres and Redis with it, and the indexer's analysis history is
 # the one thing on this box that cannot be rebuilt from the network.
+# The name carries the compose project prefix, which is `zecreveal` (the `name:`
+# key at the top of docker-compose.yml), not the directory name.
 docker volume rm zecreveal_zebrad-data
 
 docker compose up -d zebrad
@@ -421,7 +508,15 @@ docker compose exec -T zebrad curl -s http://127.0.0.1:8232 \
   -H 'content-type: application/json' \
   -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getblock\",\"params\":[\"$HEIGHT\",2]}" \
   | python3 -c 'import sys,json; json.dump(json.load(sys.stdin)["result"], sys.stdout)' \
-  > apps/indexer/test/fixtures/blocks/mainnet-$HEIGHT-<shorthash>.json
+  > "apps/indexer/test/fixtures/blocks/mainnet-$HEIGHT-$SHORT.json"
+
+# SHORT is the first six hex characters of the block hash. Set it before the
+# command above; an unquoted <shorthash> placeholder is parsed by the shell as a
+# redirection and the capture fails with a syntax error rather than a hint.
+#   SHORT=$(docker compose exec -T zebrad curl -s http://127.0.0.1:8232 \
+#     -H 'content-type: application/json' \
+#     -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getblockhash\",\"params\":[$HEIGHT]}" \
+#     | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"][:6])')
 ```
 
 Selection criteria are in `apps/indexer/test/fixtures/blocks/README.md` and are
@@ -453,6 +548,32 @@ The `vjoinsplit` column is deliverable 2b and is the point of the exercise:
 `packages/zebra-rpc/src/sprout-field.ts` reports the field's absence as
 INDETERMINATE rather than as zero, and this table is where "indeterminate"
 becomes "observed".
+
+---
+
+## 10a. Deploying a code change
+
+Nothing here auto-updates. A `git pull` alone changes no running container,
+and neither says so - the stack keeps serving the old image and looks healthy.
+
+```bash
+cd /opt/zecreveal
+git pull
+
+# Rebuild only what changed. `up -d` then recreates the containers whose image
+# moved and leaves the rest alone.
+docker compose build indexer gateway
+docker compose up -d indexer gateway
+
+# If the pull brought new migrations, apply them BEFORE the new code runs
+# against the old schema - see section 4.
+docker compose run --rm indexer node dist/migrate.js
+
+docker compose ps zebrad postgres redis indexer gateway
+```
+
+Zebra is not rebuilt by this: it is a pinned upstream image and its upgrade path
+is section 8.
 
 ---
 

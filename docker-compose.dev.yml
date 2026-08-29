@@ -55,17 +55,20 @@ services:
       # this box the variable is not optional.
       - "127.0.0.1:5433:5432"
     environment:
-      # Dev defaults, as INTERPOLATIONS with fallbacks rather than as literals.
-      # The first draft of this file wrote them out in full, reasoning that a
-      # loopback-bound throwaway database holds nothing worth protecting - and
-      # A5's guard flagged it, correctly. The assertion covers `docker-compose*.yml`,
-      # both files, and it is right to: a literal password in the dev file is the
-      # template somebody copies into the production one, and the habit is the
-      # risk rather than this particular value. `:-` supplies the same
-      # convenience without writing a secret-shaped literal into git.
-      POSTGRES_USER: ${POSTGRES_USER:-zcashreveal}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zcashreveal}
-      POSTGRES_DB: ${POSTGRES_DB:-zcashreveal}
+      # NO PASSWORD OVERRIDE HERE, and the two earlier attempts are worth
+      # recording because both were wrong in instructive ways.
+      #
+      # The first draft wrote the dev credentials out in full, reasoning that a
+      # loopback throwaway database holds nothing. A5 flagged it. The second
+      # wrote `${POSTGRES_PASSWORD:-zcashreveal}`, which satisfied A5 - and only
+      # because A5 could not yet see inside an interpolation default. The first
+      # gate round fixed that blindness, and the same line was flagged again,
+      # correctly: a default IS a committed literal, and a weak known password in
+      # the dev file is the template somebody copies into the production one.
+      #
+      # So the base file's `${POSTGRES_PASSWORD:?...}` applies here unchanged and
+      # a dev box sets POSTGRES_PASSWORD in .env exactly as the VPS does. USER and
+      # DB are not secrets and keep their convenience defaults from the base file.
 
   redis:
     ports:

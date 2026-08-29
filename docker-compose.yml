@@ -169,12 +169,12 @@ services:
         condition: service_healthy
     environment:
       ZEBRAD_RPC_URL: http://zebrad:8232
-      # Present but inert against Zebra, which has no ZMQ at any version. The
-      # indexer logs `zmq unavailable - falling back to polling only` once at
-      # boot and then polls forever. Documented at length in
-      # infra/zebrad/zebrad.toml under [notify] and in RUNBOOK-VPS.md, because a
-      # single WARN line at startup is not where an operator should have to
-      # learn how their system actually works.
+      # Present but INERT: zebrad exposes no ZMQ socket, so nothing is listening
+      # on this address. The indexer logs `zmq unavailable - falling back to
+      # polling only` once at boot and then polls forever. Documented at length
+      # in infra/zebrad/zebrad.toml under [notify] and in RUNBOOK-VPS.md section
+      # 3, because a single WARN line at startup is not where an operator should
+      # have to learn how their system actually works.
       ZEBRAD_ZMQ_URL: ${ZEBRAD_ZMQ_URL:-tcp://zebrad:28332}
       DATABASE_URL: postgres://${POSTGRES_USER:-zcashreveal}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-zcashreveal}
       REDIS_URL: redis://redis:6379
@@ -215,10 +215,20 @@ services:
       # Empty is the safe default everywhere else and the WRONG one here: with it
       # empty every request appears to come from cloudflared's address and all
       # readers share one bucket, and with blanket trust any caller could forge
-      # x-forwarded-for and escape the limit entirely. The correct value is the
-      # tunnel container's address on this network; RUNBOOK-VPS.md carries the
-      # command that reads it.
-      GATEWAY_TRUSTED_PROXIES: ${GATEWAY_TRUSTED_PROXIES:?set GATEWAY_TRUSTED_PROXIES in .env - see RUNBOOK-VPS.md}
+      # x-forwarded-for and escape the limit entirely.
+      #
+      # THIS WAS `${VAR:?}` AND HAD TO STOP BEING, because it made the runbook
+      # circular and the first gate round caught it. Compose interpolates the
+      # WHOLE file before deciding what to start, so a required variable here
+      # made even `docker compose config` and `up -d zebrad` fail - while the
+      # only correct value, the tunnel container's address, cannot be read until
+      # that container exists, which cannot happen until compose runs.
+      #
+      # The default is the RFC 1918 block Docker allocates compose networks from.
+      # It is narrower than blanket trust, covers the tunnel and nothing off the
+      # box, and is knowable before anything starts. RUNBOOK-VPS.md section 6.1
+      # narrows it to the exact address once the network exists.
+      GATEWAY_TRUSTED_PROXIES: ${GATEWAY_TRUSTED_PROXIES:-172.16.0.0/12}
       GATEWAY_ADDRESS_CACHE_TTL_S: ${GATEWAY_ADDRESS_CACHE_TTL_S:-60}
       GATEWAY_TX_CACHE_TTL_S: ${GATEWAY_TX_CACHE_TTL_S:-3600}
       GATEWAY_ADDRESS_TX_LIMIT: ${GATEWAY_ADDRESS_TX_LIMIT:-50}

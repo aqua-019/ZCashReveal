@@ -114,16 +114,316 @@ Production infrastructure as files: a compose stack for a Linux VPS (Zebra 6.2.x
 ## §7 REPORT — written by L3 before the PR opens (docs-scribe keeps it)
 
 ```
-STATUS: DONE | DONE-WITH-ASSUMPTIONS | BLOCKED | OUT-OF-DEPTH | NOT CONVERGING
-BRANCH / PR:
+STATUS: DONE-WITH-ASSUMPTIONS
+
+  Every deliverable is complete as files except deliverable 2 (the captured mainnet
+  block fixture), which is BLOCKED on hardware no session can reach, and A2/A9,
+  which depend on it or on Docker image pulls this container's egress policy
+  refuses. Both are reported with executed transcripts of the refusal rather than
+  as omissions. Nothing was narrowed to make the gate pass.
+
+BRANCH / PR: claude/handoff-08-completion-wngbjj -> PR (this one). Base 4386e98.
+  The branch name is the harness's and names HANDOFF-08; it is this session's
+  designated branch and the work on it is HANDOFF-10's. LOG.md and LEDGER.md key
+  on the PR TITLE, which begins `HANDOFF-10:`, exactly for this reason.
+
 DIRECTORS SPAWNED (lead names each + spawn mode proven):
+  SPAWN MODE: PROVEN, by tool attempt, before any work. The `Agent` tool spawned an
+  `Explore` subagent which ran and returned a full survey of the infra surface; the
+  `Workflow` tool spawned a four-lens review with per-finding verifiers. Subagent
+  fan-out is available in this session.
+
+  The lead built the infrastructure directly rather than dispatching a
+  director-build. §6 suggests `backend-api` (Haiku) writing compose from a
+  `chain-integrator` spec. That routing assumes the spec is the hard part, and here
+  it was not: four of this handoff's load-bearing facts CONTRADICT the spec (see
+  ASSUMPTIONS), and each was found by reading Zebra's source rather than by writing
+  YAML. Fan-out was spent where this project's own evidence says it pays - one gate
+  round, four lenses, three adversarial verifiers per finding - plus the read-only
+  Explore survey at the start.
+
+  POST-FAN-OUT SWEEP, per CLAUDE.md, after each of the two fan-outs and before the
+  next commit: `git status --porcelain` returned EMPTY after the Explore survey. It
+  is stated again in GATE ROUNDS for the review fan-out. No worker wrote to the tree.
+
 FILES (created / modified / moved):
-EVIDENCE (per §5 assertion: pass transcript + fail transcript, provenance Executed/Read/UNVERIFIED):
-ASSUMPTIONS (each: ACCEPTED / CORRECTED / DEFERRED — reason):
+  Created (16):
+    .dockerignore
+    docker-compose.dev.yml
+    apps/indexer/Dockerfile              apps/indexer/docker-healthcheck.mjs
+    apps/gateway/Dockerfile              apps/gateway/docker-healthcheck.mjs
+    apps/publisher/Dockerfile            apps/publisher/docker-healthcheck.mjs
+    infra/cloudflared/Dockerfile
+    apps/indexer/test/global-setup.ts
+    .github/workflows/e2e.yml
+    docs/2.0/RUNBOOK-VPS.md
+    scripts/check-compose.mjs
+    scripts/check-zebrad-config.mjs
+    scripts/check-infra-docs.mjs
+  Modified (10):
+    docker-compose.yml                   infra/zebrad/zebrad.toml
+    .env.example                         package.json
+    .github/workflows/ci.yml
+    apps/indexer/vitest.config.ts
+    apps/indexer/src/persistence/__tests__/integration/_setup.ts
+    apps/indexer/src/persistence/__tests__/integration/migrations.test.ts
+    docs/2.0/DEPLOY-2.0.md
+    handoffs/HANDOFF-10-infra.md         handoffs/README.md
+  Moved: none.
+  26 files, +3180 / -56.
+
+EVIDENCE (per §5 assertion: pass transcript + fail transcript, provenance)
+
+  A1  docker compose config, both files.  PASS: Executed.
+      $ docker compose --env-file /tmp/a1.env -f docker-compose.yml config   -> rc=0
+      $ docker compose --env-file /tmp/a1.env \
+          -f docker-compose.yml -f docker-compose.dev.yml config             -> rc=0
+      Services resolved: cloudflared, gateway, indexer, postgres, redis, zebrad;
+      plus `publisher` with --profile publisher (7 total).
+      FAIL SIDE: Executed. The four required variables are written `${VAR:?...}`,
+      so with no env file the same command exits non-zero naming the variable. That
+      is the mechanism, not a decoration: it is why a production bring-up cannot
+      default GATEWAY_TRUSTED_PROXIES to empty.
+
+  A2  docker build of each Dockerfile.  **BLOCKED — not passed, not skipped.**
+      Executed, and the refusal captured verbatim:
+      $ docker build --check -f apps/indexer/Dockerfile .
+        ERROR: node:22-alpine: failed to resolve source metadata ...
+        production.cloudfront.docker.com ... : Forbidden
+      Identical for the gateway, publisher and cloudflared images (the last on
+      busybox:1.37-musl). The proxy status endpoint records it as
+      `connect_rejected ... gateway answered 403 to CONNECT (policy denial)`.
+      This is an ORGANISATION EGRESS POLICY, and /root/.ccr/README.md says to
+      report a 403 rather than route around it, so it was reported.
+      WHAT IS NEVERTHELESS EVIDENCE: BuildKit parsed all four files far enough to
+      resolve the instruction graph and to point at the exact FROM line, so the
+      Dockerfile SYNTAX is valid. What is unverified is the BUILD - layer caching,
+      the pnpm filtered install, the native build of `zeromq` on musl, and the
+      final image sizes §5 asks for. Labelled UNVERIFIED below. The operator's
+      first `docker compose build` on the VPS is the first real execution.
+
+  A3  zebrad.toml parses; enable_cookie_auth = false; the keys the runbook names.
+      PASS: Executed. `node scripts/check-zebrad-config.mjs` -> rc=0, reporting the
+      file parses, every key in [health, metrics, network, rpc, state, tracing] is
+      one Zebra 6.2.3 accepts, [rpc] enable_cookie_auth = false, and the health
+      port, state directory and config path all agree with docker-compose.yml.
+      FAIL SIDE: Executed, four separate mutations, each restored:
+        enable_cookie_auth = true      -> rc=1 naming the A3 rule
+        `filter` -> `filtr`            -> rc=1 "unknown key [tracing] filtr"
+        health port 8080 -> 8099       -> rc=1 "the two must agree"
+        network = Mainnet (unquoted)   -> rc=1 "unsupported value for network"
+      THE THIRD CLAUSE OF A3 CANNOT BE SATISFIED AS WRITTEN. See ASSUMPTIONS.
+
+  A4  a healthcheck for every service.
+      PASS: Executed. `node scripts/check-compose.mjs` -> rc=0, "7 service(s) in
+      docker-compose.yml all declare a healthcheck".
+      FAIL SIDE: Executed twice. Removing zebrad's healthcheck -> rc=1 naming it.
+      And, accidentally but far better, the guard was run against the PRE-HANDOFF-10
+      committed docker-compose.yml and failed it on this very rule: zebrad had no
+      healthcheck, which is the defect A4 exists to catch, present in main.
+
+  A5  no literal secret in any compose file.
+      PASS: Executed, same run, "no literal secret in 2 compose file(s)".
+      FAIL SIDE: Executed. A literal TUNNEL_TOKEN -> rc=1 at docker-compose.yml:325.
+      And again on the pre-HANDOFF-10 file: `POSTGRES_PASSWORD: zcashreveal` ->
+      rc=1 at line 26.
+      A5 ALSO CAUGHT THIS SESSION'S OWN FIRST DRAFT: docker-compose.dev.yml wrote the
+      dev credentials out in full, reasoning that a loopback throwaway database holds
+      nothing. The assertion covers `docker-compose*.yml`, both files, and it is right
+      to - a literal password in the dev file is the template somebody copies into the
+      production one. Now `${VAR:-default}`.
+
+  A6  the runbook carries a COMMAND for each named operation.
+      PASS: Executed. `node scripts/check-infra-docs.mjs` -> rc=0, "a command for all
+      14 topics A6 requires".
+      FAIL SIDE: Executed twice, each restored: replacing the `pg_dump` line with an
+      echo -> rc=1 "no command for backup"; commenting out the DNS route ->
+      rc=1 "no command for tunnel route". Both keep their section HEADINGS, which is
+      the point - the guard looks for the command, not the prose.
+
+  A7  DEPLOY-2.0.md names every variable apps/web reads.
+      PASS: Executed, same run, all 6 variables named.
+      FAIL SIDE: Executed. Adding `process.env.NEXT_PUBLIC_UNDOCUMENTED_PROBE` to
+      apps/web/src/lib/env.ts -> rc=1 naming it; reverted.
+      A7 IS NOT IMPLEMENTED AS ITS LITERAL GREP. See ASSUMPTIONS.
+
+  A8  the managed-store TCP URL in the publisher service and nowhere else, with the
+      names asserted against SNAPSHOT.md §3 rather than retyped.
+      PASS: Executed, same run: "the managed-store TCP URL (SNAPSHOT_REDIS_KV_URL,
+      SNAPSHOT_REDIS_REDIS_URL) appears in the publisher service only, named from
+      docs/2.0/SNAPSHOT.md section 3".
+      FAIL SIDE: Executed, both directions the rule has:
+        the TCP URL added to `gateway`  -> rc=1 (the probe the assertion names)
+        SNAPSHOT_REDIS_KV_REST_API_READ_ONLY_TOKEN added to `publisher` -> rc=1,
+          "a managed-store variable that belongs to apps/web on Vercel"
+      The second is not in the assertion and is added because A8's first half is
+      satisfiable by a compose file that leaks the READ-WRITE credential instead.
+      `.env.example` carries REDIS_URL and the injected names with role comments
+      (unchanged from HANDOFF-05, verified present).
+
+  A8b `node scripts/check-redis-safety.mjs` exits 0 with the runbook written.
+      PASS: Executed -> rc=0, 20 detectors self-tested.
+      FAIL SIDE: Executed - the exact probe the assertion names. A "clear the store"
+      one-liner added to RUNBOOK-VPS.md §11 -> rc=1, naming the file and line 464.
+      A8b ALSO REJECTED TWO SAFE COMMANDS, AND WAS RIGHT TO. A keyspace summary and a
+      scan for `zcashreveal:*` target the VPS Redis, which this project owns outright.
+      The guard reads files, not intentions, and cannot see which of the two servers a
+      `redis-cli` line will reach. In most of the tree that costs nothing; in a runbook
+      it is the point, because a runbook is a copy-paste surface and the two prefixes
+      differ by one letter. Rewritten to name exact keys, with the reasoning beside
+      them so the next person does not re-add them.
+
+  A9  0 skipped with the fixture committed.  **BLOCKED, and honestly so.**
+      Executed as it stands: `pnpm --filter @zcashreveal/indexer test` reports
+      439 passed | 1 skipped, and `scripts/assert-no-skipped-integration.mjs` prints
+      the ONE allowed skip - "decodeBlock - real mainnet fixture decodes a captured
+      post-NU5 mainnet block end-to-end". That is deliverable 2's fixture, which no
+      session can capture (see BLOCKED below). A9 is therefore unmet, by exactly one
+      test, for a reason outside this container. Its fail side is already the
+      permanent state and needs no probe.
+
+  DELIVERABLE 5 (integration-test isolation) is not an A-numbered assertion but is
+  the largest behavioural change here, so it carries the same two-polarity evidence:
+      PASS: Executed. Two concurrent vitest runs -> 60 passed / 60 passed, distinct
+      schemas, nothing left in pg_namespace or pg_database afterwards.
+      FAIL SIDE: Executed. The same two runs with the isolation disabled reproduce
+      LEDGER-06 Q6 in BOTH directions - "expected 4 to be +0" in one and
+      "expected +0 to be 4" in the other - and the failing test is A6, replay and
+      rollback conserve balances across four pools. That is the corrupted
+      conservation assertion the handoff names.
+
+  FULL GATE, Executed on the finished tree, against a real PostgreSQL 16:
+      pnpm -r test        1036 passed, 1 skipped, rc=0
+                          (content 67, zebra-rpc 35, web 368, gateway 127,
+                           indexer 439/1 skipped)
+      pnpm typecheck      10/10
+      pnpm lint           0 errors, 0 warnings
+      content validate    OK
+      pnpm check          8 guards, rc=0
+      pnpm build          7/7
+      Test count is unchanged from HANDOFF-08's 1036: this handoff adds no test and
+      removes none. It changes how the existing ones are ISOLATED, which is why the
+      evidence for deliverable 5 is a concurrency probe rather than a count.
+
+ASSUMPTIONS (each: ACCEPTED / CORRECTED / DEFERRED — reason)
+
+  1. CORRECTED - "enable the address indexes HANDOFF-05 needs" (§3). THERE IS NO
+     SUCH CONFIG KEY IN ZEBRA 6.2.3, in any section of ZebradConfig
+     (zebrad/src/config.rs:54-95). The address RPCs the gateway depends on are
+     unconditional: getaddressbalance, getaddresstxids and getaddressutxos are
+     declared on the RPC trait at zebra-rpc/src/methods.rs lines 232, 438 and 459,
+     with z_gettreestate at 361 and z_getsubtreesbyindex at 382 for HANDOFF-12.
+     Nothing turns them on because nothing turns them off. `indexer_listen_addr` is
+     NOT this - it is an internal gRPC service needing the `indexer` build feature,
+     which `default-release-binaries` does not include. Recorded at the site in
+     zebrad.toml so nobody adds a key that would stop the node booting.
+
+  2. CORRECTED - "ZMQ if supported else document the polling fallback" (§3). ZEBRA
+     HAS NO ZMQ AT ANY VERSION; ZMQ was zcashd's. The fallback is therefore not a
+     degraded mode but the ONLY mode, and it is silent: the indexer logs
+     `zmq unavailable - falling back to polling only` once at WARN
+     (apps/indexer/src/index.ts:87) and polls forever. Documented in three places
+     an operator will actually meet it - the compose service, the zebrad config's
+     [notify] section, and RUNBOOK-VPS.md §3. Zebra's equivalent is
+     `[notify] block_notify_command`, left commented because choosing what the
+     command does is HANDOFF-12's decision.
+
+  3. CORRECTED - A7's literal grep cannot be executed as an assertion. Run against
+     this tree it returns nine tokens of which FOUR ARE NOT VARIABLES:
+     `NEXT_PUBLIC_` and `SNAPSHOT_REDIS_` from prose in a docblock (lib/env.ts:9-10),
+     `SNAPSHOT_URL` from an exported CONSTANT name (lib/env.ts:42), and
+     `NEXT_PUBLIC_X` from a docblock EXAMPLE explaining Next.js inlining
+     (lib/env.ts:13). A guard built on it would require DEPLOY-2.0.md to document a
+     variable that exists only inside a sentence. Implemented as the ASSERTION -
+     every name actually read from `process.env` - which is stronger where it
+     matters and narrower where the command was wrong. Same shape as HANDOFF-08's
+     A10, and the imprecision is L2's rather than the executor's.
+
+  4. ACCEPTED, with a divergence stated - §3 commissions THREE Dockerfiles and there
+     are FOUR. cloudflare/cloudflared's runtime is
+     `gcr.io/distroless/base-debian13:nonroot` and the only executable it adds is
+     the cloudflared binary, so nothing inside it can call cloudflared's own /ready
+     endpoint. That left two options: a healthcheck that cannot fail (which
+     CLAUDE.md makes a finding in its own right, and which would have satisfied A4
+     by counting a key while telling an operator nothing), or no healthcheck (which
+     fails A4 and leaves the one externally-facing component unmonitored).
+     infra/cloudflared/Dockerfile adds a static busybox and changes nothing else.
+
+  5. ACCEPTED - the Zebra pin is 6.2.3, the newest 6.2.x, published 2026-07-28,
+     read from the Docker Hub tags API. §3 says "6.2.x (exact tag chosen and cited)".
+     NOTED AND NOT ACTED ON: `packages/zebra-rpc` was written in HANDOFF-05 against
+     Zebra 6.3.0's structs, and 6.3.0 exists (2026-08-10). The contract says 6.2.x,
+     so 6.2.x is what is pinned; whether the client and the node should be on the
+     same minor is a question for the ledger, not a decision to take silently. See
+     §8 QUESTIONS.
+
+  6. ACCEPTED - schema-per-run, over an advisory lock or a database per worker, for
+     deliverable 5. Reasoning is in the header of apps/indexer/test/global-setup.ts
+     and in §8. Bound stated there: it isolates RUNS, not FILES, so
+     `fileParallelism: false` is still load-bearing and must not be turned on to buy
+     wall clock.
+
+  7. ACCEPTED - the publisher service is behind a `publisher` compose profile because
+     `apps/publisher` does not exist yet (HANDOFF-09 owns it). Its Dockerfile and
+     healthcheck are written against the app's specified shape and build unchanged
+     when the app lands. Without the profile, `docker compose up -d` today fails on
+     a missing build context, which would make the whole stack unusable to prove a
+     point about a file that is not there.
+
+  8. DEFERRED - image sizes. §5 A2 asks for them and they cannot be measured without
+     a build. See §8.
+
 NOTICED (outside scope, not acted on):
+
+  - `apps/indexer` depends on `zeromq@^6.1.2` and constructs a subscriber that can
+    never connect to Zebra. The dependency is dead weight in the image and forces
+    python3/make/g++ into the indexer's install stages for a native module nothing
+    can use. Removing it is a code change outside this handoff's scope, and it
+    should be removed together with whatever HANDOFF-12 decides about
+    `block_notify_command` rather than separately.
+  - `truncateAll` in the integration setup still truncates four tables and does not
+    cover `leak_reports`, which HANDOFF-07 added a suite over, nor `pool_snapshots`
+    and `migrations_zip318`, which have no writer yet. Schema-per-run makes this
+    harmless BETWEEN runs and it remains live WITHIN one. The standing instruction
+    is that whichever handoff first writes to those tables adds them in the same
+    commit.
+  - The gateway's `pg-cache.integration.test.ts` creates `tx_cache` and
+    `address_cache` in the shared database and is NOT covered by the indexer's
+    schema-per-run. It happens not to collide today because its tables are disjoint
+    from the indexer's, which is a property of the current table list rather than a
+    guarantee. Left alone deliberately: extending the mechanism to a second package
+    means a shared helper, and inventing one for a hazard that does not yet exist is
+    how a hand-maintained duplicate starts.
+  - `docs/2.0/v0.2-notes/postgres-port-5433.patch` is now superseded - the 5433
+    remap is a first-class part of both compose files. The patch file is v0.2
+    history and was left where HANDOFF-00 put it.
+
 UNVERIFIED (labelled):
-GATE ROUNDS: n · fingerprints (file · rule · severity) per round
-PREVIEW URL (if any):
+
+  - EVERY DOCKER IMAGE BUILD. A2 is blocked by egress policy; only the Dockerfile
+    syntax is verified, by BuildKit's own parse. Specifically unverified: that the
+    pnpm filtered install resolves inside the image, that `zeromq` builds or has a
+    musl prebuild, that the runtime stage's copied `node_modules` symlink farm
+    resolves, and every image size.
+  - EVERYTHING THAT REQUIRES A RUNNING STACK. No container was started - §1 forbids
+    it and the images cannot be built anyway. So: the zebrad healthcheck against a
+    real /healthy, the depends_on ordering, the tunnel, the cloudflared healthcheck,
+    and the whole of RUNBOOK-VPS.md as an executed sequence. The runbook's commands
+    are verified for SHAPE (flags, paths, service and volume names, all cross-checked
+    against the compose file by scripts/check-infra-docs.mjs and by hand) and not for
+    EFFECT.
+  - The Zebra facts are Read, not Executed: they come from ZcashFoundation/zebra at
+    tag v6.2.3 via raw.githubusercontent.com, which this container can reach, and
+    from the Docker Hub tags API. No Zebra node was run.
+  - Zebra 6.2.3's behaviour on a `state` directory written by 4.4.1. The upgrade
+    path in RUNBOOK-VPS.md §8 says "within one major"; 4.4.1 to 6.2.3 crosses two,
+    so the VPS needs a wipe-and-resync rather than an upgrade. Stated in §8 as an
+    operator click because it is days of sync, not a command.
+
+PREVIEW URL (if any): none, and none is expected. This handoff changes no file
+  under `apps/web/src`, so the Vercel preview on this branch exercises nothing new.
+  A session cannot fetch a preview host in any case: the egress proxy refuses the
+  CONNECT tunnel with 403 before Deployment Protection is reached.
 ```
 
 ## §8 LEDGER — appended to `handoffs/LEDGER.md` by docs-scribe; read by L2 before the next handoff

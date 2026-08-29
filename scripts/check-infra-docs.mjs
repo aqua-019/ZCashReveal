@@ -41,7 +41,20 @@ import { join } from "node:path";
 
 const RUNBOOK = "docs/2.0/RUNBOOK-VPS.md";
 const DEPLOY = "docs/2.0/DEPLOY-2.0.md";
-const WEB_SRC = "apps/web/src";
+// SCANS ALL OF apps/web, NOT JUST src/. The first gate round found that
+// `apps/web/next.config.ts` reads NEXT_PUBLIC_API_URL, NEXT_PUBLIC_WS_URL and
+// NEXT_PUBLIC_SNAPSHOT_URL - outside src/, and therefore outside the first
+// draft's scan, while the OK message claimed "apps/web reads". All three happen
+// to be documented, so nothing was wrong today; what was wrong was that a
+// variable introduced there tomorrow would never be demanded.
+const WEB_ROOT = "apps/web";
+
+// Only the two prefixes A7 is about. Widening the scan without this would start
+// demanding that DEPLOY-2.0.md document `CI` (read by playwright.config.ts) and
+// `LIGHTHOUSE_CHROME_PATH` (read by a local script) - neither of which is a
+// deployment variable, and both of which would be a fictional entry in an
+// operator's list, which is the very failure the A7 divergence above avoids.
+const DEPLOY_PREFIXES = /^(NEXT_PUBLIC|SNAPSHOT)_/;
 
 /**
  * A6's checklist. Each entry is a topic and the pattern that proves the runbook
@@ -85,7 +98,7 @@ function envNamesRead(root) {
     for (const e of entries) {
       const full = join(dir, e.name);
       if (e.isDirectory()) {
-        if (e.name === "node_modules" || e.name.startsWith(".")) continue;
+        if (e.name === "node_modules" || e.name === "dist" || e.name.startsWith(".")) continue;
         walk(full);
         continue;
       }
@@ -106,6 +119,19 @@ function envNamesRead(root) {
   }
   return names;
 }
+
+/**
+ * Names that are read expressions in source but are not variables anyone sets.
+ *
+ * ONE ENTRY, AND IT IS DOCUMENTED RATHER THAN PATTERN-MATCHED AWAY. `lib/env.ts`
+ * explains Next.js inlining with a worked example - "Next.js inlines
+ * `process.env.NEXT_PUBLIC_X` only for a literal member" - and that example is a
+ * genuine `process.env.` expression inside a comment. Stripping comments before
+ * scanning would hide it; excluding it here leaves it visible, with the reason
+ * attached, and the self-test above FAILS if the example ever stops being found,
+ * so this exclusion cannot quietly become dead code.
+ */
+const NOT_REAL_VARIABLES = new Set(["NEXT_PUBLIC_X"]);
 
 function selfTest() {
   let ok = true;
@@ -163,7 +189,21 @@ function selfTest() {
   // that is correct behaviour rather than a miss: it is a real (if fictional)
   // read expression. It is excluded by name below, where the exclusion is
   // visible and justified rather than hidden in a regex.
-  if (!found.has("NEXT_PUBLIC_X")) fail("A7 extractor stopped seeing the docblock example; the exclusion below is now silently dead");
+  // AGAINST THE REAL FILE, not against the sample above. The first draft
+  // asserted this on its own hardcoded string, which is true regardless of what
+  // apps/web contains - so the day the docblock example is reworded, the
+  // NOT_REAL_VARIABLES exclusion becomes dead code excluding nothing, and this
+  // probe would have gone on passing. The first gate round called that
+  // tautological and was right.
+  const realReads = envNamesRead(WEB_ROOT);
+  for (const excluded of NOT_REAL_VARIABLES) {
+    if (!realReads.has(excluded)) {
+      fail(
+        `A7 excludes ${excluded} but nothing in ${WEB_ROOT} reads it any more, so the exclusion is dead code. ` +
+          "Remove it from NOT_REAL_VARIABLES rather than leaving a rule that guards nothing.",
+      );
+    }
+  }
 
   return ok;
 }
@@ -173,18 +213,6 @@ if (!selfTest()) {
   process.exit(2);
 }
 
-/**
- * Names that are read expressions in source but are not variables anyone sets.
- *
- * ONE ENTRY, AND IT IS DOCUMENTED RATHER THAN PATTERN-MATCHED AWAY. `lib/env.ts`
- * explains Next.js inlining with a worked example - "Next.js inlines
- * `process.env.NEXT_PUBLIC_X` only for a literal member" - and that example is a
- * genuine `process.env.` expression inside a comment. Stripping comments before
- * scanning would hide it; excluding it here leaves it visible, with the reason
- * attached, and the self-test above FAILS if the example ever stops being found,
- * so this exclusion cannot quietly become dead code.
- */
-const NOT_REAL_VARIABLES = new Set(["NEXT_PUBLIC_X"]);
 
 const findings = [];
 
@@ -203,18 +231,18 @@ if (!existsSync(RUNBOOK)) {
 // --- A7 -------------------------------------------------------------------
 if (!existsSync(DEPLOY)) {
   findings.push(`${DEPLOY} does not exist.`);
-} else if (!existsSync(WEB_SRC)) {
-  findings.push(`${WEB_SRC} does not exist, so A7 has nothing to cross-check.`);
+} else if (!existsSync(WEB_ROOT)) {
+  findings.push(`${WEB_ROOT} does not exist, so A7 has nothing to cross-check.`);
 } else {
   const deploy = readFileSync(DEPLOY, "utf8");
-  const read = [...envNamesRead(WEB_SRC)].filter((n) => !NOT_REAL_VARIABLES.has(n)).sort();
+  const read = [...envNamesRead(WEB_ROOT)].filter((n) => DEPLOY_PREFIXES.test(n) && !NOT_REAL_VARIABLES.has(n)).sort();
   if (read.length === 0) {
-    findings.push(`${WEB_SRC}  A7: no process.env reads found at all; the extractor has gone blind.`);
+    findings.push(`${WEB_ROOT}  A7: no NEXT_PUBLIC_/SNAPSHOT_ reads found at all; the extractor has gone blind.`);
   }
   for (const name of read) {
     if (!deploy.includes(name)) {
       findings.push(
-        `${DEPLOY}  A7: does not name ${name}, which ${WEB_SRC} reads from process.env. ` +
+        `${DEPLOY}  A7: does not name ${name}, which ${WEB_ROOT} reads from process.env. ` +
           "An operator setting up the project from this document would miss it.",
       );
     }
@@ -227,9 +255,9 @@ if (findings.length > 0) {
   process.exit(1);
 }
 
-const documented = [...envNamesRead(WEB_SRC)].filter((n) => !NOT_REAL_VARIABLES.has(n)).length;
+const documented = [...envNamesRead(WEB_ROOT)].filter((n) => DEPLOY_PREFIXES.test(n) && !NOT_REAL_VARIABLES.has(n)).length;
 console.log(
   `[infra-docs] OK: ${RUNBOOK} carries a command for all ${A6_REQUIRED.length} topics A6 requires, ` +
-    `and ${DEPLOY} names all ${documented} environment variable(s) apps/web reads from process.env ` +
+    `and ${DEPLOY} names all ${documented} NEXT_PUBLIC_/SNAPSHOT_ variable(s) ${WEB_ROOT} reads from process.env ` +
     "(detectors self-tested in both directions).",
 );

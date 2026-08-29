@@ -45,8 +45,7 @@
 #     would be a key that parses and a server that never starts.
 #
 #   * ANY ZMQ SECTION. Zebra has no ZMQ, at any version. `ZebradConfig`
-#     (zebrad/src/config.rs:54-95) has exactly eleven sections and none of them
-#     is zmq. See the note under [notify] below.
+#     (zebrad/src/config.rs:54-95) has twelve sections and none of them is zmq. See the note under [notify] below.
 
 [network]
 network = "Mainnet"
@@ -125,8 +124,16 @@ endpoint_addr = "0.0.0.0:9999"
 
 # [notify]
 # THE ZMQ QUESTION, ANSWERED. §3 says "ZMQ if supported else document the
-# polling fallback". ZEBRA DOES NOT SUPPORT ZMQ - it has no zmq config section
-# and never has; ZMQ was zcashd's mechanism. What Zebra offers instead is
+# polling fallback". ZEBRAD ITSELF EXPOSES NO ZMQ SOCKET - it has no zmq config
+# section and never has; ZMQ was zcashd's mechanism.
+#
+# PRECISELY, because the first gate round caught this stated too absolutely: the
+# claim is about zebrad's own RPC/notification surface, which is what this stack
+# dials. Zebra 6.x can SUPERVISE a zcashd sidecar (`[zcashd_compat]`), and that
+# zcashd is a different process which does speak ZMQ - but this stack does not
+# run it, `zcashd_compat` is absent from this file, and the indexer points
+# ZEBRAD_ZMQ_URL at the zebrad service. So the operational fact is unchanged and
+# the sentence is now true as written. What Zebra offers instead is
 # `[notify] block_notify_command`, a shell command run on every best-chain tip
 # change with %s replaced by the block hash, mirroring zcashd's -blocknotify
 # (zebrad/src/components/notify.rs).

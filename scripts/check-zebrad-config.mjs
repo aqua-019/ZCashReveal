@@ -128,6 +128,22 @@ function parseToml(text) {
   return { tables, errors };
 }
 
+/**
+ * A YAML file with its comment lines removed.
+ *
+ * Whole-line comments only. An inline `# ...` after a value cannot be stripped
+ * safely without a parser, because `#` is legal inside a quoted scalar - and a
+ * URL fragment or a colour would be truncated. Whole-line comments are where
+ * this file's prose actually lives, so removing them closes the hole the gate
+ * found without inventing a parser.
+ */
+function stripComments(text) {
+  return text
+    .split("\n")
+    .filter((l) => !/^\s*#/.test(l))
+    .join("\n");
+}
+
 /** The port from a "host:port" listen address, or null. */
 function portOf(addr) {
   const m = /:(\d+)$/.exec(String(addr));
@@ -164,6 +180,39 @@ function selfTest() {
   if (portOf("0.0.0.0:8080") !== 8080) fail("portOf did not read a port");
   if (portOf("nonsense") !== null) fail("portOf invented a port");
 
+  // THE CROSS-FILE DETECTORS ARE PROBED TOO. The first gate round pointed out
+  // that selfTest covered only parseToml and portOf, so the checks producing the
+  // OK message's strongest claims - that the health port, the state directory
+  // and the config path agree with the compose file - had no probe in either
+  // direction. These pin the comment-stripping that makes them mean anything.
+  const composeLike = [
+    "  zebrad:",
+    "    volumes:",
+    "      - zebrad-data:/home/zebra/.cache/zebra",
+    "      - ./infra/zebrad/zebrad.toml:/etc/zebrad/zebrad.toml:ro",
+    "    environment:",
+    "      CONFIG_FILE_PATH: /etc/zebrad/zebrad.toml",
+    "    healthcheck:",
+    '      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/healthy"]',
+  ].join("\n");
+  const stripped = stripComments(composeLike);
+  if (!new RegExp("127\\.0\\.0\\.1:8080/healthy").test(stripped)) fail("cross-file: did not see a real healthcheck line");
+
+  // The same file with the real settings replaced by COMMENTS that describe
+  // them. Every check must go blind here; before the fix, all three passed.
+  const proseOnly = [
+    "  zebrad:",
+    "    # the health server (8080) is bound inside the container",
+    "    # curl http://127.0.0.1:8080/healthy to check it",
+    "    # mounts ./infra/zebrad/zebrad.toml:/etc/zebrad/zebrad.toml",
+    "    # sets CONFIG_FILE_PATH: /etc/zebrad/zebrad.toml",
+    "    # state lives at /home/zebra/.cache/zebra",
+  ].join("\n");
+  const proseStripped = stripComments(proseOnly);
+  if (new RegExp("127\\.0\\.0\\.1:8080/healthy").test(proseStripped)) fail("cross-file: a comment satisfied the healthcheck test");
+  if (proseStripped.includes(":/home/zebra/.cache/zebra")) fail("cross-file: a comment satisfied the cache_dir test");
+  if (/CONFIG_FILE_PATH:\s*\/etc\/zebrad\/zebrad\.toml/.test(proseStripped)) fail("cross-file: a comment satisfied the CONFIG_FILE_PATH test");
+
   return ok;
 }
 
@@ -188,7 +237,7 @@ for (const [table, keys] of tables) {
   const known = KNOWN_KEYS[table];
   if (known === undefined) {
     findings.push(
-      `${CONFIG}  unknown section [${table}]. ZebradConfig has eleven sections and this is not one of them; ` +
+      `${CONFIG}  unknown section [${table}]. ZebradConfig has twelve sections and this is not one of them; ` +
         "zebrad rejects the file rather than ignoring it.",
     );
     continue;
@@ -197,7 +246,9 @@ for (const [table, keys] of tables) {
     if (!known.includes(key)) {
       findings.push(
         `${CONFIG}  unknown key [${table}] ${key}. Every Zebra config section is serde(deny_unknown_fields), ` +
-          "so this is a startup failure, not a warning. If the key is real, add it to KNOWN_KEYS with its source line.",
+          "so an INVENTED key here is a startup failure rather than a warning. A key that is real but merely " +
+          "absent from this allowlist is not - it is this script being out of date, and the fix is to add it to " +
+          "KNOWN_KEYS with the source line it was read from.",
       );
     }
   }
@@ -223,7 +274,15 @@ if (rpc === undefined) {
 if (!existsSync(COMPOSE)) {
   findings.push(`${COMPOSE} is missing, so the cross-file checks cannot run.`);
 } else {
-  const compose = readFileSync(COMPOSE, "utf8");
+  // COMMENTS ARE STRIPPED BEFORE THESE TESTS, and the first gate round is why.
+  // Each check below is a substring search over the compose file, and this file
+  // is heavily commented - including comments that QUOTE the very strings being
+  // searched for ("the health server (8080)", "CONFIG_FILE_PATH=/etc/zebrad/...").
+  // So the cross-file agreement the header advertises as the guard's main value
+  // was satisfiable by prose describing the setting rather than by the setting.
+  // Delete the real healthcheck line and the guard stayed green on its own
+  // comment.
+  const compose = stripComments(readFileSync(COMPOSE, "utf8"));
 
   const healthAddr = tables.get("health")?.get("listen_addr");
   if (healthAddr === undefined) {

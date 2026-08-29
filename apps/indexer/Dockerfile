@@ -100,6 +100,19 @@ COPY --from=build --chown=node:node /app/packages/content/data ./packages/conten
 COPY --from=build --chown=node:node /app/apps/indexer/dist ./apps/indexer/dist
 COPY --from=build --chown=node:node /app/apps/indexer/docker-healthcheck.mjs ./apps/indexer/
 
+# THE MIGRATIONS DIRECTORY IS NOT OPTIONAL, and leaving it out is a mistake that
+# only shows up on the VPS. `dist/migrate.js` resolves its SQL at
+# `join(here, "..", "migrations")` - that is `/app/apps/indexer/migrations`, a
+# path relative to the compiled file rather than to the working directory - so
+# without this line `docker compose run --rm indexer node dist/migrate.js`, which
+# is the command RUNBOOK-VPS.md section 4 tells an operator to run against a
+# production database, fails on a directory that is not there.
+#
+# It is copied from the BUILD stage rather than from the context so that the
+# whole image comes from one place, and .sql files are not compiled, so what
+# lands here is byte-identical to the repository.
+COPY --from=build --chown=node:node /app/apps/indexer/migrations ./apps/indexer/migrations
+
 USER node
 WORKDIR /app/apps/indexer
 

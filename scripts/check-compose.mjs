@@ -72,7 +72,13 @@ function serviceBlocks(text) {
     // key such as `volumes:` or `networks:`.
     if (indent <= servicesIndent) break;
 
-    const head = /^\s*([A-Za-z0-9_.-]+):\s*$/.exec(line);
+    // A trailing comment or a YAML anchor after the key must still be read as a
+    // service header. The first draft required a BARE `name:` and the gate found
+    // that `  gateway: # the read API` was not recognised at all - its lines were
+    // then appended to the PREVIOUS service, so A4 never noticed the missing
+    // healthcheck and A8 attributed its environment to the wrong service. A
+    // guard that goes blind on a comment is worse than no guard.
+    const head = /^\s*([A-Za-z0-9_.-]+):\s*(?:&[A-Za-z0-9_-]+\s*)?(?:#.*)?$/.exec(line);
     if (head !== null && (currentIndent === -1 || indent === currentIndent)) {
       current = head[1];
       currentIndent = indent;
@@ -86,7 +92,16 @@ function serviceBlocks(text) {
 
 /** Does this service's own block declare a healthcheck? */
 function hasHealthcheck(blockLines) {
-  return blockLines.some((l) => /^\s*healthcheck:\s*$/.test(l));
+  const i = blockLines.findIndex((l) => /^\s*healthcheck:\s*$/.test(l));
+  if (i === -1) return false;
+  // `disable: true` and `test: ["NONE"]` are compose's two ways of REMOVING an
+  // inherited healthcheck. Both leave a `healthcheck:` key, so a guard that
+  // counts keys - as the first draft did - reports a service as checked while
+  // compose treats it as unchecked. The gate found it.
+  const body = blockLines.slice(i + 1, i + 12).join("\n");
+  if (/^\s*disable:\s*true\s*$/m.test(body)) return false;
+  if (/test:\s*\[\s*["']NONE["']\s*\]/.test(body)) return false;
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,7 +138,27 @@ const SECRET_SHAPES = [
  * shape survives only when the sensitive token sits outside an interpolation.
  */
 function blankInterpolations(line) {
-  return line.replace(/\$\{[^}]*\}/g, "${}");
+  // TWO CONSTRUCTS, TREATED DIFFERENTLY, and the difference is the whole point.
+  //
+  //   ${VAR}        and  ${VAR:?message}   carry NO value. The message is prose
+  //                                        the operator reads when the variable
+  //                                        is missing. Both blank entirely.
+  //   ${VAR:-default}                      carries a LITERAL VALUE, used verbatim
+  //                                        when the variable is unset. Its
+  //                                        default text is kept, because a
+  //                                        secret written there is every bit as
+  //                                        committed as one written bare.
+  //
+  // The first draft blanked all three alike, so A5 could not see
+  // `TUNNEL_TOKEN: ${TUNNEL_TOKEN:-eyJhIjoiZGVhZGJlZWYifQ}` - a real literal
+  // secret in a real shape - and a mustNotFlag entry pinned the hole open. The
+  // first gate round found it. Blanking the `:?` half as well was the correction
+  // to the correction: keeping those messages made the guard flag
+  // `${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}`, which is the CORRECT
+  // form, on the strength of prose.
+  return line.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)(:-)?([^}]*)\}/g, (_m, _name, dash, rest) =>
+    dash === undefined ? "${}" : `\${}${rest}`,
+  );
 }
 
 function scanSecrets(text) {
@@ -225,8 +260,23 @@ function selfTest() {
   if (hasHealthcheck(blocks.get("beta") ?? [])) fail("splitter invented a healthcheck for beta");
   if (blocks.has("data")) fail("splitter read a top-level volume as a service");
 
+  // Each of the first three is a hole the first gate round opened up.
+  if (hasHealthcheck(["    healthcheck:", "      disable: true"])) fail("A4 accepted disable: true");
+  if (hasHealthcheck(["    healthcheck:", '      test: ["NONE"]'])) fail('A4 accepted test: ["NONE"]');
+  if (!hasHealthcheck(["    healthcheck:", '      test: ["CMD", "true"]'])) fail("A4 rejected a real healthcheck");
+
+  const commented = serviceBlocks(
+    ["services:", "  alpha: # the first one", "    image: a:1", "  beta:", "    image: b:1", "    healthcheck:", '      test: ["CMD","true"]'].join("\n"),
+  );
+  if (!commented.has("alpha")) fail("splitter did not recognise a service key with a trailing comment");
+  if (hasHealthcheck(commented.get("alpha") ?? [])) fail("splitter leaked beta's healthcheck into alpha");
+
   const mustFlag = [
     "      POSTGRES_PASSWORD: hunter2",
+    // A literal secret hidden in an interpolation DEFAULT. Blanking the whole
+    // construct made this invisible until the first gate round.
+    "      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-eyJhIjoiZGVhZGJlZWYifQ}",
+    "      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hunter2}",
     "      TUNNEL_TOKEN: eyJhIjoiZXhhbXBsZSJ9",
     "      STRIPE: sk_live_abcdef",
     "      SNAPSHOT_REDIS_KV_REST_API_TOKEN: AX8sASQgN2E",
@@ -234,7 +284,6 @@ function selfTest() {
   ];
   const mustNotFlag = [
     "      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}",
-    "      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-zcashreveal}",
     "      TUNNEL_TOKEN: ${TUNNEL_TOKEN}",
     "      # The token encodes the tunnel credentials and lives in .env",
     // The trap a naive "is the value all interpolation" test fails: real literal
@@ -337,6 +386,27 @@ for (const file of COMPOSE_FILES) {
   for (const f of scanSecrets(text)) findings.push({ file, ...f });
   for (const f of scanManagedStore(blocks, names)) {
     findings.push({ file, line: 0, rule: `A8 ${f.rule}`, text: `${f.service}: ${f.text}` });
+  }
+
+  // A8's OK message reads as confirmation that the publisher HAS the TCP URL, and
+  // until the gate found this it only proved that nothing else did - so deleting
+  // the line entirely passed with a message that sounded like a pass. Presence is
+  // now asserted in the production file, where the publisher service exists.
+  if (file === "docker-compose.yml") {
+    const pub = blocks.get("publisher");
+    if (pub === undefined) {
+      findings.push({ file, line: 0, rule: "A8 no publisher service", text: "nothing carries the managed-store TCP URL" });
+    } else {
+      const carries = [...names.publisher].some((n) => pub.some((l) => !/^\s*#/.test(l) && l.includes(n)));
+      if (!carries) {
+        findings.push({
+          file,
+          line: 0,
+          rule: "A8 the publisher carries no managed-store TCP URL",
+          text: `expected one of ${[...names.publisher].join(" or ")}; the publisher cannot reach the snapshot store without one`,
+        });
+      }
+    }
   }
 }
 
