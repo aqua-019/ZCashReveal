@@ -194,15 +194,27 @@ describe.skipIf(fixturePaths.length === 0)(
         expect(sawOrchard, path).toBe(true);
         expect(sawIronwood, path).toBe(true);
 
-        // Every pool that advanced → its block-level anchor mirrors the header
-        // root. The Ironwood one is the load-bearing assertion of this whole
-        // suite: `finalironwoodroot` is a name this project inferred and has
-        // never observed, so the first capture either confirms it or fails
-        // here, which is exactly the outcome wanted.
+        // Every pool that advanced and HAS a block-level root → the anchor
+        // mirrors the header root. That is two pools, not three.
         expect(decoded.saplingAnchor?.root, path).toBe(raw.finalsaplingroot);
         expect(decoded.orchardAnchor?.root, path).toBe(raw.finalorchardroot);
-        expect(decoded.ironwoodRootUnobserved, `${path}: no Ironwood root under the inferred name`).toBe(false);
-        expect(decoded.ironwoodAnchor?.root, path).toBe(raw.finalironwoodroot);
+
+        // IRONWOOD IS THE LOAD-BEARING ASSERTION OF THIS SUITE AND IT ASKS A
+        // DIFFERENT QUESTION SINCE HANDOFF-08. It used to assert that the
+        // capture confirmed an inferred `finalironwoodroot`; L2 read Zebra's
+        // source and there is no such field (LEDGER-07 Q5). What a real capture
+        // now settles is the OTHER half - that `trees.ironwood.size` is really
+        // sent, and really equals the tree size, on a block that moved the pool.
+        // A capture failing here means PR #10888's shape is not what this build
+        // parses, which is exactly the outcome wanted.
+        expect(decoded.ironwoodAnchorPendingTreestate, `${path}: block moved Ironwood`).toBe(true);
+        expect(
+          decoded.ironwoodTreeSize,
+          `${path}: trees.ironwood.size absent on a block that moved Ironwood`,
+        ).not.toBeNull();
+        expect(decoded.ironwoodTreeSize, path).toBe(
+          raw.trees?.ironwood?.size === undefined ? null : BigInt(raw.trees.ironwood.size),
+        );
       }
     });
   },

@@ -33,7 +33,7 @@ import { guessWallet, isZip317Conventional } from "./fingerprint.js";
 import {
   canonicalDenomination,
   isBelowMaxResidual,
-  isOverDenomCap,
+  isOverMaxCrossing,
   zip317LogicalActions,
 } from "@zcashreveal/types";
 import { joinSplitObservability, type JoinSplitObservability } from "@zcashreveal/zebra-rpc";
@@ -505,13 +505,15 @@ async function unsupportedReport(
  *
  * TWO MAGNITUDES, NOT ONE, AND THEY DIFFER BY THE FEE. `amountZat` is what LEFT
  * Orchard and `arrivedZat` is what ENTERED Ironwood; a migration pays its fee
- * out of the note it spends, so the second is the smaller. Which of the two ZIP
- * 318 means by "the net amount crossing between the pools" is not settled by
- * anything in this repository, and the corpus's `DENOM_CAP` is stated both as
- * "10,000 ZEC plus canonical fee" and as a flat 10,000 - a difference that only
- * makes sense if the two authors had different sides in mind. So BOTH are
- * recorded, the fee is recoverable as the difference, and the question is
- * carried as a deferred assumption rather than closed by picking one quietly.
+ * out of the note it spends, so the second is the smaller. Both are recorded so
+ * the fee is recoverable as their difference.
+ *
+ * THE OPEN QUESTION THIS PARAGRAPH USED TO CARRY IS CLOSED. It said the corpus
+ * stated `DENOM_CAP` two irreconcilable ways, so the repository could not know
+ * which side the cap was about. L2 read ZIP 318 (LEDGER-07 Q3): the two
+ * statements are two QUANTITIES rather than two readings - `DENOM_CAP` bounds
+ * the funding note at 10,000 ZEC plus the canonical fee, and 10,000 ZEC is the
+ * largest crossing, which is the side this code tests and always did.
  *
  * THE DENOMINATION IS TESTED ON THE ORCHARD SIDE. Phase 1 of ZIP 318 quantises
  * a wallet's balance into canonical denominations by sending to ITSELF inside
@@ -536,7 +538,7 @@ function migrationRecord(
     arrivedZat,
     denomination,
     canonical: denomination !== null,
-    overDenomCap: isOverDenomCap(amountZat),
+    overMaxCrossing: isOverMaxCrossing(amountZat),
     belowMaxResidual: isBelowMaxResidual(amountZat),
   };
 }
@@ -916,11 +918,11 @@ function collectFindings(input: {
     // forbidding "wallet W migrated B". A per-crossing finding is the easiest
     // place in this codebase to break that rule, so it says only what the
     // amount is and what the corpus says about amounts of that size.
-    if (!m.canonical || m.overDenomCap || m.belowMaxResidual) {
+    if (!m.canonical || m.overMaxCrossing || m.belowMaxResidual) {
       const why: string[] = [];
       if (!m.canonical) why.push("not a canonical n x 10^k denomination");
-      if (m.overDenomCap)
-        why.push("above DENOM_CAP on the flat 10,000 ZEC reading, which the corpus states two ways");
+      if (m.overMaxCrossing)
+        why.push("above 10,000 ZEC, the largest crossing ZIP 318 permits");
       if (m.belowMaxResidual)
         why.push("below MAX_RESIDUAL_VALUE (0.01 ZEC), the size ZIP 318 leaves stranded in Orchard");
       out.push({

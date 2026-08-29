@@ -67,23 +67,39 @@ export type Zip318Mantissa = (typeof ZIP318_MANTISSAS)[number];
 export const ZIP318_MAX_RESIDUAL_ZAT: Zatoshi = 1_000_000n;
 
 /**
- * `DENOM_CAP`, 10,000 ZEC.
+ * The largest pool-crossing denomination ZIP 318 permits: 10,000 ZEC.
  *
- * THE CORPUS STATES THIS TWO DIFFERENT WAYS AND THE DIFFERENCE IS LOAD-BEARING.
- * `docs/2.0/research/01-contemporary-zcash.md` §2.7 gives "**DENOM_CAP** =
- * **10,000 ZEC** plus canonical fee"; `docs/2.0/TRACKING-MATH.md` §3.9 gives a
- * flat "cap 10,000 ZEC". A crossing between the two readings is legal under the
- * first and over-cap under the second.
+ * IT IS NOT `DENOM_CAP`, AND THE RENAME IS THE WHOLE POINT OF THIS DOCBLOCK.
+ * This constant was called `ZIP318_DENOM_CAP_ZAT` through HANDOFF-07, and the
+ * repository recorded the corpus as stating one quantity two irreconcilable
+ * ways: `docs/2.0/research/01-contemporary-zcash.md` §2.7 giving "**DENOM_CAP**
+ * = **10,000 ZEC** plus canonical fee", `docs/2.0/TRACKING-MATH.md` §3.9 giving
+ * a flat "cap 10,000 ZEC". L2 went to ZIP 318 (LEDGER-07 Q3). They are not two
+ * readings of one number, they are TWO DIFFERENT QUANTITIES, and both
+ * statements are correct:
+ *
+ *   DENOM_CAP  = 10,000 ZEC PLUS THE CANONICAL FEE, and it bounds the FUNDING
+ *                NOTE that note preparation produces - a note that has to carry
+ *                the denomination and the fee that will be paid out of it.
+ *   10,000 ZEC = the largest CROSSING, which is what is left of a funding note
+ *                at the cap once its fee is spent.
+ *
+ * This project measures crossings, because the crossing is the public event and
+ * the funding note is prepared inside Orchard where nothing is visible. So the
+ * value never changed and the name was wrong: 10,000 ZEC is right for what
+ * {@link isOverMaxCrossing} tests, and calling it `DENOM_CAP` invited exactly
+ * the "which reading is this?" question two handoffs spent effort on.
+ *
+ * ZIP 318 IS STATUS DRAFT. Both quantities rest on a document that may still be
+ * edited, the same standing exposure `IRONWOOD_HEIGHTS_REST_ON_A_DRAFT_ZIP`
+ * records for ZIP 258's activation heights.
  *
  * Migration 003 declined to write a CHECK against either, and its reasoning
  * governs here too: "a database constraint that refuses to record something the
  * chain did inverts [the] rule: it destroys the evidence instead of raising it."
  * So this constant is a THRESHOLD FOR A FINDING and never a validity test.
- * {@link isOverDenomCap} answers the flat form, which is the conservative one -
- * it flags the ambiguous band rather than silently accepting it - and its
- * docblock says so at the call site.
  */
-export const ZIP318_DENOM_CAP_ZAT: Zatoshi = 10_000n * ZATOSHI_PER_ZEC;
+export const ZIP318_MAX_CROSSING_ZAT: Zatoshi = 10_000n * ZATOSHI_PER_ZEC;
 
 /**
  * A canonical ZIP 318 denomination: `n x 10^k` with `n` in {1, 2, 5}.
@@ -143,18 +159,21 @@ export function isCanonicalDenomination(amountZat: Zatoshi): boolean {
 }
 
 /**
- * Whether a crossing exceeds `DENOM_CAP` on the FLAT reading of it.
+ * Whether a crossing exceeds the largest denomination ZIP 318 permits to cross.
  *
- * The corpus gives the cap two ways (see {@link ZIP318_DENOM_CAP_ZAT}), and
- * this answers the stricter one deliberately: a crossing in the ambiguous band
- * between 10,000 ZEC and 10,000 ZEC plus a canonical fee is something to go and
- * look at, not something to pass silently. A caller must therefore treat `true`
- * as "worth a finding", never as "invalid" - the chain is the authority on what
- * happened, and this project's rule is that a violated invariant means the
- * decoder is wrong before it means the chain is.
+ * BEHAVIOUR IS UNCHANGED FROM `isOverDenomCap`, WHICH THIS RENAMES. The
+ * predicate always compared against 10,000 ZEC and that comparison was always
+ * the right one; what was wrong was the belief, recorded in its old docblock,
+ * that it was answering "the stricter of two readings of DENOM_CAP". There is
+ * one reading of DENOM_CAP, it is over a different quantity, and 10,000 ZEC is
+ * simply the crossing bound. See {@link ZIP318_MAX_CROSSING_ZAT}.
+ *
+ * A caller must treat `true` as "worth a finding", never as "invalid" - the
+ * chain is the authority on what happened, and this project's rule is that a
+ * violated invariant means the decoder is wrong before it means the chain is.
  */
-export function isOverDenomCap(amountZat: Zatoshi): boolean {
-  return amountZat > ZIP318_DENOM_CAP_ZAT;
+export function isOverMaxCrossing(amountZat: Zatoshi): boolean {
+  return amountZat > ZIP318_MAX_CROSSING_ZAT;
 }
 
 /**

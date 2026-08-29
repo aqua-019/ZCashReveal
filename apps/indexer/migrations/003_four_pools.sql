@@ -186,11 +186,13 @@ CREATE INDEX IF NOT EXISTS pool_snapshots_height_idx ON pool_snapshots (height);
 -- stored (n, k) back as ZEC is a division by 10^8 at the display boundary, and
 -- no row ever carries a negative exponent.
 --
--- THERE IS DELIBERATELY NO UPPER CHECK ON amount_zat. The corpus states DENOM_CAP
--- twice and not identically - 10,000 ZEC "plus canonical fee" in
--- docs/2.0/research/01-contemporary-zcash.md, a flat 10,000 ZEC in
--- docs/2.0/TRACKING-MATH.md 3.9 - so a CHECK written to the second would reject
--- a crossing that is legal under the first. This project's rule is that a
+-- THERE IS DELIBERATELY NO UPPER CHECK ON amount_zat. The original reason was
+-- that the corpus stated DENOM_CAP two irreconcilable ways, so a CHECK written
+-- to one would reject a crossing legal under the other. That premise is retired
+-- (LEDGER-07 Q3: DENOM_CAP bounds the FUNDING NOTE at 10,000 ZEC plus the
+-- canonical fee, and 10,000 ZEC is the largest CROSSING - two quantities, not
+-- two readings), and the conclusion is unchanged and now rests on the stronger
+-- half of the argument alone. This project's rule is that a
 -- violated invariant means our decoder is wrong, never that the chain is, and a
 -- database constraint that refuses to record something the chain did inverts
 -- that rule: it destroys the evidence instead of raising it. The cap belongs in

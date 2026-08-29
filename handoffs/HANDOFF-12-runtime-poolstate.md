@@ -26,6 +26,7 @@ Make the live indexer maintain `PoolState` for all four pools from chain data (r
 - `docs/2.0/TRACKING-MATH.md`
 - `handoffs/LEDGER.md` (§8 entries from every shipped handoff — read before planning)
 - `docs/2.0/HANDOFF-2026-08-22-v2.md` (7B/7C items), plan §5 Phase 3, `apps/indexer/src/index.ts`, `state/pool-state.ts`, `persistence/replay.ts`, `analysis/assessment.ts`, the gateway's channel subscriptions
+- **THE IRONWOOD ANCHOR IS NOT ON `getblock`, AND THIS HANDOFF IS WHERE THAT COSTS SOMETHING** (LEDGER-07 Q5, fold 5). Read `apps/indexer/src/decoder/block-decoder.ts`'s `ironwoodTreeSize` and `ironwoodAnchorPendingTreestate`, and `packages/zebra-rpc/src/schemas.ts`'s note where a `finalironwoodroot` used to be declared. Zebra defines `finalsaplingroot` and `finalorchardroot` on the verbose block and **no Ironwood root under any spelling** (`zebra-rpc/src/methods.rs` on `main`). What `getblock` carries is a SIZE - `GetBlockTrees.ironwood: IronwoodTrees { size: u64 }`, ZcashFoundation/zebra PR #10888, merged 2 Jul 2026 - which is an anchor's `maxPosition` and not its root. The root is on **`z_gettreestate`**, and **`z_getsubtreesbyindex`** accepts `pool = "ironwood"`; Zebra 6.0.0 (10 Jul 2026) names those three RPCs as the Ironwood tree surface. So Sapling and Orchard anchors come out of the block and Ironwood's needs a second call, and A1's Ironwood arm cannot be satisfied without it.
 
 ## §3 CONTRACT
 
@@ -42,6 +43,8 @@ Make the live indexer maintain `PoolState` for all four pools from chain data (r
 ## §4 DELIVERABLES
 
 1. Runtime wiring, reorg handling, tests; `docs/2.0/RUNTIME.md` describing startup, replay cost, and failure modes.
+2. **The Ironwood anchor path, via `z_gettreestate`** (LEDGER-07 fold 5). `packages/zebra-rpc` gains a typed, zod-validated `z_gettreestate` call (and `z_getsubtreesbyindex` if the subtree path is needed), and the confirmed-block driver calls it at exactly the heights `decodeBlock` marks `ironwoodAnchorPendingTreestate` - not on every block, which would double the RPC load for a pool that most blocks do not move. The `Anchor<"ironwood">` it records takes its `root` from that response and its `maxPosition` from the block's own `ironwoodTreeSize - 1n`, so the two halves are cross-checked rather than both taken on trust. §5 wants an assertion in both polarities: a block that appended Ironwood commitments produces an Ironwood anchor whose `maxPosition` equals the block's reported tree size minus one *(fail side: withhold the treestate response and observe no anchor and a logged finding, never a fabricated root)*.
+3. **`decodeBlock`'s own record of the gap stops being needed, or says why it still is.** If deliverable 2 lands, `ironwoodAnchorPendingTreestate` becomes an internal scheduling signal rather than a reported absence; say in §7 which it is. Do not delete `ironwoodTreeSize`: it is the only Ironwood measurement `getblock` carries and it is what makes the cross-check above possible.
 
 ## §5 ASSERTIONS — binary, machine-checkable, each needs a pass-state and a fail-state transcript
 

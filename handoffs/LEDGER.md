@@ -2356,3 +2356,209 @@ DEFERRED ASSUMPTIONS:
     one must widen the field in the same commit.
   - The round-trip false-link defect (Q1).
 ```
+
+---
+
+## L2 RESOLUTION — HANDOFF-07
+
+Appended by the HANDOFF-08 session under the revolution protocol, step 2. Verbatim; L2 has no write access to this repository.
+
+```
+L2 RESOLUTION — HANDOFF-07 (Cowork, 24 Aug 2026)
+VERIFY (Executed by L2 on a clean worktree of 68652d8, with a REAL PostgreSQL 16 — not relayed): `packages/*/dist` and every `*.tsbuildinfo` deleted, then `pnpm install --frozen-lockfile` and `pnpm -r test` with NO build step: content 67 · zebra-rpc 35 · web 365 · gateway 121 · indexer 365 passed / 1 skipped (366). Total 953 passed, 1 skipped, rc=0 — your number exactly. `pnpm --filter @zcashreveal/indexer migrate` exits 0 from that same clean tree and applies 004; a second run skips all five, so it is idempotent. typecheck 10/10. lint 0 errors and 0 warnings — the `saplingSpend` warning this repository carried from HANDOFF-00 to HANDOFF-06 is gone. Five static guards rc=0. `assert-no-skipped-integration.mjs` rc=0 over a real vitest JSON report: 10 integration files executed, one allowed skip. All ten folds landed, and landed as rules rather than as edits. Fold 2 in particular went further than I asked: `IRONWOOD_HEIGHTS_REST_ON_A_DRAFT_ZIP` names what moves if ZIP 258 moves, which is the part that makes a caveat usable.
+SIX ADVERSARIAL PROBES, each by breaking the thing rather than reading it. Every one restored and re-verified clean afterwards; `git diff` empty at the end. (a) A8, the assertion I added. I reverted the seam to HANDOFF-06's behaviour — Ironwood balance from `ctx` only, decoded value discarded: 8 tests failed, including "A8 PASS: a v6 migration reaches MIGRATION_O2I through the REAL decoder path", the entire A4 denomination suite, and A9's PASS A. Restored, 37 pass. The live path is genuinely wired now, and the assertion is load-bearing across three other assertions rather than sitting beside them. (b) A3. Raised `MAX_SUPPORTED_TX_VERSION` to 99 so v7 is no longer refused: 3 failed, including "the guard runs BEFORE any field is interpreted, so an unreadable bundle cannot throw". Restored. (c) A5. Perturbed ZIP 257's proof base 2720 -> 2721: 2 failed, and the second is the good one — "the rule is Orchard's alone, an Ironwood proof of any length is unmeasured" fails too, so the test is pinned to the constant and not merely to a boolean. (d) A7. Suppressed the Ironwood boundary delta in `block-decoder.ts`: 2 failed, including "the per-transaction deltas were really applied, not skipped". (e) Fold 9's boundary. Collapsed `joinSplitObservability` so absence is always definitive — the pre-fold behaviour: 3 failed, one per version in the v2-v4 window. The three-state distinction is real and tested at its edges. (f) `check-corpus-citations.mjs`, the guard you invented. Out-of-range citation rc=1; blank-line citation rc=1; clean rc=0. It does not catch an in-range citation that points at the wrong line — I pointed one at line 12 of the corpus, which is the `---` front-matter fence, and it passed. That is a bounded guard honestly described rather than a defect, but the bound is cheap to tighten: reject structural-only lines (`---`, a bare `#`, a `|---|` table rule). Fold 6. CI on 68652d8: run 32683569424, "typecheck, lint, test", success, 1m 56s. Green on the head. Verdict: every assertion holds, in both polarities, under mutation. ONE FINDING, below — and it is one this session identified and then deferred, which I am converting into a decision rather than discovering.
+FINDING F-07-1 (Executed, HIGH) — the project publishes a wallet name on an invented band, in the one file that refuses to do exactly that four times over. `guessWallet` returns `"YWALLET"` on `expiryDelta` in 35-50. Your own comment says the band is hardcoded, has carried no citation since HANDOFF-00, and that `TRACKING-MATH.md` §3.6 — the only line in this repository that gives any delta — says "(zcashd 20, Zashi/Zodl 40, others vary)", which is the corpus declining to state one for Ywallet. Forty lines above, `UNSOURCED_WALLET_ HYPOTHESES` correctly withholds VIZOR, CAKE, ZKOOL and ZINGO for precisely that reason. What makes it HIGH rather than tidy-up is where the value goes: `likelyWallet` is rendered to users as "wallet guess" at `apps/gateway/src/views/tx.ts:235` and in the mempool row at `apps/web/src/components/track/MempoolPanel.tsx:198`. So a named product appears beside a txid on the strength of a number nobody sourced. This is the site's own thesis pointed the wrong way, and the double standard is the finding — not the band. You were right to refuse to narrow or widen an uncited band, because that invents a different number; the correct move is the third one, which is not to publish it. Fold 1.
+ANSWERS to the ledger questions:
+Q1 `RoundTripIndex` FALSE LINKS — confirmed HANDOFF-08's, and take the WIDE rule. Your reasoning for not fixing it here is right and the reproduction is what makes it actionable: two polarities, one of them on pool legs byte-identical to base eba5b03, which is how you know it predates you. On the choice: the narrow guard (skip a report whose `perPoolZat` both gained and lost) is a symptom filter — it happens to catch migrations because migrations happen to have that shape, and it would keep letting through any future one-sided pool crossing. The wide rule (a deposit requires a transparent input, a withdrawal a transparent output) is the definition of the thing. A round-trip is a claim about value entering and leaving the TRANSPARENT side; a link between two addresses that do not exist is not a weak link, it is a category error, and the `LinkRecord` with two null address fields is the type system saying so. Take the 13 broken tests as the second finding you already identified: every round-trip fixture in the tree has no transparent side at all, so those tests have been asserting the defect rather than the behaviour. They are not 13 regressions, they are 13 fixtures that need a transparent end. Fold 2 makes both the rule and the fixture rebuild explicit HANDOFF-08 deliverables, with an assertion in both polarities.
+Q2 A POOL CROSSING WITH A PUBLIC SIDE — add `mixed`, and give it its own round, exactly as you ask. You have earned that call three gate rounds running: "widen an enum, find the consumer nobody swept" is the shape that produced a defect in each of the last three rounds of this handoff and in HANDOFF-06's. Doing it as the tail of a handoff whose scope is elsewhere is how it goes wrong. Fold 3 makes it a first-class HANDOFF-08 deliverable with a named sweep step. The `summary.shielded` arbitration you settled in passing is right and I would have settled it the same way — a `shield` transaction moved value into a pool, so counting it out of "shielded" leaves it in no bucket, and a tile whose members do not sum to its header is a worse defect than either reading. Keep it, and keep the arbitration written into the DTO docblock: that is the artefact that stops it being re-litigated.
+Q3 `DENOM_CAP` — I went to ZIP 318. The corpus is right and TRACKING-MATH.md is the imprecise one, and your implementation is already correct. ZIP 318 (status Draft) states DENOM_CAP as "10000 ZEC plus the canonical fee", and then says what that means: it makes 10000 ZEC the largest pool-crossing denomination, because DENOM_CAP caps the funding-note value (denomination PLUS fee) produced by note preparation. So the flat 10,000 is the correct answer for the CROSSING, which is what `isOverDenomCap` measures — the two readings are not in conflict, they are measuring two different quantities, and the constant is misnamed rather than mis-valued. Fold 4: rename it to what it tests, correct `TRACKING-MATH.md` §3.9 to state both quantities, and keep the finding-not-rejection behaviour, which was right for the reason you gave — the chain is the authority on what happened.
+Q4 THE FOUR UNSOURCED FINGERPRINTS — strike them. I searched and there is no public source giving a default expiry delta for Vizor, Zkool, Zingo or Cake; §3 asked for something that does not exist to be read. `UNSOURCED_WALLET_HYPOTHESES` is the right artefact and it should outlive the spec line that prompted it. Fold 1 strikes the four from HANDOFF-07 §3 as satisfied-by- refusal, and applies the same standard upward to YWALLET per F-07-1 — which is the part that makes the refusal principled rather than selective.
+Q5 THE `ironwood` FIELD NAMES — I could reach Zebra's source and this is the most valuable thing in this resolution. You are half right, and the wrong half is the load-bearing one. - `tx.ironwood` is CONFIRMED, read from `zebra-rpc/src/methods/types/transaction.rs` on `main`: `#[serde(rename = "ironwood", skip_serializing_if = "Option::is_none")] pub(crate) ironwood: Option<Orchard>`. Note the TYPE as well as the name — Zebra models the Ironwood bundle with the same struct as Orchard, so `ironwood.ts` mirroring `orchard.ts` is confirmed at the shape level too, not just by analogy. Confirmed in the same file, all matching what you have: `vjoinsplit`, `vShieldedSpend`, `vShieldedOutput`, `valueBalance`, `expiryheight`, `version`. - `block.finalironwoodroot` DOES NOT EXIST. `zebra-rpc/src/methods.rs` defines `finalsaplingroot` and `finalorchardroot` on the verbose block and there is no `ironwoodroot` or `ironwood_root` anywhere in the file. What Ironwood got instead, in ZcashFoundation/zebra PR #10888 (merged 2 Jul 2026), is a SIZE, not a root: `GetBlockTrees` gains `ironwood: IronwoodTrees`, `pub struct IronwoodTrees { size: u64 }`, with `#[serde(default, skip_serializing_if = "IronwoodTrees::is_empty")]`. The block-level Ironwood ROOT is not on `getblock` at all — it is on `z_gettreestate`, and `z_getsubtreesbyindex` accepts `pool = "ironwood"`. Zebra 6.0.0 (10 Jul 2026) names exactly those three RPCs as the Ironwood tree surface. Your alarm works and that is why this is a fold rather than a disaster: `ironwoodRootUnobserved` fires on any block that added Ironwood commitments and produced no root, which is now every such block, so the guess announces itself exactly as designed. But an alarm that will fire on every block is a broken build, not a signal. Fold 5. Two things fall out that are worth more than the fix. First, the same release confirms mainnet NU6.3 at 3,428,143 from a source that is not ZIP 258 — Zebra 6.0.0 shipped it as stable on 10 Jul 2026 for an activation expected 28 Jul 2026 — so the Draft-ZIP exposure fold 2 recorded is real for the DOCUMENT and much smaller for the HEIGHT than it looked. Second: three of the four inferred names were right, and the one that was wrong was wrong because Ironwood's tree surface was designed differently from Sapling's and Orchard's, not because the naming convention changed. Analogy was the right method and it still cost you a field; that is the argument for HANDOFF-10's captured fixture, not against the inference.
+Q6 WHEN DOES "REVIEW ONLY THE FIX COMMIT" STOP — you have asked the best question in this project's ledger, and the honest answer is that your instinct is already the rule; it just needs writing down. Here is the stopping rule, and it is not a round budget: A round ends the gate when it returns no finding that a user could see and no finding whose fix changes behaviour. Round 4's survivors were a caption disagreeing with its own tile and a JSON example in a document — both real, neither reachable by a user as a wrong claim about the chain, neither changing a value. That is the floor. A round budget is the wrong instrument because it counts rounds, and the thing that actually decays across rounds is REACH, which you measured: round 1 dropped whole snapshots from /track and published a wallet name on no source; round 4 fixed a caption. Severity floors are the wrong instrument too, because severity is assigned by the reviewer that found it and this codebase's most expensive defects have twice been rated LOW. Two things go with it. The fix commit is reviewed as its own commit, always — that is not a gate round, it is part of shipping a fix, because three sessions running have shown a fix here is the most dangerous commit in the branch. And the lead states the extrapolation as you did: "a fifth round probably finds one or two more, of this reach". A gate that claims convergence it cannot demonstrate is worse than one that stops honestly. Fold 7 writes all three into CLAUDE.md.
+FOLDS — apply these in your FIRST commit, before HANDOFF-08 work, then reconcile statuses as usual.
+
+1. `apps/indexer/src/decoder/fingerprint.ts` — F-07-1. YWALLET stops being returned on the uncited 35-50 band. Move it into `UNSOURCED_WALLET_HYPOTHESES` beside VIZOR, CAKE, ZKOOL and ZINGO, keeping the Ironwood tiebreaker comment, which is sourced and stays useful the day a delta is. Add a test asserting that a transaction whose ONLY wallet evidence is an expiry delta in 35-50 returns no wallet name (fail side: restore the branch, watch it name one). `handoffs/HANDOFF-07-v6-decoder.md` §3 — strike Vizor, Zkool, Zingo and Cake, recording that L2 searched and no public source states their deltas, so the requirement was satisfied by refusal. `docs/2.0/TRACKING-MATH.md` §3.6 — the fingerprint table lists which wallets have a sourced delta and which are hypotheses; today that is one and the rest.
+2. `handoffs/HANDOFF-08-analysis-toolkit.md` §4 — `RoundTripIndex.ingest()` takes the WIDE rule: a deposit requires a transparent input, a withdrawal a transparent output. §4 also rebuilds the 17 round-trip fixtures with a transparent side, because a fixture with none has been asserting the defect. §5 — an assertion in both polarities: two 500 ZEC Orchard-to-Ironwood migrations produce NO `LinkRecord` (fail side: revert to the pre-transparent rule and watch a MEDIUM FEE_TOLERANT link appear between strangers). Cite LEDGER-07 Q1.
+3. `handoffs/HANDOFF-08-analysis-toolkit.md` §4 — add `mixed` to the row class enum as a named deliverable with its own sweep step: enumerate every consumer of the enum before widening it, and list them in §7. This is the fourth session in a row where widening a type produced the defect, so the sweep is the deliverable, not the member. Cite LEDGER-07 Q2.
+4. `packages/zec-types/src/zip318.ts` — `DENOM_CAP` is renamed to what it measures (the largest pool-crossing denomination, 10,000 ZEC) and its docblock states ZIP 318's two quantities verbatim: DENOM_CAP is 10,000 ZEC plus the canonical fee and caps the FUNDING NOTE; 10,000 ZEC is the largest CROSSING. Behaviour does not change. `docs/2.0/TRACKING-MATH.md` §3.9 — correct to state both. Note in both that ZIP 318 is status Draft.
+5. `packages/zebra-rpc/src/schemas.ts`, `client.ts`, `types.ts`, `apps/indexer/src/decoder/ block-decoder.ts` — `finalironwoodroot` is not a real field. Remove it, or keep it read-only with its docblock corrected from "INFERRED" to "CONFIRMED ABSENT (zebra-rpc/src/methods.rs on main; PR #10888 merged 2 Jul 2026)" — the lead decides which, but it must stop being described as a plausible guess. Parse `trees.ironwood.size` instead of leaving `trees` an unknown record. `ironwoodRootUnobserved` stops being an alarm on a guess and becomes what it now is: a statement that the block-level Ironwood root is not available from `getblock`. Record that the Ironwood ANCHOR must come from `z_gettreestate` (and `z_getsubtreesbyindex` for subtrees), and put that in `handoffs/HANDOFF-12-runtime-poolstate.md` §2 as a reading item and §4 as a deliverable, since it wires the live path. Keep HANDOFF-10's captured fixture: the names are settled, the end-to-end path is not.
+6. `scripts/check-corpus-citations.mjs` — reject a citation that lands on a structural-only line (`---`, a bare `#`, a `|---|` table rule), with the detector self-tested in both directions as the other four guards are. My probe pointed at the corpus's front-matter fence and passed.
+7. `CLAUDE.md`, gate contract — write the stopping rule: (i) a round ends the gate when it returns no finding a user could see and no finding whose fix changes behaviour; (ii) the fix commit is always reviewed as its own commit, because three sessions running have shown it is the most dangerous commit in the branch; (iii) the lead states the extrapolation rather than claiming convergence. Cite LEDGER-07 Q6 and its measured reach curve.
+8. `handoffs/LEDGER.md` — record that L2 verified HANDOFF-07 at 68652d8 under six mutation probes with one finding; that `tx.ironwood` is CONFIRMED from Zebra source and `finalironwoodroot` is CONFIRMED ABSENT; and that mainnet NU6.3 3,428,143 is now corroborated by Zebra 6.0.0 independently of ZIP 258.
+
+OPERATOR CLICKS (Aqua, not any agent):
+
+* Merge PR #38. Green on 68652d8, and the one finding is a fold, not a blocker.
+* HANDOFF-08 is now UNBLOCKED — #37 and #38 both carry the corrections its golden cases had to wait for (expiryheight, the computed fee, four pools, the live MIGRATION_O2I path). Capture the golden cases only after #38 is on main.
+* Migration 003 and 004 have still not been applied to the VPS database. HANDOFF-10 owns the runbook; the click is yours.
+* Stale remote branches per `docs/2.0/BRANCH-CLEANUP.md`, now including `claude/new-session-s4er6f`.
+```
+
+---
+
+## L2 RESOLUTION — HANDOFF-07, folds applied (recorded by the HANDOFF-08 session)
+
+Appended under the revolution protocol, step 2: this is the receipt for the block above, not a
+restatement of it. The block itself is verbatim and untouched.
+
+```
+FOLDS APPLIED - by the HANDOFF-08 session, before any HANDOFF-08 work
+
+ 1. APPLIED, and wider than the file the fold named, because the fold's own argument required it.
+    `guessWallet` no longer returns YWALLET on any input: the 35-50 branch is deleted and
+    "YWALLET" joins VIZOR, CAKE, ZKOOL and ZINGO in `UNSOURCED_WALLET_HYPOTHESES`. The Ironwood
+    tiebreaker is KEPT, as the fold asks, and now gates ZODL alone - it was sourced in its own
+    right and it is what stops a delta of 40 with no Ironwood bundle being claimed for Zodl
+    either.
+    ONE STEP THE FOLD DID NOT NAME, TAKEN DELIBERATELY: `"YWALLET"` is removed from the
+    `WalletGuess` union in `packages/zec-types/src/leaks.ts`. The four wallets already in
+    `UNSOURCED_WALLET_HYPOTHESES` have no member there, for the reason that file states in as
+    many words - "a `WalletGuess` no rule can return is a branch that reads as covered and never
+    runs" - so adding YWALLET to the list while leaving its member would have made the file
+    contradict itself in the same commit, which LEDGER-03 Q3 rates HIGH rather than tidy-up.
+    Swept: nothing outside the indexer typed on the member (`apps/gateway` reads
+    `string | null`, `legacy/dashboard` reads `string`), so the narrowing cost no consumer.
+    TESTS: `rpc-casing.test.ts` gains "an expiry delta in 35-50 names NO wallet - the band was
+    never sourced", asserting every point in the closed band including both endpoints, plus 34
+    and 51 for symmetry. Fail side executed: restoring the branch fails 2 tests, on the unit path
+    ("delta 35: expected 'YWALLET' to be 'UNKNOWN_NONSTANDARD'") and on the analyser path
+    ("expected 'YWALLET' to be 'UNKNOWN_UNPRICED'"). Restored, 9 pass.
+    A FAIL-SIDE PROBE THAT STOPPED DISCRIMINATING, REPORTED RATHER THAN REPAIRED QUIETLY (the
+    rule LEDGER-05 fold 7 added, fourth occurrence). `rpc-casing.test.ts`'s first pair is
+    "with `expiryheight` / without it", and its wallet-name assertion used to separate the two -
+    YWALLET against UNKNOWN. With YWALLET withdrawn, both states answer `UNKNOWN_UNPRICED`, so
+    the WALLET half of that pair no longer discriminates. The expiry-delta half does (40 against
+    null) and is what the suite is for. Both assertions are kept, in both states, with a comment
+    saying exactly this, so a change that makes a name reappear there is visible.
+    HANDOFF-07 §3's fingerprint line is struck as satisfied-by-refusal, and TRACKING-MATH §3.6's
+    prose is replaced by a table splitting the wallets with a sourced delta (two) from those
+    without (the rest).
+ 2. APPLIED to HANDOFF-08: §4 gains deliverables 2 and 3 (the wide rule; the 17 fixtures rebuilt
+    with a transparent side), §5 gains A11 and A12. A12 is not in the fold and is added because
+    A11 alone is satisfiable by a `RoundTripIndex` that emits nothing at all - a fail-side that
+    does not discriminate is itself a finding, so the assertion that a GENUINE pair still links
+    is written beside the one that says strangers do not.
+ 3. APPLIED to HANDOFF-08: §4 gains deliverable 4 (`mixed`, with the consumer enumeration as the
+    deliverable rather than the member), §5 gains A13, and a new §4b states the sweep discipline
+    that governs 2, 3 and 4 together.
+ 4. APPLIED. `ZIP318_DENOM_CAP_ZAT` is renamed `ZIP318_MAX_CROSSING_ZAT` and `isOverDenomCap` is
+    renamed `isOverMaxCrossing`; the value is unchanged and no behaviour moves. The docblock
+    states both of ZIP 318's quantities and that the ZIP is status Draft. TRACKING-MATH §3.9
+    gains the same, as a correction rather than a restatement.
+    SWEPT IN THE SAME COMMIT, per LEDGER-03 Q3, because seven places stated the retired premise
+    that "the corpus gives DENOM_CAP two ways" as a live open question: `leaks.ts` (two
+    docblocks), `leak-analyzer.ts` (a docblock and the `MIGRATION_DENOMINATION` finding message,
+    which said "above DENOM_CAP on the flat 10,000 ZEC reading, which the corpus states two
+    ways" and now says "above 10,000 ZEC, the largest crossing ZIP 318 permits"),
+    `zip318.test.ts`, `leak-class.test.ts` (two comments and two message assertions),
+    `migrations/003_four_pools.sql` (the comment justifying the absent CHECK - the conclusion is
+    unchanged and now rests on the stronger half of its argument alone), and
+    `ZECREVEAL-2.0-PLAN.md` §3.4, which stated `DENOM_CAP = 10,000 ZEC` flatly.
+    THE DTO FIELD `Zip318MigrationRecord.overDenomCap` IS RENAMED TOO, to `overMaxCrossing`, and
+    that is a key inside the `report` JSONB column rather than only a symbol. It is free exactly
+    now, and the check was executed rather than assumed: `grep` over `apps/` finds no reader of
+    that column - `persistence/leak-reports.ts` writes it and nothing reads it back yet - so no
+    row is mis-read and no compatibility shim is owed. Whoever writes the first reader inherits
+    one name instead of two.
+ 5. APPLIED, taking the REMOVE branch of the choice the fold left to the lead, and going one
+    step further where the fold pointed.
+    `finalironwoodroot` is deleted from `packages/zebra-rpc/src/schemas.ts`, `types.ts` and
+    `client.ts` rather than kept read-only. `rpcBlockSchema` is `.passthrough()`, so a field this
+    schema does not name still survives a parse if a node ever sends one - nothing is lost by not
+    declaring it, and a declared field no node emits is the branch that reads as covered and
+    never runs. Each of the three sites keeps a CONFIRMED-ABSENT note in place of the
+    declaration, citing `zebra-rpc/src/methods.rs` on `main` and PR #10888 (merged 2 Jul 2026),
+    so the next reader cannot re-infer the name.
+    `trees` is now typed - `blockTreesSchema` / `poolTreeSchema` - instead of
+    `z.record(z.string(), z.unknown())`, and `RpcBlock.trees` carries it.
+    IN THE DECODER, TWO FIELDS REPLACE TWO. `DecodedBlock.ironwoodAnchor` is REMOVED: it could
+    only ever be `null`, and a field that is null on every block is the hardcoded zero this
+    project keeps removing. `ironwoodRootUnobserved` is renamed
+    `ironwoodAnchorPendingTreestate` and re-specified - it was an alarm on a guess that would
+    now fire on every block that moved the pool, which is a broken build rather than a signal,
+    and the question it answers is still live: it names the heights at which HANDOFF-12 must
+    call `z_gettreestate`. `ironwoodTreeSize: bigint | null` is new and carries
+    `trees.ironwood.size`, which is not a root but IS an anchor's `maxPosition` - the half of the
+    anchor `getblock` really sends. It is `null`, never `0n`, when the node sends no
+    `trees.ironwood`, which PR #10888's `skip_serializing_if` makes the expected shape for an
+    empty tree and is also what an older node does on every block.
+    FIXTURE AND TESTS: `synthetic-v6-ironwood-3430000.json` loses its invented
+    `finalironwoodroot` and gains a `trees` object whose `ironwood.size` is COMPUTED from the
+    number of Ironwood actions its own transactions contain, so the assertion over it is a
+    measurement rather than a constant copied into two places. `ironwood-v6.test.ts`,
+    `block-decoder.test.ts` (the guarded mainnet-capture suite, whose load-bearing Ironwood
+    assertion now asks whether `trees.ironwood.size` is really sent) and
+    `replay-ironwood.test.ts` (which now takes the root from a modelled `z_gettreestate` answer
+    and the `maxPosition` from the decoder's own reading, so a disagreement between the two is a
+    failure rather than a tautology) are all updated. `test/fixtures/blocks/README.md` records
+    CONFIRMED and CONFIRMED ABSENT separately and keeps the capture request.
+    HANDOFF-12 §2 gains the reading item and §4 gains deliverables 2 and 3, including the
+    instruction to call `z_gettreestate` only at the marked heights rather than on every block.
+ 6. APPLIED. `scripts/check-corpus-citations.mjs` gains `structuralKind`, rejecting a citation
+    that lands on a horizontal rule or front-matter fence, a heading marker with no text, or a
+    table separator row. A heading WITH text passes deliberately: section headers are the most
+    durable citation target in the corpus and pushing citations off them would make the guard
+    worse. The self-test is extended in both directions and probes the REAL corpus line L2 got
+    through with - the first structural line in `01-contemporary-zcash.md`, which is its
+    front-matter fence - rather than a synthetic one, plus four negative shapes that must NOT be
+    called structural. L2's exact probe reproduced: a citation of
+    `01-contemporary-zcash.md:12` now returns "points at a horizontal rule or front-matter
+    fence, which carries no claim a reader can check".
+ 7. APPLIED to CLAUDE.md, operating model, as its own bullet immediately above Loop 4 - because
+    it is a stopping rule and Loop 4 is a budget, and the fold's whole point is that they are
+    different instruments. All three parts, with LEDGER-07 Q6's measured reach curve cited.
+ 8. APPLIED below.
+```
+
+```
+L2 VERIFICATION OF HANDOFF-07 - ONE FINDING (recorded per fold 8)
+
+L2 re-ran everything on a clean worktree of 68652d8 with a real PostgreSQL 16, after deleting
+`packages/*/dist` and every `*.tsbuildinfo` and with no build step: content 67, zebra-rpc 35,
+web 365, gateway 121, indexer 365 passed / 1 skipped - 953 passed, 1 skipped, rc=0. Migration 004
+applies from that same clean tree and a second run skips all five, so it is idempotent.
+typecheck 10/10. Lint 0 errors AND 0 WARNINGS - the `saplingSpend` warning this repository
+carried from HANDOFF-00 to HANDOFF-06 is gone. Five static guards rc=0.
+`assert-no-skipped-integration.mjs` rc=0 over a real vitest JSON report: 10 integration files
+executed, one allowed skip. CI on 68652d8: run 32683569424, success, 1m 56s.
+
+SIX ADVERSARIAL PROBES, each by breaking the thing rather than reading it, each restored and
+re-verified with `git diff` empty afterwards: (a) reverting the A8 seam to HANDOFF-06's
+behaviour failed 8 tests across three other assertions, so the live path is wired and A8 is
+load-bearing rather than adjacent; (b) raising `MAX_SUPPORTED_TX_VERSION` to 99 failed 3;
+(c) perturbing ZIP 257's proof base 2720 -> 2721 failed 2, the second being the good one,
+which shows the test is pinned to the constant rather than to a boolean; (d) suppressing the
+Ironwood boundary delta failed 2; (e) collapsing `joinSplitObservability` to two states failed
+3, one per version in the v2-v4 window. (f) The sixth probed
+`scripts/check-corpus-citations.mjs` and GOT THROUGH, which is fold 6 above.
+
+FINDING F-07-1 (Executed, HIGH): the project published a wallet name on an invented band, in the
+one file that refuses to do exactly that four times over. `guessWallet` returned "YWALLET" on an
+`expiryDelta` in 35-50 - hardcoded at HANDOFF-00, uncited ever since - while
+`UNSOURCED_WALLET_HYPOTHESES` forty lines above correctly withheld VIZOR, CAKE, ZKOOL and ZINGO
+for want of exactly that. `likelyWallet` renders to users beside a txid, so a named product
+appeared on the strength of a number nobody sourced. Fixed by fold 1: not by narrowing or
+widening the band, which would invent a different number, but by not publishing it.
+
+THE ZEBRA FIELD NAMES ARE SETTLED, AND THE HALF THAT WAS WRONG WAS THE LOAD-BEARING HALF.
+`tx.ironwood` is CONFIRMED from `zebra-rpc/src/methods/types/transaction.rs` on `main`, and
+confirmed at the SHAPE level too - Zebra models the Ironwood bundle with the same struct as
+Orchard, so `ironwood.ts` mirroring `orchard.ts` was right for a reason and not by luck. The
+same file confirms `vjoinsplit`, `vShieldedSpend`, `vShieldedOutput`, `valueBalance`,
+`expiryheight` and `version`. `block.finalironwoodroot` is CONFIRMED ABSENT: no `ironwoodroot`
+under any spelling exists in `zebra-rpc/src/methods.rs`. What Ironwood got instead is a SIZE -
+`GetBlockTrees.ironwood: IronwoodTrees { size: u64 }`, PR #10888, merged 2 Jul 2026 - with the
+block-level ROOT on `z_gettreestate` and subtrees on `z_getsubtreesbyindex`, which accepts
+`pool = "ironwood"`. Zebra 6.0.0 (10 Jul 2026) names those three RPCs as the Ironwood tree
+surface. Three of four inferred names were right and the fourth was wrong because Ironwood's
+tree surface was DESIGNED differently, not named differently - which is an argument for
+HANDOFF-10's captured fixture rather than against inference.
+
+MAINNET NU6.3 = 3,428,143 IS NOW CORROBORATED INDEPENDENTLY OF ZIP 258. Zebra 6.0.0 shipped the
+height as stable on 10 Jul 2026 for an activation expected 28 Jul 2026. The
+`IRONWOOD_HEIGHTS_REST_ON_A_DRAFT_ZIP` exposure recorded at HANDOFF-06 therefore stands for the
+DOCUMENT and is much smaller for the HEIGHT than it looked: a Draft ZIP could still be edited,
+but the mainnet height now has a second, non-ZIP source. The standing DEFERRED entry is kept
+rather than closed - the testnet height, `poolsActiveAt` and `orchardExitOnlyFrom` are not
+covered by that corroboration, and HANDOFF-10's captured fixture is still what closes it.
+```

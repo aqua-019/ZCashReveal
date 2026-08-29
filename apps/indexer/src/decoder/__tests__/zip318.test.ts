@@ -20,13 +20,13 @@
 import { describe, expect, it } from "vitest";
 import {
   ZATOSHI_PER_ZEC,
-  ZIP318_DENOM_CAP_ZAT,
+  ZIP318_MAX_CROSSING_ZAT,
   ZIP318_MANTISSAS,
   ZIP318_MAX_RESIDUAL_ZAT,
   canonicalDenomination,
   isBelowMaxResidual,
   isCanonicalDenomination,
-  isOverDenomCap,
+  isOverMaxCrossing,
 } from "@zcashreveal/types";
 
 const zec = (n: number | bigint): bigint => BigInt(n) * ZATOSHI_PER_ZEC;
@@ -107,28 +107,33 @@ describe("canonicalDenomination - the ladder the corpus states", () => {
   });
 });
 
-describe("DENOM_CAP - a threshold for a finding, never a validity test", () => {
-  it("is 10,000 ZEC on the flat reading, and the flat reading is the strict one", () => {
-    // The corpus states the cap twice and not identically: "10,000 ZEC plus
-    // canonical fee" in the research, a flat 10,000 in TRACKING-MATH §3.9. A
-    // crossing between the two is legal under the first and over-cap under the
-    // second, so the strict form is answered here - it flags the ambiguous band
-    // rather than passing it silently.
-    expect(ZIP318_DENOM_CAP_ZAT).toBe(zec(10_000));
-    expect(isOverDenomCap(zec(10_000))).toBe(false);
-    expect(isOverDenomCap(zec(10_000) + 1n)).toBe(true);
-    // The band the two statements disagree about: 10,000 ZEC plus a
-    // conventional fee is over-cap on this reading and legal on the other.
-    expect(isOverDenomCap(zec(10_000) + 10_000n)).toBe(true);
+describe("the largest crossing - a threshold for a finding, never a validity test", () => {
+  it("is 10,000 ZEC, and that is the CROSSING bound rather than DENOM_CAP", () => {
+    // TWO QUANTITIES, NOT TWO READINGS, and this suite asserted the wrong story
+    // about its own subject until HANDOFF-08. It said the corpus stated the cap
+    // twice and not identically - "10,000 ZEC plus canonical fee" in the
+    // research, a flat 10,000 in TRACKING-MATH §3.9 - and that the strict form
+    // was chosen to flag the ambiguous band. L2 read ZIP 318 (LEDGER-07 Q3):
+    // `DENOM_CAP` is 10,000 ZEC plus the canonical fee and bounds the FUNDING
+    // NOTE, and 10,000 ZEC is the largest CROSSING. Both statements are true of
+    // different things. This predicate measures the crossing, so 10,000 is not
+    // a conservative choice between two candidates - it is the answer.
+    expect(ZIP318_MAX_CROSSING_ZAT).toBe(zec(10_000));
+    expect(isOverMaxCrossing(zec(10_000))).toBe(false);
+    expect(isOverMaxCrossing(zec(10_000) + 1n)).toBe(true);
+    // A crossing of 10,000 ZEC plus a conventional fee is over the crossing
+    // bound. It was ALSO the band the old comment called ambiguous; nothing
+    // about the answer changes, only what it means.
+    expect(isOverMaxCrossing(zec(10_000) + 10_000n)).toBe(true);
   });
 
-  it("an over-cap amount still gets its denomination, because the chain is the authority", () => {
-    // Migration 003 declined to write a CHECK against either reading, on the
+  it("an over-bound amount still gets its denomination, because the chain is the authority", () => {
+    // Migration 003 declined to write a CHECK on `amount_zat` at all, on the
     // grounds that "a database constraint that refuses to record something the
     // chain did... destroys the evidence instead of raising it". The same rule
-    // governs here: over-cap is a finding, not a rejection.
+    // governs here: over the bound is a finding, not a rejection.
     const d = canonicalDenomination(zec(20_000));
     expect(d).toEqual({ n: 2, kZec: 4, kZatoshi: 12 });
-    expect(isOverDenomCap(zec(20_000))).toBe(true);
+    expect(isOverMaxCrossing(zec(20_000))).toBe(true);
   });
 });

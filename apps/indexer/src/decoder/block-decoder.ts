@@ -6,10 +6,13 @@
  * Sapling spends/outputs, Orchard actions and Ironwood actions, per-tx
  * turnstile value balances, and the block-level commitment-tree roots.
  *
- * IRONWOOD IS DECODED HERE SINCE HANDOFF-07 and it is the one pool whose
- * BLOCK-LEVEL root this build has never seen. `finalironwoodroot` is inferred
- * by analogy from its two siblings, so `decodeBlock` reports the case that
- * would otherwise hide a wrong guess - see `ironwoodRootUnobserved`.
+ * IRONWOOD IS DECODED HERE SINCE HANDOFF-07 and it is the one pool with NO
+ * block-level root on this response. Through HANDOFF-07 that was a suspicion
+ * carried as an alarm on an inferred field name; L2 read Zebra's source and it
+ * is now a settled fact (LEDGER-07 Q5). `decodeBlock` therefore emits no
+ * Ironwood block anchor at all, reports the tree SIZE the response does carry,
+ * and names the heights whose anchor HANDOFF-12 must fetch from
+ * `z_gettreestate` - see `ironwoodTreeSize` and `ironwoodAnchorPendingTreestate`.
  *
  * No I/O, no state, no findings, no identity inference — this layer is the
  * confirmed-chain analogue of decoder/leak-analyzer.ts's mempool decode,
@@ -98,28 +101,52 @@ export interface DecodedBlock {
   saplingAnchor: BlockAnchor | null;
   /** finalorchardroot anchor — non-null only when this block added Orchard commitments. */
   orchardAnchor: BlockAnchor | null;
-  /** finalironwoodroot anchor — non-null only when this block added Ironwood commitments. */
-  ironwoodAnchor: BlockAnchor | null;
-  /**
-   * True when this block appended Ironwood commitments and no Ironwood root
-   * came back with it.
+  /*
+   * THERE IS NO `ironwoodAnchor` HERE, AND ITS ABSENCE IS THE FINDING.
    *
-   * THIS FLAG IS THE ONLY THING STANDING BETWEEN A WRONG FIELD NAME AND A
-   * SILENT ZERO. `finalironwoodroot` is inferred by analogy from
-   * `finalsaplingroot` and `finalorchardroot`; nothing in this repository has
-   * observed it (see `packages/zebra-rpc/src/types.ts`). If the real name is
-   * something else, `ironwoodAnchor` is `null` on every block forever, and a
-   * null anchor is indistinguishable from "this block added no Ironwood
-   * commitments" - which is the `expiryheight` failure mode exactly.
+   * This interface carried one through HANDOFF-07, built from an inferred
+   * `finalironwoodroot`, plus an `ironwoodRootUnobserved` alarm for the case
+   * where the guess was wrong. The guess WAS wrong: L2 read
+   * `zebra-rpc/src/methods.rs` on `main` and Zebra defines `finalsaplingroot`
+   * and `finalorchardroot` on the verbose block and no Ironwood root under any
+   * spelling (LEDGER-07 Q5). So `ironwoodAnchor` would be `null` on every block
+   * forever and the alarm would fire on every block that moved the pool.
    *
-   * So the two are separated here: `ironwoodAnchor === null` with this flag
-   * FALSE means the pool did not move in this block, and `null` with this flag
-   * TRUE means the pool moved and the node did not give us a root under the
-   * name we asked for. The second is a fact about this build, not about the
-   * chain, and a caller that sees it should suspect the field name before it
-   * suspects the block.
+   * An alarm that fires on every block is a broken build, not a signal, and a
+   * field that is `null` on every block is the hardcoded zero this project
+   * keeps removing. Both are gone. What replaces them is the pair below: the
+   * SIZE the node really sends, and a flag naming the heights whose anchor has
+   * to be fetched from somewhere else.
    */
-  ironwoodRootUnobserved: boolean;
+  /**
+   * The number of commitments in the Ironwood tree as of this block, from
+   * `trees.ironwood.size`, or `null` when the node did not report one.
+   *
+   * A SIZE IS NOT AN ANCHOR, BUT IT IS AN ANCHOR'S `maxPosition`. The highest
+   * occupied position is `size - 1n`, so when HANDOFF-12 fetches the root from
+   * `z_gettreestate` it already has the other half of the `Anchor` from this
+   * response. `null` means the node sent no `trees.ironwood` at all, which
+   * PR #10888 makes the expected shape for a block whose Ironwood tree is still
+   * empty (`skip_serializing_if = "IronwoodTrees::is_empty"`) - and also what an
+   * older node does on every block. It is deliberately not coalesced to `0n`.
+   */
+  ironwoodTreeSize: bigint | null;
+  /**
+   * True when this block appended Ironwood commitments, and therefore when an
+   * Ironwood anchor EXISTS for this height that `getblock` cannot supply.
+   *
+   * IT IS A STATEMENT ABOUT THE RPC SURFACE, NOT AN ALARM. Its predecessor,
+   * `ironwoodRootUnobserved`, meant "the pool moved and no root came back under
+   * the name we guessed", and was designed to fire rarely and loudly. Under the
+   * confirmed shape it would fire on every such block, which is noise. The same
+   * boolean is kept because the QUESTION it answers is still live and is now
+   * HANDOFF-12's work list: these are exactly the heights at which
+   * `z_gettreestate` must be called to obtain the Ironwood root, and
+   * `z_getsubtreesbyindex` (which accepts `pool = "ironwood"`) to obtain
+   * subtrees. Zebra 6.0.0 names those two RPCs plus `getblock` as the Ironwood
+   * tree surface.
+   */
+  ironwoodAnchorPendingTreestate: boolean;
   txs: DecodedBlockTx[];
 }
 
@@ -128,7 +155,8 @@ export interface DecodedBlock {
  *
  * Block-level anchors are gated on the pool having appended commitments *in
  * this block*: `saplingHadOutputs && block.finalsaplingroot` for Sapling, and
- * the Orchard and Ironwood equivalents. Two reasons:
+ * the Orchard equivalent. (There is no Ironwood equivalent: the node sends no
+ * Ironwood root. See `ironwoodAnchorPendingTreestate`.) Two reasons:
  *   1. `finalsaplingroot` is present in every block after Sapling activation
  *      regardless of whether commitments advanced; emitting an anchor for an
  *      unchanged root would duplicate the prior block's entry.
@@ -187,10 +215,9 @@ export function decodeBlock(block: RpcBlock): DecodedBlock {
       ? { pool: "orchard", root: block.finalorchardroot, height: block.height }
       : null;
 
-  const ironwoodAnchor: BlockAnchor | null =
-    ironwoodHadOutputs && block.finalironwoodroot
-      ? { pool: "ironwood", root: block.finalironwoodroot, height: block.height }
-      : null;
+  // No Ironwood block anchor is constructed, because no Ironwood root reaches
+  // this function. See the note on the missing `ironwoodAnchor` field above.
+  const ironwoodSize = block.trees?.ironwood?.size;
 
   return {
     height: block.height,
@@ -198,8 +225,8 @@ export function decodeBlock(block: RpcBlock): DecodedBlock {
     time: block.time,
     saplingAnchor,
     orchardAnchor,
-    ironwoodAnchor,
-    ironwoodRootUnobserved: ironwoodHadOutputs && !block.finalironwoodroot,
+    ironwoodTreeSize: ironwoodSize === undefined ? null : BigInt(ironwoodSize),
+    ironwoodAnchorPendingTreestate: ironwoodHadOutputs,
     txs,
   };
 }
