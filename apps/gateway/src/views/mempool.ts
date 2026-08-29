@@ -416,7 +416,19 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
   }
 
   const net = netCrossingZat(r);
-  const hasTransparent = r.transparent.vin.length + r.transparent.vout.length > 0;
+  // A COINBASE VIN LIGHTS NO TRANSPARENT LANE EITHER, for the reason given at
+  // the `hasTransparentSource` derivation below: issuance has no prior owner
+  // and publishes no sending address. A miner's payout OUTPUT still lights it,
+  // because that is a real transparent recipient.
+  //
+  // This read `vin.length + vout.length > 0`, so a ZIP 213 coinbase paying
+  // fully into the pool classified `shielded` - the class correctly refusing a
+  // transparent side - and drew a transparent lane swatch beside it. The
+  // comment three lines below says a missing lane "says the transaction did not
+  // touch that pool", so a PRESENT lane says it did: the row contradicted
+  // itself, which is the shape this file exists to prevent.
+  const hasTransparent =
+    r.transparent.vin.some((v) => !v.coinbase) || r.transparent.vout.length > 0;
   const hasSapling = r.bundle.saplingSpends.length + r.bundle.saplingOutputs.length > 0;
   const hasOrchard = r.bundle.orchardActions.length > 0;
   const hasIronwood = r.bundle.ironwoodActions.length > 0;
@@ -488,9 +500,6 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
   // rules out as a consequence of applying HANDOFF-06's A9 in both places. A
   // gate round found the fix had landed in the classifier and not in the
   // producer that renders it.
-  const crossesWithNoPublicSide =
-    movedPools.length > 1 && r.transparent.vin.length === 0 && r.transparent.vout.length === 0;
-
   // A COINBASE INPUT IS NOT A TRANSPARENT SOURCE, AND THIS IS THE SAME RULE
   // `round-trip.ts` ALREADY APPLIES. There, `hasTransparentSource` is
   // `vin.some((v) => !v.coinbase)`, because a coinbase input has no prior owner:
@@ -506,7 +515,18 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
   // `vout.length > 0`, and a miner's payout output IS a real transparent sink -
   // so only the source half needed correcting. Such a transaction now falls to
   // the `shielded` residual, which claims nothing about a transparent side.
+  //
+  // AND IT REACHES BOTH TESTS, WHICH IT DID NOT WHEN THIS FIX FIRST LANDED.
+  // `crossesWithNoPublicSide` below kept `vin.length === 0` while the `shield`
+  // test used the derivation, so a ZIP 213 coinbase moving two pools with no
+  // transparent output was denied `migration` on the strength of a vin the very
+  // next predicate refused to count - one rule with two answers, now inside one
+  // function, in the expression whose docblock spends four paragraphs arguing
+  // against exactly that. Both gate lenses found it independently.
   const hasTransparentSource = r.transparent.vin.some((v) => !v.coinbase);
+
+  const crossesWithNoPublicSide =
+    movedPools.length > 1 && !hasTransparentSource && r.transparent.vout.length === 0;
 
   const klass: MempoolRow["class"] =
     crossesWithNoPublicSide

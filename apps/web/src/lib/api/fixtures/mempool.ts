@@ -124,7 +124,7 @@ interface Row {
    * The wallet guess, as /track renders it in the column at
    * `MempoolPanel.tsx:198`.
    *
-   * FIVE OF THESE NAMED A PRODUCT THIS PROJECT CANNOT FINGERPRINT, and HANDOFF-08's
+   * SIX OF THESE NAMED A PRODUCT THIS PROJECT CANNOT FINGERPRINT, and HANDOFF-08's
    * gate found them still here after the correction had landed everywhere else.
    * F-07-1's stated harm is "a named product appears beside a txid on the
    * strength of a number nobody sourced", and it names this column as one of the
@@ -134,7 +134,10 @@ interface Row {
    * compile-checked it. CLAUDE.md's sweep rule (LEDGER-03 Q3) rates a correction
    * that lands in one file while another still states the error HIGH.
    *
-   * Ywallet, Vizor, Zkool, Zingo and Keystone are now "not classified". Zodl and
+   * Ywallet, Vizor, Zkool, Cake, Zingo and Keystone are now "not classified" -
+   * SIX, and this list said five and omitted Cake for a commit, which is the
+   * one a reader auditing "which product names did this site publish on no
+   * source" would have missed. Zodl and
    * the zcashd-style row stay: per `TRACKING-MATH.md` §3.6's table those are the
    * only two wallets this repository has a sourced expiry delta for.
    */

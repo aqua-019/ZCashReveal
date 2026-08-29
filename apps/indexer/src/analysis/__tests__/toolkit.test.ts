@@ -359,32 +359,36 @@ describe("A6 - clustering: the Dec 2025 withdrawals are an exchange-withdrawal s
     expect(g.reason).not.toContain("Section 1.4");
   });
 
-  it("the round-amount disjunct decides when reuse cannot - and only there", () => {
-    // `isRoundAmount` was exported, documented and tested, and influenced no
-    // outcome: on the one-fresh path an addressed output that is not fresh is
-    // BY CONSTRUCTION reused, so the `|| round` arm could never be the reason
-    // for anything. It earns its place where reuse is absent from both sides.
-    const bothFresh: ClusterTx = {
-      txid: "y",
-      vin: [{ address: "t1spender", coinbase: false, scriptType: "p2pkh" }],
+  it("with BOTH outputs fresh the module abstains, and roundness does not break the tie", () => {
+    // THIS TEST ASSERTED THE OPPOSITE FOR ONE COMMIT, AND THE OPPOSITE WAS A
+    // CLAIM ABOUT A THIRD PARTY. Gate round 1 found `isRoundAmount` unable to
+    // decide anything on the one-fresh path - for an addressed output, "not
+    // fresh" already entails "reused" - and the repair made it decide here
+    // instead: both outputs fresh, one amount round, name the OTHER change.
+    //
+    // Gate round 2 ran that on a batched payment, which is what it really is:
+    // Alice pays 1.0 ZEC to Bob and 0.37 ZEC to Carol. The rule named CAROL's
+    // address as Alice's change at p_change = 0.8 and soft-merged a stranger
+    // into Alice's cluster, where the code before it abstained. A branch is not
+    // made honest by being made reachable.
+    const batchedPayment: ClusterTx = {
+      txid: "batched",
+      vin: [{ address: "t1alice", coinbase: false, scriptType: "p2pkh" }],
       vout: [
-        { index: 0, valueZat: zec("30000"), addresses: ["t1newA"], scriptType: "pubkeyhash" },
-        { index: 1, valueZat: zec("552.7"), addresses: ["t1newB"], scriptType: "pubkeyhash" },
+        { index: 0, valueZat: zec("1"), addresses: ["t1bob"], scriptType: "pubkeyhash" },
+        { index: 1, valueZat: zec("0.37"), addresses: ["t1carol"], scriptType: "pubkeyhash" },
       ],
     };
-    const g = guessChange(bothFresh, new Set(["t1spender"]));
-    expect(g.changeIndex).toBe(1);
-    expect(g.reason).toContain("round");
+    const g = guessChange(batchedPayment, new Set(["t1alice"]));
+    expect(g.changeIndex).toBeNull();
+    expect(g.pChange).toBe(0);
+    expect(g.reason).toContain("Roundness alone");
 
-    // FAIL STATE: neither round, so roundness does not separate them either.
-    const neitherRound: ClusterTx = {
-      ...bothFresh,
-      vout: [
-        { index: 0, valueZat: zec("30000.01"), addresses: ["t1newA"], scriptType: "pubkeyhash" },
-        { index: 1, valueZat: zec("552.7"), addresses: ["t1newB"], scriptType: "pubkeyhash" },
-      ],
-    };
-    expect(guessChange(neitherRound, new Set(["t1spender"])).changeIndex).toBeNull();
+    // ...and roundness is still a real predicate, used where it cannot invent a
+    // membership claim: the corpus's own 29,999.99 is not round, which is what
+    // keeps the one-fresh path off the wrong output on section 1.4's example.
+    expect(isRoundAmount(zec("29999.99"))).toBe(false);
+    expect(isRoundAmount(zec("1"))).toBe(true);
   });
 
   it("a co-spend of ONE address with itself is not evidence of a cluster", () => {
@@ -738,6 +742,76 @@ describe("taint: three hops, a cut at 0.02, and a conserved residual", () => {
     expect(est.nodes.find((n) => n.txid === hx(1))!.hops).toBe(0);
   });
 
+  it("a trail CUT at the hop limit is unresolved, not a destination", () => {
+    // EVERY TAINT CHANGE IN THE PREVIOUS COMMIT WAS UNTESTED, and gate round 2
+    // reverted all three to green. This is the headline one: at the hop limit
+    // a node whose only onward links are BELOW the cut was filed as
+    // `resting.terminal` - "the value came to rest here", a destination - while
+    // the same node one hop earlier was filed as unresolved. The cut is a link
+    // this estimate refuses to draw, not a trail that ended, and the two are
+    // different answers to a reader looking at the residual bar.
+    const chain = [
+      edge(1, 2, 1), edge(2, 3, 1), edge(3, 4, 1),
+      // node 4 sits at the hop limit and its only way onward is below the cut
+      edge(4, 5, TAINT_CUT_P - 0.001),
+    ];
+    const est = estimateTaint(hx(1), chain);
+    expect(est.resting.terminal).toBeCloseTo(0, 12);
+    expect(est.resting.hopLimit).toBeCloseTo(0, 12);
+    expect(est.unresolvedBy.belowCut).toBeCloseTo(1, 12);
+    expect(est.accountedMass).toBeCloseTo(1, 12);
+
+    // FAIL SIDE: the same shape with the last link ABOVE the cut rests at the
+    // hop limit instead - the knob the caller can turn - so this is not
+    // "everything at the limit is unresolved".
+    const reachable = estimateTaint(hx(1), [edge(1, 2, 1), edge(2, 3, 1), edge(3, 4, 1), edge(4, 5, 0.9)]);
+    expect(reachable.resting.hopLimit).toBeCloseTo(1, 12);
+    expect(reachable.unresolvedBy.belowCut).toBeCloseTo(0, 12);
+
+    // ...and a node with NO onward link at all is still a destination.
+    const ends = estimateTaint(hx(1), [edge(1, 2, 1)]);
+    expect(ends.resting.terminal).toBeCloseTo(1, 12);
+  });
+
+  it("a weight that is not a finite number carries no mass, and never reaches the output", () => {
+    // `NaN` compares false against every threshold, so nothing downstream would
+    // have caught it: it would flow through the normalisation into the residual
+    // bar, which is this module's headline result.
+    const est = estimateTaint(hx(1), [
+      { from: hx(1), to: hx(2), p: Number.NaN, what: "nan" },
+      { from: hx(1), to: hx(3), p: Number.POSITIVE_INFINITY, what: "inf" },
+      { from: hx(1), to: hx(4), p: 0.5, what: "real" },
+    ]);
+    expect(Number.isFinite(est.accountedMass)).toBe(true);
+    expect(est.nodes.every((n) => Number.isFinite(n.mass))).toBe(true);
+    expect(est.followed.every((e) => Number.isFinite(e.mass))).toBe(true);
+    expect(est.accountedMass).toBeCloseTo(1, 12);
+    // Only the real edge was followed, and it carries its own weight - the two
+    // refused edges did not become mass and did not soak any up.
+    expect(est.followed).toHaveLength(1);
+    expect(est.followed[0]!.what).toBe("real");
+    expect(est.followed[0]!.mass).toBeCloseTo(0.5, 12);
+    expect(est.unresolvedBy.unexplained).toBeCloseTo(0.5, 12);
+  });
+
+  it("a starting mass the module REFUSES is said out loud, not printed as a measurement", () => {
+    // The clamp turns a negative, NaN or Infinite mass into 0. Without the
+    // sentence this asserts, the estimate then prints four confident figures -
+    // "0.0 per cent unresolved ... 0.0 per cent rests at a transaction with no
+    // onward link" - about a measurement that did not happen, and a caller
+    // asserting `accountedMass ~= startingMass` fails on an input the module
+    // chose to refuse. `posterior.ts` fixes this shape in the same branch.
+    for (const bad of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const est = estimateTaint(hx(1), [edge(1, 2, 0.5)], { startingMass: bad });
+      expect(est.accountedMass).toBe(0);
+      expect(est.assumptions.join(" "), String(bad)).toContain("not a usable quantity");
+    }
+    // FAIL SIDE: a real starting mass says nothing of the kind.
+    const good = estimateTaint(hx(1), [edge(1, 2, 0.5)], { startingMass: 2 });
+    expect(good.assumptions.join(" ")).not.toContain("not a usable quantity");
+    expect(good.accountedMass).toBeCloseTo(2, 12);
+  });
+
   it("assumptions are printed, never empty", () => {
     const est = estimateTaint(hx(1), [edge(1, 2, 0.5)]);
     expect(est.assumptions.length).toBeGreaterThanOrEqual(3);
@@ -871,12 +945,14 @@ describe("A9 - property: estimated exits never exceed the pool balance", () => {
           // DETERMINISTIC: the same set in any order gives the same answer.
           const shuffled = enforceConservation([...all].reverse(), balance);
           if (shuffled.claimedZat !== result.claimedZat) return false;
-          if (
-            shuffled.accepted.map((m) => m.withdrawalTxid).join() !==
-            result.accepted.map((m) => m.withdrawalTxid).join()
-          ) {
-            return false;
-          }
+          // DEPOSITS TOO, NOT JUST WITHDRAWALS. This compared withdrawal txids
+          // alone, so two matches explaining one withdrawal from different
+          // deposits looked identical to it - which is exactly the pair whose
+          // comparator tie was not total, so the check could not see the
+          // non-determinism it existed to catch.
+          const shape = (ms: ReadonlyArray<EchoMatch>) =>
+            ms.map((m) => `${m.withdrawalTxid}<-${m.depositTxids.join("+")}`).join();
+          if (shape(shuffled.accepted) !== shape(result.accepted)) return false;
           return true;
         },
       ),
@@ -977,6 +1053,108 @@ describe("A9 - property: estimated exits never exceed the pool balance", () => {
     expect(result.rejected[0]!.claimedBeforeZat).toBe(zec("100"));
     if (result.audit.filter !== "conservation") throw new Error("not a conservation record");
     expect(result.audit.params.rejectedForBalance).toBe(1);
+  });
+
+  it("REGRESSION, the mirror image: three deposits explaining ONE withdrawal", () => {
+    // GATE ROUND 2 FOUND THE FIX HALF-DONE, WHICH IS WHY A FIX COMMIT IS
+    // REVIEWED AS ITS OWN COMMIT. `enforceConservation` barred a DEPOSIT from
+    // being claimed twice and left a WITHDRAWAL free to be explained three
+    // times - the same defect with the two sides of the assignment swapped,
+    // shipped in the module written to fix it. Section 4 says "one-to-one
+    // assignment", and a one-to-one assignment constrains both vertex sets.
+    const deposits: BoundaryEvent[] = [1, 2, 3].map((i) => ({
+      txid: hx(i), amountZat: zec("100"), seenAt: i * 1_000, height: 1, pool: "orchard", address: null,
+    }));
+    const balance = deposits.reduce((a, d) => a + d.amountZat, 0n);
+    expect(balance).toBe(zec("300"));
+
+    const raw = matchEcho(
+      { txid: hx(500), amountZat: zec("100"), seenAt: 60_000, height: 2, pool: "orchard", address: null },
+      deposits,
+    );
+    expect(raw).toHaveLength(3);
+    expect(new Set(raw.map((m) => m.withdrawalTxid)).size).toBe(1);
+
+    // The raw estimator claims 300 ZEC of exits through a transaction that
+    // moved 100. Only one deposit can be the true origin; three are published.
+    expect(sumClaimed(raw)).toBe(zec("300"));
+    expect(raw.reduce((a, m) => a + m.withdrawalAmountZat, 0n)).toBe(zec("300"));
+    expect(violatesConservation(raw, balance)).toBe(true);
+
+    const result = enforceConservation(raw, balance);
+    expect(result.accepted).toHaveLength(1);
+    expect(result.rejected.map((r) => r.reason)).toEqual([
+      "withdrawal_already_explained",
+      "withdrawal_already_explained",
+    ]);
+    expect(result.exitZat).toBe(zec("100"));
+    expect(violatesConservation(result.accepted, balance)).toBe(false);
+    if (result.audit.filter !== "conservation") throw new Error("not a conservation record");
+    expect(result.audit.params.rejectedForRivalWithdrawal).toBe(2);
+  });
+
+  it("the law is bounded on EXITS, which is not the deposit side for an inexact match", () => {
+    // Section 3.11 says `sum estimated exits <= Bal^p`. Both functions summed
+    // `depositAmountZat`, and the two are equal only for an EXACT match, so the
+    // module bounded a quantity the law does not name. One 100 ZEC deposit, one
+    // 100.009 ZEC withdrawal - a RELATIVE match - against a pool of exactly 100:
+    // the deposit side fits and the exits do not.
+    const deposit: BoundaryEvent = {
+      txid: hx(1), amountZat: zec("100"), seenAt: 0, height: 1, pool: "orchard", address: null,
+    };
+    const raw = matchEcho(
+      { txid: hx(600), amountZat: zec("100.009"), seenAt: 60_000, height: 2, pool: "orchard", address: null },
+      [deposit],
+    );
+    expect(raw).toHaveLength(1);
+    expect(raw[0]!.kind).toBe("RELATIVE");
+
+    const balance = zec("100");
+    expect(sumClaimed(raw)).toBe(balance); // the deposit side fits exactly
+    expect(raw[0]!.withdrawalAmountZat > balance).toBe(true); // the exits do not
+    expect(violatesConservation(raw, balance)).toBe(true);
+    expect(enforceConservation(raw, balance).accepted).toEqual([]);
+  });
+
+  it("the assignment keeps the BEST-evidenced claim, and the tightest residual breaks a grade tie", () => {
+    // Two of `enforceConservation`'s four sort keys shipped unverified: gate
+    // round 2 reversed GRADE_ORDER so the WEAKEST claim won the assignment, and
+    // separately dropped the residual tie-break, and both mutations were green.
+    // The module's central design sentence - "Strongest first, so the greedy
+    // assignment keeps the best-evidenced claim" - was untested.
+    //
+    // Both cases are built so the BALANCE admits either match alone and not
+    // both, which is what makes the SORT the deciding factor rather than the
+    // arithmetic, and so the txid key would pick the wrong one if the key under
+    // test were removed.
+    const ev = (txid: number, amt: string, seenAt: number): BoundaryEvent => ({
+      txid: hx(txid), amountZat: zec(amt), seenAt, height: 1, pool: "orchard", address: null,
+    });
+
+    // GRADE. One exact match alone (HIGH) against one of two exact rivals (LOW),
+    // both 10 ZEC, against a 10 ZEC pool. The LOW carries the lower withdrawal
+    // txid, so reversing GRADE_ORDER hands it the assignment.
+    const high = matchEcho(ev(701, "10", 60_000), [ev(1, "10", 0)])[0]!;
+    const low = matchEcho(ev(700, "10", 60_000), [ev(2, "10", 0), ev(3, "10", 0)])[0]!;
+    expect(high.grade).toBe("HIGH");
+    expect(low.grade).toBe("LOW");
+    expect(low.withdrawalTxid < high.withdrawalTxid).toBe(true);
+    const byGrade = enforceConservation([low, high], zec("10"));
+    expect(byGrade.accepted).toHaveLength(1);
+    expect(byGrade.accepted[0]!.grade).toBe("HIGH");
+
+    // RESIDUAL. Two fee-tolerant matches at the same grade, 50,000 and 100,000
+    // zat out. The looser one carries the lower withdrawal txid, so dropping
+    // the residual key hands it the assignment.
+    const near = matchEcho(ev(801, "30", 60_000), [ev(4, "30.0005", 0)])[0]!;
+    const far = matchEcho(ev(800, "30", 60_000), [ev(5, "30.001", 0)])[0]!;
+    expect(near.grade).toBe(far.grade);
+    expect(near.residualZat).toBe(50_000n);
+    expect(far.residualZat).toBe(100_000n);
+    expect(far.withdrawalTxid < near.withdrawalTxid).toBe(true);
+    const byResidual = enforceConservation([far, near], zec("30.001"));
+    expect(byResidual.accepted).toHaveLength(1);
+    expect(byResidual.accepted[0]!.depositTxids).toEqual(near.depositTxids);
   });
 
   it("FAIL STATE: a conserving set passes through the sieve untouched", () => {

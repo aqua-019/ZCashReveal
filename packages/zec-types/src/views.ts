@@ -784,7 +784,12 @@ export const mempoolRowSchema = z.object({
    * `shield`/`deshield` name a direction of transparent flow it has on one end
    * only. It fell to the residual `shielded` while `analyze()` answered `MIXED`,
    * so /tx and /track said different things about one transaction - the
-   * divergence assertion A9 forbids. HANDOFF-07 declined to widen the enum
+   * divergence that FOLLOWS from applying HANDOFF-06's assertion A9 ("a class
+   * that names the transparent side is never applied to a transaction that has
+   * no transparent side") in both places. A9's own text is about ONE
+   * classifier; that the two pages must then agree is its consequence, and a
+   * bare "A9" resolves to a different assertion inside HANDOFF-08.
+   * HANDOFF-07 declined to widen the enum
    * unreviewed and asked (LEDGER-07 Q2); L2 ruled for the member and for the
    * consumer sweep being the deliverable rather than the member.
    *

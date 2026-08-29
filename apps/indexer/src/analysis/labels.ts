@@ -104,9 +104,13 @@ export interface RankedLabel {
  * rule behind it - bech32m, HRP `tex`/`textest`, 20-byte payload - is not
  * quoted anywhere in this repository's corpus. The corpus knows TEX addresses
  * only as a POLICY event (`research/03-history-exploits-governance.md` line 278:
- * proposed in January 2024 to avoid a Binance delisting); the encoding itself is
- * asserted in-tree by `apps/gateway/src/address.ts` and by TRACKING-MATH section
- * 1.5, and neither cites a line of ZIP 320, which no session here can fetch -
+ * proposed in January 2024 to avoid a Binance delisting). The encoding itself is
+ * asserted in-tree by `apps/gateway/src/address.ts` ALONE. Section 1.5 NAMES TEX
+ * addresses and ZIP 320 - "transparent-source-only receivers, an exchange-deposit
+ * tell" - and states no bech32m, no human-readable part and no payload length, so
+ * it is a pointer to the rule and not a source for it; this docblock cited it as
+ * one for a commit. Neither site cites a line of ZIP 320, which no session can
+ * fetch -
  * `zips.z.cash` is refused by the egress proxy with `CONNECT tunnel failed,
  * response 403`. So `sources` carries the ZIP publisher the corpus does register
  * and `confidence` is `med` rather than `high`, and the difference between this
@@ -142,7 +146,7 @@ export function texLabel(address: string): RankedLabel | null {
     labeller: "consensus",
     rank: LABELLER_RANK.consensus,
     method:
-      "ZIP 320 defines the TEX address encoding: bech32m with human-readable part 'tex' (mainnet) or 'textest' (testnet) over a 20-byte payload. Recognised from the encoding itself, so no address list is involved. The checksum is validated at the RPC/HTTP boundary, not here. The ZIP text has not been read inside this repository - zips.z.cash is refused by the egress proxy - so this rule is restated from TRACKING-MATH section 1.5 and apps/gateway/src/address.ts, which is why the confidence is 'med' and not 'high'.",
+      "ZIP 320 defines the TEX address encoding: bech32m with human-readable part 'tex' (mainnet) or 'textest' (testnet) over a 20-byte payload. Recognised from the encoding itself, so no address list is involved. The checksum is validated at the RPC/HTTP boundary, not here. The ZIP text has not been read inside this repository - zips.z.cash is refused by the egress proxy - so this rule is restated from apps/gateway/src/address.ts. TRACKING-MATH section 1.5 names TEX addresses and ZIP 320 but does not state the encoding, so it is a pointer and not a source for it. That is why the confidence is 'med' and not 'high'.",
     confidence: "med",
     sources: ["S-zcash-improvement-proposals-zips-z-cash"],
     network,

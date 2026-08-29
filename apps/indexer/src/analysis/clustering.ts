@@ -222,6 +222,14 @@ export interface ChangeGuess {
  * run. Note that this branch adds NOTHING to any cluster - the address is
  * already in it by section 1.2 - which is precisely why it is the safe answer
  * and 1.3's is the dangerous one.
+ *
+ * AND THE OVERRIDE IS ONLY AVAILABLE WHEN THE CALLER RESOLVED THE INPUT
+ * ADDRESSES. `spending` is built from `vin` entries that are neither coinbase
+ * nor null-addressed, so a transaction with an unresolved prevout falls through
+ * to section 1.3's rule with no 1.4 guard above it - and that is the condition
+ * under which the mislabel this ordering exists to prevent still happens. It is
+ * stated rather than fixed because the fix is upstream: resolve the prevout, or
+ * pass the caller's own view of the spending set.
  */
 export function guessChange(
   tx: ClusterTx,
@@ -271,30 +279,34 @@ export function guessChange(
   const bFresh = fresh(b);
 
   if (aFresh && bFresh) {
-    // WHERE THE "ROUND AMOUNT" DISJUNCT ACTUALLY DOES WORK. Section 1.3 offers
-    // roundness and reuse as alternatives, but for an output that HAS a
-    // decodable address the two are not independent: "not fresh" already means
-    // one of its addresses was seen, which IS reuse. So on the one-fresh path
-    // below, roundness can never decide anything, and reading the code as
-    // though it could is how a dead branch passes for a live rule. The
-    // disjunct earns its place here instead, where reuse is absent from both
-    // sides and roundness is the only signal left: a round payout marks the
-    // other output as the change.
-    const aRound = isRoundAmount(a.valueZat);
-    const bRound = isRoundAmount(b.valueZat);
-    if (aRound === bRound) {
-      return none(
-        "Both outputs pay addresses never seen before, and roundness does not separate them either.",
-      );
-    }
-    const change = aRound ? b : a;
-    const payment = aRound ? a : b;
-    return {
-      changeIndex: change.index,
-      pChange: P_CHANGE_UNCALIBRATED,
-      calibrated: false,
-      reason: `Both outputs pay never-seen addresses of the same script type, so reuse cannot separate them; output ${payment.index} is a round amount and output ${change.index} is not, which is section 1.3's second conjunct in its 'round' form. p_change = ${P_CHANGE_UNCALIBRATED} from the Bitcoin literature's conservative end; NOT calibrated on Zcash (TRACKING-MATH section 1.3).`,
-    };
+    // ABSTAIN, AND THE ROUNDNESS TIE-BREAK THAT BRIEFLY STOOD HERE WAS WORSE
+    // THAN THE DEAD BRANCH IT REPLACED.
+    //
+    // Gate round 1 found that `isRoundAmount` could never decide anything on
+    // the one-fresh path below - for an addressed output, `fresh` being false
+    // already ENTAILS reuse - and gate round 2 found the repair. Making the
+    // disjunct live here meant: both outputs pay never-seen addresses, one
+    // amount is round, so name the OTHER one change at `p_change`. Run that on
+    // a batched payment - Alice pays 1.0 ZEC to Bob and 0.37 ZEC to Carol -
+    // and it names CAROL's address as Alice's change and soft-merges a third
+    // party into Alice's cluster, where the previous code abstained.
+    //
+    // That is worse than a dead branch by the module's own standard. The
+    // `backToSelf` branch above is safe precisely because it extends NO
+    // cluster - the address is already a member by section 1.2 - and this one
+    // did the opposite: it attached a never-seen address on the weakest signal
+    // section 1.3 offers, at the highest `p_change` this module issues, with
+    // `calibrated: false`. A dead branch makes no claims; this one made a false
+    // one about someone who is not party to the transaction being analysed.
+    //
+    // The lesson kept rather than the code: a branch is not made honest by
+    // being made reachable. `isRoundAmount` stays exported and stays used on
+    // the one-fresh path for an output with no decodable address, which is the
+    // only place section 1.3's disjunct can do work without inventing a
+    // membership claim.
+    return none(
+      "Both outputs pay addresses never seen before. Roundness alone does not name one of them change: doing so would attach a never-seen address to this spender's cluster on a prior nobody has calibrated on Zcash, and a batched payment to two recipients has exactly this shape.",
+    );
   }
 
   if (!aFresh && !bFresh) {

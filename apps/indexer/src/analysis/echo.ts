@@ -43,7 +43,8 @@
  * the entire content of the case, so collapsing them removed it.
  *
  * WHAT AN ECHO IS NOT. It is not a link, and this module deliberately returns
- * no `LinkRecord`. TRACKING-MATH's closing paragraph governs: "None of this
+ * no `LinkRecord`. TRACKING-MATH section 4's closing paragraph governs (the
+ * document continues to sections 5 and 6 after it): "None of this
  * identifies a person. It produces bounded, reproducible estimates from public
  * data, with every assumption visible and every claim capped by the claim
  * level." The final clause was cut here, behind a full stop rather than an
@@ -410,9 +411,12 @@ export function matchEcho(
  *
  * TWO RULES, THE LOOSER OF WHICH WINS, and the reason is arithmetic rather than
  * generosity. Each leg of a split pays its own fee, so the absolute term scales
- * with `k`; but at 50,000 ZEC a residual of 0.02 ZEC is 4e-7 relative and 12
- * times the absolute allowance, which is the shape of section 3.4's own worked
- * case. Using only the absolute rule would miss every large split and using only
+ * with `k`; but at 50,000 ZEC a residual of 0.02 ZEC is 4e-7 relative and 6.25
+ * times the absolute allowance AT `k = 2` (2,000,000 zat against 320,000), which
+ * is the shape of section 3.4's own worked case. This said "12 times", which is
+ * the ratio against the UNSCALED `FEE_TOLERANCE_ZAT` - a sentence whose own
+ * preceding clause is "the absolute term scales with `k`" cannot then quote the
+ * unscaled figure. Using only the absolute rule would miss every large split and using only
  * the relative rule would admit implausibly large residuals on small ones.
  */
 export function subsetSumTolerance(
@@ -640,8 +644,8 @@ function build(args: {
     countIn: args.countIn,
     // COUNT OUT IS THE CANDIDATE COUNT AT THIS GRADE, NOT ONE. A filter's
     // `countOut` is how many candidates SURVIVED it, and the whole reason a
-    // single exact match grades HIGH and two grade MEDIUM is that the survivor
-    // count differs. Writing 1n here - one match, one record - would have made
+    // single exact match grades HIGH and two grade LOW - section 3.4's
+    // "multiple candidates" clause - is that the survivor count differs. Writing 1n here - one match, one record - would have made
     // the audit trail disagree with the grade beside it.
     countOut: BigInt(args.candidateCount),
   };

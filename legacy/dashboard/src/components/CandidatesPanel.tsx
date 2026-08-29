@@ -307,7 +307,8 @@ function assumptionGloss(f: FilterApplication): string {
       }
       // `countOut` is on the RECORD, not in `params` - it is the count of
       // candidates that survived the filter, which is what makes a single
-      // exact match HIGH and two of them MEDIUM.
+      // exact match HIGH and two of them LOW (section 3.4 puts multiple
+      // candidates in the LOW clause by itself).
       return `Assumes: this unshielding consumes value from the matched shielding deposit, on amount closeness alone (${f.params.matchKind}). ${f.countOut > 1n ? `${f.countOut} deposits satisfy the same rule.` : "It is the only deposit that does."}`;
     }
     case "conservation": {

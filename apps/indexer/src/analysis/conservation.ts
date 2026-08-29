@@ -58,6 +58,24 @@ export type ConservationRejection =
    * arithmetically impossible one.
    */
   | "deposit_already_claimed"
+  /**
+   * A match already accepted explains this same withdrawal.
+   *
+   * `deposit_already_claimed` WITH THE TWO SIDES OF THE ASSIGNMENT SWAPPED, and
+   * it was missing from the first version of this module - which is worth
+   * recording, because that version was written to fix exactly this shape and
+   * fixed one half of it. Section 4 says "one-to-one assignment", and a
+   * one-to-one assignment constrains BOTH vertex sets: one note is spent once,
+   * and one withdrawal leaves the pool once.
+   *
+   * Three distinct 100 ZEC deposits and one 100 ZEC withdrawal produce three
+   * EXACT matches, and the deposit-side guard passes every one of them because
+   * they cite different deposits. The sieve then published that 300 ZEC exited
+   * through a transaction that moved 100. Rival explanations of one event are
+   * not additive, which is the same sentence as the deposit-side case and was
+   * only written down for one direction.
+   */
+  | "withdrawal_already_explained"
   /** Accepting it would push the running total of claimed exits past the pool balance. */
   | "exceeds_pool_balance";
 
@@ -74,6 +92,20 @@ export interface ConservationResult {
   readonly rejected: ReadonlyArray<RejectedMatch>;
   /** The summed `depositAmountZat` of the ACCEPTED matches. Never exceeds the balance. */
   readonly claimedZat: Zatoshi;
+  /**
+   * The summed `withdrawalAmountZat` of the ACCEPTED matches - `Sigma estimated
+   * exits` in section 3.11's own words, and THE QUANTITY THE LAW ACTUALLY
+   * BOUNDS.
+   *
+   * This module shipped with `claimedZat` alone, which is the DEPOSIT side, and
+   * the two are equal only for an EXACT match. A 100 ZEC deposit matched to a
+   * 100.009 ZEC withdrawal is a `RELATIVE` match at MEDIUM, and against a pool
+   * holding exactly 100 ZEC the deposit-side sum passed while the exits the
+   * estimate claimed were 100.009 - over the balance, in the one quantity
+   * section 3.11 names. Bounding the wrong side of an inexact match is how a
+   * law quoted at the head of a file goes unenforced by the code beneath it.
+   */
+  readonly exitZat: Zatoshi;
   readonly poolBalanceZat: Zatoshi;
   readonly audit: FilterApplication;
 }
@@ -111,26 +143,52 @@ export function enforceConservation(
       GRADE_ORDER[a.grade] - GRADE_ORDER[b.grade] ||
       compareBigint(absBig(a.residualZat), absBig(b.residualZat)) ||
       a.withdrawalTxid.localeCompare(b.withdrawalTxid) ||
-      (a.depositTxids[0] ?? "").localeCompare(b.depositTxids[0] ?? ""),
+      // EVERY deposit, not just the first, and then the kind. Two SUBSET_SUM
+      // matches citing {d1,d2} and {d1,d3} for one withdrawal at the same
+      // residual agreed on all four of the original keys, so the comparator
+      // returned 0, `Array.prototype.sort` kept input order, and the accepted
+      // subset depended on the order the caller happened to collect them in -
+      // while this docblock claimed the opposite. A tie that is not total is
+      // not a deterministic order, and the property test could not see it
+      // because it compared withdrawal txids, which were identical.
+      a.depositTxids.join(",").localeCompare(b.depositTxids.join(",")) ||
+      a.kind.localeCompare(b.kind),
   );
 
   const claimedDeposits = new Set<Hex>();
+  const explainedWithdrawals = new Set<Hex>();
   const accepted: EchoMatch[] = [];
   const rejected: RejectedMatch[] = [];
   let claimedZat = 0n;
+  let exitZat = 0n;
 
   for (const m of ordered) {
     if (m.depositTxids.some((d) => claimedDeposits.has(d))) {
       rejected.push({ match: m, reason: "deposit_already_claimed", claimedBeforeZat: claimedZat });
       continue;
     }
-    if (claimedZat + m.depositAmountZat > poolBalanceZat) {
+    if (explainedWithdrawals.has(m.withdrawalTxid)) {
+      rejected.push({
+        match: m,
+        reason: "withdrawal_already_explained",
+        claimedBeforeZat: claimedZat,
+      });
+      continue;
+    }
+    // BOTH SIDES OF THE BALANCE, because they differ for every inexact match
+    // and section 3.11 bounds the exit side.
+    if (
+      claimedZat + m.depositAmountZat > poolBalanceZat ||
+      exitZat + m.withdrawalAmountZat > poolBalanceZat
+    ) {
       rejected.push({ match: m, reason: "exceeds_pool_balance", claimedBeforeZat: claimedZat });
       continue;
     }
     for (const d of m.depositTxids) claimedDeposits.add(d);
+    explainedWithdrawals.add(m.withdrawalTxid);
     accepted.push(m);
     claimedZat += m.depositAmountZat;
+    exitZat += m.withdrawalAmountZat;
   }
 
   const audit: FilterApplication = {
@@ -138,14 +196,18 @@ export function enforceConservation(
     params: {
       poolBalanceZat,
       claimedZat,
+      exitZat,
       rejectedForDoubleClaim: rejected.filter((r) => r.reason === "deposit_already_claimed").length,
+      rejectedForRivalWithdrawal: rejected.filter(
+        (r) => r.reason === "withdrawal_already_explained",
+      ).length,
       rejectedForBalance: rejected.filter((r) => r.reason === "exceeds_pool_balance").length,
     },
     countIn: BigInt(matches.length),
     countOut: BigInt(accepted.length),
   };
 
-  return { accepted, rejected, claimedZat, poolBalanceZat, audit };
+  return { accepted, rejected, claimedZat, exitZat, poolBalanceZat, audit };
 }
 
 /**
@@ -162,15 +224,20 @@ export function violatesConservation(
   poolBalanceZat: Zatoshi,
 ): boolean {
   const seen = new Set<Hex>();
+  const explained = new Set<Hex>();
   let claimed = 0n;
+  let exits = 0n;
   for (const m of matches) {
     for (const d of m.depositTxids) {
       if (seen.has(d)) return true;
       seen.add(d);
     }
+    if (explained.has(m.withdrawalTxid)) return true;
+    explained.add(m.withdrawalTxid);
     claimed += m.depositAmountZat;
+    exits += m.withdrawalAmountZat;
   }
-  return claimed > poolBalanceZat;
+  return claimed > poolBalanceZat || exits > poolBalanceZat;
 }
 
 function absBig(v: bigint): bigint {

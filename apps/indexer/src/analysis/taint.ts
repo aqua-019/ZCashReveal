@@ -21,9 +21,17 @@
  * THAT SUM IS FLOATING-POINT AND THE ASSERTION MUST BE TOO. The mass is
  * repeatedly multiplied by normalised shares and re-summed, so `accountedMass`
  * is `startingMass` up to accumulated representation error and `===` is the
- * wrong comparison: three edges of `p = 1/3` already return 0.9999999999999999
- * for a starting mass of 1. Callers - and this module's own tests - compare
- * within a tolerance. The docblock used to say `===`, which is the kind of
+ * wrong comparison.
+ *
+ * NO WORKED FIGURE IS GIVEN, AND THE REASON IS ITSELF THE POINT. This docblock
+ * first claimed "three edges of `p = 1/3` already return 0.9999999999999999",
+ * and a gate lens executed it: the answer is exactly 1, because the true sum
+ * `1 - 2^-54` is a tie that rounds to even. So did `0.3` three times and `0.1`
+ * seven times. An invented measurement inside a paragraph arguing for rigour is
+ * the defect that paragraph is arguing against, and it is the second time this
+ * branch has produced one. Callers, and this module's own tests, compare within
+ * a tolerance - `toBeCloseTo(1, 12)` - because the error is real in general and
+ * not because any particular small case demonstrates it. The docblock used to say `===`, which is the kind of
  * claim that reads as rigour and would have made a correct implementation fail
  * its own contract.
  *
@@ -260,7 +268,21 @@ export function estimateTaint(
   const unresolvedMass = unresolvedBy.unexplained + unresolvedBy.belowCut;
   const accountedMass = unresolvedMass + resting.terminal + resting.hopLimit;
   const unresolvedShare = startingMass === 0 ? 0 : unresolvedMass / startingMass;
+  // A REFUSED STARTING MASS IS SAID OUT LOUD, NOT SILENTLY ZEROED. The clamp
+  // above turns a negative, NaN or Infinite mass into 0, and without this
+  // sentence the estimate then prints "0.0 per cent unresolved ... 0.0 per cent
+  // rests at a transaction with no onward link" - four confident figures about
+  // a measurement that did not happen, and a caller told by the docblock to
+  // assert `accountedMass ~= startingMass` fails on an input this module chose
+  // to refuse with nothing saying why. `posterior.ts` fixes exactly this shape
+  // in the same branch; this module did not get the sweep until gate round 2.
+  const refused = requestedMass !== startingMass;
   const assumptions = [
+    ...(refused
+      ? [
+          `The starting mass supplied (${String(requestedMass)}) is not a usable quantity, so it was refused and this estimate carries no mass. Every share below is 0 because nothing was measured, not because nothing was found.`,
+        ]
+      : []),
     `Flow followed at most ${maxHops} boundary crossings, cutting links below p = ${cutP}.`,
     `${(unresolvedShare * 100).toFixed(1)} per cent of the starting mass is unresolved inside the pool - no link accounts for it. Of the rest, ${((resting.terminal / (startingMass || 1)) * 100).toFixed(1)} per cent rests at a transaction with no onward link and ${((resting.hopLimit / (startingMass || 1)) * 100).toFixed(1)} per cent was still moving when the hop limit stopped this estimate.`,
     "Each edge is a heuristic link with its own claim level, not a proof that value moved between the two transactions. Multiplying weights along a path multiplies the uncertainty with them.",

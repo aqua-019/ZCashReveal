@@ -273,7 +273,6 @@ const pureShielded: RawReport = {
   },
   findings: [
     { code: "RECENT_ANCHOR", severity: "MEDIUM", message: "Orchard bundle anchor depth: 23 blocks — narrows note receive window to ~1h", field: "anchor" },
-    { code: "FEE_OUTLIER", severity: "LOW", message: "Fee is ZIP 317 conventional; no wallet signature matched", field: "fingerprint" },
   ],
 };
 

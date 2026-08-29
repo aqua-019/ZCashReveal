@@ -339,7 +339,8 @@ describe("the mempool summary is its own rows", () => {
   });
 
   it("the crossing total counts EVERY crossing, including between two pools", () => {
-    // 1,026.4 until HANDOFF-08's gate found that the two `mixed` rows carried no
+    // 1,026.4 until HANDOFF-08's gate found that the two pool-to-pool rows
+    // carried no
     // `crossing` at all: the hand-written kind union had no member for a
     // crossing between two shielded pools that is not specifically Orchard to
     // Ironwood, so 122.8 ZEC of real boundary movement was dropped from a tile

@@ -292,8 +292,32 @@ describe("A5 - subset-sum: two shields summing to one unshield", () => {
     expect(m.timeDeltaMs).toBeLessThan(60 * MINUTE);
   });
 
+  it("FAIL STATE: a two-way split inside the hour stays LOW when a RIVAL subset fits", () => {
+    // THE THIRD CONJUNCT, WHICH SHIPPED UNTESTED. Section 3.4 names two
+    // conditions for the promotion - timing under an hour and a split of two -
+    // and this implementation adds `split.satisfying === 1`, which is STRICTER
+    // than the section. The extra clause is right: a split found among several
+    // equally good subsets is not a tighter claim than one found alone, and the
+    // grade is a statement about how alone the candidate is. But a
+    // behaviour-narrowing predicate with no test is the shape LEDGER-08 folds 3
+    // and 4 name, and a gate lens found this one by reading rather than by a
+    // mutation dying.
+    //
+    // Two disjoint pairs summing to the same target inside the hour: {30k, 20k}
+    // and {35k, 15k}. Both satisfy, so neither is alone.
+    const thirtyFiveK = ev({ txid: asHex("35".repeat(32)), amountZat: zec("35000"), seenAt: T0 });
+    const fifteenK = ev({ txid: asHex("15".repeat(32)), amountZat: zec("15000"), seenAt: T0 });
+    const m = matchEcho(withdrawalAt(35 * MINUTE), [thirtyK, twentyK, thirtyFiveK, fifteenK])[0]!;
+    expect(m.kind).toBe("SUBSET_SUM");
+    expect(m.splitCount).toBe(2);
+    expect(m.timeDeltaMs).toBeLessThan(60 * MINUTE);
+    // Both of section 3.4's own conjuncts hold, and the grade is still LOW.
+    expect(m.candidateCount).toBeGreaterThan(1);
+    expect(m.grade).toBe("LOW");
+  });
+
   it("FAIL STATE: tight timing does NOT promote a three-way split", () => {
-    // Both conjuncts are required. A three-way split inside the hour stays LOW,
+    // All three conjuncts are required. A three-way split inside the hour stays LOW,
     // so the promotion is not really a timing rule with a decorative split
     // clause.
     const tenK = ev({ txid: asHex("10".repeat(32)), amountZat: zec("10000"), seenAt: T0 });

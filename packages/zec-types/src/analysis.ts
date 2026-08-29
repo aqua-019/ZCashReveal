@@ -253,17 +253,34 @@ export type FilterApplication =
        * writes the log line itself has implemented neither half.
        *
        * `countIn` is how many matches the sieve was given, `countOut` how many
-       * survived. The two rejection counts are broken out because the causes are
-       * different failures: `rejectedForDoubleClaim` means one note was spent
-       * into two withdrawals, `rejectedForBalance` means the estimator's claims
-       * outran the pool.
+       * survived. The three rejection counts are broken out because the causes
+       * are different failures: `rejectedForDoubleClaim` means one txid was
+       * cited by two accepted matches, `rejectedForRivalWithdrawal` means one
+       * withdrawal already had an accepted explanation, and
+       * `rejectedForBalance` means the estimator's claims outran the pool.
+       *
+       * THE FIRST TWO ARE THE SAME LAW ON THE TWO SIDES OF A ONE-TO-ONE
+       * ASSIGNMENT, and only the first existed when this variant was written.
+       * Section 4 says "one-to-one assignment", which constrains both vertex
+       * sets: one note is spent once, one withdrawal leaves once. Three
+       * distinct deposits explaining one withdrawal passed the deposit-side
+       * guard and published 300 ZEC of exits through a transaction that moved
+       * 100.
+       *
+       * `claimedZat` is the DEPOSIT side and `exitZat` the withdrawal side.
+       * Section 3.11 bounds the second - "Sigma estimated exits" - and the two
+       * are equal only for an EXACT match, so a variant carrying only the first
+       * documented a bound the law does not state.
        */
       readonly filter: "conservation";
       readonly params: {
         readonly poolBalanceZat: bigint;
         /** Summed deposit magnitude of the ACCEPTED matches. Never above the balance. */
         readonly claimedZat: bigint;
+        /** Summed withdrawal magnitude of the ACCEPTED matches - section 3.11's own quantity. */
+        readonly exitZat: bigint;
         readonly rejectedForDoubleClaim: number;
+        readonly rejectedForRivalWithdrawal: number;
         readonly rejectedForBalance: number;
       };
       readonly countIn: bigint;

@@ -85,7 +85,10 @@ in the pool.
 ## Golden 3 — the lockbox partial echo (A3)
 
 From case **`K-zip271-lockbox`**, not `K-2026-01-02` — steps 2 and 3 of the
-lockbox's only spend.
+lockbox's only spent CHUNK. Not its only spend: `cases.json` step 4 is a
+second, smaller disbursement of 129.8202 ZEC on 14 April 2026, and the case's
+verdict sums both (436.7705 + 129.8202 = 566.5907 ZEC moved). The case's own
+wording is "the first and only chunk ever spent", which is the defensible form.
 
 | | |
 |---|---|
@@ -155,8 +158,12 @@ allowance — which is why `subsetSumTolerance` takes the looser of the absolute
 and relative rules rather than one of them.
 
 Graded `LOW` on loose timing and `MEDIUM` when the gap is under an hour **and**
-the split is two, per §3.4. Both conjuncts are tested: a three-way split inside
-the hour stays `LOW`.
+the split is two, per §3.4 — and, in this implementation, **and** the split is
+the only subset that satisfies the tolerance. That third conjunct is STRICTER
+than §3.4, which names two: a split found among four equally good subsets is not
+a tighter claim than one found alone, so it does not earn the promotion. All
+three are tested; a three-way split inside the hour stays `LOW`, and so does a
+two-way split inside the hour with a rival subset.
 
 The shape is real. `cases.json` steps 6, 7 and 8 are the transparent-side version
 of it: two unshieldings of 50,000.5541 and 24,000.9781 **sum to 74,001.5322**,
