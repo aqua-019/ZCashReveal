@@ -408,9 +408,13 @@ TIP=$(docker compose exec -T zebrad curl -s http://127.0.0.1:8232 \
   -d '{"jsonrpc":"2.0","id":1,"method":"getblockcount","params":[]}' \
   | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"])')
 
-# Highest block the indexer has committed.
+# Highest block the indexer has committed. The column is `block_height`, not
+# `height` - checked against the live schema rather than assumed, because the
+# first version of this very query used `height` and failed with
+# `column "height" does not exist`.
 INDEXED=$(docker compose exec -T postgres \
-  psql -U zcashreveal -tAc "SELECT COALESCE(MAX(height), 0) FROM pool_boundary_flows;")
+  psql -U zcashreveal -d zcashreveal -tAc \
+  "SELECT COALESCE(MAX(block_height), 0) FROM pool_boundary_flows;")
 
 echo "tip=$TIP indexed=$INDEXED lag=$((TIP - INDEXED))"
 [ $((TIP - INDEXED)) -gt 20 ] && echo "ALERT: the indexer is behind the node"

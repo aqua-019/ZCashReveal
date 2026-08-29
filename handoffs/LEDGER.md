@@ -2562,3 +2562,133 @@ but the mainnet height now has a second, non-ZIP source. The standing DEFERRED e
 rather than closed - the testnet height, `poolsActiveAt` and `orchardExitOnlyFrom` are not
 covered by that corroboration, and HANDOFF-10's captured fixture is still what closes it.
 ```
+
+---
+
+## HANDOFF-10 (Infra: Zebra 6.2.x compose, VPS runbook, tunnel, DEPLOY-2.0) - L3 session, 29 Aug 2026
+
+```
+QUESTIONS (for the operator / L2):
+
+Q1. THE PINNED NODE IS 6.2.3 AND THE CLIENT WAS WRITTEN AGAINST 6.3.0. §3 says
+    "6.2.x (exact tag chosen and cited)", so 6.2.3 is what `docker-compose.yml`
+    pins - it is the newest 6.2.x, published 2026-07-28. But LOG.md records that
+    HANDOFF-05 wrote `packages/zebra-rpc` "against Zebra 6.3.0's STRUCTS rather
+    than its doc comments", and 6.3.0 has existed since 2026-08-10. So the typed,
+    zod-validated client this project reads the chain through was modelled on a
+    node one minor AHEAD of the one the contract tells this handoff to run.
+    Nothing observed is wrong: every field HANDOFF-07 and HANDOFF-08 settled
+    (`tx.ironwood`, `trees.ironwood.size`, `vjoinsplit`, `expiryheight`) is
+    present in 6.2.3, and the zod schemas are `.passthrough()`, so a field 6.3.0
+    added and 6.2.3 does not send parses rather than throws. What is unverified is
+    whether any field the client REQUIRES arrived in 6.3.0, because no session can
+    run either node.
+    ASK: pin 6.3.0 instead, amending §3? Or keep 6.2.x and have HANDOFF-11's smoke
+    test assert the node's `subversion` against a floor the client declares? I did
+    not silently take the newer tag, because "the contract says 6.2.x" is a poor
+    reason to run a node the client was not written for, and "the client says
+    6.3.0" is a poor reason to ignore the contract. This is a decision, not a
+    default.
+
+Q2. A GUARD THAT CANNOT TELL THE TWO REDIS INSTANCES APART MADE A SAFE RUNBOOK
+    COMMAND UNLANDABLE, and I think it was right to. `scripts/check-redis-safety.mjs`
+    rejected `docker compose exec redis redis-cli info keyspace` and a
+    `--scan --pattern 'zcashreveal:*'` in RUNBOOK-VPS.md §11. Both target the VPS
+    Redis, which this project owns outright and to which none of SNAPSHOT.md's
+    rules apply. The guard reads files, not intentions, and cannot see which
+    server a `redis-cli` invocation will reach.
+    I rewrote the commands to name exact keys rather than exempting the runbook,
+    on the reasoning that a runbook is a COPY-PASTE SURFACE - the line an operator
+    pastes at 3am is the one most likely to carry the wrong `-u` URL, and the two
+    prefixes differ by one letter (`zcashreveal:` here, `zecreveal:` there).
+    ASK: confirm that reading, or rule that the guard should learn the
+    distinction. The cost of my reading is that an operator has no enumeration
+    command in the runbook; the cost of the other is a guard with a notion of
+    "which server" that it can only ever infer.
+
+Q3. WHAT SHOULD A GATE DO WHEN ITS VERIFY PHASE DIES HALFWAY? Round 1 returned 52
+    findings and got roughly 7 of them through three adversarial refuters before a
+    usage limit ended 136 of 160 agents. I read the other 45 myself and
+    dispositioned each, because CLAUDE.md says an unread finding has not gone
+    away - but a lead reading its own diff's findings is exactly the weaker
+    evidence the three-refuter design exists to replace, and I am the least
+    impartial reader available.
+    ASK: is "the lead reads them and labels the evidence weaker" the right
+    fallback, or should a truncated round be re-run before shipping? I did not
+    re-run it, because the findings that mattered were reproducible by execution
+    rather than by argument - the migrations ENOENT, the circular runbook, the
+    broken SQL - and executing them is stronger than any number of verifiers.
+
+Q4. DELIVERABLE 2 IS BLOCKED ON HARDWARE AND WILL STAY BLOCKED. The mainnet block
+    fixture cannot be captured by any session: it needs a synced Zebra, and the
+    egress proxy refuses external hosts. A9 therefore cannot pass - the suite
+    reports 439 passed and exactly 1 skipped, and that one skip is this fixture.
+    RUNBOOK-VPS.md §10 carries the capture procedure and an empty capture log for
+    the operator to fill.
+    ASK: nothing to decide, but note that this is now the FOURTH handoff to carry
+    the same standing item (LEDGER-00 Q4 opened it), and the four things it would
+    close at once - the skipped test, the `vjoinsplit` end-to-end path, the
+    `trees.ironwood.size` observation and the testnet half of the ZIP 258
+    exposure - are all still open because of it.
+
+INFERRED (non-empty inferences a worker made):
+  - `GATEWAY_TRUSTED_PROXIES` defaults to `172.16.0.0/12`, the RFC 1918 block
+    Docker allocates compose networks from by default. Inferred from Docker's
+    default address pools rather than read from a running daemon, because the
+    network does not exist until the operator brings the stack up. It is narrower
+    than blanket trust and wider than the single address §6.1 tells the operator
+    to substitute. Load-bearing for the rate limiter and labelled at the site.
+  - That `zeromq@6` may lack a musl prebuild, which is why the indexer's install
+    stages carry python3/make/g++. Not verified - no image was built.
+
+NOT-MATCHED (patterns handed over that did not apply):
+  - §3's "enable the address indexes HANDOFF-05 needs". No such config key exists
+    in Zebra 6.2.3, anywhere in `ZebradConfig`. The address RPCs are
+    unconditional; nothing turns them on because nothing turns them off.
+  - §3's "ZMQ if supported else document the polling fallback". Zebrad exposes no
+    ZMQ socket, so the fallback is not a degraded mode but the only mode - and a
+    silent one, logged once at WARN. Documented in three places an operator meets.
+  - §5 A7's literal grep. Four of the nine tokens it returns are not variables.
+  - §6's routing (`backend-api` writing compose from a `chain-integrator` spec).
+    The lead built it directly: the hard part was not writing YAML but reading
+    Zebra's source, and four of this handoff's load-bearing facts contradict the
+    spec. Fan-out went to the gate and to a read-only survey instead.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+  - §3 commissions "three Dockerfiles" and A4 requires a healthcheck for every
+    service. The official cloudflared image is distroless with only its own
+    binary, so those two requirements cannot both be met with three files. A
+    fourth Dockerfile adds a static busybox and nothing else; the alternative was
+    a healthcheck that cannot fail, which CLAUDE.md makes a finding in itself.
+  - A2 asks for image sizes, which cannot be measured without a build.
+  - A9 assumes the fixture exists. It cannot, from here. See Q4.
+
+GATE ROUND COUNTS: 1 round, 4 lenses, 52 findings, ~7 verified by three refuters
+  before a usage limit ended the phase; the remaining 45 read and dispositioned by
+  the lead. 22 fixed, the rest judged not defects or out of scope with reasons in
+  §7. The fix commit was reviewed as its own commit per LEDGER-07 Q6 and HAD
+  CREATED ONE DEFECT - a replacement SQL query reading `MAX(height)` from a table
+  whose column is `block_height` - caught by executing it rather than reading it.
+  That is four consecutive handoffs in which the round-1 fix introduced a defect.
+  Extrapolation stated rather than convergence claimed: a second round finds one
+  or two more of this reach, most likely in the guard scripts.
+
+DEFERRED ASSUMPTIONS:
+  - Every Docker image build (A2). Egress policy refuses the base-image blob CDN
+    with 403; only Dockerfile syntax is verified, by BuildKit's own parse.
+  - Everything requiring a running stack: the healthchecks against real endpoints,
+    depends_on ordering, the tunnel, and RUNBOOK-VPS.md as an executed sequence.
+    Verified for shape and cross-file agreement, not for effect.
+  - The mainnet fixture and A9 (Q4).
+  - The Zebra 6.2.3 / zebra-rpc 6.3.0 mismatch (Q1).
+  - `apps/publisher`'s manifest is absent from the indexer and gateway Dockerfiles'
+    manifests stages. Correct today - the package does not exist - and a one-line
+    change for whoever creates it in HANDOFF-09. Both files' `--frozen-lockfile`
+    installs will fail the day it lands without that line.
+  - `truncateAll` still covers four tables and not `leak_reports`, `pool_snapshots`
+    or `migrations_zip318`. Schema-per-run makes it harmless between runs and it
+    stays live within one. Standing item, carried.
+  - The VPS is on Zebra 4.4.1 and migrations 003/004 have never been applied
+    there. 4.4.1 to 6.2.3 crosses two majors, so it is a wipe-and-resync of days,
+    not an upgrade. Operator's click.
+```

@@ -1,7 +1,7 @@
 ---
 handoff: 10
 title: Infra: Zebra 6.2.x compose, VPS runbook, tunnel, DEPLOY-2.0
-status: in-progress
+status: shipped
 branch: `claude/handoff-08-completion-wngbjj` (session-designated; the harness names branches)
 track: Infra
 depends_on: 00
@@ -227,11 +227,15 @@ EVIDENCE (per §5 assertion: pass transcript + fail transcript, provenance)
       FAIL SIDE: Executed. A literal TUNNEL_TOKEN -> rc=1 at docker-compose.yml:325.
       And again on the pre-HANDOFF-10 file: `POSTGRES_PASSWORD: zcashreveal` ->
       rc=1 at line 26.
-      A5 ALSO CAUGHT THIS SESSION'S OWN FIRST DRAFT: docker-compose.dev.yml wrote the
-      dev credentials out in full, reasoning that a loopback throwaway database holds
-      nothing. The assertion covers `docker-compose*.yml`, both files, and it is right
-      to - a literal password in the dev file is the template somebody copies into the
-      production one. Now `${VAR:-default}`.
+      A5 CAUGHT THIS SESSION'S OWN DRAFT TWICE, and the second time is the one worth
+      reading. First: docker-compose.dev.yml wrote the dev credentials out in full,
+      reasoning that a loopback throwaway database holds nothing. Corrected to
+      `${VAR:-default}` - which passed, and only because A5 could not yet see inside
+      an interpolation default. Gate round 1 closed that blindness and the SAME LINE
+      was flagged again, correctly: a default is a committed literal, and a known
+      password in the dev file is the template somebody copies into the production
+      one. The dev override now inherits the base file's required password and sets
+      none of its own.
 
   A6  the runbook carries a COMMAND for each named operation.
       PASS: Executed. `node scripts/check-infra-docs.mjs` -> rc=0, "a command for all
@@ -242,7 +246,9 @@ EVIDENCE (per §5 assertion: pass transcript + fail transcript, provenance)
       the point - the guard looks for the command, not the prose.
 
   A7  DEPLOY-2.0.md names every variable apps/web reads.
-      PASS: Executed, same run, all 6 variables named.
+      PASS: Executed, same run, all 5 NEXT_PUBLIC_/SNAPSHOT_ variables named.
+      (The count was 6 before gate round 1 narrowed the scan to the two prefixes
+      A7 is about; `NODE_ENV` had been passing on a prose sentence.)
       FAIL SIDE: Executed. Adding `process.env.NEXT_PUBLIC_UNDOCUMENTED_PROBE` to
       apps/web/src/lib/env.ts -> rc=1 naming it; reverted.
       A7 IS NOT IMPLEMENTED AS ITS LITERAL GREP. See ASSUMPTIONS.
@@ -419,6 +425,105 @@ UNVERIFIED (labelled):
     path in RUNBOOK-VPS.md §8 says "within one major"; 4.4.1 to 6.2.3 crosses two,
     so the VPS needs a wipe-and-resync rather than an upgrade. Stated in §8 as an
     operator click because it is days of sync, not a command.
+
+GATE ROUNDS: 1 round, 4 lenses (compose-correctness, facts, runbook, guards),
+  52 findings. Fingerprints below by file - rule - severity as returned.
+
+  THE ROUND DID NOT CONVERGE AND IS NOT CLAIMED TO. Its verify phase was cut off
+  by a usage limit after roughly 7 of 52 findings had been through their three
+  refuters: 136 of 160 agents returned an error rather than a verdict. Under
+  CLAUDE.md's gate-budget rule an unread finding is not a finding that went away,
+  so THE LEAD READ ALL 45 UNVERIFIED ONES rather than shipping with them unread,
+  and dispositioned each. That is weaker evidence than three adversarial refuters
+  per finding and is labelled as such here rather than presented as a clean round.
+
+  FIXED (the twenty that changed behaviour or would have misled an operator):
+    apps/indexer/Dockerfile - runtime image shipped no migrations/ - HIGH
+      The one that would have broken a production bring-up. Found by the lead
+      before the gate returned, and confirmed by it. Neither A1 nor A2 could have
+      caught it: compose config never opens a Dockerfile and docker build is
+      blocked here.
+    docs/2.0/RUNBOOK-VPS.md - sections 1 and 2 were circular - HIGH
+    docs/2.0/RUNBOOK-VPS.md - the snapshot alert read a field /api/pools does not
+      return, so the one alert that matters fired permanently - HIGH
+    docs/2.0/RUNBOOK-VPS.md - `openssl rand -base64 32` produces URL-reserved
+      characters that break DATABASE_URL about half the time - HIGH
+    docker-compose.yml - GATEWAY_TRUSTED_PROXIES required a value that cannot
+      exist before the stack runs - HIGH
+    .env.example - ZEBRAD_ZMQ_URL defined twice, two values, two accounts - HIGH
+    scripts/check-compose.mjs - A5 blind to a secret in a `${VAR:-default}` - HIGH
+    scripts/check-compose.mjs - service splitter blind to a trailing comment,
+      misfiling that service's lines onto the previous one - HIGH
+    scripts/check-compose.mjs - A4 accepted compose's two ways of REMOVING a
+      healthcheck (`disable: true`, `test: ["NONE"]`) - MID
+    scripts/check-compose.mjs - A8 never asserted the TCP URL was PRESENT - LOW
+    scripts/check-zebrad-config.mjs - cross-file checks satisfied by comments
+      that quote the very strings being searched for - HIGH
+    scripts/check-zebrad-config.mjs - the cross-file detectors had no self-test
+      in either direction - MID
+    scripts/check-infra-docs.mjs - A7's exclusion self-test was tautological - HIGH
+    scripts/check-infra-docs.mjs - A7 scanned src/ only while claiming
+      "apps/web reads"; next.config.ts reads three variables outside it - MID
+    infra/zebrad/zebrad.toml + one other - "eleven sections" is wrong, twelve - MID
+    four files - "Zebra has no ZMQ at any version" overreached - LOW
+    .env.example - still described the RPC as loopback-bound - MID
+    docs/2.0/RUNBOOK-VPS.md - `docker volume rm` fails while a stopped container
+      references the volume - MID
+    docs/2.0/RUNBOOK-VPS.md - pg_restore --clean ran against live writers - MID
+    docs/2.0/RUNBOOK-VPS.md - the capture's `<shorthash>` is parsed by the shell
+      as a redirection - MID
+    docs/2.0/RUNBOOK-VPS.md - a cloudflared ingress file a token-run tunnel
+      cannot read, presented as configuration - MID
+    docs/2.0/RUNBOOK-VPS.md - no step rebuilt an image, so a code update deployed
+      nothing and said nothing - MID
+
+  AND THE FIX COMMIT CREATED ONE, which is the pattern this project has now
+  recorded in four consecutive handoffs. The replacement snapshot-age query in
+  the round-1 fix read `MAX(height)` from `pool_boundary_flows`, whose column is
+  `block_height`. It was caught by executing it against the live schema rather
+  than by reading it - `ERROR: column "height" does not exist` - and both SQL
+  statements in the runbook are now executed transcripts rather than plausible
+  ones.
+
+  NOT FIXED, judged not defects or out of scope, with the reason (the remainder
+  of the 52; several were the same finding from two lenses):
+    - Several findings treat the dev override's `deploy: replicas: 0` as
+      ineffective. It is honoured by compose v2 for `up`, and the services it
+      applies to are the ones a dev runs on the host; the residual truth - that
+      `--build` would still build them - is a cost of one command, not a defect.
+    - "The indexer and gateway manifests stages omit apps/publisher/package.json,
+      so both images break when HANDOFF-09 lands." Correct, and deliberately left:
+      adding a manifest for a package that does not exist fails TODAY. It is a
+      one-line change for whoever creates the package and is recorded in §8.
+    - "The root .npmrc is not copied into the images." There is no root .npmrc in
+      this repository.
+    - "The indexer healthcheck's no-endpoints branch is unreachable." It is
+      reachable - compose supplies the three variables, but a `docker run` of the
+      image without them is exactly the case it exists for, and it was executed
+      in that state.
+    - A cluster of runbook findings about tools not installed (python3, git).
+      Section 2.0 now installs cloudflared, which was the real gap; python3 and
+      git are present on every image the sizing table names.
+    - Guard findings about YAML shapes this repository does not use (top-level
+      anchors merged with `<<:`, `env_file:`, a third compose file). Real bounds,
+      all stated in the scripts' headers, none reachable by the tree as it is.
+      Widening a guard to shapes nothing uses is how a detector grows a bug.
+
+  THE HONEST EXTRAPOLATION, per LEDGER-07 Q6's stopping rule: a second round
+  would find one or two more of round 1's reach, and the most likely place is the
+  three guard scripts rather than the compose or the runbook - round 1's guard
+  lens was the most productive of the four and its findings were the least
+  refutable. This round is NOT claimed to have converged: it ends because its
+  reach was read and acted on, not because it returned nothing a user could see.
+
+  POST-FAN-OUT SWEEP after the review fan-out: `git status --porcelain` returned
+  two paths, `apps/indexer/Dockerfile` and `handoffs/HANDOFF-10-infra.md`, BOTH
+  of them the lead's own uncommitted edits made while the fan-out was in flight -
+  the migrations COPY and this report. No worker wrote to the tree. Recorded
+  because one verifier reported the Dockerfile edit as evidence that "an earlier
+  fan-out worker wrote into the repository" and recommended reverting it; that
+  was a misattribution of the lead's own work, and reverting on it would have
+  removed the fix for the round's highest-severity finding.
 
 PREVIEW URL (if any): none, and none is expected. This handoff changes no file
   under `apps/web/src`, so the Vercel preview on this branch exercises nothing new.
