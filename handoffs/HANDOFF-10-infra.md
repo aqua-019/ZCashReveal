@@ -308,7 +308,7 @@ EVIDENCE (per §5 assertion: pass transcript + fail transcript, provenance)
       pnpm typecheck      10/10, rc=0
       pnpm lint           0 errors, 0 warnings, rc=0
       content validate    OK (190 cited source refs), rc=0
-      pnpm check          10 guards, rc=0
+      pnpm check          11 guards, rc=0 (guard 11 added by F-43-2, below)
       pnpm build          7/7, 0 cached, rc=0
       The build was run with --force. Turbo had cached five of seven tasks after the
       merge, and `pnpm build` is in this list for exactly one reason - it is the only
@@ -381,6 +381,59 @@ EVIDENCE (per §5 assertion: pass transcript + fail transcript, provenance)
       NO CONTAINER WAS STARTED, which §1 forbids outright. `docker ps -a` and
       `docker images` are both empty at the end of this session: no build completed,
       so no image exists to run.
+
+  F-43-2, THE REBASE MERGE CROSSED TWO HEADINGS OVER THEIR CONTENT IN THE
+  LEDGER, and it is recorded here because the answer to it is a guard rather
+  than an apology. L2 found it by reading. `## HANDOFF-10 (Infra: ...)` had been
+  spliced directly under HANDOFF-08's closing sentence, so it governed
+  HANDOFF-08's own section 8 - Q1 to Q8, its gate round counts, its deferred
+  assumptions - while `## HANDOFF-08` was left with five lines of preamble and
+  no block. Nothing was lost. Everything was filed under the wrong name, in the
+  one file whose purpose is that the next session reads it by handoff number,
+  and HANDOFF-09 opens next with "LEDGER.md, section 8 entries from every
+  shipped handoff" in its section 2 reading.
+
+  A THIRD DEFECT L2 DID NOT NAME. Mapping the region before touching it showed
+  HANDOFF-08's addendum and HANDOFF-10's section 8 sharing ONE fenced block,
+  lines 2902-2955 and 2956-3075, with no separator between them - not even a
+  blank line. Moving the heading alone would have left that in place. The fence
+  is closed after the addendum and reopened under the HANDOFF-10 heading.
+
+  THE INSTRUMENT IS `scripts/check-ledger-structure.mjs`, guard ELEVEN, wired
+  into `ci.yml` and `pnpm check`, whose two lists are byte-identical in content
+  and order. This is the escalation CLAUDE.md's amended stopping rule describes:
+  a shape that has recurred is answered with a check. Two rules, both measured
+  against the real damaged file BEFORE being written - R1, a heading is preceded
+  by a blank line, one finding, the spliced HANDOFF-10 at 2674; R2, a heading
+  governs at least one fenced block, one finding, the orphaned HANDOFF-08 at
+  2668. Two ends of one defect. Fail side executed on the merged file
+  byte-for-byte: rc=1 naming both. Positive on the repaired file: rc=0.
+
+  L2'S EXPLANATION OF F-43-2 IS WRONG IN THE SAME SHAPE AS F-43-1'S, and the
+  finding is right both times. L2 states that without a blank line CommonMark
+  "does not parse `## HANDOFF-10 ...` as a heading at all - it is a lazy
+  continuation of the preceding paragraph", and that this is why a careful
+  session missed it: invisible in the rendered view. Executed against the
+  reference `commonmark` implementation on the exact two-line input:
+      <p>entry, which is this one.</p>
+      <h2>HANDOFF-10 (Infra: Zebra 6.2.x compose) - L3 session</h2>
+  ATX headings interrupt paragraphs. It rendered as a heading on GitHub the
+  whole time. So the reason this survived is not that the heading was invisible
+  - it is that a heading in the wrong PLACE looks exactly like a heading in the
+  right one, and no renderer shows which content belongs to it. That is a better
+  argument for guard 11 than the one the finding gave, because it means reading
+  the rendered page would never have caught it.
+
+  FOLD 3 CANNOT BE IMPLEMENTED AS SPECIFIED, AND IS REPORTED RATHER THAN FORCED.
+  It asks that F-43-2 be registered in `scripts/check-finding-sites.mjs`. That
+  guard excludes `handoffs/LEDGER.md` by construction - `RECORD_FILES` - because
+  the ledger QUOTES a defect in order to record it, so a register that scans it
+  fires forever on text doing its job. The exclusion is pinned by the guard's
+  own self-test, which asserts that a ledger site yields zero checked sites.
+  F-43-2's only site IS the ledger. Registering it would add an entry that reads
+  as coverage and checks nothing, which is the exact failure `check-audit-
+  consumers` was written against. Guard 11 is the registration: it reads the
+  ledger structurally rather than by pattern, which is why it can.
 
 ASSUMPTIONS (each: ACCEPTED / CORRECTED / DEFERRED — reason)
 

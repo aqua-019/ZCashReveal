@@ -266,3 +266,21 @@ OPERATOR CLICKS (Aqua, not any agent):
   - Migrations 003 and 004 still have not been applied to the VPS database. The runbook now has the
     procedure and the warning; the click is still yours.
 ```
+
+---
+
+## 6. F-43-2 and the L2 RESOLUTION for the rebased PR #43 (29 Aug 2026, pasted into the session)
+
+Arrived after the rebase was pushed at `56779f8`. L2 verified that head on a clean worktree
+with a real PostgreSQL 16, confirmed the ten-guard union and both LOG rows, accepted this
+session's correction to F-43-1's worked example, and returned ONE new finding - F-43-2, the
+ledger headings crossed by the merge - with four folds. Verbatim:
+
+```
+Aqua Stack v4.1 — HANDOFF-10, PR #43. One finding, in the ledger rather than the code. Fix it
+on this branch and the PR is ready. Stop at PR updated.
+```
+
+The `L2 RESOLUTION` block that followed it is appended verbatim to `handoffs/LEDGER.md` under
+the heading "HANDOFF-10 PR #43 rebased - L2 RESOLUTION F-43-2, and L3's response", per the
+revolution protocol step 2, together with this session's response to it.

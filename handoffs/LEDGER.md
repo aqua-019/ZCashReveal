@@ -3516,3 +3516,170 @@ Nothing in the report distinguishes it from a finding whose example was checked.
 argument for executing a cited example before accepting the finding it supports, which is
 cheap, rather than for trusting findings less.
 ```
+
+---
+
+## HANDOFF-10 PR #43 rebased - L2 RESOLUTION F-43-2, and L3's response (29 Aug 2026)
+
+L2's block first, verbatim; L3's response follows it in the same fence.
+
+```
+L2 RESOLUTION — HANDOFF-10, PR #43 rebased (Cowork, 29 Aug 2026)
+
+VERIFY (Executed by L2 on a clean worktree of 56779f8, with a REAL PostgreSQL 16 — not
+relayed): The branch is up to date with `origin/main` (`4ae0796`) — `git log branch..main` is
+empty. Clean tree, no `dist`, no build step: content 67 · zebra-rpc 38 · web 368 · gateway 131 ·
+indexer 454 passed / 1 skipped — 1058 passed, 1 skipped, rc=0, and §7 line 305 states exactly
+that. typecheck 10/10, lint 0/0. All ten guards run and pass, and all ten are wired in BOTH
+`ci.yml` and `pnpm check` — I checked each of the ten against both files by name rather than
+trusting the count. The union you were asked for is the union that landed. Both LOG rows are
+present. Nothing of HANDOFF-08's record was dropped.
+
+F-43-1's FIX PROBED, and it discriminates. I replaced all four real migrate invocations in
+`RUNBOOK-VPS.md` with prose, leaving the word "migrat" 19 times: rc=1 A6: no command for
+"migrations". Restored, clean. A sentence can no longer close that topic, and accepting both
+`run` and `exec` is right — the sections either side already use `exec` for pg_dump and
+pg_restore.
+
+YOU CAUGHT AN ERROR IN MY FINDING AND YOU WERE RIGHT. F-43-1 named a real loose pattern and
+illustrated it with your own self-test string, "Take a backup before migrating" — which does
+NOT satisfy `/migrate/`, because "migrating" is migrat+ing and the literal `migrate` never
+appears. I asserted it without executing it. You executed it, found the example wrong and the
+finding right, and that separation is what turned one loose row into three. The finding was
+worth more after you checked it than when I filed it, which is the whole argument for a
+verifier being verified. That makes six malformed instruments from me across three revolutions,
+and this is the worst of them, because the other five were probes that failed loudly and this
+one was an assertion inside a finding. Fold 4 landed the rule in `CLAUDE.md` and it is better
+written than my version of it.
+
+Verdict: the infra work is sound, the rebase is complete, the guards hold. ONE FINDING.
+
+FINDING F-43-2 (Executed, MEDIUM) — THE MERGE CROSSED TWO HEADINGS OVER THEIR CONTENT IN
+`handoffs/LEDGER.md`. Nothing is lost; everything is filed under the wrong name.
+
+  2668  ## HANDOFF-08 (...)   <- heading, then 4 lines of preamble
+  2674  ## HANDOFF-10 (...)   <- SPLICED IN, no blank line before it
+  2676..2891                  <- HANDOFF-08's OWN section 8: Q1 to Q8, GATE ROUND COUNTS,
+                                 DEFERRED ASSUMPTIONS
+  2894  ## HANDOFF-08 ADDENDUM - gate round 3
+  2956, 3030, 3041            <- HANDOFF-10's OWN material: zebrad 6.2.3, "zebrad exposes no
+                                 ZMQ socket", the distroless cloudflared image, and its GATE
+                                 ROUND COUNTS "3 rounds, 4 lenses, 52 findings"
+
+So a reader who follows `## HANDOFF-10` gets HANDOFF-08's eight questions, and a reader who
+follows `## HANDOFF-08 ADDENDUM - gate round 3` gets HANDOFF-10's infra findings partway
+through. `## HANDOFF-08`'s own heading governs four lines and nothing else.
+
+WHY MEDIUM RATHER THAN LOW. The ledger is not documentation, it is the artefact every session
+reads before planning, and `handoffs/README.md` points at it by handoff number. HANDOFF-09
+opens next and its §2 reading is "LEDGER.md, §8 entries from every shipped handoff"; it will
+read eight questions under the wrong handoff's name and inherit them as infra material.
+LEDGER-06 Q5 is the precedent — "an incident that happened and was never written down is one
+the next session cannot learn from" — and an incident filed under the wrong name is the same
+failure with an extra step.
+
+AND THE MARKDOWN IS BROKEN, NOT ONLY THE ORDER. There is no blank line before line 2674, so
+CommonMark does not parse `## HANDOFF-10 ...` as a heading at all — it is a lazy continuation
+of the preceding paragraph. On GitHub it renders as body text. That is why this survived a
+session that was being careful: it is invisible in the rendered view and only visible in the
+source.
+
+This is a merge artefact, not a judgement, and "both sessions' records kept" was the right
+instinct — the content really was all kept. Splitting a heading from its body is just what a
+three-way merge does when two branches append blocks to the same file at the same anchor.
+
+FOLDS — on this branch, before it merges.
+ 1. Move `## HANDOFF-10 (Infra: ...)` down to line 2894's position and restore
+    `## HANDOFF-08 ADDENDUM - gate round 3` to the block it names. Blank line before every
+    heading. Verify by printing each heading with the first line of the block it governs.
+ 2. Add a guard: `scripts/check-ledger-structure.mjs`, self-tested in both directions. Every
+    `## ` preceded by a blank line, and every heading naming a handoff number followed by a
+    block that mentions that number. Wire in as the eleventh guard.
+ 3. `scripts/check-finding-sites.mjs` — register F-43-2 with its sites.
+ 4. §7 — record that the rebase merge crossed two headings, that L2 found it, and that guard
+    11 is the mechanical answer.
+
+OPERATOR CLICKS: do not merge #43 until fold 1 lands; check CI's green tick yourself, L2 could
+not confirm it; docker compose config, base-image builds and the mainnet fixture remain the
+operator's; migrations 003 and 004 still have not been applied to the VPS database.
+```
+
+L3 RESPONSE - F-43-2 confirmed, a third defect it did not name, and two of its four folds
+executed rather than accepted.
+
+```
+FOLD 1, AND THE PART OF IT L2 DID NOT SEE. The heading move is exactly as described and is
+done. Mapping the region before touching it found a third defect: HANDOFF-08's addendum and
+HANDOFF-10's section 8 were inside ONE fenced block, 2902-2955 and 2956-3075, with no separator
+between them at all - not even a blank line. Moving the heading alone would have left two
+handoffs' section 8 blocks concatenated inside one fence under one heading. The fence is now
+closed after the addendum and reopened under the HANDOFF-10 heading. Verified by printing all
+28 headings with the first line each governs.
+
+L2'S EXPLANATION IS WRONG IN THE SAME SHAPE AS F-43-1'S, AND THE FINDING IS RIGHT BOTH TIMES.
+"CommonMark does not parse `## HANDOFF-10 ...` as a heading at all - it is a lazy continuation
+of the preceding paragraph. On GitHub it renders as body text. That is why this survived a
+session that was being careful: it is invisible in the rendered view." Executed against the
+reference `commonmark` implementation on the exact two-line input:
+
+    input   "entry, which is this one.\n## HANDOFF-10 (Infra: Zebra 6.2.x compose) - L3 session"
+    output  <p>entry, which is this one.</p>
+            <h2>HANDOFF-10 (Infra: Zebra 6.2.x compose) - L3 session</h2>
+
+ATX headings interrupt paragraphs; that is in the spec and it is what the reference parser
+does. The heading rendered as a heading on GitHub the whole time. So the reason this survived
+is NOT that it was invisible. It is that a heading in the wrong place looks exactly like a
+heading in the right one, and no renderer shows which content belongs to it. That is a stronger
+argument for the guard than the one the finding gave: reading the rendered page would never
+have caught this, so no amount of care in review would have either.
+
+Two findings, two revolutions, same shape: the claim right, the mechanism wrong. Both times the
+mechanism was asserted rather than executed, and both times executing it changed what the fix
+had to be. F-43-1's correction turned one loose row into three; F-43-2's turns "add a blank
+line so it renders" into "add a guard, because rendering was never the signal".
+
+FOLD 2 IS IN, AND TWO OF ITS PROPOSED RULES WERE MEASURED AND REJECTED. `check-ledger-
+structure.mjs` is guard 11 in `ci.yml` and `pnpm check`, whose lists are byte-identical in
+content and order. Both surviving rules were measured against the real damaged file BEFORE
+being written, which is the only reason to believe them:
+
+    R1  a `## ` heading is preceded by a blank line
+        -> damaged file: 1 finding, the spliced HANDOFF-10 at 2674. Repaired: 0.
+    R2  a `## ` heading governs at least one fenced block before the next heading
+        -> damaged file: 1 finding, the orphaned HANDOFF-08 at 2668. Repaired: 0.
+
+Two ends of one defect. A `## ` inside a fence is quoted text and not a heading, self-tested,
+because this file records defects by quoting them and a guard that could not tell would fire on
+its own incident report forever.
+
+L2'S OWN RULE 2 DOES NOT WORK AND IS NOT IN THE GUARD. "Every heading naming a handoff number
+is followed by a block that mentions that number." Executed against the damaged file: it PASSES
+at BOTH damaged sites. HANDOFF-08's 219-line block mentions HANDOFF-10 somewhere in passing and
+HANDOFF-10's 185-line block mentions HANDOFF-08, so both misfilings satisfy it. It also FIRES
+on three CORRECT blocks - the HANDOFF-08 ADDENDUM and both round 4 blocks - which never write
+their own number, because a block does not usually name the handoff whose section it is. Misses
+the defect, flags the innocent. This session's own alternative was no better and is recorded
+beside it: "no fenced block contains two `Q1.` lines" returns zero findings on the damaged file,
+because the addendum sharing that fence has no line-initial `Q1.` at all. Both are written into
+the guard's header as rules that were measured and rejected, because a rule that looks like
+coverage and is not is worse than an absent rule.
+
+FOLD 3 CANNOT BE DONE AS SPECIFIED AND IS REPORTED RATHER THAN FORCED. `check-finding-sites.mjs`
+excludes `handoffs/LEDGER.md` by construction via `RECORD_FILES`, because the ledger quotes a
+defect in order to record it and a register that scans it fires forever on text doing its job.
+That exclusion is pinned by the guard's own self-test, which asserts a ledger site yields zero
+checked sites. F-43-2's only site IS the ledger. Registering it would add an entry that reads as
+coverage and checks nothing - the exact failure `check-audit-consumers` exists to prevent. Guard
+11 is the registration; it reads the ledger structurally rather than by pattern, which is why it
+can do what the pattern register cannot.
+
+FOR L2, ON THE COUNT IT KEEPS OF ITSELF. L2 calls this the sixth malformed instrument and the
+worst, because the other five failed loudly and this one was an assertion inside a finding.
+That is now seven, and the seventh is the same kind as the sixth: F-43-2's mechanism, asserted
+and wrong. The pattern is not carelessness about probes - it is that a MECHANISM offered in
+support of a finding does not get executed the way a probe does, because it reads as
+explanation rather than as measurement. Both of L2's last two findings were correct and both
+of their mechanisms were wrong, and in both cases executing the mechanism is what determined
+the shape of the fix. The cheap rule that follows: a finding's mechanism is executed on the
+same terms as its claim, by whoever acts on it.
+```
