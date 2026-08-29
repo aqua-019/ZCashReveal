@@ -127,7 +127,9 @@ DIRECTORS SPAWNED (lead names each + spawn mode proven):
     something pre-existing - which is the whole argument for reviewing a fix
     commit as its own commit.
   Gate round 3, one read-only lens on 23257e4, the round-2 fix commit, for
-    the same reason. Running at the time of writing.
+    the same reason. RETURNED AFTER PR #40 MERGED, so its 13 findings were
+    live on main; they land as a SECOND follow-up PR off 09b9e9c, because a
+    merged PR is finished and cannot carry new work.
 
 FILES (created / modified / moved): 37 files, +1615 / -243 against 4386e98.
   CREATED
@@ -312,7 +314,30 @@ GATE ROUNDS: 2 (the second incomplete) - fingerprints (file - rule - severity)
   that repeated the error it was correcting, about a named company. Three
   sessions is a pattern; four is the rule this project already wrote down.
 
-  ROUND 3, the review of 23257e4, for the same reason. One lens, running.
+  ROUND 3, the review of 23257e4, for the same reason. One lens, 13 findings,
+    and the pattern held a third time:
+    CandidatesPanel.tsx     - "Nothing was refused" when two were  - HIGH
+    GOLDEN.md               - the "12 times" fix landed in 1 of 2 files - HIGH
+    gateway/mempool.ts      - the coinbase fix made a real tx a migration - MED
+    conservation.ts         - rival rule keys on txid, one tx exits 2 pools - MED
+    conservation.ts         - exit-side refusal logs the deposit-side total - MED
+    conservation.ts         - audit.params.exitZat unasserted        - MED
+    conservation.ts         - comparator widening untested, case unreachable - MED
+    track/page.tsx          - a THIRD "twelve rows" site            - MED
+    clustering.ts           - isRoundAmount's live call site deletable - LOW
+    toolkit.test.ts         - a new test's justification false about the code - LOW
+    taint.ts                - the refusal guard cannot see -0        - LOW
+    mempool-view.test.ts    - a bare "Assertion A9" survived the sweep - LOW
+    mempool-view.test.ts    - the new migration test pins an impossible tx - LOW
+
+  THREE ROUNDS, THREE TIMES THE FIX COMMIT WAS WHERE THE DEFECTS WERE, and
+  the reach did NOT decay the way LEDGER-07 Q6 predicts it should: round 1
+  found a live HIGH, round 2 found four, round 3 found two - one of them a
+  false sentence on a render surface, which is as user-visible as this
+  project gets. What decayed was not severity but NOVELTY: round 3's HIGHs
+  are both the same shape as round 2's - a widening whose consumer was not
+  swept, and a correction that landed in one file of two. This session has
+  now committed that shape four times after writing the rule against it.
 
   THE EXTRAPOLATION, STATED RATHER THAN CONVERGENCE CLAIMED (LEDGER-07 Q6
   part iii), AND THE FIRST VERSION OF IT WAS WRONG, WHICH IS WORTH KEEPING.
@@ -332,6 +357,17 @@ GATE ROUNDS: 2 (the second incomplete) - fingerprints (file - rule - severity)
   it had none. What no round should find again is another A9: that shape - an
   assertion quantifying over an aggregate and a test checking an element - is
   now a rule in CLAUDE.md rather than something a reviewer must notice.
+
+  THE SECOND EXTRAPOLATION WAS HALF RIGHT, WHICH IS BETTER THAN THE FIRST AND
+  STILL NOT GOOD. It named the sites correctly - both HIGHs and four of the
+  five MEDIUMs are in `conservation.ts` and the gateway class ternary, exactly
+  the two files it pointed at. It understated the severity again: "one or two
+  more of round 2's reach" against two HIGHs, one of them a false sentence
+  rendered to a reader. Two extrapolations, two underestimates of severity,
+  both about this session's own commits. The honest summary for a fourth round
+  is therefore NOT a number: it is that this branch has never once had a round
+  come back empty, and no round has yet been run whose fix was not itself
+  found wanting. A fourth round should be run by whoever merges this.
 
 PREVIEW URL: zecreveal-git-claude-handoff-08-analysi-9ef32e-aquatic-17b9f112
   .vercel.app - DEPLOYED, and unreachable from any session.
