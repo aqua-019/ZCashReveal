@@ -210,11 +210,17 @@ than a reading (LEDGER-08 fold 4). Executed, test deaths per mutation:
     tests: gateway mempool-view, web fixtures + mempool-summary
 
 GATE COMMANDS, all Executed and green on cf69427:
-  pnpm -r test    1047 passed, 1 skipped   (953 + 1 at HANDOFF-07)
+  pnpm -r test    1058 passed, 1 skipped   (953 + 1 at HANDOFF-07), measured by
+    L2 on a clean worktree of 4a6a578 with a real PostgreSQL 16. This line read
+    1047 for two rounds after it stopped being true (1056 at #40, 1058 at #41),
+    and this session also published 1063 in PR #41's body - an arithmetic slip,
+    since 67 + 368 + 38 + 131 + 454 = 1058. It is now in
+    `check-finding-sites.mjs`'s register as R4-COUNT so it cannot go stale a
+    fourth time.
     content 67 - web 368 - zebra-rpc 38 - gateway 128 - indexer 445 + 1 skipped
   pnpm typecheck  10/10      pnpm lint  0
   pnpm --filter @zcashreveal/content validate  OK
-  pnpm check      five guards OK
+  pnpm check      seven guards OK (two added by round 4)
   pnpm build      OK, and the Vercel preview DEPLOYED on this branch
     ("Deployment has completed", 92ze7J1f3VmmCRgJkSfP3CfhsBrT) - the pnpm build
     half of the HANDOFF-07 lesson confirmed in the real build environment.

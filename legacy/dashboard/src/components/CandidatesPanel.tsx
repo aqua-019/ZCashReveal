@@ -284,7 +284,13 @@ function filterParams(f: FilterApplication): string {
       // and `countOut` on the same record said 3 and 1. `assertNever` could not
       // catch it because the union gained a FIELD, not a member.
       const dropped = Number(f.countIn - f.countOut);
-      return `${claimed.toFixed(4)} of ${balance.toFixed(4)} ZEC claimed · ${dropped} match${dropped === 1 ? "" : "es"} refused`;
+      // THE EXIT TOTAL IS THE QUANTITY SECTION 3.11 BOUNDS, and this line stated
+      // the deposit side only. `check-audit-consumers.mjs` surfaced it on its
+      // first tree-wide run: `exitZat` was on the record, published by the
+      // estimator, and rendered by nothing. The two differ for every inexact
+      // match, so a reader was being shown the side the law does not bound.
+      const exits = Number(f.params.exitZat) / 100_000_000;
+      return `${claimed.toFixed(4)} in, ${exits.toFixed(4)} out of ${balance.toFixed(4)} ZEC · ${dropped} match${dropped === 1 ? "" : "es"} refused`;
     }
     default:
       return assertNever(f);

@@ -411,13 +411,20 @@ export function matchEcho(
  *
  * TWO RULES, THE LOOSER OF WHICH WINS, and the reason is arithmetic rather than
  * generosity. Each leg of a split pays its own fee, so the absolute term scales
- * with `k`; but at 50,000 ZEC a residual of 0.02 ZEC is 4e-7 relative and 6.25
- * times the absolute allowance AT `k = 2` (2,000,000 zat against 320,000), which
- * is the shape of section 3.4's own worked case. This said "12 times", which is
- * the ratio against the UNSCALED `FEE_TOLERANCE_ZAT` - a sentence whose own
- * preceding clause is "the absolute term scales with `k`" cannot then quote the
- * unscaled figure. Using only the absolute rule would miss every large split and using only
- * the relative rule would admit implausibly large residuals on small ones.
+ * with `k`; but at 50,000 ZEC a residual of 0.02 ZEC is 4e-7 relative and BOTH
+ * of these, which are different quantities and are given together so that
+ * neither can be read as the other's answer:
+ *
+ *   2,000,000 zat / 160,000 = 12.5 times the UNSCALED `FEE_TOLERANCE_ZAT`
+ *   2,000,000 zat / 320,000 =  6.25 times the absolute allowance AT `k = 2`
+ *
+ * That is the shape of section 3.4's own worked case. This said "12 times",
+ * which was wrong TWICE - wrong comparison and wrong number - and a first
+ * correction fixed the comparison while carrying the 12 forward as though it
+ * had been the right answer to the other question. It was never either: the
+ * unscaled ratio is 12.5. Using only the absolute rule would miss every large
+ * split and using only the relative rule would admit implausibly large
+ * residuals on small ones.
  */
 export function subsetSumTolerance(
   totalZat: Zatoshi,
