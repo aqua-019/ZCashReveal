@@ -152,6 +152,15 @@ jobs:
       - name: Infra docs (runbook commands, deploy variables)
         run: node scripts/check-infra-docs.mjs
 
+      # Two branches append a section 8 block to LEDGER.md in the same
+      # revolution - that is the protocol, not a mistake - and a three-way merge
+      # handed two blocks at one anchor separates a HEADING from the block it
+      # names. PR #43's merge did exactly that: nothing was lost and everything
+      # was filed under the wrong handoff, in a file whose entire purpose is
+      # that the next session reads it by handoff number.
+      - name: Ledger structure (no heading separated from its block)
+        run: node scripts/check-ledger-structure.mjs
+
       - name: Install
         run: pnpm install --frozen-lockfile
 

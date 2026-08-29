@@ -2671,7 +2671,6 @@ Two PRs. [#39](https://github.com/aqua-019/ZCashReveal/pull/39) merged at `4386e
 still running and carries the toolkit WITHOUT its fixes; [#40](https://github.com/aqua-019/ZCashReveal/pull/40)
 is the follow-up and carries gate round 1, the conservation law and this write-back. Same handoff, one ledger
 entry, which is this one.
-## HANDOFF-10 (Infra: Zebra 6.2.x compose, VPS runbook, tunnel, DEPLOY-2.0) - L3 session, 29 Aug 2026
 
 ```
 QUESTIONS (for the operator / L2):
@@ -2952,6 +2951,13 @@ THIRTEEN FINDINGS, TWO HIGH, AND THE PATTERN HELD A THIRD TIME.
  for a fourth round is not a number: this branch has never had a round come back empty, and no
  round has yet been run whose fix was not itself found wanting. WHOEVER MERGES THIS SHOULD RUN A
  FOURTH.
+```
+
+---
+
+## HANDOFF-10 (Infra: Zebra 6.2.x compose, VPS runbook, tunnel, DEPLOY-2.0) - L3 session, 29 Aug 2026
+
+```
 Q1. THE PINNED NODE IS 6.2.3 AND THE CLIENT WAS WRITTEN AGAINST 6.3.0. §3 says
     "6.2.x (exact tag chosen and cited)", so 6.2.3 is what `docker-compose.yml`
     pins - it is the newest 6.2.x, published 2026-07-28. But LOG.md records that
