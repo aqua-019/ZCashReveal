@@ -2780,6 +2780,61 @@ QUESTIONS (for the operator / L2):
      CLAUDE.md's gate contract: a property test is verified by executing the
      concrete scenario it exists to forbid, against the pre-fix code.
 
+ Q7. FIVE THINGS GATE ROUND 2 RAISED THAT ARE OPEN RATHER THAN FIXED, listed
+     so they are not lost between handoffs.
+     (a) `EchoMatch` CARRIES NO POOL, so `enforceConservation` cannot partition
+         by pool - and section 3.11 is stated "for every pool and window". A
+         Sapling withdrawal can match an Orchard deposit and be charged against
+         the Sapling balance. `matchEcho`'s pool-blindness predates HANDOFF-08;
+         the new module claims a per-pool law it has no field to key on. The fix
+         is to carry `pool` on `EchoMatch` (it is on both `BoundaryEvent`s) and
+         either take a per-pool balance map or refuse a mixed-pool set. Not done
+         here because it changes the estimator's public type and no assertion
+         covers it.
+     (b) NOTHING ON A PRODUCTION PATH CALLS THE NEW LAW. `enforceConservation`,
+         `violatesConservation`, `guessChange` and `clusterByCommonInput` are
+         referenced only by `index.ts` and by tests. Section 3.11 is therefore
+         AVAILABLE, not ENFORCED, and this session's own commit message read as
+         the latter. HANDOFF-12 is the wiring; until it lands, `main` shipping
+         the estimator without the sieve is a live defect and shipping the sieve
+         unwired is not yet a fix for any rendered page.
+     (c) The section 1.4 override is unavailable when the caller could not
+         resolve an input address - `spending` is built from vin entries that
+         are neither coinbase nor null-addressed - so a transaction with an
+         unresolved prevout still runs section 1.3's rule unguarded, which is
+         the condition under which the mislabel it exists to prevent happens.
+         Stated in the docblock; the fix is upstream.
+     (d) `legacy/dashboard`'s `parseFilterApplication` cannot produce a
+         `conservation` or an `amount_echo` record - it returns an inert
+         `time_window` for anything it does not know - so the arms this branch
+         added to `CandidatesPanel` are unreachable and such a step would render
+         as a time-window narrowing that removed nothing. LOW only because
+         `legacy/` is retired at the HANDOFF-11 cutover.
+     (e) Section 3.11's second half, `Bal^p >= 0`, is quoted at the head of
+         `conservation.ts` and not implemented: a negative balance is accepted
+         and expressed only as "everything rejected for exceeding the balance",
+         which is a different diagnosis from "the balance handed to this sieve is
+         impossible".
+
+ Q8. THE MEASUREMENT THIS HANDOFF ADDS TO THE FIX-COMMIT PATTERN, which is now
+     four sessions old and is a property of this codebase rather than of any
+     session. Round 1's fix commit introduced two HIGH defects and left nine
+     mutations alive, and BOTH HIGHs were in the module written to fix a defect
+     of exactly that shape: the conservation sieve enforced one-to-one on one
+     side of the assignment and bounded the deposit side where section 3.11
+     bounds exits. A third HIGH was a correction that repeated the error it was
+     correcting - "Ledger is absent from the corpus", in the commit whose
+     message says that row "was wrong in both halves" - and a fourth was a
+     sweep that left two sites still stating the superseded claim.
+
+     What that suggests about the instrument, offered rather than asserted: the
+     dangerous commit is not the one that adds a feature, it is the one that
+     fixes a defect, because the author has just proved they hold a wrong model
+     of the thing they are editing. The rule already says to review it. This
+     session's evidence is that the review should be POINTED AT THE FIXER'S
+     STATED REASONING - each of the four HIGHs is visible in the fix commit's
+     own message, phrased with more confidence than the code earned.
+
 INFERRED (non-empty inferences a worker made):
   - That section 3.4's four bullets are four rules despite a heading saying
     three. Implemented four; `analysis.ts` quotes the heading verbatim so the

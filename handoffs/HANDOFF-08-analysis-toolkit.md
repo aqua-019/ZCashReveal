@@ -121,11 +121,13 @@ DIRECTORS SPAWNED (lead names each + spawn mode proven):
   Gate round 1, four read-only lenses, all returned: correctness, spec,
     sweep, facts. ~65 findings between them.
   Gate round 2, two read-only lenses on the fix commit e45150e as its own
-    commit: correctness, facts. NEITHER HAD RETURNED AT WRITE-BACK.
-    Proceeding without them and saying so, because a gate that never returns
-    is not a gate that found nothing - and the extrapolation below is stated
-    rather than a claim of convergence. If they land before the PR leaves
-    draft, their findings go in as a further commit.
+    commit: correctness, facts. BOTH RETURNED AFTER THE FIRST WRITE-BACK, and
+    their findings landed as 23257e4. 32 findings, two HIGH from each lens,
+    and every one of the four HIGHs is this branch's own work rather than
+    something pre-existing - which is the whole argument for reviewing a fix
+    commit as its own commit.
+  Gate round 3, one read-only lens on 23257e4, the round-2 fix commit, for
+    the same reason. Running at the time of writing.
 
 FILES (created / modified / moved): 37 files, +1615 / -243 against 4386e98.
   CREATED
@@ -282,18 +284,54 @@ GATE ROUNDS: 2 (the second incomplete) - fingerprints (file - rule - severity)
   ROUND 2, the review of e45150e as ITS OWN COMMIT - not a gate round but
     part of shipping a fix, because three sessions running have had round N's
     fix create round N+1's defects (HANDOFF-07 measured three of five and
-    three of seven). Two lenses out, neither returned.
+    three of seven). Two lenses, 32 findings. IT HAPPENED AGAIN, FOUR TIMES:
+    conservation.ts        - one-to-one on the deposit side only     - HIGH
+    conservation.ts        - sums deposits where 3.11 bounds exits   - HIGH
+    TRACKING-MATH.md 3.6   - "Ledger absent from the corpus", false  - HIGH
+    views.ts + gw test     - the A9 sweep left two sites stating it  - HIGH
+    clustering.ts          - roundness branch merges a third party   - MED
+    gateway/mempool.ts     - coinbase rule reaches shield not migration - MED
+    gateway/mempool.ts     - the lane swatch keeps the coinbase vin  - MED
+    conservation.ts        - "deterministic" false; tie not total    - MED
+    conservation.ts        - two of four sort keys unverified        - MED
+    taint.ts               - all three fixes revertible, green       - MED
+    gateway/mempool.ts     - the coinbase fix had no test at all     - MED
+    echo.ts + panel        - the grade sweep left two sites stating MEDIUM - MED
+    taint.ts               - an invented float in a rigour argument  - MED
+    labels.ts              - 1.5 cited as a source for the encoding  - MED
+    echo.ts                - a third conjunct added, untested        - MED
+    fixtures/mempool.ts    - six names changed, docblock said five   - MED
+    mockData.ts            - FEE_OUTLIER over "fee is conventional"  - MED
+    plus nine LOW, and eleven mutations that had survived now die.
+
+  THE MEASUREMENT THIS SESSION ADDS TO THE PATTERN: round 1's fix commit
+  introduced two HIGH defects and left nine mutations alive. Both HIGHs were
+  in the module WRITTEN TO FIX A DEFECT OF EXACTLY THAT SHAPE - the
+  conservation sieve enforced one-to-one on one side of the assignment and
+  bounded the wrong quantity - and one of the fact HIGHs was a correction
+  that repeated the error it was correcting, about a named company. Three
+  sessions is a pattern; four is the rule this project already wrote down.
+
+  ROUND 3, the review of 23257e4, for the same reason. One lens, running.
 
   THE EXTRAPOLATION, STATED RATHER THAN CONVERGENCE CLAIMED (LEDGER-07 Q6
-  part iii): round 1 dropped a live HIGH that main is still carrying and
-  inverted a clustering claim about a named exchange's counterparty. A third
-  round would probably find one or two more, of round 1's LOWER reach - a
-  wrong ordinal, a citation pointing at the right document and the wrong
-  section, an arithmetic slip in a docblock. What it would NOT find is another
-  A9, because A9's shape - an assertion that quantifies over an aggregate and
-  a test that checks an element - is now a rule in CLAUDE.md rather than a
-  thing a reviewer has to notice. That is the claim this report makes, and it
-  is weaker than "converged".
+  part iii), AND THE FIRST VERSION OF IT WAS WRONG, WHICH IS WORTH KEEPING.
+  After round 1 this report predicted that a further round would find "one or
+  two more, of round 1's LOWER reach - a wrong ordinal, a citation off by a
+  section". Round 2 found four HIGHs, two of them arithmetic-and-logic defects
+  in new production code and one a false statement about a named company. The
+  prediction was wrong in the direction that flatters the branch, and it was
+  made about a commit this session had written, which is the condition under
+  which such a prediction is least reliable.
+
+  So the revised extrapolation, with that on the record: round 3 probably
+  finds one or two more findings of round 2's reach, not round 1's, and the
+  likeliest sites are the ones round 2 changed rather than the ones it only
+  read - `conservation.ts`, which has now been rewritten twice, and the
+  gateway class ternary, which has three coinbase-dependent predicates where
+  it had none. What no round should find again is another A9: that shape - an
+  assertion quantifying over an aggregate and a test checking an element - is
+  now a rule in CLAUDE.md rather than something a reviewer must notice.
 
 PREVIEW URL: zecreveal-git-claude-handoff-08-analysi-9ef32e-aquatic-17b9f112
   .vercel.app - DEPLOYED, and unreachable from any session.
@@ -408,6 +446,61 @@ QUESTIONS (for the operator / L2):
      LEDGER-08 fold 3 is the half that addresses the second, and it is now in
      CLAUDE.md's gate contract: a property test is verified by executing the
      concrete scenario it exists to forbid, against the pre-fix code.
+
+ Q7. FIVE THINGS GATE ROUND 2 RAISED THAT ARE OPEN RATHER THAN FIXED, listed
+     so they are not lost between handoffs.
+     (a) `EchoMatch` CARRIES NO POOL, so `enforceConservation` cannot partition
+         by pool - and section 3.11 is stated "for every pool and window". A
+         Sapling withdrawal can match an Orchard deposit and be charged against
+         the Sapling balance. `matchEcho`'s pool-blindness predates HANDOFF-08;
+         the new module claims a per-pool law it has no field to key on. The fix
+         is to carry `pool` on `EchoMatch` (it is on both `BoundaryEvent`s) and
+         either take a per-pool balance map or refuse a mixed-pool set. Not done
+         here because it changes the estimator's public type and no assertion
+         covers it.
+     (b) NOTHING ON A PRODUCTION PATH CALLS THE NEW LAW. `enforceConservation`,
+         `violatesConservation`, `guessChange` and `clusterByCommonInput` are
+         referenced only by `index.ts` and by tests. Section 3.11 is therefore
+         AVAILABLE, not ENFORCED, and this session's own commit message read as
+         the latter. HANDOFF-12 is the wiring; until it lands, `main` shipping
+         the estimator without the sieve is a live defect and shipping the sieve
+         unwired is not yet a fix for any rendered page.
+     (c) The section 1.4 override is unavailable when the caller could not
+         resolve an input address - `spending` is built from vin entries that
+         are neither coinbase nor null-addressed - so a transaction with an
+         unresolved prevout still runs section 1.3's rule unguarded, which is
+         the condition under which the mislabel it exists to prevent happens.
+         Stated in the docblock; the fix is upstream.
+     (d) `legacy/dashboard`'s `parseFilterApplication` cannot produce a
+         `conservation` or an `amount_echo` record - it returns an inert
+         `time_window` for anything it does not know - so the arms this branch
+         added to `CandidatesPanel` are unreachable and such a step would render
+         as a time-window narrowing that removed nothing. LOW only because
+         `legacy/` is retired at the HANDOFF-11 cutover.
+     (e) Section 3.11's second half, `Bal^p >= 0`, is quoted at the head of
+         `conservation.ts` and not implemented: a negative balance is accepted
+         and expressed only as "everything rejected for exceeding the balance",
+         which is a different diagnosis from "the balance handed to this sieve is
+         impossible".
+
+ Q8. THE MEASUREMENT THIS HANDOFF ADDS TO THE FIX-COMMIT PATTERN, which is now
+     four sessions old and is a property of this codebase rather than of any
+     session. Round 1's fix commit introduced two HIGH defects and left nine
+     mutations alive, and BOTH HIGHs were in the module written to fix a defect
+     of exactly that shape: the conservation sieve enforced one-to-one on one
+     side of the assignment and bounded the deposit side where section 3.11
+     bounds exits. A third HIGH was a correction that repeated the error it was
+     correcting - "Ledger is absent from the corpus", in the commit whose
+     message says that row "was wrong in both halves" - and a fourth was a
+     sweep that left two sites still stating the superseded claim.
+
+     What that suggests about the instrument, offered rather than asserted: the
+     dangerous commit is not the one that adds a feature, it is the one that
+     fixes a defect, because the author has just proved they hold a wrong model
+     of the thing they are editing. The rule already says to review it. This
+     session's evidence is that the review should be POINTED AT THE FIXER'S
+     STATED REASONING - each of the four HIGHs is visible in the fix commit's
+     own message, phrased with more confidence than the code earned.
 
 INFERRED (non-empty inferences a worker made):
   - That section 3.4's four bullets are four rules despite a heading saying
