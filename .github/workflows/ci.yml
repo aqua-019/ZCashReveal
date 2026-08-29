@@ -37,13 +37,29 @@ jobs:
           --health-retries 10
 
     steps:
-      - uses: actions/checkout@v4
+      # THE FOUR PINNED ACTIONS ARE ON node24 RUNTIMES, and the versions were
+      # chosen by READING each action's own action.yml rather than by taking the
+      # newest major. The HANDOFF-00 run warned that all four were being forced
+      # onto Node 24; the rule applied here is "the LOWEST major whose `using:`
+      # is node24", which minimises behavioural change while clearing the
+      # deprecation.
+      #
+      # THAT RULE IS NOT THE SAME AS "BUMP ONE MAJOR", and upload-artifact is
+      # why it matters: v4 and v5 are BOTH `using: node20`, so the obvious
+      # one-step bump would have looked like a fix and changed nothing. Only v6
+      # moves it. Read at the tag:
+      #
+      #   actions/checkout        v4 node20  v5 node24  <- v5
+      #   actions/setup-node      v4 node20  v5 node24  <- v5
+      #   actions/upload-artifact v4 node20  v5 node20  v6 node24  <- v6
+      #   pnpm/action-setup       v4 node20  v5 node24  <- v5
+      - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
         with:
           version: 9.12.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -167,7 +183,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: indexer-vitest-report
           path: indexer-results.json
