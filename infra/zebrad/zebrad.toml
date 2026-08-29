@@ -44,7 +44,7 @@
 #     built with - does not include it (zebrad/Cargo.toml). Setting it here
 #     would be a key that parses and a server that never starts.
 #
-#   * ANY ZMQ SECTION. Zebra has no ZMQ, at any version. `ZebradConfig`
+#   * ANY ZMQ SECTION. Zebrad exposes no ZMQ socket, at any version. `ZebradConfig`
 #     (zebrad/src/config.rs:54-95) has twelve sections and none of them is zmq. See the note under [notify] below.
 
 [network]

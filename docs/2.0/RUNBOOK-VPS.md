@@ -43,8 +43,10 @@ git clone https://github.com/aqua-019/ZCashReveal.git /opt/zecreveal
 cd /opt/zecreveal
 cp .env.example .env
 
-# Fill in the four variables that have no default. The stack REFUSES TO START
-# without them rather than defaulting to something wrong in production:
+# Fill in the THREE variables that have no default. The stack REFUSES TO START
+# without them rather than defaulting to something wrong in production - and it
+# refuses on ANY compose command, including `config`, because compose
+# interpolates the whole file before deciding what to start:
 #   POSTGRES_PASSWORD   openssl rand -hex 32
 #                       HEX, NOT base64. The password is interpolated into a
 #                       DATABASE_URL, and base64's +, / and = are reserved in a
