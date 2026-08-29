@@ -75,11 +75,9 @@ chmod 600 .env
 > RFC 1918 block Docker allocates compose networks from, which is correct for
 > this topology and knowable before anything runs. Section 6.1 narrows it.
 
-Confirm the stack parses before starting anything:
-
-```bash
-docker compose -f docker-compose.yml config >/dev/null && echo "compose OK"
-```
+**Do not run any `docker compose` command yet** - not even `config`. TUNNEL_TOKEN
+is still empty, and compose interpolates the whole file before it does anything.
+Section 2.0 fills it, and section 2.0a is where the stack is first parsed.
 
 ---
 
@@ -102,6 +100,17 @@ sudo apt-get update && sudo apt-get install -y cloudflared
 cloudflared tunnel login
 cloudflared tunnel create zecreveal-gateway
 cloudflared tunnel token zecreveal-gateway   # paste into .env as TUNNEL_TOKEN
+```
+
+### 2.0a First compose command
+
+With all three required variables now set, the stack can be parsed. This is the
+first `docker compose` invocation of the whole runbook, and its position is the
+point: an earlier draft put it in section 1, which failed on the token that
+section 2.0 had not yet produced.
+
+```bash
+docker compose -f docker-compose.yml config >/dev/null && echo "compose OK"
 ```
 
 ### 2.1 Build the images
@@ -332,13 +341,27 @@ arrives from cloudflared's address, so:
 Neither is acceptable, so the correct value is the tunnel container's address on
 the compose network:
 
+The default is `172.16.0.0/12`, Docker's primary address pool. **Verify that it
+actually contains the tunnel**, because if your daemon has a custom
+`default-address-pools` - `10.0.0.0/8` is common on a host that already ran
+Docker - the tunnel lands outside it, the setting matches nothing, and every
+reader silently shares one bucket again. That failure has no error and no log
+line, which is why this is a step rather than an assumption:
+
 ```bash
-docker compose exec gateway getent hosts cloudflared | awk '{print $1}'
-# put that address in .env as GATEWAY_TRUSTED_PROXIES, then:
+TUNNEL_IP=$(docker compose exec -T gateway getent hosts cloudflared | awk '{print $1}')
+echo "tunnel is at $TUNNEL_IP"
+python3 -c "import ipaddress,sys; print('COVERED' if ipaddress.ip_address('$TUNNEL_IP') in ipaddress.ip_network('172.16.0.0/12') else 'NOT COVERED - set GATEWAY_TRUSTED_PROXIES')"
+```
+
+If it prints NOT COVERED, or in any case if you want the tightest setting, put
+the exact address in `.env` as `GATEWAY_TRUSTED_PROXIES` and restart the gateway:
+
+```bash
 docker compose up -d gateway
 ```
 
-Re-read it after any `docker compose down`, which can renumber the network.
+Re-check it after any `docker compose down`, which can renumber the network.
 
 ### 6.2 THE TUNNEL MUST NOT LOG QUERY STRINGS
 
@@ -410,10 +433,25 @@ TIP=$(docker compose exec -T zebrad curl -s http://127.0.0.1:8232 \
   -d '{"jsonrpc":"2.0","id":1,"method":"getblockcount","params":[]}' \
   | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"])')
 
-# Highest block the indexer has committed. The column is `block_height`, not
-# `height` - checked against the live schema rather than assumed, because the
-# first version of this very query used `height` and failed with
-# `column "height" does not exist`.
+# Highest block with a RECORDED SHIELDED-POOL CROSSING - which is NOT the same
+# as the highest block the indexer has processed, and the difference is the
+# bound on this measurement. `pool_boundary_flows` gains a row only when a block
+# moves value across a pool boundary, so across a run of blocks with no shielded
+# activity this number stalls while the indexer advances normally.
+#
+# TWO THINGS FOLLOW, both stated rather than papered over. It over-reports lag on
+# a quiet chain, so treat a small reading as noise. And it is 0 on a fresh
+# database, so this alert is RED FOR THE WHOLE FIRST SYNC - do not wire it to a
+# pager until section 2 has finished.
+#
+# The table with the right shape is `pool_snapshots(pool, height)`, one row per
+# pool per block. NOTHING WRITES IT YET: HANDOFF-12 owns the writer. When it
+# lands, this query moves there and both caveats above disappear.
+#
+# The column is `block_height`, not `height` - checked against the live schema,
+# because the first version of this query used `height` and psql then printed
+# NOTHING to stdout, so the shell read an empty string as 0 and the alert fired
+# on every run forever.
 INDEXED=$(docker compose exec -T postgres \
   psql -U zcashreveal -d zcashreveal -tAc \
   "SELECT COALESCE(MAX(block_height), 0) FROM pool_boundary_flows;")
@@ -568,12 +606,19 @@ git pull
 
 # Rebuild only what changed. `up -d` then recreates the containers whose image
 # moved and leaves the rest alone.
-docker compose build indexer gateway
-docker compose up -d indexer gateway
+# Rebuild everything this repository builds. `cloudflared` is built here too
+# (infra/cloudflared/Dockerfile), and `up -d` does NOT rebuild an image that
+# already exists - so omitting it leaves the tunnel on a stale image, which is
+# the same silent no-op this section exists to prevent. Add `publisher` once
+# HANDOFF-09 has landed.
+docker compose build indexer gateway cloudflared
 
-# If the pull brought new migrations, apply them BEFORE the new code runs
-# against the old schema - see section 4.
+# MIGRATE BEFORE THE NEW CODE SERVES, not after. An earlier draft of this
+# section ran `up -d` first and then migrated, so the new indexer and gateway
+# ran against the old schema for as long as the migration took.
 docker compose run --rm indexer node dist/migrate.js
+
+docker compose up -d indexer gateway cloudflared
 
 docker compose ps zebrad postgres redis indexer gateway
 ```

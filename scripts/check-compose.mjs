@@ -192,8 +192,41 @@ function blankInterpolations(line) {
   return out;
 }
 
-function scanSecrets(text) {
+/**
+ * `${SECRET_NAME:-literal}` - a secret-shaped VARIABLE with a literal default.
+ *
+ * THIS IS THE HOLE THE FIRST TWO ATTEMPTS BOTH LEFT OPEN, and the shape that
+ * matters most, because it is the shape this compose file actually uses:
+ *
+ *   DATABASE_URL: postgres://${POSTGRES_USER:-x}:${POSTGRES_PASSWORD:-hunter2}@postgres:5432/${POSTGRES_DB:-y}
+ *
+ * The secret shape - the word PASSWORD - lives INSIDE the interpolation, so
+ * blanking removes the very token the line-level detector matches on, and what
+ * survives is `postgres://...@postgres:5432/...`, which carries no shape at all.
+ * Three lines of this file are that exact shape. The line-level pass reported
+ * OK on all of them.
+ *
+ * So the variable NAME is checked directly, rather than the line it sits on.
+ */
+function scanInterpolationDefaults(text) {
   const findings = [];
+  const WITH_DEFAULT = /\$\{([A-Za-z_][A-Za-z0-9_]*)(:?[-+])([^{}]*)\}/g;
+  text.split("\n").forEach((line, idx) => {
+    const trimmed = line.trim();
+    if (trimmed === "" || trimmed.startsWith("#")) return;
+    for (const m of line.matchAll(WITH_DEFAULT)) {
+      const [, name, , dflt] = m;
+      const shape = SECRET_SHAPES.find(({ re }) => re.test(`${name}=`));
+      if (shape === undefined) continue;
+      if (!/[A-Za-z0-9]/.test(dflt)) continue; // `${VAR:-}` is the empty default
+      findings.push({ line: idx + 1, rule: `${shape.rule} in an interpolation default`, text: trimmed });
+    }
+  });
+  return findings;
+}
+
+function scanSecrets(text) {
+  const findings = [...scanInterpolationDefaults(text)];
   text.split("\n").forEach((line, idx) => {
     const trimmed = line.trim();
     if (trimmed === "" || trimmed.startsWith("#")) return;
@@ -206,6 +239,7 @@ function scanSecrets(text) {
       const sep = blanked.search(/[=:]/);
       const value = sep >= 0 ? blanked.slice(sep + 1) : "";
       if (!/[A-Za-z0-9]/.test(value.split(BLANK).join(""))) continue;
+      if (findings.some((f) => f.line === idx + 1)) continue; // already reported by the default pass
       findings.push({ line: idx + 1, rule, text: trimmed });
     }
   });
@@ -308,6 +342,10 @@ function selfTest() {
     // construct made this invisible until the first gate round.
     "      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-eyJhIjoiZGVhZGJlZWYifQ}",
     "      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hunter2}",
+    // THE SHAPE THIS FILE ACTUALLY USES. The secret token is inside the
+    // interpolation, so the line-level pass cannot see it at all.
+    "      DATABASE_URL: postgres://${POSTGRES_USER:-zr}:${POSTGRES_PASSWORD:-hunter2}@postgres:5432/${POSTGRES_DB:-zr}",
+    "      URL: redis://:${REDIS_SECRET:-swordfish}@redis:6379",
     // The other four value-bearing operator forms, all accepted by compose.
     "      TUNNEL_TOKEN: ${TUNNEL_TOKEN-eyJhIjoiZGVhZGJlZWYifQ}",
     "      TUNNEL_TOKEN: ${TUNNEL_TOKEN:+eyJhIjoiZGVhZGJlZWYifQ}",

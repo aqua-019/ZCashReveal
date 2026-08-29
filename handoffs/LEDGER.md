@@ -3045,7 +3045,7 @@ SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
   - A2 asks for image sizes, which cannot be measured without a build.
   - A9 assumes the fixture exists. It cannot, from here. See Q4.
 
-GATE ROUND COUNTS: 2 rounds. Round 1: 4 lenses, 52 findings, ~7 verified by three refuters
+GATE ROUND COUNTS: 3 rounds. Round 1: 4 lenses, 52 findings, ~7 verified by three refuters
   before a usage limit ended the phase; the remaining 45 read and dispositioned by
   the lead. 22 fixed, the rest judged not defects or out of scope with reasons in
   §7. The fix commit was reviewed as its own commit per LEDGER-07 Q6 and HAD

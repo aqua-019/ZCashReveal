@@ -49,7 +49,7 @@ services:
       #
       # NOTE THE CONSEQUENCE FOR DATABASE_URL. A host-run indexer, gateway or
       # `pnpm --filter @zcashreveal/indexer migrate` must use port 5433:
-      #   DATABASE_URL=postgres://zcashreveal:zcashreveal@localhost:5433/zcashreveal
+      #   DATABASE_URL=postgres://zcashreveal:<POSTGRES_PASSWORD>@localhost:5433/zcashreveal
       # The integration suites default to 5432 when DATABASE_URL is unset
       # (apps/indexer/src/persistence/__tests__/integration/_setup.ts), so on
       # this box the variable is not optional.

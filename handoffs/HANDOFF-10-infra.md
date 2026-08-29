@@ -537,7 +537,50 @@ GATE ROUNDS: 1 round, 4 lenses (compose-correctness, facts, runbook, guards),
   fix commit is not ceremony here; it was the most productive review of the
   session, per unit of effort, by a wide margin.
 
-  THE HONEST EXTRAPOLATION, per LEDGER-07 Q6's stopping rule: a third round
+  ROUND 3 - THE ROUND-2 FIX REVIEWED AS ITS OWN COMMIT, and it found that FOUR OF
+  ROUND 1'S FIXES HAD NOT ACTUALLY LANDED THE PROPERTY THEY CLAIMED:
+
+    A5 STILL COULD NOT SEE THE SHAPE THIS FILE ACTUALLY USES. Round 1 and round 2
+      both taught it about `${VAR:-secret}` on a bare key. The three DSN lines in
+      this compose file put the secret INSIDE the interpolation -
+      `postgres://${USER:-x}:${POSTGRES_PASSWORD:-hunter2}@postgres:5432/...` -
+      so blanking removes the very token the detector matches on, and what
+      survives carries no shape at all. All three sites scanned clean. A second
+      pass now checks the variable NAME directly; all three are caught.
+    THE RUNBOOK'S CIRCULARITY WAS RELOCATED, NOT REMOVED. Round 1 moved the
+      tunnel to section 2.0 and left `docker compose config` in section 1, one
+      section EARLIER, where the token still does not exist. Executed with the
+      exact `.env` section 1 produces: rc=1 on the token. The parse check is now
+      section 2.0a, after the tunnel.
+    SECTION 10a MIGRATED AFTER THE NEW CODE WAS ALREADY SERVING, directly under a
+      sentence saying to migrate first. It also rebuilt only two of the three
+      images this repository builds, leaving the tunnel on a stale image - which
+      is the silent no-op section 10a was added to prevent.
+    THE ZEBRAD SELF-TEST WAS TESTING A COPY OF ITSELF. Round 1's cross-file
+      probes asserted against patterns written out again inside `selfTest`, so
+      breaking the real check left them green. The checks are now one function
+      the probe drives. AND THAT FIX NEEDED A SECOND ATTEMPT: driving the real
+      code still did not catch loosening `/healthy` to `/health`, because
+      `/health` matches as a substring and every fixture satisfied both. A
+      fixture that satisfies the loose pattern and not the strict one - a compose
+      curling the wrong endpoint - is what discriminates them.
+
+  Three smaller ones fixed with them: the snapshot-age query reads a table that
+  gains a row only on a shielded crossing, so it over-reports lag on a quiet
+  chain and is red for the whole first sync (both now stated, with HANDOFF-12's
+  `pool_snapshots` named as where it moves); `GATEWAY_TRUSTED_PROXIES`'s
+  `172.16.0.0/12` default covers nothing on a daemon with custom address pools,
+  silently, so section 6.1 now VERIFIES coverage rather than assuming it; and
+  `.env.example` claimed compose "overrides" ZEBRAD_ZMQ_URL, which a `:-` default
+  does not do once section 1 has copied the file.
+
+  THREE CONSECUTIVE FIX COMMITS IN THIS HANDOFF INTRODUCED OR FAILED TO CLOSE
+  DEFECTS. Round 2 found five in round 1's fix; round 3 found four of round 1's
+  claimed properties absent and one of round 2's own fixes insufficient. Every
+  one was caught by executing a probe. The gate's whole yield after round 1 came
+  from reviewing fix commits, which is the rule LEDGER-07 Q6 wrote down.
+
+  THE HONEST EXTRAPOLATION, per LEDGER-07 Q6's stopping rule: a fourth round
   would find one or two more of round 1's reach, and the most likely place is the
   three guard scripts rather than the compose or the runbook - round 1's guard
   lens was the most productive of the four and its findings were the least

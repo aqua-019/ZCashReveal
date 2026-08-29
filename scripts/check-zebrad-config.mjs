@@ -150,6 +150,61 @@ function portOf(addr) {
   return m === null ? null : Number(m[1]);
 }
 
+/**
+ * The cross-file checks, as a FUNCTION the self-test can call.
+ *
+ * They were inline in the main body, and the self-test asserted against COPIES
+ * of their patterns written out again inside selfTest. That is the same
+ * tautology this script's sibling was criticised for: change the real check to
+ * `/health` (drop the `y`) and both self-test assertions still passed, because
+ * they were testing a duplicate. Found by the fix-commit review. Now there is
+ * one implementation and the probe drives it.
+ */
+function crossFileFindings(tables, composeRaw) {
+  const out = [];
+  // COMMENTS ARE STRIPPED FIRST, and the first gate round is why. Every check
+  // here is a substring search, and docker-compose.yml is heavily commented -
+  // including comments that QUOTE the very strings being searched for. So the
+  // agreement this guard advertises was satisfiable by prose describing the
+  // setting rather than by the setting.
+  const compose = stripComments(composeRaw);
+
+  const healthAddr = tables.get("health")?.get("listen_addr");
+  if (healthAddr === undefined) {
+    out.push(
+      `${CONFIG}  [health] listen_addr is unset, but ${COMPOSE} healthchecks zebrad over HTTP. ` +
+        "With it unset the server never starts and the container is unhealthy forever.",
+    );
+  } else {
+    const port = portOf(healthAddr);
+    if (!new RegExp(`127\\.0\\.0\\.1:${port}/healthy`).test(compose)) {
+      out.push(
+        `${CONFIG}  [health] listen_addr is ${healthAddr}, but ${COMPOSE}'s zebrad healthcheck does not curl ` +
+          `127.0.0.1:${port}/healthy. The two must agree or the check fails against a port nothing listens on.`,
+      );
+    }
+  }
+
+  const cacheDir = tables.get("state")?.get("cache_dir");
+  if (cacheDir !== undefined && !compose.includes(`:${cacheDir}`)) {
+    out.push(
+      `${CONFIG}  [state] cache_dir is ${cacheDir}, and no volume in ${COMPOSE} mounts that path. ` +
+        "Zebra would sync into the container's writable layer and lose the whole chain on recreate.",
+    );
+  }
+
+  if (!compose.includes(`${CONFIG}:/etc/zebrad/zebrad.toml`)) {
+    out.push(`${COMPOSE}  does not mount ${CONFIG} at /etc/zebrad/zebrad.toml, so none of this file is read.`);
+  }
+  if (!/CONFIG_FILE_PATH:\s*\/etc\/zebrad\/zebrad\.toml/.test(compose)) {
+    out.push(
+      `${COMPOSE}  does not set CONFIG_FILE_PATH=/etc/zebrad/zebrad.toml. The image's entrypoint turns that ` +
+        "variable into `zebrad --config <path>`; without it the mounted file is ignored and defaults apply.",
+    );
+  }
+  return out;
+}
+
 function selfTest() {
   let ok = true;
   const fail = (m) => {
@@ -180,38 +235,61 @@ function selfTest() {
   if (portOf("0.0.0.0:8080") !== 8080) fail("portOf did not read a port");
   if (portOf("nonsense") !== null) fail("portOf invented a port");
 
-  // THE CROSS-FILE DETECTORS ARE PROBED TOO. The first gate round pointed out
-  // that selfTest covered only parseToml and portOf, so the checks producing the
-  // OK message's strongest claims - that the health port, the state directory
-  // and the config path agree with the compose file - had no probe in either
-  // direction. These pin the comment-stripping that makes them mean anything.
-  const composeLike = [
+  // THE CROSS-FILE DETECTORS ARE PROBED THROUGH crossFileFindings ITSELF, not
+  // through copies of its patterns. The previous version asserted duplicates
+  // written out again here, so breaking the real check left the probe green -
+  // the fix-commit review caught exactly that.
+  const goodTables = new Map([
+    ["health", new Map([["listen_addr", "0.0.0.0:8080"]])],
+    ["state", new Map([["cache_dir", "/home/zebra/.cache/zebra"]])],
+  ]);
+  const goodCompose = [
     "  zebrad:",
     "    volumes:",
     "      - zebrad-data:/home/zebra/.cache/zebra",
-    "      - ./infra/zebrad/zebrad.toml:/etc/zebrad/zebrad.toml:ro",
+    `      - ${CONFIG}:/etc/zebrad/zebrad.toml:ro`,
     "    environment:",
     "      CONFIG_FILE_PATH: /etc/zebrad/zebrad.toml",
     "    healthcheck:",
     '      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/healthy"]',
   ].join("\n");
-  const stripped = stripComments(composeLike);
-  if (!new RegExp("127\\.0\\.0\\.1:8080/healthy").test(stripped)) fail("cross-file: did not see a real healthcheck line");
+  if (crossFileFindings(goodTables, goodCompose).length !== 0) {
+    fail(`cross-file flagged a correct pair: ${JSON.stringify(crossFileFindings(goodTables, goodCompose))}`);
+  }
 
-  // The same file with the real settings replaced by COMMENTS that describe
-  // them. Every check must go blind here; before the fix, all three passed.
-  const proseOnly = [
-    "  zebrad:",
-    "    # the health server (8080) is bound inside the container",
-    "    # curl http://127.0.0.1:8080/healthy to check it",
-    "    # mounts ./infra/zebrad/zebrad.toml:/etc/zebrad/zebrad.toml",
-    "    # sets CONFIG_FILE_PATH: /etc/zebrad/zebrad.toml",
-    "    # state lives at /home/zebra/.cache/zebra",
-  ].join("\n");
-  const proseStripped = stripComments(proseOnly);
-  if (new RegExp("127\\.0\\.0\\.1:8080/healthy").test(proseStripped)) fail("cross-file: a comment satisfied the healthcheck test");
-  if (proseStripped.includes(":/home/zebra/.cache/zebra")) fail("cross-file: a comment satisfied the cache_dir test");
-  if (/CONFIG_FILE_PATH:\s*\/etc\/zebrad\/zebrad\.toml/.test(proseStripped)) fail("cross-file: a comment satisfied the CONFIG_FILE_PATH test");
+  // Each of the four checks must fire on its own, one at a time.
+  const drop = (text, needle) => text.split("\n").filter((l) => !l.includes(needle)).join("\n");
+  const cases = [
+    ["healthcheck", drop(goodCompose, "/healthy")],
+    ["cache_dir mount", drop(goodCompose, "zebrad-data:")],
+    ["config mount", drop(goodCompose, ":/etc/zebrad/zebrad.toml:ro")],
+    ["CONFIG_FILE_PATH", drop(goodCompose, "CONFIG_FILE_PATH")],
+  ];
+  for (const [what, text] of cases) {
+    if (crossFileFindings(goodTables, text).length === 0) fail(`cross-file did not flag a missing ${what}`);
+  }
+
+  // A WRONG-BUT-SIMILAR ENDPOINT MUST STILL BE FLAGGED, and this case exists
+  // because the obvious probe does not discriminate. Mutating the real pattern
+  // from `/healthy` to `/health` leaves every fixture above passing, since
+  // `/health` matches as a SUBSTRING of `/healthy` - so a strictly more
+  // PERMISSIVE mutation slips through a positive/negative pair built only from
+  // correct fixtures. A compose that curls the wrong endpoint is the input that
+  // separates them: correct code flags it, loosened code does not.
+  const wrongEndpoint = goodCompose.replace("/healthy", "/health");
+  if (crossFileFindings(goodTables, wrongEndpoint).length === 0) {
+    fail("cross-file accepted a healthcheck curling /health rather than /healthy");
+  }
+
+  // And every one must go blind when the settings are only described in
+  // comments, which is what stripComments exists for.
+  const proseOnly = goodCompose
+    .split("\n")
+    .map((l) => (l.trim().startsWith("zebrad:") ? l : `    # ${l.trim()}`))
+    .join("\n");
+  if (crossFileFindings(goodTables, proseOnly).length !== 4) {
+    fail("cross-file: comments describing the settings satisfied one or more checks");
+  }
 
   return ok;
 }
@@ -274,50 +352,7 @@ if (rpc === undefined) {
 if (!existsSync(COMPOSE)) {
   findings.push(`${COMPOSE} is missing, so the cross-file checks cannot run.`);
 } else {
-  // COMMENTS ARE STRIPPED BEFORE THESE TESTS, and the first gate round is why.
-  // Each check below is a substring search over the compose file, and this file
-  // is heavily commented - including comments that QUOTE the very strings being
-  // searched for ("the health server (8080)", "CONFIG_FILE_PATH=/etc/zebrad/...").
-  // So the cross-file agreement the header advertises as the guard's main value
-  // was satisfiable by prose describing the setting rather than by the setting.
-  // Delete the real healthcheck line and the guard stayed green on its own
-  // comment.
-  const compose = stripComments(readFileSync(COMPOSE, "utf8"));
-
-  const healthAddr = tables.get("health")?.get("listen_addr");
-  if (healthAddr === undefined) {
-    findings.push(
-      `${CONFIG}  [health] listen_addr is unset, but ${COMPOSE} healthchecks zebrad over HTTP. ` +
-        "With it unset the server never starts and the container is unhealthy forever.",
-    );
-  } else {
-    const port = portOf(healthAddr);
-    const inCompose = new RegExp(`127\\.0\\.0\\.1:${port}/healthy`).test(compose);
-    if (!inCompose) {
-      findings.push(
-        `${CONFIG}  [health] listen_addr is ${healthAddr}, but ${COMPOSE}'s zebrad healthcheck does not curl ` +
-          `127.0.0.1:${port}/healthy. The two must agree or the check fails against a port nothing listens on.`,
-      );
-    }
-  }
-
-  const cacheDir = tables.get("state")?.get("cache_dir");
-  if (cacheDir !== undefined && !compose.includes(`:${cacheDir}`)) {
-    findings.push(
-      `${CONFIG}  [state] cache_dir is ${cacheDir}, and no volume in ${COMPOSE} mounts that path. ` +
-        "Zebra would sync into the container's writable layer and lose the whole chain on recreate.",
-    );
-  }
-
-  if (!compose.includes(`${CONFIG}:/etc/zebrad/zebrad.toml`)) {
-    findings.push(`${COMPOSE}  does not mount ${CONFIG} at /etc/zebrad/zebrad.toml, so none of this file is read.`);
-  }
-  if (!/CONFIG_FILE_PATH:\s*\/etc\/zebrad\/zebrad\.toml/.test(compose)) {
-    findings.push(
-      `${COMPOSE}  does not set CONFIG_FILE_PATH=/etc/zebrad/zebrad.toml. The image's entrypoint turns that ` +
-        "variable into `zebrad --config <path>`; without it the mounted file is ignored and defaults apply.",
-    );
-  }
+  findings.push(...crossFileFindings(tables, readFileSync(COMPOSE, "utf8")));
 }
 
 if (findings.length > 0) {
