@@ -135,6 +135,24 @@ jobs:
       - name: Test - apps/web (vitest run)
         run: pnpm --filter @zcashreveal/web exec vitest run
 
+      # packages/zebra-rpc HAS NEVER BEEN IN CI, and HANDOFF-08 found it by
+      # reading a green run's own log rather than by a failure. The package
+      # arrived in HANDOFF-05 with the typed, zod-validated Zebra client, its 35
+      # tests were never added here, and every run since has reported a total 35
+      # lower than `pnpm -r test` - so CI has been WEAKER than the six-command
+      # gate CLAUDE.md tells a contributor to run locally, which is the wrong way
+      # round for the check that guards `main`.
+      #
+      # What it covers is the RPC BOUNDARY: the schemas that decide how the wire
+      # is read. That is the layer whose casing defect made every wallet
+      # fingerprint inert for the life of this project (`expiryheight`,
+      # HANDOFF-05), and the layer HANDOFF-08 changed again in removing
+      # `finalironwoodroot` and typing `trees`. A boundary change landing with no
+      # CI coverage is the same shape as the fixture that agreed with the
+      # interface and disagreed with the wire.
+      - name: Test - packages/zebra-rpc (vitest run)
+        run: pnpm --filter @zcashreveal/zebra-rpc exec vitest run
+
       - name: Test - packages/content (vitest run)
         run: pnpm --filter @zcashreveal/content exec vitest run
 
