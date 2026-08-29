@@ -1,47 +1,349 @@
+# ZECReveal 2.0 - production stack for a single Linux VPS.
+#
+# NOTHING HERE IS STARTED BY AN AGENT. HANDOFF-10 §1 says so in as many words:
+# this file and docs/2.0/RUNBOOK-VPS.md are artefacts a human executes. The
+# runbook is the order of operations; this file is what it operates on.
+#
+# THE EXPOSURE MODEL, WHICH IS THE MOST IMPORTANT THING IN THIS FILE.
+# Exactly one port reaches the public internet, and it is not an API:
+#
+#   * 8233 - Zebra's peer-to-peer port, published on all interfaces because a
+#     node that accepts no inbound peers is a leech on the network.
+#
+# The gateway is reached ONLY through the Cloudflare tunnel, which dials out.
+# There is no published port for it, so there is no origin IP to find and no
+# listening socket to scan. Postgres is published on loopback:5433 for the
+# operator's psql and for nothing else. Zebra's RPC, Zebra's metrics, Zebra's
+# health server, Redis and the gateway are reachable on the compose network and
+# from nowhere at all.
+#
+# THIS IS WHY `enable_cookie_auth = false` IS SAFE. Zebra's RPC has no
+# username/password mode, only a cookie that rotates on every restart, which a
+# long-lived indexer cannot follow. The RPC is therefore unauthenticated - and
+# unreachable. Those two facts are load-bearing together, and publishing 8232
+# breaks the pair. See infra/zebrad/zebrad.toml.
+
+name: zecreveal
+
 services:
+  # ---------------------------------------------------------------------------
+  # zebrad - the Zcash full node. Everything else in the stack reads from it.
+  # ---------------------------------------------------------------------------
   zebrad:
-    image: zfnd/zebra:4.4.1
-    container_name: zcashreveal-zebrad
+    # 6.2.3 is the newest 6.2.x, published 2026-07-28 (Docker Hub tags API,
+    # queried for this handoff). THE FLOOR IS A CORRECTNESS FLOOR AND IT HAS TWO
+    # SEPARATE REASONS, both of which 4.4.1 - the tag this file carried until now
+    # - is on the wrong side of:
+    #
+    #   1. Below 6.0.0 there is no NU6.3/Ironwood support at all.
+    #   2. Below ZcashFoundation/zebra PR #9805 (merged 22 Aug 2025)
+    #      `getrawtransaction` does not serialise `vjoinsplit`. Every Sprout term
+    #      in this project reads that field, so against such a node
+    #      `sproutValueBalanceZat` is 0n for every transaction, silently, with no
+    #      failing test - the same shape as the `expiryheight` casing defect that
+    #      made every wallet fingerprint inert for three revolutions.
+    #
+    # `packages/zebra-rpc/src/sprout-field.ts` reports the absent field as
+    # INDETERMINATE rather than as zero, which is what makes reason 2 a detected
+    # condition rather than a silent one - but only a node at or above the floor
+    # makes it a non-condition.
+    image: zfnd/zebra:6.2.3
+    container_name: zecreveal-zebrad
     restart: unless-stopped
+    stop_grace_period: 5m
     ports:
-      # 7Y: loopback-bind the RPC port — Zebra runs with enable_cookie_auth=false
-      # (see infra/zebrad/zebrad.toml), so the unauthenticated RPC is restricted
-      # to host-local callers (the indexer). ZMQ (28332) and p2p (8233) unchanged.
-      - "127.0.0.1:8232:8232"
-      - "28332:28332"
+      # P2P only. The RPC (8232), the metrics endpoint (9999) and the health
+      # server (8080) are all bound inside the container and published nowhere;
+      # see the exposure model at the top of this file.
       - "8233:8233"
     volumes:
-      - ./zebrad-data:/home/zebra/.cache/zebra
+      - zebrad-data:/home/zebra/.cache/zebra
       - ./infra/zebrad/zebrad.toml:/etc/zebrad/zebrad.toml:ro
     environment:
+      # Consumed by the image's entrypoint, which turns it into
+      # `zebrad --config <path>` (docker/entrypoint.sh:100-102 at v6.2.3). The
+      # variable belongs to the image, not to zebrad, and the name was read from
+      # that file rather than assumed.
       CONFIG_FILE_PATH: /etc/zebrad/zebrad.toml
-    command: ["zebrad", "start"]
+    healthcheck:
+      # /healthy, NOT /ready, and the distinction is deliberate. /ready requires
+      # the node to be near the chain tip, which is false for the several days a
+      # first sync takes; a healthcheck that is red for three days trains an
+      # operator to ignore it. /ready is the right gate for "may the indexer
+      # start reading" and RUNBOOK-VPS.md uses it there, by hand, once.
+      #
+      # curl is present: the upstream runtime stage installs it explicitly "for
+      # healtchecks" (zebra/docker/Dockerfile, runtime stage, at v6.2.3).
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      # Zebra opens its health server after loading state, which on a large
+      # existing database is minutes rather than seconds.
+      start_period: 5m
+    deploy:
+      resources:
+        reservations:
+          cpus: "4"
+          memory: 8G
 
+  # ---------------------------------------------------------------------------
+  # postgres - the indexer's state machine and the gateway's cache-aside.
+  # ---------------------------------------------------------------------------
   postgres:
     image: postgres:16-alpine
-    container_name: zcashreveal-postgres
+    container_name: zecreveal-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: zcashreveal
-      POSTGRES_PASSWORD: zcashreveal
-      POSTGRES_DB: zcashreveal
-    ports: ["5432:5432"]
-    volumes: ["./postgres-data:/var/lib/postgresql/data"]
+      POSTGRES_USER: ${POSTGRES_USER:-zcashreveal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-zcashreveal}
+      # THE COLLATION IS PINNED, and this is not cosmetic. `postgres:16` initdbs
+      # with glibc en_US.utf8 while a dev container is usually C.UTF-8, and the
+      # two disagree on exactly the migration filenames this project has -
+      # `003_four_pools` against `003a_gateway_cache`. That disagreement cost
+      # HANDOFF-06 a red CI run. Pinning it here means the VPS sorts the way this
+      # project's own tooling does; any ordering assertion still sorts in one
+      # language on both sides, and never in SQL.
+      POSTGRES_INITDB_ARGS: "--locale=C.UTF-8"
+    ports:
+      # Loopback only, and 5433 rather than 5432 so it cannot collide with a
+      # Postgres already running on the host - which is what
+      # docs/2.0/v0.2-notes/postgres-port-5433.patch was working around. The
+      # CONTAINER port stays 5432, so DATABASE_URL inside the compose network is
+      # postgres:5432 and only the operator's psql uses 5433.
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U zcashreveal"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-zcashreveal} -d ${POSTGRES_DB:-zcashreveal}"]
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
 
+  # ---------------------------------------------------------------------------
+  # redis - THE VPS REDIS. Not the managed one. See the note under `publisher`.
+  # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
-    container_name: zcashreveal-redis
+    container_name: zecreveal-redis
     restart: unless-stopped
-    ports: ["6379:6379"]
-    volumes: ["./redis-data:/data"]
-    command: ["redis-server", "--appendonly", "yes"]
+    # AOF, per §3. This Redis carries the anchor registry and
+    # `zcashreveal:mempool:live`; losing it on restart means rebuilding state
+    # the indexer would otherwise still hold.
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - redis-data:/data
+    # NO PUBLISHED PORT. The three services that use it are on this network, and
+    # the operator reaches it with `docker compose exec redis redis-cli`, which
+    # is what the runbook uses. An unauthenticated Redis on a published port is
+    # the single most reliably exploited thing you can leave on a VPS.
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # indexer - reads Zebra, writes Postgres and the VPS Redis. Listens on nothing.
+  # ---------------------------------------------------------------------------
+  indexer:
+    build:
+      context: .
+      dockerfile: apps/indexer/Dockerfile
+    image: zecreveal/indexer:local
+    container_name: zecreveal-indexer
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      zebrad:
+        # service_healthy here means "Zebra is up and has peers", not "Zebra is
+        # synced" - see the healthcheck note on zebrad. Starting the indexer
+        # against a syncing node is correct: it follows the tip as the tip
+        # advances.
+        condition: service_healthy
+    environment:
+      ZEBRAD_RPC_URL: http://zebrad:8232
+      # Present but inert against Zebra, which has no ZMQ at any version. The
+      # indexer logs `zmq unavailable - falling back to polling only` once at
+      # boot and then polls forever. Documented at length in
+      # infra/zebrad/zebrad.toml under [notify] and in RUNBOOK-VPS.md, because a
+      # single WARN line at startup is not where an operator should have to
+      # learn how their system actually works.
+      ZEBRAD_ZMQ_URL: ${ZEBRAD_ZMQ_URL:-tcp://zebrad:28332}
+      DATABASE_URL: postgres://${POSTGRES_USER:-zcashreveal}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-zcashreveal}
+      REDIS_URL: redis://redis:6379
+      INDEXER_POLL_INTERVAL_MS: ${INDEXER_POLL_INTERVAL_MS:-2000}
+      INDEXER_LOG_LEVEL: ${INDEXER_LOG_LEVEL:-info}
+    healthcheck:
+      test: ["CMD", "node", "docker-healthcheck.mjs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # gateway - the read API. Reached only through the tunnel.
+  # ---------------------------------------------------------------------------
+  gateway:
+    build:
+      context: .
+      dockerfile: apps/gateway/Dockerfile
+    image: zecreveal/gateway:local
+    container_name: zecreveal-gateway
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      GATEWAY_HOST: 0.0.0.0
+      GATEWAY_PORT: "8080"
+      GATEWAY_CORS_ORIGIN: ${GATEWAY_CORS_ORIGIN:?set GATEWAY_CORS_ORIGIN in .env}
+      GATEWAY_LOG_LEVEL: ${GATEWAY_LOG_LEVEL:-info}
+      GATEWAY_NETWORK: ${GATEWAY_NETWORK:-mainnet}
+      GATEWAY_RATE_LIMIT_MAX: ${GATEWAY_RATE_LIMIT_MAX:-100}
+      GATEWAY_RATE_LIMIT_WINDOW_MS: ${GATEWAY_RATE_LIMIT_WINDOW_MS:-10000}
+      GATEWAY_WS_MAX_CONNECTIONS: ${GATEWAY_WS_MAX_CONNECTIONS:-500}
+      # THE RATE LIMITER KEYS ON req.ip, SO THIS IS NOT OPTIONAL BEHIND A TUNNEL.
+      # Empty is the safe default everywhere else and the WRONG one here: with it
+      # empty every request appears to come from cloudflared's address and all
+      # readers share one bucket, and with blanket trust any caller could forge
+      # x-forwarded-for and escape the limit entirely. The correct value is the
+      # tunnel container's address on this network; RUNBOOK-VPS.md carries the
+      # command that reads it.
+      GATEWAY_TRUSTED_PROXIES: ${GATEWAY_TRUSTED_PROXIES:?set GATEWAY_TRUSTED_PROXIES in .env - see RUNBOOK-VPS.md}
+      GATEWAY_ADDRESS_CACHE_TTL_S: ${GATEWAY_ADDRESS_CACHE_TTL_S:-60}
+      GATEWAY_TX_CACHE_TTL_S: ${GATEWAY_TX_CACHE_TTL_S:-3600}
+      GATEWAY_ADDRESS_TX_LIMIT: ${GATEWAY_ADDRESS_TX_LIMIT:-50}
+      GATEWAY_MAX_FUNDING_LOOKUPS: ${GATEWAY_MAX_FUNDING_LOOKUPS:-256}
+      ZEBRAD_RPC_URL: http://zebrad:8232
+      DATABASE_URL: postgres://${POSTGRES_USER:-zcashreveal}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-zcashreveal}
+      REDIS_URL: redis://redis:6379
+    # NO `ports:`. The tunnel reaches `gateway:8080` on this network. Publishing
+    # it would create an origin that can be scanned and hit directly, which is
+    # the thing a tunnel exists to prevent.
+    healthcheck:
+      test: ["CMD", "node", "docker-healthcheck.mjs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # publisher - the ONLY service that touches the Vercel-managed Redis.
+  #
+  # THAT STORE IS SHARED WITH AN UNRELATED PRODUCTION PROJECT. Read
+  # docs/2.0/SNAPSHOT.md sections 1 and 4 before changing anything in this block:
+  # the namespace rule, the forbidden-command list and the shared budget are all
+  # there, and none of them is a handoff's to weaken.
+  #
+  # THIS COMMENT DELIBERATELY DOES NOT ENUMERATE THE FORBIDDEN COMMANDS, and the
+  # first draft did. `scripts/check-redis-safety.mjs` rejected it, correctly and
+  # by design: a compose file is executable, and the guard's rule is that a file
+  # which can NAME a destructive command can RUN one, so only the rule's own
+  # documents are allowed to spell them. The list belongs in SNAPSHOT.md; this
+  # file points at it.
+  #
+  # The monthly command allowance is SHARED, which is what
+  # SNAPSHOT_REDIS_MONTHLY_BUDGET stops this project from exhausting on the
+  # other project's behalf.
+  #
+  # THE TCP URL APPEARS IN THIS SERVICE AND IN NO OTHER, and §5 A8 is a script
+  # that proves it on every run. Handing it to the gateway or the indexer would
+  # put a second writer on someone else's database.
+  #
+  # PROFILE-GATED BECAUSE apps/publisher DOES NOT EXIST YET. It is HANDOFF-09's
+  # deliverable. `docker compose up -d` today starts the other six services and
+  # skips this one rather than failing on a missing build context; the runbook
+  # says to add `--profile publisher` once HANDOFF-09 has landed.
+  # ---------------------------------------------------------------------------
+  publisher:
+    profiles: ["publisher"]
+    build:
+      context: .
+      dockerfile: apps/publisher/Dockerfile
+    image: zecreveal/publisher:local
+    container_name: zecreveal-publisher
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-zcashreveal}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-zcashreveal}
+      REDIS_URL: redis://redis:6379
+      # Either TCP spelling; the Vercel integration injects both under the
+      # SNAPSHOT_REDIS prefix. On the VPS the operator pastes one into .env by
+      # hand, under the same name it carried in the Vercel UI, so a copied value
+      # never lands under a name this repository invented. The REST pair
+      # (SNAPSHOT_REDIS_KV_REST_API_URL and the READ-ONLY token) belongs to
+      # apps/web on Vercel and appears nowhere in this file.
+      SNAPSHOT_REDIS_KV_URL: ${SNAPSHOT_REDIS_KV_URL:-}
+      SNAPSHOT_REDIS_REDIS_URL: ${SNAPSHOT_REDIS_REDIS_URL:-}
+      SNAPSHOT_REDIS_MONTHLY_BUDGET: ${SNAPSHOT_REDIS_MONTHLY_BUDGET:-150000}
+    healthcheck:
+      # Probes the LOCAL dependencies only and never dials the managed store: a
+      # 30-second timer against a shared third-party database is roughly 86,400
+      # connections a month to answer a question about our own process. See the
+      # header of apps/publisher/docker-healthcheck.mjs.
+      test: ["CMD", "node", "docker-healthcheck.mjs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ---------------------------------------------------------------------------
+  # cloudflared - the only inbound path to the gateway.
+  # ---------------------------------------------------------------------------
+  cloudflared:
+    # Built from infra/cloudflared/Dockerfile rather than used directly, for one
+    # reason: the official image is distroless, so nothing inside it can call
+    # cloudflared's own /ready endpoint, and the service could not otherwise
+    # have a healthcheck capable of failing. That Dockerfile adds a static
+    # busybox and nothing else. See its header.
+    build:
+      context: .
+      dockerfile: infra/cloudflared/Dockerfile
+    image: zecreveal/cloudflared:local
+    container_name: zecreveal-cloudflared
+    restart: unless-stopped
+    depends_on:
+      gateway:
+        condition: service_healthy
+    command:
+      - tunnel
+      - --no-autoupdate
+      # Loopback: the metrics server carries the tunnel's internal state and is
+      # read only by this container's own healthcheck.
+      - --metrics
+      - 127.0.0.1:2000
+      - run
+    environment:
+      # The token encodes the tunnel's credentials. It is a secret, it is read
+      # from .env, and it is never written into this file - §5 A5 is a script
+      # that proves no literal secret appears in any compose file.
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env - see RUNBOOK-VPS.md}
+    healthcheck:
+      test: ["CMD", "/bin/busybox", "wget", "--quiet", "--spider", "http://127.0.0.1:2000/ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+# Named volumes, per §3. Not bind mounts into the repository directory, which is
+# what this file used before: a bind mount puts a multi-hundred-gigabyte Zebra
+# state directory inside the git working tree, where it is one `git clean -xdf`
+# away from a multi-day resync and inside every Docker build context that does
+# not exclude it.
+volumes:
+  zebrad-data:
+  postgres-data:
+  redis-data:
