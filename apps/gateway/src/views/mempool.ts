@@ -271,10 +271,10 @@ function flowTextFor(klass: MempoolRow["class"], r: LeakReport): string {
     case "migration":
       return migrationFlowText(r.valueFlow.perPoolZat);
     case "mixed":
-      // It crossed pools AND has a public side, so the caption names both halves
-      // rather than picking one. `migrationFlowText` renders the pool crossing;
-      // the suffix is what distinguishes this row from a migration.
-      return `${migrationFlowText(r.valueFlow.perPoolZat)} + t`;
+      return mixedFlowText(
+        r.valueFlow.perPoolZat,
+        r.transparent.vin.some((v) => !v.coinbase) || r.transparent.vout.length > 0,
+      );
     case "shielded":
       return "shielded";
     case "transparent":
@@ -288,6 +288,45 @@ function flowTextFor(klass: MempoolRow["class"], r: LeakReport): string {
 
 function assertNeverClass(k: never): never {
   throw new Error(`unhandled mempool row class: ${JSON.stringify(k)}`);
+}
+
+/**
+ * The flow caption for a `mixed` row: pools touched, plus the public side.
+ *
+ * IT DOES NOT CALL `migrationFlowText`, AND THE FIRST VERSION OF THIS ARM DID.
+ * A gate lens caught it. `migrationFlowText` reads the crossing's direction off
+ * the SIGN of each leg, which is sound only when there is no transparent side -
+ * because then the value that left one pool is the value that entered the
+ * other, and there is nowhere else it could have come from or gone. A `mixed`
+ * transaction is defined by having exactly that other place.
+ *
+ * Two ways it went wrong. A transparent-funded shield into two pools has both
+ * legs negative, so `migrationFlowText`'s own guard returned the literal string
+ * `"migration"` and the caption read "migration + t" - the word migration
+ * printed for a transaction that migrated nothing. And when the signs did
+ * differ, "S to O + t" asserted a Sapling-to-Orchard crossing for a transaction
+ * whose chain evidence is Sapling-to-transparent and transparent-to-Orchard,
+ * which is a different claim about where the money went.
+ *
+ * So this names the pools and the public side and asserts NO direction between
+ * the pools: "S/O + t". That is the whole honest content of the class - value
+ * moved in these pools and a transparent address stands in the transaction, and
+ * what connects them is exactly what the shielded pool does not publish.
+ */
+function mixedFlowText(
+  deltas: ReadonlyArray<{ pool: ShieldedPool; deltaZat: bigint }>,
+  hasPublicSide: boolean,
+): string {
+  const moved = deltas.filter((d) => d.deltaZat !== 0n).map((d) => poolInitial(d.pool));
+  if (moved.length === 0) return "t";
+  // THE "+ t" IS A CLAIM AND IS NOW CONDITIONAL ON THERE BEING ONE. It was
+  // appended unconditionally, which was true of every shape that reached
+  // `mixed` until the migration predicate learned that a coinbase is not a
+  // public source - after which a ZIP 213 coinbase into two pools lands here
+  // and would have printed "S/O + t" for a transaction whose only input is
+  // issuance. The class refuses a transparent side; the caption must not
+  // assert one three characters later.
+  return hasPublicSide ? `${moved.join("/")} + t` : moved.join("/");
 }
 
 function migrationFlowText(deltas: ReadonlyArray<{ pool: ShieldedPool; deltaZat: bigint }>): string {
@@ -391,7 +430,19 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
   }
 
   const net = netCrossingZat(r);
-  const hasTransparent = r.transparent.vin.length + r.transparent.vout.length > 0;
+  // A COINBASE VIN LIGHTS NO TRANSPARENT LANE EITHER, for the reason given at
+  // the `hasTransparentSource` derivation below: issuance has no prior owner
+  // and publishes no sending address. A miner's payout OUTPUT still lights it,
+  // because that is a real transparent recipient.
+  //
+  // This read `vin.length + vout.length > 0`, so a ZIP 213 coinbase paying
+  // fully into the pool classified `shielded` - the class correctly refusing a
+  // transparent side - and drew a transparent lane swatch beside it. The
+  // comment three lines below says a missing lane "says the transaction did not
+  // touch that pool", so a PRESENT lane says it did: the row contradicted
+  // itself, which is the shape this file exists to prevent.
+  const hasTransparent =
+    r.transparent.vin.some((v) => !v.coinbase) || r.transparent.vout.length > 0;
   const hasSapling = r.bundle.saplingSpends.length + r.bundle.saplingOutputs.length > 0;
   const hasOrchard = r.bundle.orchardActions.length > 0;
   const hasIronwood = r.bundle.ironwoodActions.length > 0;
@@ -423,11 +474,22 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
   const movedPools = r.valueFlow.perPoolZat.map((p) => p.pool);
 
   /**
-   * ASSERTION A9, APPLIED HERE TOO. The indexer's `LeakClass` learned that a
-   * class naming the transparent side requires a transparent side; this is the
-   * same rule for the same reason on the row /track actually renders, and the
-   * two must not diverge - a reader comparing /tx with /track would otherwise
-   * see one page call a transaction a migration and the other call it a shield.
+   * HANDOFF-06's ASSERTION A9, APPLIED HERE TOO - AND CITED BY ITS HANDOFF,
+   * BECAUSE THE NUMBER ALONE MEANS SOMETHING ELSE IN THIS ONE. A9 is a
+   * per-handoff index: HANDOFF-06's is "a class that names the transparent side
+   * is never applied to a transaction that has no transparent side", and
+   * HANDOFF-08's A9 is the turnstile-conservation property in
+   * `analysis/conservation.ts`. Comments here cited a bare "ASSERTION A9" for
+   * the first while this handoff's readers would resolve it to the second.
+   *
+   * WHAT A9 SAYS AND WHAT FOLLOWS FROM IT ARE ALSO TWO THINGS. A9's text is
+   * about ONE classifier: a transparent-naming class needs a transparent side.
+   * That /tx and /track must not disagree about the same transaction is a
+   * CONSEQUENCE of applying it in both places, not something A9 states - and it
+   * was written here as though A9 forbade the divergence directly. The
+   * consequence is the reason this rule is duplicated: a reader comparing the
+   * two pages would otherwise see one call a transaction a migration and the
+   * other call it a shield.
    *
    * TWO DEFECTS ARE FIXED BY THE ORDER OF THESE TESTS. `direction` was tested
    * FIRST, and every transaction that moves a pool at all has a `direction` of
@@ -448,11 +510,56 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
   // labels a pool-to-pool migration - and the indexer's classifier had just
   // been taught to refuse exactly that shape. The two then disagreed about one
   // transaction: /tx reads `leakClass` straight off the report and said MIXED
-  // while /track said migration, which is the divergence ASSERTION A9 and the
-  // docblock above this ternary both forbid. A gate round found the fix had
-  // landed in the classifier and not in the producer that renders it.
+  // while /track said migration - the divergence the docblock above this ternary
+  // rules out as a consequence of applying HANDOFF-06's A9 in both places. A
+  // gate round found the fix had landed in the classifier and not in the
+  // producer that renders it.
+  // A COINBASE INPUT IS NOT A TRANSPARENT SOURCE, AND THIS IS THE SAME RULE
+  // `round-trip.ts` ALREADY APPLIES. There, `hasTransparentSource` is
+  // `vin.some((v) => !v.coinbase)`, because a coinbase input has no prior owner:
+  // the value is issuance, not somebody's transparent funds moving into the
+  // pool. Here the test was `vin.length > 0`, so a ZIP 213 coinbase paying into
+  // the shielded pool - which is the ONLY way a coinbase can pay a shielded
+  // recipient - published `class: "shield"`, `flow: "t to z"`, asserting a
+  // transparent sender for a transaction that has none.
+  //
+  // That is one rule with two answers across two files, which is what
+  // HANDOFF-06's A9 rules out and what the docblock above this ternary spends
+  // four paragraphs on. The sink side already agreed - both files use
+  // `vout.length > 0`, and a miner's payout output IS a real transparent sink -
+  // so only the source half needed correcting. Such a transaction now falls to
+  // the `shielded` residual, which claims nothing about a transparent side.
+  //
+  // AND IT REACHES BOTH TESTS, WHICH IT DID NOT WHEN THIS FIX FIRST LANDED.
+  // `crossesWithNoPublicSide` below kept `vin.length === 0` while the `shield`
+  // test used the derivation, so a ZIP 213 coinbase moving two pools with no
+  // transparent output was denied `migration` on the strength of a vin the very
+  // next predicate refused to count - one rule with two answers, now inside one
+  // function, in the expression whose docblock spends four paragraphs arguing
+  // against exactly that. Both gate lenses found it independently.
+  const hasTransparentSource = r.transparent.vin.some((v) => !v.coinbase);
+
+  // A MIGRATION NEEDS A SOURCE POOL **AND** A SINK POOL, and this condition
+  // learned that one gate round after it learned about coinbase inputs - which
+  // is the pattern this file keeps demonstrating: the fix for round N's defect
+  // was round N+1's.
+  //
+  // Excluding the coinbase vin from `hasTransparentSource` made a branch live
+  // that had never been reachable. A ZIP 213 coinbase can only pay INTO pools,
+  // so every pool leg is negative; with two pools and no transparent output it
+  // satisfied `movedPools.length > 1 && !hasTransparentSource`, classified
+  // `migration`, and `migrationFlowText`'s `from.length === 0` fallback printed
+  // the literal caption "migration" - the exact string `mixedFlowText`'s
+  // docblock rules out, for a transaction that migrated nothing. It also
+  // counted issuance into `summary.migrations`.
+  const hasPoolSource = r.valueFlow.perPoolZat.some((p) => p.deltaZat > 0n);
+  const hasPoolSink = r.valueFlow.perPoolZat.some((p) => p.deltaZat < 0n);
   const crossesWithNoPublicSide =
-    movedPools.length > 1 && r.transparent.vin.length === 0 && r.transparent.vout.length === 0;
+    movedPools.length > 1 &&
+    hasPoolSource &&
+    hasPoolSink &&
+    !hasTransparentSource &&
+    r.transparent.vout.length === 0;
 
   const klass: MempoolRow["class"] =
     crossesWithNoPublicSide
@@ -472,7 +579,7 @@ function mempoolRow(r: LeakReport, now: number): MempoolRow {
         // test above already makes, one class further down.
         movedPools.length > 1
         ? "mixed"
-        : r.valueFlow.direction === "DEPOSIT" && r.transparent.vin.length > 0
+        : r.valueFlow.direction === "DEPOSIT" && hasTransparentSource
         ? "shield"
         : r.valueFlow.direction === "WITHDRAWAL" && r.transparent.vout.length > 0
           ? "deshield"

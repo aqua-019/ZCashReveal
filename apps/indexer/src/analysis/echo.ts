@@ -1,7 +1,7 @@
 /**
  * Module 8A - the amount echo (TRACKING-MATH section 3.4).
  *
- * The Kappos round-trip, with the four tolerances section 3.4 names, as pure
+ * The Kappos round-trip, with the tolerances section 3.4 gives, as pure
  * functions over a window of boundary events. Nothing here does I/O, reads a
  * clock it was not given, or names an owner: an echo is a statement that two
  * PUBLIC amounts are close, and every stronger reading of it belongs to the
@@ -11,12 +11,23 @@
  * stateful sliding window that emits `LinkRecord`s on the live path; it answers
  * two tolerances (exact, fee-tolerant) and it has to keep answering them in the
  * shape the gateway and the UI already parse. This module is the estimator: it
- * is pure, it answers four tolerances, and it emits the `FilterApplication`
+ * is pure, it answers all four rules, and it emits the `FilterApplication`
  * audit record the inference chain renders. They share a definition of a
  * boundary event and nothing else, and the audit record is the seam - HANDOFF-12
  * is where `RoundTripIndex` starts consulting this rather than duplicating it.
  *
- * THE FOUR TOLERANCES, AND WHY THE FOURTH ONE EXISTS. Exact and fee-tolerant
+ * FOUR RULES UNDER A HEADING THAT SAYS THREE, WHICH IS THE SPEC'S OWN SEAM AND
+ * NOT A LICENCE TO ROUND EITHER WAY. Section 3.4 is headed "Amount echo (Kappos
+ * round-trip), three tolerances" and then lists FOUR bullets: exact,
+ * fee-tolerant, relative and subset-sum. The heading counts the tolerances the
+ * section had when it was written and the fourth bullet - subset-sum, marked
+ * "(new)" like the relative rule - arrived under it without the heading being
+ * updated. This module implements all four and says so, rather than citing the
+ * section for "four tolerances", which it does not say anywhere. `analysis.ts`
+ * quotes the heading verbatim, three and all, so the two files do not silently
+ * disagree about what the spec says.
+ *
+ * THE FOUR RULES, AND WHY THE FOURTH ONE EXISTS. Exact and fee-tolerant
  * are v0.2's. The relative one is calibrated and it is the reason this handoff
  * exists at all: on 2 Jan 2026 `t1XKfb...` shielded 50,000.960 ZEC and
  * 50,000.5541 ZEC was unshielded 52 minutes later - a residual of 0.4059 ZEC,
@@ -25,12 +36,20 @@
  * tolerance is a statement about fees, and the residual it was missing is not a
  * fee, it is change left in the pool. Subset-sum is the fourth because one
  * shield can leave as several deshields, which the 2 Jan case also shows -
- * 50,000.5541 + 24,000.9781 consolidates to 74,001.9317 on the transparent side.
+ * 50,000.5541 + 24,000.9781 SUM TO 74,001.5322 on the transparent side, against
+ * a consolidation of 74,001.9317, the 0.3995 difference being the second
+ * tranche's own residual. This comment gave 74,001.9317 as the sum, which is
+ * the consolidation's amount: the two numbers differing by a real residual is
+ * the entire content of the case, so collapsing them removed it.
  *
  * WHAT AN ECHO IS NOT. It is not a link, and this module deliberately returns
- * no `LinkRecord`. TRACKING-MATH's closing paragraph governs: "None of this
+ * no `LinkRecord`. TRACKING-MATH section 4's closing paragraph governs (the
+ * document continues to sections 5 and 6 after it): "None of this
  * identifies a person. It produces bounded, reproducible estimates from public
- * data." A grade of HIGH here means "one candidate, exact amount", not "this is
+ * data, with every assumption visible and every claim capped by the claim
+ * level." The final clause was cut here, behind a full stop rather than an
+ * ellipsis, which turned a sentence about what makes the estimates admissible
+ * into a shorter one about their being estimates. A grade of HIGH here means "one candidate, exact amount", not "this is
  * the same money" - the whole point of the claim-level ladder downstream is that
  * even a HIGH echo over a large candidate set is `aggregate_only`.
  */
@@ -91,10 +110,16 @@ export const TIGHT_SPLIT_WINDOW_MS = 60 * 60 * 1000;
  *
  * A STATED BOUND RATHER THAN AN UNBOUNDED SEARCH. Enumerating subsets of size
  * up to 3 is O(n^3); at this cap the worst case is C(48,3) = 17,296 additions,
- * which is nothing, and at a few hundred events it would not be. The bound is
- * reported in the audit record's `countIn` so a reader can see that the search
- * was truncated rather than exhaustive - an estimate that quietly stopped
- * looking is the failure mode section 3's audit contract exists to prevent.
+ * which is nothing, and at a few hundred events it would not be.
+ *
+ * THE TRUNCATION IS REPORTED IN `params.searchedCandidates`, AND AN EARLIER
+ * VERSION OF THIS DOCBLOCK SAID IT WAS REPORTED IN `countIn` WHEN IT WAS NOT.
+ * `countIn` is the whole in-window population, computed before any truncation,
+ * so the audit record stated that N candidates were considered when the search
+ * had seen at most 48 - which is precisely the failure this paragraph claims to
+ * prevent, committed by the paragraph itself. A gate lens caught it. Both
+ * numbers are carried now: `countIn` is what was available, `searchedCandidates`
+ * is what was looked at, and a reader can see the gap.
  */
 export const SUBSET_SUM_MAX_CANDIDATES = 48;
 
@@ -253,15 +278,30 @@ export function matchEcho(
 
   const matches: EchoMatch[] = [];
 
+  // SECTION 3.4's LOW CLAUSE HAS TWO DISJUNCTS AND THIS MODULE HONOURED ONE.
+  // "`LOW` = multiple candidates, or relative <= 10.epsilon". The relative half
+  // was implemented; the "multiple candidates" half was not, because the ladder
+  // came across from the v0.1 LinkEngine (single EXACT -> HIGH, multiple EXACT
+  // -> MEDIUM) rather than from the specification. A gate lens caught the module
+  // applying the literal reading to one disjunct and the inherited reading to
+  // the other, three hundred lines apart.
+  //
+  // Multiple candidates now grade LOW whatever the tolerance that admitted them,
+  // which is what section 3.4 says. `RoundTripIndex` keeps the v0.1 ladder for
+  // its own `LinkRecord.confidence` and says so - that class is documented as
+  // preserved "BIT-FOR-BIT from link-engine.ts" and its grades are a different
+  // published field with its own history. Two ladders, each stating which
+  // authority it follows, is honest; one ladder claiming both was not.
   for (const d of exact) {
     matches.push(
       build({
         kind: "EXACT",
-        grade: exact.length === 1 ? "HIGH" : "MEDIUM",
+        grade: exact.length === 1 ? "HIGH" : "LOW",
         withdrawal,
         deposits: [d],
         candidateCount: exact.length,
         countIn,
+        searchedCandidates: inWindow.length,
         epsilon,
         feeToleranceZat,
       }),
@@ -277,6 +317,7 @@ export function matchEcho(
         deposits: [d],
         candidateCount: feeTolerant.length,
         countIn,
+        searchedCandidates: inWindow.length,
         epsilon,
         feeToleranceZat,
       }),
@@ -297,6 +338,7 @@ export function matchEcho(
         deposits: [d],
         candidateCount: relative.length,
         countIn,
+        searchedCandidates: inWindow.length,
         epsilon,
         feeToleranceZat,
       }),
@@ -311,15 +353,22 @@ export function matchEcho(
       feeToleranceZat,
     });
     if (split !== null) {
-      const tight = withdrawal.seenAt - latestSeenAt(split) < TIGHT_SPLIT_WINDOW_MS;
+      const tight = withdrawal.seenAt - latestSeenAt(split.subset) < TIGHT_SPLIT_WINDOW_MS;
+      // The tight-timing promotion needs the split to be the ONLY explanation as
+      // well as a two-way one. Four subsets summing to the same withdrawal is
+      // not a tighter claim than one, and the grade is a statement about how
+      // alone the candidate is.
+      const alone = split.satisfying === 1;
       matches.push(
         build({
           kind: "SUBSET_SUM",
-          grade: tight && split.length === 2 ? "MEDIUM" : "LOW",
+          grade: tight && alone && split.subset.length === 2 ? "MEDIUM" : "LOW",
           withdrawal,
-          deposits: split,
-          candidateCount: 1,
+          deposits: split.subset,
+          candidateCount: split.satisfying,
           countIn,
+          // The subset-sum search is the only one that truncates.
+          searchedCandidates: Math.min(inWindow.length, maxCandidates),
           epsilon,
           feeToleranceZat,
         }),
@@ -342,6 +391,7 @@ export function matchEcho(
           deposits: [d],
           candidateCount: 1,
           countIn,
+          searchedCandidates: inWindow.length,
           epsilon,
           feeToleranceZat,
         }),
@@ -361,9 +411,12 @@ export function matchEcho(
  *
  * TWO RULES, THE LOOSER OF WHICH WINS, and the reason is arithmetic rather than
  * generosity. Each leg of a split pays its own fee, so the absolute term scales
- * with `k`; but at 50,000 ZEC a residual of 0.02 ZEC is 4e-7 relative and 12
- * times the absolute allowance, which is the shape of section 3.4's own worked
- * case. Using only the absolute rule would miss every large split and using only
+ * with `k`; but at 50,000 ZEC a residual of 0.02 ZEC is 4e-7 relative and 6.25
+ * times the absolute allowance AT `k = 2` (2,000,000 zat against 320,000), which
+ * is the shape of section 3.4's own worked case. This said "12 times", which is
+ * the ratio against the UNSCALED `FEE_TOLERANCE_ZAT` - a sentence whose own
+ * preceding clause is "the absolute term scales with `k`" cannot then quote the
+ * unscaled figure. Using only the absolute rule would miss every large split and using only
  * the relative rule would admit implausibly large residuals on small ones.
  */
 export function subsetSumTolerance(
@@ -403,7 +456,7 @@ export function findSubsetSum(
     readonly epsilon: number;
     readonly feeToleranceZat: bigint;
   },
-): ReadonlyArray<BoundaryEvent> | null {
+): { readonly subset: ReadonlyArray<BoundaryEvent>; readonly satisfying: number } | null {
   // Most recent first, then truncated. Recency is the right truncation for the
   // same reason the time-window prior exists: a deposit nearer the withdrawal is
   // a better candidate, so a cap that drops the oldest drops the weakest.
@@ -413,8 +466,22 @@ export function findSubsetSum(
 
   let best: ReadonlyArray<BoundaryEvent> | null = null;
   let bestResidual: bigint | null = null;
+  // HOW MANY SUBSETS SATISFIED THE TOLERANCE, not how many were returned. The
+  // grade is a claim about how alone a candidate is, so a split match found
+  // among four equally good subsets must not be published as the unique
+  // explanation - and it was, because `candidateCount` was hardcoded to 1.
+  let satisfying = 0;
 
   for (const combo of combinations(pool, 2, k)) {
+    // DISTINCT TRANSACTIONS, NOT DISTINCT LIST POSITIONS. `combinations` picks
+    // indices, and one transaction contributes one `BoundaryEvent` PER POOL it
+    // moved - so a shield into two pools appears twice with the same txid, and a
+    // "2-way split" could name one transaction twice. The tight-timing promotion
+    // then fired automatically, because the two legs share a timestamp by
+    // construction. Section 3.4's `k` counts deshields, which are transactions.
+    const txids = new Set(combo.map((e) => e.txid));
+    if (txids.size !== combo.length) continue;
+
     const quantisedSum = combo.reduce((acc, e) => acc + quantise(e.amountZat), 0n);
     const tol = subsetSumTolerance(
       withdrawal.amountZat,
@@ -430,6 +497,8 @@ export function findSubsetSum(
     const residual = absDiff(trueSum, withdrawal.amountZat);
     if (residual > tol) continue;
 
+    satisfying += 1;
+
     // Prefer the tightest residual, then the smallest split - a two-way split is
     // a stronger claim than a three-way one at the same residual.
     if (
@@ -442,7 +511,7 @@ export function findSubsetSum(
     }
   }
 
-  return best;
+  return best === null ? null : { subset: best, satisfying };
 }
 
 /**
@@ -545,6 +614,7 @@ function build(args: {
   deposits: ReadonlyArray<BoundaryEvent>;
   candidateCount: number;
   countIn: bigint;
+  searchedCandidates: number;
   epsilon: number;
   feeToleranceZat: bigint;
 }): EchoMatch {
@@ -569,12 +639,13 @@ function build(args: {
       partial: args.kind === "PARTIAL",
       toleranceZat: args.feeToleranceZat,
       relativeEpsilon: args.epsilon,
+      searchedCandidates: args.searchedCandidates,
     },
     countIn: args.countIn,
     // COUNT OUT IS THE CANDIDATE COUNT AT THIS GRADE, NOT ONE. A filter's
     // `countOut` is how many candidates SURVIVED it, and the whole reason a
-    // single exact match grades HIGH and two grade MEDIUM is that the survivor
-    // count differs. Writing 1n here - one match, one record - would have made
+    // single exact match grades HIGH and two grade LOW - section 3.4's
+    // "multiple candidates" clause - is that the survivor count differs. Writing 1n here - one match, one record - would have made
     // the audit trail disagree with the grade beside it.
     countOut: BigInt(args.candidateCount),
   };

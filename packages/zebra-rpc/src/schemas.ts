@@ -472,8 +472,18 @@ export type RpcTransactionObject = z.infer<typeof rpcTransactionSchema>;
  * One pool's note-commitment-tree state in `getblock`'s `trees` object.
  *
  * `size` is the number of commitments in the tree as of this block, so the
- * highest occupied position is `size - 1`. `.passthrough()` because Zebra has
- * added keys here before and will again.
+ * highest occupied position is `size - 1`.
+ *
+ * `.passthrough()` FOR THE REASON THIS FILE GIVES EVERYWHERE ELSE, WHICH IS NOT
+ * THE ONE THIS DOCBLOCK USED TO GIVE. It said "because Zebra has added keys here
+ * before and will again", and that is a claim about the PER-POOL object, which
+ * nothing in this repository supports: the addition anyone can point to - the
+ * `ironwood` member of `GetBlockTrees`, PR #10888 - is a key on the PARENT
+ * object, and it is cited there. The per-pool object has been `{ size }` in
+ * every source this project has read. Passthrough is the file's standing posture
+ * at an RPC boundary it validates from Zebra's source rather than from a live
+ * node (no session here has reached one), because rejecting an unrecognised key
+ * would turn a node that gained a field into a node this build calls broken.
  */
 export const poolTreeSchema = z
   .object({ size: z.number().int().nonnegative().optional() })

@@ -41,3 +41,62 @@ OPERATOR CLICKS (Aqua, not any agent):
 * Migration 003 and 004 have still not been applied to the VPS database. HANDOFF-10 owns the runbook; the click is yours.
 * Stale remote branches per `docs/2.0/BRANCH-CLEANUP.md`, now including `claude/new-session-s4er6f`.
 ```
+
+---
+
+## 2. Mid-session correction — arrived while gate round 1 was running (29 Aug 2026)
+
+PR #39 had been merged ten minutes after the last push, while four gate lenses were still
+out. This message redirected the session's landing from the closed PR to a follow-up, and
+carried the `L2 CORRECTION` block that is appended verbatim to `handoffs/LEDGER.md`.
+
+```
+Aqua Stack v4.1 - CORRECTION IN FLIGHT. Do not discard your working tree; it holds the only
+copy of the gate-round-1 fixes.
+
+WHAT CHANGED UNDER YOU: PR #39 was merged at 14:54 UTC as `4386e98`, ten minutes after you
+pushed `6797113` and while your four lenses were still out. `origin/main` now carries
+HANDOFF-08 WITHOUT your gate fixes and WITHOUT the write-back. Your branch head is unchanged
+at `6797113`, which is now an ancestor of main, so nothing you pushed was lost and nothing you
+have not pushed is on main.
+
+WHAT TO DO: keep going exactly as you are, then land the work as a FOLLOW-UP PR instead of on
+the closed one.
+
+ 1. Finish gate round 1's fixes and the A9 rewrite. Do not restart the gate; you are mid-round,
+    and the round is converging.
+ 2. Branch from current `origin/main` (`4386e98`), carry your uncommitted work across, and open
+    a NEW PR titled `HANDOFF-08 follow-up: gate round 1, the conservation law, and the
+    write-back`. Same handoff, same ledger entry - this is HANDOFF-08 finishing, not HANDOFF-08
+    again.
+ 3. The write-back goes in THAT PR: section 7 filled, section 8 in LEDGER.md, the LOG.md row,
+    `status: shipped`, README index. Everything from PROMPT-09 Block A still applies, with
+    fold 1's target being the follow-up branch.
+ 4. Append this correction to LEDGER.md verbatim, above the L2 RESOLUTION you were already
+    given.
+
+[the L2 CORRECTION - HANDOFF-08, A9 block follows here in the original message, and is
+appended verbatim to handoffs/LEDGER.md rather than duplicated in this file]
+
+OPERATOR NOTE (Aqua): `main` currently carries the conservation defect. The follow-up PR is not
+optional cleanup; it is the fix for a HIGH finding that is live. Nothing downstream should
+capture golden cases or build on the analysis toolkit until it lands.
+```
+
+## 3. Mid-session confirmation — ownership, and a second session stood down (29 Aug 2026)
+
+```
+Confirmation, no change for you: the correction you just received was addressed to you and you
+own it. Keep going exactly as planned - finish gate round 1's fixes and the A9 rewrite, branch
+from `4386e98`, open the follow-up PR, and land the write-back there.
+
+One thing to know so you are not surprised: that same correction was pasted into a SECOND
+session by mistake. It has been stood down and redirected to HANDOFF-10 (Infra), and nothing
+has been pushed from it - `origin` currently has no branch but yours and no commit past
+`4386e98`. If a branch or PR touching `handoffs/` or `apps/indexer/src/analysis/**` appears
+that you did not create, it is not yours to reconcile: say so and stop, rather than merging two
+accounts of one handoff into one ledger entry.
+
+You remain the sole writer for HANDOFF-08's section 7, its LEDGER section 8 block, the LOG.md
+row and `status: shipped`.
+```

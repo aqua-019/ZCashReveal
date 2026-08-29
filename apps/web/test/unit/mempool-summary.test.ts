@@ -24,8 +24,8 @@ describe("the shielded-share tile", () => {
     // class be rejected by the guard while every test stayed green. Thirteen
     // rows became fourteen and twelve decoded became thirteen.
     const tile = shieldedShareTile(MEMPOOL_VIEW.summary);
-    expect(tile.value).toBe("62%");
-    expect(tile.sub).toBe("by count - 8 of 13 decoded");
+    expect(tile.value).toBe("69%");
+    expect(tile.sub).toBe("by count - 9 of 13 decoded");
   });
 
   it("FAIL SIDE: the wrong denominator is a different, and worse, answer", () => {
@@ -33,9 +33,9 @@ describe("the shielded-share tile", () => {
     // counted first into the numerator and then into the denominator. Named so
     // a regression to either reads as a regression rather than as a number.
     const s = MEMPOOL_VIEW.summary;
-    expect(Math.round((s.shielded / s.unconfirmed) * 100)).toBe(57);
-    expect(shieldedShareTile(s).value).not.toBe("57%");
-    expect(shieldedShareTile({ ...s, shielded: 9 }).value).not.toBe("62%");
+    expect(Math.round((s.shielded / s.unconfirmed) * 100)).toBe(64);
+    expect(shieldedShareTile(s).value).not.toBe("64%");
+    expect(shieldedShareTile({ ...s, shielded: 10 }).value).not.toBe("69%");
   });
 
   it("a mempool nobody could decode is NOT MEASURED, and never NaN per cent", () => {
@@ -85,7 +85,7 @@ describe("the block header's enumeration of the mempool", () => {
     expect(line).toContain("14 unconfirmed");
     expect(line).toContain("1 not decoded");
 
-    const stated = 8 + 2 + 3 + 1;
+    const stated = 9 + 1 + 3 + 1;
     expect(stated).toBe(MEMPOOL_VIEW.summary.unconfirmed);
   });
 

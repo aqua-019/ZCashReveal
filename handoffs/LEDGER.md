@@ -2565,11 +2565,393 @@ covered by that corroboration, and HANDOFF-10's captured fixture is still what c
 
 ---
 
+## L2 CORRECTION — HANDOFF-08, A9 (Cowork, 29 Aug 2026)
+
+Arrived mid-session in the HANDOFF-08 session, after PR #39 had been merged and while gate
+round 1 was still running. Appended verbatim.
+
+**On placement.** The instruction was to append it "above the L2 RESOLUTION you were already
+given". The resolution this session was given is HANDOFF-07's, dated 24 Aug and already in the
+ledger; inserting a 29 Aug block above it would rewrite an earlier block, which the revolution
+protocol forbids in as many words ("append-only - never rewrite an earlier block, including
+L2's"), and would put the ledger out of order without correcting anything, since HANDOFF-07's
+resolution is not what this corrects. It is therefore appended here, where it sits ABOVE
+HANDOFF-08's own §8 block and above any future L2 RESOLUTION for HANDOFF-08 - which is the
+position the instruction's purpose asks for. Move it if that reading is wrong; the block itself
+is untouched.
+
+```
+L2 CORRECTION - HANDOFF-08, A9 (Cowork, 29 Aug 2026)
+
+L2's HANDOFF-08 verification said "every one of the thirteen assertions holds". THAT SENTENCE IS
+FALSE AND MUST NOT ENTER THE LEDGER UNCORRECTED. A9 did not hold. It was a tautology, this
+session found it, and L2 did not - for a reason worth recording, because it is the exact failure
+this project's verification discipline exists to prevent.
+
+L2 VERIFIED A9 BY READING IT. Twelve of the thirteen assertions got a mutation probe: A11's wide
+rule reverted, A12 forced to emit nothing, A13's `mixed` arm removed, the zero-deposit guard
+re-admitted, A3's version ceiling raised, A5's proof constant perturbed. A9 got `grep numRuns`
+(300, as specified) and a read of its `describe` block, and was passed on that basis. A property
+test's run count is not evidence that the property is the right one. Breaking twelve things and
+reading the thirteenth is how the thirteenth is the one that was wrong.
+
+THE VIOLATION, REPRODUCED BY L2 ON `main` AT 4386e98 rather than relayed from this session's
+report. One 100 ZEC Orchard deposit, three 100 ZEC withdrawals in window:
+
+    matches = 3   grades = HIGH, HIGH, HIGH
+    pool balance   = 100 ZEC
+    sum of claimed = 300 ZEC
+    AssertionError: expected 30000000000 to be less than or equal to 10000000000
+
+Three separate HIGH-confidence links, each claiming the same single deposit, summing to three
+times the value the pool ever held. TRACKING-MATH section 3.11 says "for every pool and window,
+sum estimated exits <= Bal^p", and this is a direct contradiction of it, live on main.
+
+WHY A9 COULD NOT SEE IT, precisely - the shape is general and worth naming. A9's property tests
+each match individually:
+
+    if (m.depositAmountZat > balance) return false;
+
+where `balance` is the sum of ALL deposits in the window. One match's claim can never exceed the
+sum of everything it could have been drawn from, so the condition is vacuously true for every
+input fast-check can generate. Three hundred runs of a condition that cannot fail is three
+hundred runs of nothing. THE ASSERTION SAYS SIGMA AND THE TEST NEVER SUMS. A property test that
+checks each element where the property quantifies over the aggregate is the tautology shape, and
+it is invisible in a green run by construction: the test is not weak, it is measuring a different
+property that happens to be true.
+
+This is the fourth member of a family this project keeps finding: `expiryheight` casing
+(HANDOFF-05) made every fingerprint inert; `tx.feeZat` (HANDOFF-06) was `0n` for every
+transaction ever analysed; the "unknown fee" test that passed `0n` (HANDOFF-06 Q4) pinned the
+conflation rather than the behaviour; and now A9. Every one of them was green. Green is the
+symptom, not the reassurance.
+
+FOLDS - into this handoff's follow-up commit.
+
+ 1. A9's replacement is verified by THE SCENARIO IT WAS WRITTEN TO FORBID, not by its run count:
+    the one-deposit/three-withdrawal case above becomes a named, non-property regression test
+    beside the property, asserting the SUM across all matches in the window against the pool
+    balance. A property test and a worked case are different instruments and this assertion needs
+    both - the case is what a later reader can check by eye.
+ 2. `conservation.ts` is the right move and its API should make the tautology unrepresentable:
+    the function that answers section 3.11 takes the SET of matches and the pool balance, so a
+    caller cannot ask the question one match at a time. If a per-match check is still wanted, it
+    gets a different name that does not claim to be conservation.
+ 3. `CLAUDE.md`, gate contract - add: a property test is verified by executing the concrete
+    scenario it exists to forbid, and by watching that scenario fail against the pre-fix code.
+    `numRuns` is a budget, not evidence. Cite A9: 300 runs of a condition that could not fail.
+ 4. `CLAUDE.md`, and this one is L2's rule about itself, recorded here because the ledger is where
+    this project keeps what it learned rather than who learned it: every section 5 assertion gets
+    a mutation, property tests included; an assertion verified by reading is an assertion not
+    verified. L2 broke twelve and read one, and the one it read is the one that was wrong.
+ 5. section 7 records that PR #39 was merged mid-gate, and section 8 asks the question that
+    follows from it - see below.
+
+FOR SECTION 8, THE QUESTION THIS RAISES ABOUT THE LOOP RATHER THAN THE CODE: the PR opened before
+the gate finished, was marked ready for review by the operator, was read by L2 as a finished
+branch and verified as one, and was merged while four lenses were still out. Every tier behaved
+reasonably in isolation. L2's finding F-08-1 said "the write-back did not happen", which was true
+of the tree and wrong about the cause - the write-back had not happened because the session was
+not finished, and `status: in-progress` in the front matter said so correctly. The loop has no
+signal for "this branch is not ready to be read yet" that survives contact with a green CI badge.
+Propose one: L2 suggests the PR stays a DRAFT until the write-back commit lands, and that L2
+declines to verify any branch whose handoff front matter is not `status: shipped`. Both halves are
+needed - the first is a signal, the second is L2 agreeing to read it.
+
+OPERATOR NOTE (Aqua): `main` currently carries the conservation defect. The follow-up PR is not
+optional cleanup; it is the fix for a HIGH finding that is live. Nothing downstream should capture
+golden cases or build on the analysis toolkit until it lands.
+```
+
+---
+
+## HANDOFF-08 (Indexer analysis toolkit: echo, clustering, labels, posterior, taint) - L3 session, 29 Aug 2026
+
+Two PRs. [#39](https://github.com/aqua-019/ZCashReveal/pull/39) merged at `4386e98` while gate round 1 was
+still running and carries the toolkit WITHOUT its fixes; [#40](https://github.com/aqua-019/ZCashReveal/pull/40)
+is the follow-up and carries gate round 1, the conservation law and this write-back. Same handoff, one ledger
+entry, which is this one.
 ## HANDOFF-10 (Infra: Zebra 6.2.x compose, VPS runbook, tunnel, DEPLOY-2.0) - L3 session, 29 Aug 2026
 
 ```
 QUESTIONS (for the operator / L2):
 
+ Q1. TWO OF SECTION 1.5's FOUR CONSENSUS LABEL FAMILIES ARE NOT IN THIS
+     REPOSITORY, and are refused rather than invented. The ZIP 1014/1015/1016
+     funding-stream recipient addresses and the Founders' Reward addresses: the
+     repo holds every percentage and every activation height and not one
+     address. Both are named in `UNSOURCED_CONSENSUS_LABELS`, the same artefact
+     `fingerprint.ts` uses for the wallets whose deltas nobody can source.
+     Writing either from recall would have produced strings indistinguishable
+     from the sourced ones carrying `consensus`, the strongest label this site
+     issues. To close: the recipient addresses per height from the ZIPs or from
+     a node's consensus parameters (Zebra's funding-stream tables), and the
+     historic Founders' list from the original chainparams. A session cannot
+     fetch a ZIP - zips.z.cash is refused by the egress proxy with CONNECT
+     tunnel 403. Note ECC's and ZF's streams ENDED at NU6 (block 2,726,400), so
+     a complete implementation is historical for two of three recipients.
+
+ Q2. A8's STATED TOLERANCE IS NOT SATISFIABLE BY THE CORRECT ANSWER.
+     H(0.8, 0.1, 0.1) = 0.9219280948873623, which is 1.93e-3 from the stated
+     0.92 against a stated tolerance of 1e-3; N_eff = 1.8946457081379975, which
+     is 5.35e-3 from 1.9. The two halves of the assertion were written to
+     different precisions: 0.92 and 1.9 are two-figure roundings and 1e-3 is a
+     tolerance for three. Resolved by asserting the exact values at 15 digits -
+     strictly stronger than asked - and the rounded figures at the precision a
+     two-figure rounding implies. Neither wrong repair was taken: not loosening
+     the tolerance silently, not "fixing" the module until it emits 0.92, which
+     would mean breaking the entropy formula to satisfy a literal.
+
+     AND A CORRECTION TO THIS QUESTION AS IT WAS FIRST WRITTEN, because it is
+     an instance of its own subject. This session first recorded A8 as "the
+     fifth section 5 assertion not to survive literal execution". THAT ORDINAL
+     IS WRONG AND THE LEDGER ALREADY SAID SO: LEDGER-03 records "the fourth
+     section 5 assertion in three handoffs that does not survive literal
+     execution", and HANDOFF-04's A3 probe, HANDOFF-06's Q4 test and
+     HANDOFF-07's A4 unit collision each came after it. A running tally nobody
+     can recount from where it sits decays silently, and here it decayed in the
+     direction that UNDERSTATES the pattern. The ordinal is struck rather than
+     re-counted; `analysis-purity.test.ts` shows the form that holds, which
+     names its three predecessors instead of counting them.
+
+ Q3. THE COINBASE NARROWING IS AN INFERENCE BEYOND THE FOLD'S WORDING AND
+     NEEDS A RULING. LEDGER-07 fold 2 gave the wide rule as "a deposit requires
+     a transparent input; a withdrawal requires a transparent output".
+     `round-trip.ts` implements the source half as `vin.some(v => !v.coinbase)`
+     - a coinbase input has no prior owner, so it is not somebody's transparent
+     funds entering the pool. The gateway's `shield` test did not, so a ZIP 213
+     coinbase paying a shielded recipient published `class: "shield"`,
+     `flow: "t to z"`, asserting a transparent sender for a transaction that
+     has none. One rule with two answers across two files, which HANDOFF-06's
+     A9 rules out. Aligned here, so such a transaction falls to the `shielded`
+     residual. TWO THINGS TO RULE ON: whether "transparent input" in the fold
+     was meant to exclude coinbase (this session read it as yes), and whether
+     `shielded` is the right destination or whether the row-class enum wants a
+     `coinbase` member - which would be another consumer sweep, so it is asked
+     rather than done.
+
+ Q4. `apps/web/src/lib/api/stream.ts`'s `CLASSES` SET IS A HAND-COPIED
+     DUPLICATE OF THE ROW-CLASS ENUM WITH NO COMPILE-TIME LINK, and it has now
+     had to be taught two members in two handoffs. When it lags, `asRow`
+     rejects the row and `asView` returns null for the WHOLE snapshot - one
+     unrecognised transaction empties /track, and the failure looks like a dead
+     feed rather than a schema drift. The named fix is to derive it from
+     `mempoolRowSchema` (`mempoolRowSchema.shape.class.options`) so the two
+     cannot diverge. Not done here: it is a change to the live snapshot parser
+     and this handoff had no assertion covering it, so it is proposed rather
+     than taken.
+
+ Q5. SECTION 1.3 AND SECTION 1.4 DISAGREE ABOUT WHICH OUTPUT IS CHANGE, ON
+     1.4's OWN WORKED CASE, AND THIS SESSION ORDERED THEM. 1.3: "the fresh one
+     is change". 1.4: an exchange withdrawal is "one payout + change back to
+     the *same* address", with t1PKBiv7 on 24 Dec 2025 - 120,552.69 in,
+     29,999.99 out, 90,552.70 back. There the change is the REUSED output.
+     `guessChange` implemented 1.3 literally and therefore named the payout as
+     change, while `detectExchangeShapes` four functions away named the other
+     one; the module answered one transaction two contradictory ways and the
+     test pinned the wrong answer. This is not cosmetic: a change output
+     extends the cluster with weight p_change, so naming the payout as change
+     soft-merges the WITHDRAWING CUSTOMER's address into the exchange's
+     cluster - a claim that two different parties are one, about a named
+     exchange's counterparty. Ordered 1.4 first, and that branch extends no
+     cluster because the address is already a member by 1.2. RULING WANTED on
+     the ordering, and on whether section 1.3 should be amended in
+     TRACKING-MATH rather than only ordered beneath 1.4 in code.
+
+ Q6. THE LOOP QUESTION, WHICH IS L2's AND IS RECORDED HERE AS ASKED. PR #39
+     opened before the gate finished, was marked ready for review by the
+     operator, was read by L2 as a finished branch and verified as one, and was
+     merged while four lenses were still out. Every tier behaved reasonably in
+     isolation. L2's finding F-08-1 said "the write-back did not happen", which
+     was true of the tree and wrong about the cause: the write-back had not
+     happened because the session was not finished, and `status: in-progress`
+     in the front matter said so correctly. The loop has no signal for "this
+     branch is not ready to be read yet" that survives contact with a green CI
+     badge. L2 proposes two halves: the PR stays a DRAFT until the write-back
+     commit lands, and L2 declines to verify any branch whose handoff front
+     matter is not `status: shipped`. Both are needed - the first is a signal,
+     the second is L2 agreeing to read it. PR #40 is opened as a draft as the
+     first instance of the first half.
+
+     L3's ADDITION, from having been the tier that was read too early: the
+     draft flag fixes WHEN a branch is read and not WHAT the reader checks.
+     A9 had a property test, 300 runs, a fail-side and a green badge - every
+     surface signal a reader consults - and the condition could not fail.
+     LEDGER-08 fold 3 is the half that addresses the second, and it is now in
+     CLAUDE.md's gate contract: a property test is verified by executing the
+     concrete scenario it exists to forbid, against the pre-fix code.
+
+ Q7. FIVE THINGS GATE ROUND 2 RAISED THAT ARE OPEN RATHER THAN FIXED, listed
+     so they are not lost between handoffs.
+     (a) `EchoMatch` CARRIES NO POOL, so `enforceConservation` cannot partition
+         by pool - and section 3.11 is stated "for every pool and window". A
+         Sapling withdrawal can match an Orchard deposit and be charged against
+         the Sapling balance. `matchEcho`'s pool-blindness predates HANDOFF-08;
+         the new module claims a per-pool law it has no field to key on. The fix
+         is to carry `pool` on `EchoMatch` (it is on both `BoundaryEvent`s) and
+         either take a per-pool balance map or refuse a mixed-pool set. Not done
+         here because it changes the estimator's public type and no assertion
+         covers it.
+     (b) NOTHING ON A PRODUCTION PATH CALLS THE NEW LAW. `enforceConservation`,
+         `violatesConservation`, `guessChange` and `clusterByCommonInput` are
+         referenced only by `index.ts` and by tests. Section 3.11 is therefore
+         AVAILABLE, not ENFORCED, and this session's own commit message read as
+         the latter. HANDOFF-12 is the wiring; until it lands, `main` shipping
+         the estimator without the sieve is a live defect and shipping the sieve
+         unwired is not yet a fix for any rendered page.
+     (c) The section 1.4 override is unavailable when the caller could not
+         resolve an input address - `spending` is built from vin entries that
+         are neither coinbase nor null-addressed - so a transaction with an
+         unresolved prevout still runs section 1.3's rule unguarded, which is
+         the condition under which the mislabel it exists to prevent happens.
+         Stated in the docblock; the fix is upstream.
+     (d) `legacy/dashboard`'s `parseFilterApplication` cannot produce a
+         `conservation` or an `amount_echo` record - it returns an inert
+         `time_window` for anything it does not know - so the arms this branch
+         added to `CandidatesPanel` are unreachable and such a step would render
+         as a time-window narrowing that removed nothing. LOW only because
+         `legacy/` is retired at the HANDOFF-11 cutover.
+     (e) Section 3.11's second half, `Bal^p >= 0`, is quoted at the head of
+         `conservation.ts` and not implemented: a negative balance is accepted
+         and expressed only as "everything rejected for exceeding the balance",
+         which is a different diagnosis from "the balance handed to this sieve is
+         impossible".
+
+ Q8. THE MEASUREMENT THIS HANDOFF ADDS TO THE FIX-COMMIT PATTERN, which is now
+     four sessions old and is a property of this codebase rather than of any
+     session. Round 1's fix commit introduced two HIGH defects and left nine
+     mutations alive, and BOTH HIGHs were in the module written to fix a defect
+     of exactly that shape: the conservation sieve enforced one-to-one on one
+     side of the assignment and bounded the deposit side where section 3.11
+     bounds exits. A third HIGH was a correction that repeated the error it was
+     correcting - "Ledger is absent from the corpus", in the commit whose
+     message says that row "was wrong in both halves" - and a fourth was a
+     sweep that left two sites still stating the superseded claim.
+
+     What that suggests about the instrument, offered rather than asserted: the
+     dangerous commit is not the one that adds a feature, it is the one that
+     fixes a defect, because the author has just proved they hold a wrong model
+     of the thing they are editing. The rule already says to review it. This
+     session's evidence is that the review should be POINTED AT THE FIXER'S
+     STATED REASONING - each of the four HIGHs is visible in the fix commit's
+     own message, phrased with more confidence than the code earned.
+
+INFERRED (non-empty inferences a worker made):
+  - That section 3.4's four bullets are four rules despite a heading saying
+    three. Implemented four; `analysis.ts` quotes the heading verbatim so the
+    two files do not silently disagree.
+  - That "round" in section 1.3 means a whole number of ZEC or better. Recorded
+    in `isRoundAmount`'s docblock. 29,999.99 is therefore NOT round, which is
+    the answer that keeps the heuristic off the wrong output on 1.4's example.
+  - That a TEX label's provenance is weaker than its rank: cited to the ZIP
+    publisher the corpus registers, at `confidence: "med"`, with the docblock
+    saying the ZIP text has not been read in this repository.
+  - That greedy-by-grade is the available proxy for section 4's "greedy by
+    weight" in conservation.ts, grade being what the echo emits.
+
+NOT-MATCHED (patterns handed over that did not apply):
+  - Deliverable 4's warning that "a consumer with a `default:` arm is not
+    thereby swept" did not fire: no row-class consumer had a silent default.
+    The one that bit was the opposite shape - `stream.ts`'s hand-copied set,
+    which REJECTS rather than absorbing, and takes the whole snapshot with it.
+  - LEDGER-06 Q3's "dropping a NOT NULL runs every branch the constraint kept
+    unreachable" had no migration to apply to here. Its generalisation did
+    apply, twice: `WalletGuess` NARROWING (YWALLET, EDGE) and the row-class
+    enum WIDENING both needed the same consumer enumeration.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+  - A8's tolerance, Q2 above.
+  - Section 3.4's "three tolerances" heading over four bullets.
+  - A11's fail side named MEDIUM/FEE_TOLERANT; the legs carry the same amount,
+    so the link is HIGH/EXACT. The stated grade would have been satisfied by an
+    index producing the WRONG link at the right confidence.
+  - A13's fail side said the row falls to `shielded`; it falls to `shield`,
+    because `direction` is DEPOSIT whenever any pool leg is negative. The
+    assertion described the milder failure; the real one publishes
+    `flow: "t to z"` for a transaction whose transparent side is one end of
+    three - which is exactly why the `mixed` arm goes BEFORE shield/deshield.
+  - A7's "an unknown address -> `behaviour`/none" reads as a choice. It is
+    none: a behaviour-tier label still has to have been MADE by someone looking
+    at behaviour, and manufacturing one would put a label on every address on
+    the chain.
+
+GATE ROUND COUNTS: round 1 four lenses, ~65 findings, 14 changed behaviour.
+  Round 2 (the fix commit reviewed as its own commit) two lenses, NEITHER
+  RETURNED at write-back; reported as work rather than as a clean round.
+  Extrapolation stated in section 7 rather than convergence claimed.
+
+DEFERRED ASSUMPTIONS:
+  - epsilon, tau and p_change uncalibrated on Zcash; HANDOFF-10's captured
+    blocks are the first corpus that could calibrate them.
+  - `Cand_0` in the A4 fixture is a stand-in, not a measurement.
+  - The ZIP 320 encoding rests on recall throughout the tree, including
+    `apps/gateway/src/address.ts`, which decodes it.
+  - The standing `IRONWOOD_HEIGHTS_REST_ON_A_DRAFT_ZIP` exposure is unchanged.
+```
+
+---
+
+## HANDOFF-08 ADDENDUM - gate round 3, found after PR #40 merged (29 Aug 2026)
+
+Round 3 reviewed `23257e4`, round 2's fix commit, and returned after PR
+[#40](https://github.com/aqua-019/ZCashReveal/pull/40) had been merged - so its findings were live
+on `main` and land as a second follow-up PR off `09b9e9c`. A merged PR is finished and cannot
+carry new work; this is a new change, not a reopening.
+
+```
+THIRTEEN FINDINGS, TWO HIGH, AND THE PATTERN HELD A THIRD TIME.
+
+ H1. THE LEGACY PANEL PUBLISHED "Nothing was refused" FOR A WINDOW IN WHICH TWO LINKS WERE.
+     Round 2 widened the `conservation` audit record with `rejectedForRivalWithdrawal` and did
+     not update its only renderer, which kept computing `dropped = rejectedForDoubleClaim +
+     rejectedForBalance`. Reproduced on round 2's own regression scenario: `countIn 3n`,
+     `countOut 1n`, `rejectedForRivalWithdrawal: 2`, and the panel printing "Nothing was
+     refused". Section 3.11's words are "rejected AND LOGGED"; this is the logging surface,
+     stating the opposite of what happened.
+
+     `assertNever` DID NOT CATCH IT BECAUSE THE UNION GAINED A FIELD, NOT A MEMBER. That is the
+     consumer-sweep lesson (LEDGER-06 Q3) in the one shape its guard misses, and it is worth
+     stating as its own rule: an exhaustiveness check protects the SET of variants and says
+     nothing about the SHAPE of one. Both sites now derive the count from `countIn - countOut`,
+     which cannot desync from the rejections it describes.
+
+ H2. THE "12 TIMES" CORRECTION LANDED IN ONE FILE OF THE TWO THE FINDING NAMED. Round 2's facts
+     lens reported it at `echo.ts:413` AND `GOLDEN.md:153`. The session fixed the first and left
+     the second, in the same commit whose message claims the sweep - so the tree carried both
+     numbers for one worked case. LEDGER-03 Q3 rates this HIGH. 6.25 is the ratio against the
+     k-scaled allowance; 12.5 against the unscaled constant.
+
+ THE FIX FOR ROUND 2's FINDING CREATED A NEW ONE, AGAIN. Excluding the coinbase vin from
+ `hasTransparentSource` made a branch live that had never been reachable: a ZIP 213 coinbase can
+ only pay INTO pools, so every leg is negative, and with two pools and no transparent output it
+ classified `migration` - `migrationFlowText` printing the literal caption "migration" for a
+ transaction that migrated nothing, counted into `summary.migrations`. A migration now requires a
+ pool SOURCE and a pool SINK. The test written for that alignment pinned an IMPOSSIBLE input (a
+ positive pool leg on a coinbase, i.e. a shielded spend inside issuance), so it passed for the
+ wrong reason and covered nothing.
+
+ WHAT THE THREE ROUNDS MEASURE, which is the part worth keeping. Round 1's fix introduced two
+ HIGHs; round 2's introduced two more. The reach did NOT decay the way LEDGER-07 Q6 predicts -
+ round 3's H1 is a false sentence rendered to a reader, which is as user-visible as this project
+ gets. What decayed was NOVELTY: both of round 3's HIGHs are the same two shapes as round 2's - a
+ widening whose consumer was not swept, and a correction that landed in one file of two. This
+ session committed those two shapes four times between them, after writing the rules against
+ both. That is not a reviewer-attention problem and another round budget will not fix it; the
+ shapes are mechanically detectable and the honest next step is a guard, not a rule:
+   - a `FilterApplication` variant's `params` gaining a field could fail a check that every
+     renderer of that variant reads every field, the way `check-pool-union.mjs` already refuses a
+     stale union;
+   - a gate finding that names two file:line sites could be required to close both, which is a
+     property of the finding rather than of the fixer.
+ Proposed to L2 as HANDOFF-13 material rather than taken here.
+
+ TWO EXTRAPOLATIONS, TWO UNDERESTIMATES. After round 1 this session predicted "one or two more,
+ of LOWER reach"; round 2 found four HIGHs. After round 2 it predicted "one or two more of round
+ 2's reach" and named the likeliest files; the files were right and the severity was understated
+ again. Both predictions were about commits this session had itself written. The honest statement
+ for a fourth round is not a number: this branch has never had a round come back empty, and no
+ round has yet been run whose fix was not itself found wanting. WHOEVER MERGES THIS SHOULD RUN A
+ FOURTH.
 Q1. THE PINNED NODE IS 6.2.3 AND THE CLIENT WAS WRITTEN AGAINST 6.3.0. §3 says
     "6.2.x (exact tag chosen and cited)", so 6.2.3 is what `docker-compose.yml`
     pins - it is the newest 6.2.x, published 2026-07-28. But LOG.md records that

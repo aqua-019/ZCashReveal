@@ -20,27 +20,30 @@ export type RawAssessment = {
     | "broad_candidate_set"
     | "small_heuristic_set"
     | "requires_disclosure";
-  appliedFilters: Array<
-    | {
-        filter: "time_window";
-        params: { windowBlocks: number; lowHeight: number; highHeight: number };
-        countIn: string;
-        countOut: string;
-      }
-    | {
-        filter: "amount_match";
-        params: {
-          matchedDepositTxid: string;
-          matchedDepositHeight: number;
-          matchedDepositAmountZat: string;
-          withdrawalAmountZat: string;
-          toleranceZat: string;
-          matchKind: "EXACT" | "FEE_TOLERANT";
-        };
-        countIn: string;
-        countOut: string;
-      }
-  >;
+  /**
+   * The audit trail, as UNVALIDATED JSON.
+   *
+   * THIS WAS A TWO-MEMBER UNION NAMING `time_window` AND `amount_match`, and it
+   * was wrong in the way this file's docblock below already describes for the
+   * pool fields: "a narrow union in a cast is not a type error - it is a
+   * silently dropped field". When HANDOFF-08 added `amount_echo` and
+   * `conservation` to the producer, the wire began carrying records this type
+   * said were impossible - and `parseFilterApplication` had an implicit else
+   * that coerced them into `amount_match` and called `asHex(undefined)`, a throw
+   * inside a React render at `LeakPanel.tsx:518`. A gate lens caught it.
+   *
+   * `params` is `unknown` because that is what it is: this app parses no schema,
+   * it casts a `JSON.parse` result. Writing a narrower type here does not make
+   * the wire narrower, it only moves the failure from a place the compiler can
+   * see to a place it cannot. The parser coerces defensively and refuses to
+   * invent a shape it was not given.
+   */
+  appliedFilters: Array<{
+    filter: string;
+    params: Record<string, unknown>;
+    countIn: string;
+    countOut: string;
+  }>;
 };
 
 /**

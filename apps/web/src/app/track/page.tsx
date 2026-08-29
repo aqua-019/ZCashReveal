@@ -21,8 +21,10 @@ export const metadata: Metadata = {
  * affordance over a stated gap; this is the page behind it.
  *
  * The mempool is fetched on the server and passed to the client panel as its
- * initial state, so the table is twelve real rows in the HTML before any script
- * runs. The subscription upgrades that; it does not create it.
+ * initial state, so the table is every committed row in the HTML before any
+ * script runs - the count is the fixture's, not a number repeated here, because
+ * this sentence said twelve for two rows after the corpus reached fourteen, and
+ * was the THIRD site of that one stale number. The subscription upgrades that; it does not create it.
  */
 export default async function TrackPage() {
   const zec = api();
@@ -126,7 +128,8 @@ export default async function TrackPage() {
 
         {IS_FIXTURE ? (
           <p className="note" style={{ marginTop: 12, maxWidth: "72ch" }} data-ui="fixture-note">
-            <b>These are committed values, not a live mempool.</b> The feed is a replay of twelve transcribed transactions and
+            <b>These are committed values, not a live mempool.</b> The feed is a replay of{" "}
+            {fmtInt(mempool.summary.unconfirmed)} transcribed transactions and
             it closes and reopens on a cycle, which is why the badge above spends part of its time reconnecting - the
             reconnect path running in ordinary operation rather than only under fault. The gateway arrives at HANDOFF-05 and
             the live socket at the HANDOFF-11 cutover; nothing in this panel changes when they do.

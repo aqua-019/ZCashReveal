@@ -206,9 +206,11 @@ const ESTIMATORS: readonly Estimator[] = [
       <>
         Orchard and Ironwood action counts are padded, some wallets to even counts or fixed sizes. The observed{" "}
         <span className="mono">nActions</span>, the Sapling spend and output counts,{" "}
-        <span className="mono">expiryDelta = nExpiryHeight - height</span> (zcashd 20, Zashi and Zodl 40, others vary), the
-        version group and the anchor age are matched against a fingerprint table covering Zodl and Zashi, Ywallet up to
-        1.15.3, Zingo, Zkool, Vizor, Cake, NozyWallet, zcashd and Zallet, and Ledger and Keystone.
+        <span className="mono">expiryDelta = nExpiryHeight - height</span>, the version group and the anchor age are matched
+        against a fingerprint table. That table holds <b>two</b> expiry deltas, not nine: zcashd and Zallet at 20, and Zashi
+        and Zodl at 40. Ywallet, Vizor, Zkool, Zingo, Cake, NozyWallet, Ledger and Keystone are wallets this project can name
+        and cannot fingerprint - no public source states a default delta for any of them, so none of them is a signature and
+        no transaction is labelled with their names.
       </>
     ),
     refuses: (

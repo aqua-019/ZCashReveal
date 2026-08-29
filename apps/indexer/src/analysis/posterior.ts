@@ -22,8 +22,8 @@
  * - so it answers "how many candidates is this really down to" rather than
  * "which one". A distribution at 0.34/0.33/0.33 and one at 0.98/0.01/0.01 both
  * have three candidates and they are not the same evidence, and only the second
- * is worth a reader's attention. `N_eff` distinguishes them (2.999 against
- * 1.096); a candidate count cannot.
+ * is worth a reader's attention. `N_eff` distinguishes them (2.9997 against
+ * 1.1184); a candidate count cannot.
  *
  * THE ABSENCE OF CANDIDATES IS ALSO AN ANSWER, and it is the common one. When
  * no shield in the window echoes a withdrawal, the honest posterior is not empty
@@ -144,8 +144,22 @@ export interface Posterior {
 export interface PosteriorInput {
   readonly candidates: ReadonlyArray<PosteriorCandidate>;
   /**
-   * The size of the anchor-bounded candidate set, used when `candidates` is
-   * empty or when the weighted candidates do not account for it.
+   * The size of the anchor-bounded candidate set, used when no candidate carries
+   * positive weight.
+   *
+   * THE CLAUSE THIS DOCBLOCK USED TO CARRY - "or when the weighted candidates do
+   * not account for it" - WAS NOT IMPLEMENTED, and a gate lens caught the type
+   * promising something the function does not do. Once any candidate has weight,
+   * `N_eff` is the perplexity over the candidate list alone and this field is not
+   * consulted. That is a real discontinuity: two candidates at weight 1e-300 give
+   * `N_eff = 2`, and the same two at weight 0 give the whole anchor set.
+   *
+   * It is left as it is rather than smoothed, because the alternative is a
+   * mixture whose mixing parameter nobody has calibrated, and an uncalibrated
+   * knob inside a claim-level computation is worse than a stated edge. What the
+   * field IS for stands: it is required so that a caller with no `Cand_0` cannot
+   * reach a claim level at all, and it is the answer whenever the echo named
+   * nobody - which is the common case.
    *
    * REQUIRED, NOT OPTIONAL, and that is the design decision this type exists to
    * enforce. A caller who has no `Cand_0` to hand cannot honestly compute a
@@ -180,8 +194,16 @@ export function amountLikelihood(
   withdrawalZat: Zatoshi,
   epsilon: number,
 ): number {
+  // POSITIVITY BEFORE EQUALITY, AND THE ORDER IS THE WHOLE FIX. Testing equality
+  // first gave `amountLikelihood(0n, 0n)` the MAXIMUM weight of 1 - a perfect
+  // match between an event and a non-event, which then outranked a real
+  // candidate in the normalised posterior. That is the same guard-ordering
+  // defect `matchEcho` was found to have (its absolute tolerance was tried
+  // before any positivity check), unfixed in the second module until a gate lens
+  // found it here too. Two occurrences, one shape.
+  if (depositZat <= 0n || withdrawalZat <= 0n) return 0;
   if (depositZat === withdrawalZat) return 1;
-  if (depositZat <= 0n || epsilon <= 0) return 0;
+  if (epsilon <= 0) return 0;
   const diff = depositZat > withdrawalZat ? depositZat - withdrawalZat : withdrawalZat - depositZat;
   const relative = Number(diff) / Number(depositZat);
   return Math.exp(-relative / epsilon);
@@ -287,7 +309,15 @@ export function computePosterior(input: PosteriorInput): Posterior {
     resolved
       ? `Posterior over ${normalised.length} candidate origin${normalised.length === 1 ? "" : "s"}, weighted by amount closeness, elapsed time, wallet fingerprint agreement and one-to-one assignment.`
       : `No shielding deposit in the window echoes this amount, so the origin is taken as uniform over the whole anchor-bounded candidate set (${input.unresolvedCount.toString()} notes).`,
-    `Effective anonymity set N_eff = ${effectiveSetSize.toFixed(2)} from H = ${entropyBits.toFixed(3)} bits; the claim level is a CAP on what may be said, not a confidence in the top candidate.`,
+    // AN EMPTY ANCHOR SET MUST NOT PRINT THE MOST CONFIDENT FIGURE THE QUANTITY
+    // CAN TAKE. With no candidates and no Cand_0, `2^0` is 1, and "N_eff = 1.00"
+    // is what a certain identification looks like - printed for a transaction
+    // about which nothing whatever is known. The claim level was already
+    // `requires_disclosure` either way, so nothing downstream over-claimed; the
+    // rendered sentence was the defect, and a gate lens caught it.
+    !resolved && input.unresolvedCount === 0n
+      ? "N_eff is not defined here: there are no candidates and no anchor-bounded set to be uniform over. Nothing about this spend's origin has been measured."
+      : `Effective anonymity set N_eff = ${effectiveSetSize.toFixed(2)} from H = ${entropyBits.toFixed(3)} bits; the claim level is a CAP on what may be said, not a confidence in the top candidate.`,
   ];
 
   return {
@@ -322,5 +352,12 @@ export function shannonBits(ps: ReadonlyArray<number>): number {
  */
 function entropyOfUniform(n: bigint): number {
   if (n <= 0n) return 0;
-  return Math.log2(Number(n));
+  // AN UNBOUNDED BIGINT REACHES `Infinity` THROUGH `Number()`, and `2^Infinity`
+  // then reaches `BigInt(Infinity)`, which THROWS out of a pure estimator. Not
+  // reachable from a real note-commitment tree, which tops out around 2^32, but
+  // the input is a caller-supplied bigint with no stated bound and an estimator
+  // should not be able to take down its caller on one. Clamped to the largest
+  // exactly-representable integer instead, which is far past any real anchor set.
+  const asNumber = Number(n);
+  return Number.isFinite(asNumber) ? Math.log2(asNumber) : Math.log2(Number.MAX_SAFE_INTEGER);
 }
