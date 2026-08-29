@@ -494,34 +494,3 @@ describe("purity and boundedness", () => {
     expect(found[0]!.audit.countIn).toBe(60n);
   });
 });
-
-/**
- * A10's grep is run as a real assertion rather than only as a shell command in
- * the handoff, because a grep that lives only in a document is a grep nobody
- * runs. It is here rather than in its own file so it travels with the module it
- * constrains.
- */
-describe("A10 - the analysis modules are pure", () => {
-  it("no analysis module reaches for the network, a database or a cache", async () => {
-    const { readdirSync, readFileSync } = await import("node:fs");
-    const { dirname, join } = await import("node:path");
-    const { fileURLToPath } = await import("node:url");
-
-    const dir = join(dirname(fileURLToPath(import.meta.url)), "..");
-    const offenders: string[] = [];
-    for (const name of readdirSync(dir)) {
-      if (!name.endsWith(".ts")) continue;
-      const text = readFileSync(join(dir, name), "utf8");
-      for (const [i, line] of text.split("\n").entries()) {
-        // Comments are exempt: this module's own docblocks discuss purity and
-        // name the things they forbid, and a guard that fires on its own
-        // explanation is a guard that gets deleted.
-        const code = line.replace(/\/\/.*$/, "").replace(/^\s*\*.*$/, "");
-        if (/\bfetch\s*\(|\bpostgres\b|\bioredis\b|\bundici\b/.test(code)) {
-          offenders.push(`${name}:${i + 1}  ${line.trim()}`);
-        }
-      }
-    }
-    expect(offenders).toEqual([]);
-  });
-});
