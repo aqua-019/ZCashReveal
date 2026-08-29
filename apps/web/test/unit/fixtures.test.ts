@@ -283,10 +283,10 @@ describe("the mempool summary is its own rows", () => {
     // became fourteen, twelve decoded became thirteen, and seven shielded became
     // eight.
     expect(`${Math.round((s.shielded / s.decodedCount) * 100)}% - ${s.shielded} of ${s.decodedCount}`).toBe(
-      "62% - 8 of 13",
+      "69% - 9 of 13",
     );
     // FAIL SIDE: the figure the wrong denominator produced.
-    expect(Math.round((s.shielded / s.unconfirmed) * 100)).toBe(57);
+    expect(Math.round((s.shielded / s.unconfirmed) * 100)).toBe(64);
   });
 
   it("the conventional-fee count is ZIP 317 applied to the rows that could be priced", () => {
@@ -338,8 +338,26 @@ describe("the mempool summary is its own rows", () => {
     expect(s.findingsHigh).toBe(e.filter((r) => r.severity === "HIGH").length);
   });
 
-  it("the crossing total is 1,026.4 ZEC and its split adds to it", () => {
-    expect(s.crossingZat).toBe(zec("1026.4"));
+  it("the crossing total counts EVERY crossing, including between two pools", () => {
+    // 1,026.4 until HANDOFF-08's gate found that the two `mixed` rows carried no
+    // `crossing` at all: the hand-written kind union had no member for a
+    // crossing between two shielded pools that is not specifically Orchard to
+    // Ironwood, so 122.8 ZEC of real boundary movement was dropped from a tile
+    // /track renders in the GOLD accent - whose third licensed job is "value
+    // crossing a pool boundary". The tile was understating in the colour that
+    // asserts a boundary was crossed.
+    expect(s.crossingZat).toBe(zec("1149.2"));
+    expect(s.crossingSplit).toContain("between pools 122.8");
+
+    // The split must still ADD to the total, which is what makes the caption a
+    // decomposition rather than four numbers printed near each other. Parsed out
+    // of the rendered string rather than recomputed from ROWS, so this cannot
+    // pass by agreeing with the arithmetic that produced it.
+    const parts = [...s.crossingSplit.matchAll(/(\d+(?:\.\d+)?)(?=\s*(?:-|$))/g)].map((m) =>
+      zec(m[1]!),
+    );
+    expect(parts).toHaveLength(4);
+    expect(parts.reduce((a, b) => a + b, 0n)).toBe(s.crossingZat);
   });
 
   it("every txid is 64 lowercase hex characters", () => {

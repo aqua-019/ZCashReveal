@@ -473,6 +473,15 @@ describe("A13 - a pool crossing with a PUBLIC SIDE is `mixed`, not the residual"
     const built = view(crossingWithPublicSide());
     expect(built.entries[0]?.flow).not.toBe("t to t");
     expect(built.entries[0]?.flow).toContain("+ t");
+    // AND IT ASSERTS NO DIRECTION BETWEEN THE POOLS. A gate lens found the first
+    // version calling `migrationFlowText`, which reads direction off the sign of
+    // each leg - sound only when there is no transparent side. For a
+    // transparent-funded two-pool shield it printed the literal word
+    // "migration"; here it would have asserted a Sapling-to-Orchard crossing
+    // that the chain does not show.
+    expect(built.entries[0]?.flow).toBe("S/O + t");
+    expect(built.entries[0]?.flow).not.toContain("migration");
+    expect(built.entries[0]?.flow).not.toContain(" to ");
     expect(built.entries[0]?.lanes).toContain("sapling");
     expect(built.entries[0]?.lanes).toContain("orchard");
   });
@@ -511,6 +520,27 @@ describe("A13 - a pool crossing with a PUBLIC SIDE is `mixed`, not the residual"
     expect(built.entries[0]?.class).toBe("migration");
     expect(built.summary.migrations).toBe(1);
     expect(built.summary.shielded).toBe(0);
+  });
+
+  it("a transparent-funded shield into TWO pools does not print the word migration", () => {
+    // The case the first `mixed` caption got wrong: both legs NEGATIVE, so
+    // `migrationFlowText`'s "no source" guard returned the literal "migration"
+    // and the row read "migration + t" for a transaction that migrated nothing.
+    const built = view(
+      report({
+        txid: "f6",
+        perPoolZat: [
+          { pool: "sapling", deltaZat: -(1n * 100_000_000n) },
+          { pool: "orchard", deltaZat: -(1n * 100_000_000n) },
+        ],
+        saplingOutputs: 1,
+        orchardActions: 2,
+        vin: 1,
+      }),
+    );
+    expect(built.entries[0]?.class).toBe("mixed");
+    expect(built.entries[0]?.flow).toBe("S/O + t");
+    expect(built.entries[0]?.flow).not.toContain("migration");
   });
 
   it("FAIL SIDE: a SINGLE-pool transaction with a public side is not `mixed`", () => {

@@ -1,18 +1,26 @@
 /**
- * The mempool fixture: twelve unconfirmed transactions.
+ * The mempool fixture: fourteen unconfirmed transactions.
  *
- * Deliverable 6. The twelve rows are the mockup's, and the summary above them
+ * Deliverable 6. Twelve rows are the mockup's; HANDOFF-07 added the `undecoded`
+ * row and HANDOFF-08 the `mixed` one, each so that a class the DTO admits is
+ * exercised by the corpus rather than only by the schema. The summary above them
  * is derived from those rows rather than transcribed beside them - which is
  * what turns up the one place the mockup's own arithmetic does not close.
  *
+ * THE COUNT IN THIS DOCBLOCK WENT STALE TWICE BEFORE A GATE LENS CAUGHT IT.
+ * HANDOFF-07 made it wrong by one and HANDOFF-08 by two, while both handoffs
+ * re-pinned every derived figure in the tests. A count written as prose has no
+ * tripwire; the figures below are computed from `ROWS`, which is why they were
+ * right while the sentence describing them was not.
+ *
  * THE FEE COUNT. The mockup's summary says nine of twelve carry a conventional
  * fee. ZIP 317 makes a conventional fee 5,000 zatoshi times max(2, L), and by
- * that rule ten of the eleven this corpus can price do: the only PRICED
+ * that rule eleven of the twelve this corpus can price do: the only PRICED
  * exception is the mining-pool payout at 5,000 zatoshi with L = 1, where the
- * floor of two logical actions means the conventional fee is 10,000. The
- * twelfth row carries no fee at all - see 41ab9cd3 below - and it is counted as
- * unpriced rather than as unconventional, because "did not pay the conventional
- * fee" is a claim about a fee somebody measured. The mockup separately labels the
+ * floor of two logical actions means the conventional fee is 10,000. Two rows
+ * carry no fee at all - see 41ab9cd3 and the undecoded row below - and they are
+ * counted as unpriced rather than as unconventional, because "did not pay the
+ * conventional fee" is a claim about a fee somebody measured. The mockup separately labels the
  * 0b7c2d19 shield "unknown - nonstandard fee" while giving it 10,000 zatoshi at
  * L = 2, which is conventional exactly. The wallet guess there is kept - an
  * unrecognised fingerprint is a real observation - and the words "nonstandard
@@ -112,12 +120,45 @@ interface Row {
    */
   readonly feeZat: bigint | null;
   readonly logicalActions: number | null;
+  /**
+   * The wallet guess, as /track renders it in the column at
+   * `MempoolPanel.tsx:198`.
+   *
+   * FIVE OF THESE NAMED A PRODUCT THIS PROJECT CANNOT FINGERPRINT, and HANDOFF-08's
+   * gate found them still here after the correction had landed everywhere else.
+   * F-07-1's stated harm is "a named product appears beside a txid on the
+   * strength of a number nobody sourced", and it names this column as one of the
+   * two render sites - so `fingerprint.ts`, `leaks.ts`, `TRACKING-MATH.md` §3.6
+   * and `rpc-casing.test.ts` were all corrected while the corpus that actually
+   * publishes the claim was not. `walletGuess` is `z.string()`, so nothing
+   * compile-checked it. CLAUDE.md's sweep rule (LEDGER-03 Q3) rates a correction
+   * that lands in one file while another still states the error HIGH.
+   *
+   * Ywallet, Vizor, Zkool, Zingo and Keystone are now "not classified". Zodl and
+   * the zcashd-style row stay: per `TRACKING-MATH.md` §3.6's table those are the
+   * only two wallets this repository has a sourced expiry delta for.
+   */
   readonly walletGuess: string;
   readonly finding: string;
   readonly severity: MempoolRow["severity"];
   readonly cls: MempoolRow["class"];
-  /** Signed ZEC crossing a boundary, for the summary. Empty for intra-pool and transparent. */
-  readonly crossing?: { readonly kind: "t-to-z" | "z-to-t" | "o-to-i"; readonly zec: string };
+  /**
+   * Signed ZEC crossing a boundary, for the summary. Empty for intra-pool and
+   * transparent rows.
+   *
+   * `between-pools` IS NEW IN HANDOFF-08 AND ITS ABSENCE WAS DROPPING VALUE.
+   * The union named three kinds, none of which fits a crossing between two
+   * shielded pools that is not specifically Orchard to Ironwood - so the `mixed`
+   * rows carried no `crossing` at all and contributed nothing to `crossingZat`,
+   * while the gateway's own `crossingOf` counts exactly that shape into
+   * `betweenPools`. /track renders that tile with the GOLD accent, whose third
+   * licensed job is "value crossing a pool boundary", so the understatement was
+   * being published in the colour that asserts a boundary was crossed.
+   */
+  readonly crossing?: {
+    readonly kind: "t-to-z" | "z-to-t" | "o-to-i" | "between-pools";
+    readonly zec: string;
+  };
 }
 
 const ROWS: readonly Row[] = [
@@ -145,7 +186,7 @@ const ROWS: readonly Row[] = [
     valueBalanceText: "0 - intra-pool",
     feeZat: 10_000n,
     logicalActions: 2,
-    walletGuess: "Vizor",
+    walletGuess: "not classified",
     finding: "recent anchor - depth 1",
     severity: "LOW",
     cls: "shielded",
@@ -159,7 +200,7 @@ const ROWS: readonly Row[] = [
     valueBalanceText: "-311.2000 I",
     feeZat: 15_000n,
     logicalActions: 3,
-    walletGuess: "Zkool",
+    walletGuess: "not classified",
     finding: "shield from t1Qw...rY - exit candidates 0",
     severity: "LOW",
     cls: "shield",
@@ -174,25 +215,43 @@ const ROWS: readonly Row[] = [
     valueBalanceText: "+12.4000 S",
     feeZat: 10_000n,
     logicalActions: 2,
-    walletGuess: "Ywallet 1.15",
+    walletGuess: "not classified",
     finding: "amount echo - fee-tolerant - 4.5 h gap - N_eff 17",
     severity: "HIGH",
     cls: "deshield",
     crossing: { kind: "z-to-t", zec: "12.4" },
   },
   {
+    /**
+     * A MIGRATION-SHAPED CROSSING THAT ALSO HAS A TRANSPARENT LANE, and it was
+     * `cls: "migration"` until HANDOFF-08's gate found it.
+     *
+     * The row already said what it was: `flow: "mixed"`, a `transparent` lane
+     * swatch beside two pool lanes. Only the class disagreed. Once the gateway
+     * gained the `mixed` member it classified this exact shape - two pool legs
+     * plus a public side - as `mixed` and asserted so in A13, while this fixture
+     * still published `migration`. That is /tx and /track stating different
+     * things about one transaction, reintroduced from the fixture side by the
+     * commit that fixed it on the producer side, and no test caught it because
+     * both partitions still balanced either way.
+     *
+     * It also attached `REASONING["migration"]` - "one Orchard note becomes one
+     * Ironwood output ... never attributed to a wallet" - to a transaction with a
+     * transparent recipient standing in it.
+     */
     txid: "9f8e7d6c5b4a3f2e1d0c9b8a7f6e5d4c3b2a1f0e9d8c7b6a5f4e3d2c1bcdef00",
     ageSeconds: 130,
     version: "v6",
-    flow: "mixed",
+    flow: "O/I + t",
     lanes: ["transparent", "orchard", "ironwood"],
     valueBalanceText: "+2.8000 O / -2.7950 I",
     feeZat: 20_000n,
     logicalActions: 4,
-    walletGuess: "Cake 6.4",
-    finding: "orchard exit and ironwood entry in one transaction",
+    walletGuess: "not classified",
+    finding: "orchard exit and ironwood entry in one transaction, with a transparent recipient",
     severity: "MED",
-    cls: "migration",
+    cls: "mixed",
+    crossing: { kind: "between-pools", zec: "2.8" },
   },
   {
     txid: "5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d34f5a6b1",
@@ -250,7 +309,7 @@ const ROWS: readonly Row[] = [
     valueBalanceText: "+2.8000 I",
     feeZat: 10_000n,
     logicalActions: 2,
-    walletGuess: "Zingo 2.0",
+    walletGuess: "not classified",
     finding: "echo candidates 3 - N_eff 2.4 - requires disclosure",
     severity: "HIGH",
     cls: "deshield",
@@ -279,7 +338,7 @@ const ROWS: readonly Row[] = [
     valueBalanceText: "0 - intra-pool",
     feeZat: 10_000n,
     logicalActions: 2,
-    walletGuess: "Keystone",
+    walletGuess: "not classified",
     finding: "none",
     severity: "INFO",
     cls: "shielded",
@@ -315,6 +374,7 @@ const ROWS: readonly Row[] = [
     finding: "pool crossing with a transparent recipient - neither a migration nor a one-directional shield",
     severity: "MED",
     cls: "mixed",
+    crossing: { kind: "between-pools", zec: "120.0" },
   },
   {
     txid: "41ab9cd3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c0d9e855e6a7",
@@ -483,12 +543,13 @@ const conventional = priced.filter(
 ).length;
 const findingsHigh = ROWS.filter((r) => r.severity === "HIGH").length;
 
-const crossingBy = (kind: "t-to-z" | "z-to-t" | "o-to-i"): bigint =>
+const crossingBy = (kind: NonNullable<Row["crossing"]>["kind"]): bigint =>
   ROWS.filter((r) => r.crossing?.kind === kind).reduce((a, r) => a + zec(r.crossing?.zec ?? "0"), 0n);
 
 const tToZ = crossingBy("t-to-z");
 const zToT = crossingBy("z-to-t");
 const oToI = crossingBy("o-to-i");
+const betweenPools = crossingBy("between-pools");
 
 const fmt = (zat: bigint): string => {
   const whole = zat / 100_000_000n;
@@ -507,8 +568,8 @@ export const MEMPOOL_VIEW: MempoolView = {
     decodedCount,
     bytes: 38_100,
     nextBlockSeconds: 41,
-    crossingZat: tToZ + zToT + oToI,
-    crossingSplit: `t to z ${fmt(tToZ)} - z to t ${fmt(zToT)} - Orchard to Ironwood ${fmt(oToI)}`,
+    crossingZat: tToZ + zToT + oToI + betweenPools,
+    crossingSplit: `t to z ${fmt(tToZ)} - z to t ${fmt(zToT)} - Orchard to Ironwood ${fmt(oToI)} - between pools ${fmt(betweenPools)}`,
     conventionalFeeZat: 10_000n,
     pricedCount: priced.length,
     conventionalCount: conventional,

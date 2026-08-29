@@ -69,7 +69,7 @@ import { LABELLER_RANK, type Labeller } from "@zcashreveal/types";
  *     Absent. `docs/2.0/research/04-exchange-inflows-insider-selling.md` states
  *     in as many words that no founders' address list was extracted.
  *     What this repository DOES have is Kappos et al.'s amount fingerprint -
- *     "any z-to-t transaction carrying 250.0001 ZEC is done by the founders",
+ *     "Any z-to-t transaction carrying 250.0001 ZEC in value is done by the founders",
  *     1,953 such withdrawals, 99.5 per cent also matching a 6-10 block
  *     proximity pattern. That is an AMOUNT heuristic and not an address list,
  *     so it belongs in `echo.ts`'s territory rather than here, and it would be a
@@ -99,6 +99,23 @@ export interface RankedLabel {
  * mainnet and `textest` on testnet, over a 20-byte payload. So the rule is the
  * label, and it cannot go stale.
  *
+ * ITS PROVENANCE, WHICH IS WEAKER THAN THE RANK IT CARRIES. This is a
+ * `consensus` label, the strongest thing this project issues, and the encoding
+ * rule behind it - bech32m, HRP `tex`/`textest`, 20-byte payload - is not
+ * quoted anywhere in this repository's corpus. The corpus knows TEX addresses
+ * only as a POLICY event (`research/03-history-exploits-governance.md` line 278:
+ * proposed in January 2024 to avoid a Binance delisting); the encoding itself is
+ * asserted in-tree by `apps/gateway/src/address.ts` and by TRACKING-MATH section
+ * 1.5, and neither cites a line of ZIP 320, which no session here can fetch -
+ * `zips.z.cash` is refused by the egress proxy with `CONNECT tunnel failed,
+ * response 403`. So `sources` carries the ZIP publisher the corpus does register
+ * and `confidence` is `med` rather than `high`, and the difference between this
+ * and the lockbox row - which quotes ZIP 271 through a corpus source at
+ * `confidence: "high"` - is the difference between a fact this repository holds
+ * and one it has only ever restated. An EMPTY `sources` array here would have
+ * been worse than a weak one: it is the shape CLAUDE.md forbids outright, and on
+ * the highest rank in the ladder.
+ *
  * THIS CHECKS THE PREFIX AND NOT THE CHECKSUM, DELIBERATELY. The full bech32m
  * decode - charset, checksum, mixed-case rejection, 20-byte payload - already
  * exists at `apps/gateway/src/address.ts`, which is the RPC/HTTP boundary where
@@ -125,9 +142,9 @@ export function texLabel(address: string): RankedLabel | null {
     labeller: "consensus",
     rank: LABELLER_RANK.consensus,
     method:
-      "ZIP 320 defines the TEX address encoding: bech32m with human-readable part 'tex' (mainnet) or 'textest' (testnet) over a 20-byte payload. Recognised from the encoding itself, so no address list is involved. The checksum is validated at the RPC/HTTP boundary, not here.",
+      "ZIP 320 defines the TEX address encoding: bech32m with human-readable part 'tex' (mainnet) or 'textest' (testnet) over a 20-byte payload. Recognised from the encoding itself, so no address list is involved. The checksum is validated at the RPC/HTTP boundary, not here. The ZIP text has not been read inside this repository - zips.z.cash is refused by the egress proxy - so this rule is restated from TRACKING-MATH section 1.5 and apps/gateway/src/address.ts, which is why the confidence is 'med' and not 'high'.",
     confidence: "med",
-    sources: [],
+    sources: ["S-zcash-improvement-proposals-zips-z-cash"],
     network,
   };
 }

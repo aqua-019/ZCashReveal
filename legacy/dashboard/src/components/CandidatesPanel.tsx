@@ -254,6 +254,8 @@ function filterShort(f: FilterApplication): string {
       return "amount-match narrowing";
     case "amount_echo":
       return "amount echo";
+    case "conservation":
+      return "turnstile conservation";
     default:
       return assertNever(f);
   }
@@ -271,6 +273,12 @@ function filterParams(f: FilterApplication): string {
       const residual = Number(f.params.residualZat) / 100_000_000;
       const split = f.params.splitCount > 1 ? ` · ${f.params.splitCount}-way split` : "";
       return `${f.params.matchKind} · ${f.params.grade} · residual ${residual.toFixed(4)} ZEC (${f.params.relativeError.toExponential(1)} relative)${split}`;
+    }
+    case "conservation": {
+      const claimed = Number(f.params.claimedZat) / 100_000_000;
+      const balance = Number(f.params.poolBalanceZat) / 100_000_000;
+      const dropped = f.params.rejectedForDoubleClaim + f.params.rejectedForBalance;
+      return `${claimed.toFixed(4)} of ${balance.toFixed(4)} ZEC claimed · ${dropped} match${dropped === 1 ? "" : "es"} refused`;
     }
     default:
       return assertNever(f);
@@ -301,6 +309,15 @@ function assumptionGloss(f: FilterApplication): string {
       // candidates that survived the filter, which is what makes a single
       // exact match HIGH and two of them MEDIUM.
       return `Assumes: this unshielding consumes value from the matched shielding deposit, on amount closeness alone (${f.params.matchKind}). ${f.countOut > 1n ? `${f.countOut} deposits satisfy the same rule.` : "It is the only deposit that does."}`;
+    }
+    case "conservation": {
+      // Assumes NOTHING extra - this step only ever removes claims. TRACKING-MATH
+      // section 3.11's law: a note is spent once, and the estimator may not
+      // attribute more value out of a pool than the pool held.
+      const dropped = f.params.rejectedForDoubleClaim + f.params.rejectedForBalance;
+      return dropped === 0
+        ? "Turnstile conservation: every surviving link is consistent with the pool balance and with each note being spent once. Nothing was refused."
+        : `Turnstile conservation refused ${dropped} link${dropped === 1 ? "" : "s"}: ${f.params.rejectedForDoubleClaim} claimed a note another link had already claimed, ${f.params.rejectedForBalance} would have attributed more value out of the pool than it held. A refusal means this build's heuristics were wrong, never that the chain was.`;
     }
     default:
       return assertNever(f);

@@ -191,7 +191,18 @@ export type WalletGuess =
   | "ZCASHD_RUST"
   | "ZECWALLET_LITE"
   | "NIGHTHAWK"
-  | "EDGE"
+  /*
+   * `"EDGE"` WAS REMOVED IN HANDOFF-08 UNDER THE SAME RULE AS `"YWALLET"`, and a
+   * gate lens is why: the commit that struck YWALLET for being unreachable left
+   * its neighbour, which no rule in `guessWallet` has ever returned and no other
+   * producer emits. The paragraph below states the rule - "a `WalletGuess` no
+   * rule can return is a branch that reads as covered and never runs" - so
+   * applying it to one member and not the one beside it was the sweep stopping
+   * one line short.
+   *
+   * Unlike YWALLET this was never PUBLISHED on a bad source; it was simply
+   * never implemented. That makes it a smaller finding and the same defect.
+   */
   /**
    * Zodl, the wallet ECC's Zashi was rebranded to after the team moved to ZODL.
    *
@@ -217,12 +228,12 @@ export type WalletGuess =
    * `UNKNOWN_NONSTANDARD`, or as `UNKNOWN_UNPRICED` when the fee is unknown.
    */
   | "ZODL"
-  /** Not one of the five signatures, but it paid ZIP 317's conventional fee. */
+  /** Not one of the four signatures, but it paid ZIP 317's conventional fee. */
   | "UNKNOWN_BUT_STANDARD"
-  /** Not one of the five, and its fee was MEASURED and found non-conventional. */
+  /** Not one of the four, and its fee was MEASURED and found non-conventional. */
   | "UNKNOWN_NONSTANDARD"
   /**
-   * Not one of the five, and there is not enough evidence to say which of the
+   * Not one of the four, and there is not enough evidence to say which of the
    * two above it is.
    *
    * ADDED IN HANDOFF-06 BECAUSE IGNORANCE WAS BEING PUBLISHED AS A VERDICT.

@@ -1,12 +1,21 @@
 # Golden cases — what each one is, where it came from, and what it is evidence of
 
-HANDOFF-08 deliverable 1. TRACKING-MATH §6 names four golden cases from the
-chain; this file says which transactions each is built from, which assertion it
-answers, and — for two of them — what it is **not** evidence of.
+HANDOFF-08 deliverable 1. TRACKING-MATH §6 names **three** golden cases from the
+chain — the 2 January 2026 round trip, the lockbox disbursement, and the
+202,076.207 unshield. This file builds **four** from them: Golden 2 is Golden 1
+run under the v0.2 rule, which is not a fourth transaction but the fail-side
+polarity of the first, and it is numbered rather than buried because a rule that
+is never shown missing has never been shown to do anything. The file says which
+transactions each case is built from, which assertion it answers, and — for two
+of them — what it is **not** evidence of.
 
-Every amount below is transcribed from `packages/content/data/cases.json`, case
-`K-2026-01-02`, which the research pass states it verified against Blockchair on
-2026-08-22 and marks `[verified]`. The txids are the real ones. Nothing here was
+Every amount below is transcribed from `packages/content/data/cases.json`, which
+the research pass states it verified against Blockchair on 2026-08-22 and marks
+`[verified]`. **Three different cases**, and which one matters: Goldens 1, 2 and
+4 and the A5/A6 fixtures come from `K-2026-01-02`, Golden 3 from
+`K-zip271-lockbox`, and Golden 4's verdict text from `K-202076-unshield`. This
+paragraph named `K-2026-01-02` alone, which put the lockbox's amounts under a
+case that does not contain them. The txids are the real ones. Nothing here was
 captured from a node: **no session in this project has ever reached one** —
 `zips.z.cash`, the VPS and the preview host are all refused by the container's
 egress proxy — so the provenance of every figure is the corpus, and the corpus
@@ -14,9 +23,9 @@ says where it got them.
 
 ## Why these cases and not a generated corpus
 
-A golden case is only worth its cost if it would have caught something. These
-four were chosen by TRACKING-MATH §6 because each one breaks a rule that looked
-fine in isolation:
+A golden case is only worth its cost if it would have caught something. §6's
+three were chosen because each breaks a rule that looked fine in isolation, and
+the fourth here is the second polarity of the first:
 
 - Golden 1 breaks the **absolute** fee tolerance, by a factor of 254.
 - Golden 2 is Golden 1 under the old rule, so the pair is a two-polarity proof
@@ -75,12 +84,15 @@ in the pool.
 
 ## Golden 3 — the lockbox partial echo (A3)
 
+From case **`K-zip271-lockbox`**, not `K-2026-01-02` — steps 2 and 3 of the
+lockbox's only spend.
+
 | | |
 |---|---|
 | **Out** | `eaedfddd…` 7,875 ZEC to the pool |
 | **Back** | `1f6099a4…` 7,438.2295 ZEC, 20 minutes later, to the **same** address |
 | **Residual** | 436.7705 ZEC |
-| **Relative** | 5.5466 × 10⁻² |
+| **Relative** | 5.5463 × 10⁻² |
 | **Expected** | `matchKind: PARTIAL`, grade `LOW`, `partial: true` — **never** `MEDIUM` or `HIGH` |
 
 The address is the ZIP 271 lockbox disbursement multisig,
@@ -104,6 +116,9 @@ is no partial echo at all.
 rule is off unless the caller asks for it).
 
 ## Golden 4 — the 202,076.207 unshielding (A4)
+
+Step 4 of `K-2026-01-02`; case `K-202076-unshield` is the Record built on the
+same transaction and is where the "never moved" verdict comes from.
 
 | | |
 |---|---|
@@ -144,8 +159,12 @@ the split is two, per §3.4. Both conjuncts are tested: a three-way split inside
 the hour stays `LOW`.
 
 The shape is real. `cases.json` steps 6, 7 and 8 are the transparent-side version
-of it: 50,000.5541 + 24,000.9781 consolidating to 74,001.9317 in
-`ba0783815529f9825d3d3a8c2d7f3dafe63468e4b5b60dcec61f7d54d1dee84c`.
+of it: two unshieldings of 50,000.5541 and 24,000.9781 **sum to 74,001.5322**,
+against a consolidation of **74,001.9317** in
+`ba0783815529f9825d3d3a8c2d7f3dafe63468e4b5b60dcec61f7d54d1dee84c` — a residual
+of 0.3995, which §3.4 identifies as the second tranche's own residual. This file
+gave 74,001.9317 as the *sum*, which is the consolidation's amount and not what
+the two addends make; the whole point of the case is that the two numbers differ.
 
 ### A6 — the three December 2025 withdrawals
 

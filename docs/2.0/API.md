@@ -442,7 +442,11 @@ address is none of the other six: not a `migration`, because a public recipient
 stands in it; not `shield` or `deshield`, because those name the direction of a
 transparent side it has on one end only. It fell to the residual `shielded` while
 `analyze()` answered `MIXED`, so `/tx` and `/track` stated different things about
-one transaction - the divergence assertion A9 forbids. LEDGER-07 Q2 asked for the
+one transaction - the divergence that follows from applying HANDOFF-06's
+assertion A9 ("a class that names the transparent side is never applied to a
+transaction that has no transparent side") in both places. A9's own text is
+about a single classifier; that the two pages must agree is its consequence,
+and this line used to attribute the consequence to A9 directly. LEDGER-07 Q2 asked for the
 member and L2 ruled that the CONSUMER SWEEP was the deliverable rather than the
 member: the classifier now tests multi-pool BEFORE `shield`/`deshield` (because
 `direction` is `DEPOSIT` whenever any pool leg is negative, so a crossing with a

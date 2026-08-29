@@ -212,7 +212,7 @@ describe("which wallet signatures the fix actually revives, and which stay inert
     //
     // Every point in the closed band, including both endpoints, and the shape
     // the old rule required. None of them may produce a product name.
-    const named = ["ZCASHD_RUST", "ZECWALLET_LITE", "NIGHTHAWK", "EDGE", "ZODL"];
+    const named = ["ZCASHD_RUST", "ZECWALLET_LITE", "NIGHTHAWK", "ZODL"];
     for (const expiryDelta of [35, 36, 40, 45, 49, 50]) {
       const guess = guessWallet({ ...base, expiryDelta });
       expect(named, `delta ${expiryDelta} must not name a product`).not.toContain(guess);

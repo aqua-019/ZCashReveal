@@ -349,6 +349,49 @@ describe("A5 - subset-sum: two shields summing to one unshield", () => {
       feeToleranceZat: FEE_TOLERANCE_ZAT,
     })).toBeNull();
   });
+
+  it("the re-check on the real amounts is what refuses the fit, and it is reachable", () => {
+    // THE TEST ABOVE IS A CONTROL AND SAYS SO; THIS IS THE ONE THAT
+    // DISCRIMINATES. HANDOFF-08's gate deleted `if (residual > tol) continue;`
+    // from `findSubsetSum` and the whole suite stayed green, because at the
+    // DEFAULT constants the re-check cannot fire: the quantum is 1e4 zat, so
+    // two deposits and a target drift by at most 15,000 zat between the
+    // quantised and true sums, while the tolerance floor is
+    // `FEE_TOLERANCE_ZAT x 2 = 320,000` zat. Quantisation slack is twenty-one
+    // times smaller than the loosest thing it could smuggle a match past, so
+    // the guard is unreachable through `matchEcho`'s public defaults and every
+    // test that went through them proved nothing about it.
+    //
+    // It is still worth having, and worth being able to fail: `feeToleranceZat`
+    // and `relativeEpsilon` are caller options, HANDOFF-09's calibration exists
+    // to move them, and the guard is the only thing standing between a tightened
+    // tolerance and a match that exists purely because two numbers were rounded.
+    // So the case is built at a tolerance tight enough for the drift to matter.
+    const tight = { maxSplitCount: 3, maxCandidates: 48, epsilon: 0, feeToleranceZat: 1n };
+    const tol = subsetSumTolerance(100_000_003n, 2, tight.feeToleranceZat, tight.epsilon);
+    expect(tol).toBe(2n);
+
+    const a = ev({ txid: asHex("ac".repeat(32)), amountZat: 50_000_000n, seenAt: T0 });
+    const b = ev({ txid: asHex("bd".repeat(32)), amountZat: 50_000_000n, seenAt: T0 });
+    const w = ev({ amountZat: 100_000_003n, seenAt: T0 + MINUTE });
+
+    // The quantised check PASSES: 100,000,003 rounds down to 100,000,000, which
+    // is exactly the two deposits' quantised sum.
+    expect(quantise(w.amountZat)).toBe(quantise(a.amountZat) + quantise(b.amountZat));
+    expect(absDiff(quantise(a.amountZat) + quantise(b.amountZat), quantise(w.amountZat))).toBe(0n);
+    // The real amounts miss by 3 zat, which is outside a 2 zat tolerance.
+    expect(absDiff(a.amountZat + b.amountZat, w.amountZat)).toBe(3n);
+    expect(absDiff(a.amountZat + b.amountZat, w.amountZat) > tol).toBe(true);
+
+    // So the only thing that can refuse this match is the re-check.
+    expect(findSubsetSum(w, [a, b], tight)).toBeNull();
+
+    // FAIL SIDE: widen the tolerance past the true residual and the same pair
+    // matches - so `null` above is the guard firing, not the search failing.
+    const found = findSubsetSum(w, [a, b], { ...tight, feeToleranceZat: 2n });
+    expect(found).not.toBeNull();
+    expect(found!.subset.map((e) => e.txid).sort()).toEqual([a.txid, b.txid].sort());
+  });
 });
 
 describe("the arithmetic the grades rest on", () => {
@@ -403,11 +446,24 @@ describe("the arithmetic the grades rest on", () => {
 describe("EXACT and FEE_TOLERANT keep the v0.2 grades", () => {
   const w = ev({ amountZat: zec("100"), seenAt: T0 + MINUTE });
 
-  it("one exact candidate is HIGH, two are MEDIUM", () => {
+  it("one exact candidate is HIGH, two are LOW", () => {
+    // SECTION 3.4 PUTS "MULTIPLE CANDIDATES" IN THE `LOW` CLAUSE BY ITSELF:
+    // "HIGH = exact, single candidate . MEDIUM = relative <= epsilon or absolute
+    // within fee tolerance, single candidate . LOW = multiple candidates, or
+    // relative <= 10.epsilon". Every one of the three clauses that grades above
+    // LOW says "single candidate", so an exact match with a rival is LOW, not
+    // MEDIUM. This asserted MEDIUM, which read as a graceful one-step
+    // demotion and was a grade the specification does not contain: two
+    // identical deposits are the case where the echo knows LEAST about which
+    // one it is looking at, and MEDIUM is the grade the UI renders as a link
+    // worth following.
     const one = ev({ txid: asHex("a1".repeat(32)), amountZat: zec("100"), seenAt: T0 });
     const two = ev({ txid: asHex("a2".repeat(32)), amountZat: zec("100"), seenAt: T0 });
     expect(matchEcho(w, [one])[0]!.grade).toBe("HIGH");
-    expect(matchEcho(w, [one, two]).map((m) => m.grade)).toEqual(["MEDIUM", "MEDIUM"]);
+    expect(matchEcho(w, [one, two]).map((m) => m.grade)).toEqual(["LOW", "LOW"]);
+    // ...and the candidate count is what says why, so a reader is not left to
+    // infer the demotion from the grade alone.
+    expect(matchEcho(w, [one, two]).map((m) => m.candidateCount)).toEqual([2, 2]);
   });
 
   it("one fee-tolerant candidate is MEDIUM, two are LOW", () => {

@@ -11,3 +11,4 @@ export * from "./clustering.js";
 export * from "./labels.js";
 export * from "./posterior.js";
 export * from "./taint.js";
+export * from "./conservation.js";

@@ -81,7 +81,7 @@ const PARTIAL_ECHO: Estimate = {
       countOut: 1_204n,
     },
     {
-      filter: "amount_match",
+      filter: "amount_echo",
       label: "amount echo, epsilon = 1e-4 - REMOVED NOTHING",
       params: {
         relativeDelta: "5.5e-2",
@@ -117,7 +117,7 @@ const NO_EXIT: Estimate = {
       countOut: 812n,
     },
     {
-      filter: "amount_match",
+      filter: "amount_echo",
       label: "amount echo, exact and relative",
       params: { epsilon: "1e-4", exactMatches: 0, relativeMatches: 0 },
       countIn: 812n,
@@ -163,7 +163,7 @@ const SHIELD_WATCH: Estimate = {
       countOut: 331n,
     },
     {
-      filter: "amount_match",
+      filter: "amount_echo",
       label: "amount echo against 7,875.0000",
       params: { epsilon: "1e-4", exact: 0, feeTolerant: 0, partial: 1, residualZec: "436.7705" },
       countIn: 331n,

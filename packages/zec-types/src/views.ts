@@ -197,13 +197,20 @@ export const filterNameSchema = z.enum([
    * enum, so widening the union without widening this fails `tsc`. That is the
    * compile-time proof this file already carried, doing its job.
    *
-   * `subset_sum` below is NOT what a split echo emits. A subset-sum match is one
-   * of section 3.4's four tolerances of the SAME estimator, so it carries
-   * `amount_echo` with `params.matchKind: "SUBSET_SUM"`; splitting it out would
-   * put one estimator under two step names in the inference chain.
+   * THERE IS NO `subset_sum` MEMBER, AND THERE WAS ONE UNTIL HANDOFF-08's GATE.
+   * A subset-sum match is one of section 3.4's rules of the SAME estimator, so
+   * it carries `amount_echo` with `params.matchKind: "SUBSET_SUM"`; a separate
+   * name would put one estimator under two steps in the inference chain. The
+   * member sat here with a docblock explaining that nothing would ever emit it,
+   * which is a dead member with a note rather than a considered one - and the
+   * enum is a CLOSED set the UI switches on, so a name in it is a promise that
+   * a step by that name can appear. The other unemitted names here
+   * (`fee_actions`, `fingerprint`, `anchor_recency`, `pool_payout`,
+   * `migration_lens`) are section 3 estimators still to be written; this one was
+   * ruled out by design, which is a different thing and does not belong in the
+   * same list.
    */
   "amount_echo",
-  "subset_sum",
   "fee_actions",
   "fingerprint",
   "anchor_recency",
@@ -945,7 +952,35 @@ export type ZecFrame = z.infer<typeof zecFrameSchema>;
 export function auditRecordToEstimateFilter(a: FilterApplication, label: string): EstimateFilter {
   const params: Record<string, string | number | boolean> = {};
   for (const [k, v] of Object.entries(a.params)) {
-    params[k] = typeof v === "bigint" ? v.toString() : (v as string | number | boolean);
+    params[k] = flattenParam(v);
   }
   return { filter: a.filter, label, params, countIn: a.countIn, countOut: a.countOut };
+}
+
+/**
+ * One `params` value, flattened to something `estimateFilterSchema` accepts.
+ *
+ * THE CAST THIS REPLACES BROKE THE PROOF THE FUNCTION ABOVE EXISTS TO BE.
+ * It read `typeof v === "bigint" ? v.toString() : (v as string | number |
+ * boolean)`, and that `as` laundered ANY other type past `tsc` - so when
+ * HANDOFF-08 added the `amount_echo` variant with `depositTxids:
+ * ReadonlyArray<Hex>`, the function compiled, the docblock above still promised
+ * a compile-time guarantee, and the record it produced FAILED
+ * `estimateFilterSchema.parse` on `params.depositTxids` ("Expected string,
+ * received array"). The gateway validates every 2xx body against its DTO before
+ * serialising, so the first real amount echo rendered on `/tx` would have been a
+ * 500 - and the assertion that was supposed to make that impossible was the
+ * thing that hid it.
+ *
+ * An array becomes a comma-joined string rather than JSON: the UI prints this
+ * beside a number as an assumption sentence, and `["a","b"]` renders worse than
+ * `a,b` for a reader. A nested object is not expected here and stringifies
+ * rather than throwing, because a filter that cannot render its own parameters
+ * should degrade to a visible oddity rather than take down the response.
+ */
+function flattenParam(v: unknown): string | number | boolean {
+  if (typeof v === "bigint") return v.toString();
+  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return v;
+  if (Array.isArray(v)) return v.map((x) => flattenParam(x)).join(",");
+  return String(v);
 }
