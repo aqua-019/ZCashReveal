@@ -93,6 +93,13 @@ const FINDINGS = [
     // 12.5 against the unscaled constant, 6.25 against the k-scaled allowance,
     // near enough to each other that neither reads as the other's answer.
     present: /12\.5[\s\S]{0,400}6\.25|6\.25[\s\S]{0,400}12\.5/,
+    // AND the bare figure beside the unscaled constant, or the defect could be
+    // re-added next to the corrected table with both entries reporting closed:
+    // `present` is satisfied 200 characters away and R3-H2's `absent` requires
+    // a phrase this wording does not contain.
+    absent: /(?<!\d)12(?!\.\d)\s+times[^.]{0,60}unscaled/i,
+    probe: 'This said "12 times", which is the ratio against the UNSCALED FEE_TOLERANCE_ZAT',
+    antiProbe: "2,000,000 zat / 160,000 = 12.5 times the UNSCALED FEE_TOLERANCE_ZAT and 6.25 at k = 2",
     sites: [
       "apps/indexer/src/analysis/echo.ts",
       "apps/indexer/src/analysis/__tests__/GOLDEN.md",
@@ -111,7 +118,13 @@ const FINDINGS = [
   {
     id: "R2-A9",
     what: 'assertion A9 cited bare, where "A9" resolves to a different assertion in HANDOFF-08 than in HANDOFF-06',
-    absent: /divergence assertion A9 forbids|ASSERTION A9 both forbid|\/\/ Assertion A9's rule/i,
+    // NO `//` IN THE PATTERN: `flatten()` strips a line-leading comment marker
+    // before the test, so an alternative anchored on `//` matched only a
+    // TRAILING comment and never the standalone line the fix actually removed.
+    // Dead for exactly the shape it was written for.
+    absent: /divergence assertion A9 forbids|ASSERTION A9 both forbid|\bAssertion A9's rule\b/i,
+    probe: "    // Assertion A9's rule on the row /track renders: a class naming the",
+    antiProbe: "    // HANDOFF-06's assertion A9 on the row /track renders: a class naming the",
     sites: [
       "apps/gateway/src/views/mempool.ts",
       "docs/2.0/API.md",
@@ -139,19 +152,91 @@ const FINDINGS = [
     ],
   },
   {
+    id: "H07-DENOM",
+    what: "ZIP 318's DENOM_CAP: 10,000 ZEC plus the canonical fee caps the funding NOTE, and 10,000 ZEC is the largest pool-crossing denomination - two quantities, not two readings of one",
+    absent: /the corpus states? (it )?two ways|DENOM_CAP two ways|corpus gives DENOM_CAP two ways/i,
+    probe: "above DENOM_CAP on the flat 10,000 ZEC reading, which the corpus states two ways",
+    antiProbe: "above 10,000 ZEC, the largest crossing ZIP 318 permits",
+    sites: [
+      "packages/zec-types/src/leaks.ts",
+      "packages/zec-types/src/zip318.ts",
+      "apps/indexer/src/decoder/leak-analyzer.ts",
+      "docs/2.0/TRACKING-MATH.md",
+    ],
+  },
+  {
+    id: "H07-IRONWOOD-ROOT",
+    what: "`getblock` carries no `finalironwoodroot`; `trees.ironwood.size` is the block-level Ironwood signal (confirmed against Zebra's source, PR #10888)",
+    // A PROPERTY, NOT A MENTION: `finalironwoodroot:` declared or forwarded.
+    // The three sites each keep a CONFIRMED-ABSENT docblock naming the field,
+    // which is the correct state and which the first draft flagged.
+    absent: /finalironwoodroot\s*[:?]/i,
+    probe: "finalironwoodroot: hash32Schema.optional(),",
+    antiProbe: "There is no Ironwood root on this response at all; see the note where one used to be declared.",
+    sites: [
+      "packages/zebra-rpc/src/schemas.ts",
+      "packages/zebra-rpc/src/client.ts",
+      "packages/zebra-rpc/src/types.ts",
+      "apps/indexer/src/decoder/block-decoder.ts",
+    ],
+  },
+  {
+    id: "H08-WALLETGUESS",
+    what: "a `WalletGuess` member no rule can return is a branch that reads as covered and never runs - YWALLET and EDGE were withdrawn from the union, not just from the classifier",
+    // A UNION MEMBER, NOT A MENTION. `| "YWALLET"` is the defect; the docblocks
+    // that explain the removal, and `UNSOURCED_WALLET_HYPOTHESES` where the
+    // string correctly lives as data, are not. The first draft matched the bare
+    // literal and reported three correct files as open sites.
+    absent: /\|\s*"(YWALLET|EDGE)"/,
+    probe: 'export type WalletGuess = "ZCASHD_RUST" | "YWALLET" | "ZODL";',
+    antiProbe: 'export type WalletGuess = "ZCASHD_RUST" | "ZODL";',
+    sites: [
+      "packages/zec-types/src/leaks.ts",
+      "apps/indexer/src/decoder/fingerprint.ts",
+      "apps/indexer/src/decoder/__tests__/rpc-casing.test.ts",
+    ],
+  },
+  {
     id: "R4-GUARDS",
     what: "the number of static guards `pnpm check` runs, stated in three asserting places and correct in none of them for one commit",
     // The historical statements - HANDOFF-07's own report, the LOG rows - are
     // RECORDS of what that handoff did and stay at five. Only the sites that
     // assert the CURRENT count are listed.
-    absent: /five static guards|the five guards|five guards OK/i,
     present: /seven (static )?guards/i,
-    sites: ["CLAUDE.md", "README.md", "handoffs/HANDOFF-08-analysis-toolkit.md"],
+    probe: "# THE FOUR STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
+    antiProbe: "# THE SEVEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
+    absent: /five static guards|the five guards|five guards OK|FOUR STATIC GUARDS/i,
+    sites: [
+      "CLAUDE.md",
+      "README.md",
+      "handoffs/HANDOFF-08-analysis-toolkit.md",
+      // The FOURTH asserting site, in the hunk the commit that wrote this entry
+      // was editing, and missed by the sweep that wrote it. The commit message
+      // said "three asserting places"; it was four.
+      ".github/workflows/ci.yml",
+    ],
+  },
+  {
+    id: "R4-EXITZAT-REACH",
+    what: "the `exitZat` render fixed a record-to-render seam, not a page anyone saw: legacy/dashboard's parsers.ts coerces an unknown record into an inert time_window, so the conservation arm is unreachable there",
+    absent: /a reader was being shown the side the law does not bound|ONE SUBSTANTIVE DEFECT ROUND 4 FOUND IN SHIPPED CODE/i,
+    probe: "match, so a reader was being shown the side the law does not bound.",
+    antiProbe: "match, so this line stated the side the law does not bound.",
+    sites: [
+      "legacy/dashboard/src/components/CandidatesPanel.tsx",
+      "handoffs/HANDOFF-08-analysis-toolkit.md",
+    ],
   },
   {
     id: "R4-COUNT",
     what: "HANDOFF-08 section 7's test-count line, stale across rounds 2 and 3 (1047 written, 1056 at #40, 1058 at #41)",
     absent: /(?<!\d)(1047|1056|1063) passed/,
+    // AND THE COMPONENTS. Forbidding three literals cannot notice the line
+    // going stale at a fourth number, nor the BREAKDOWN keeping 128/445 - which
+    // sums to 1047 - one line under a corrected total. Both happened.
+    present: /1058 passed[\s\S]{0,900}gateway 131[\s\S]{0,40}indexer 454/,
+    probe: "pnpm -r test 1047 passed, 1 skipped",
+    antiProbe: "pnpm -r test 1058 passed, 1 skipped",
     sites: ["handoffs/HANDOFF-08-analysis-toolkit.md"],
   },
 ];
@@ -241,9 +326,14 @@ function selfTest() {
     console.error("[finding-sites] self-test: a fully applied fix was wrongly flagged.");
     return false;
   }
+  // THE PHRASE MUST CROSS THE BREAK. It read "this is\n * still wrong", where
+  // `/still wrong/` matches the raw text - so the fixture passed with `flatten`
+  // as the identity and the wrap feature, added BECAUSE the guard reported two
+  // sites closed that still carried the defect, had no discriminating test. A
+  // fail-side probe that does not fail is a finding in its own right.
   const wrapped = openSites(
     { ...fixture, sites: ["a.ts"] },
-    () => "this is\n   * still wrong",
+    () => "this is still\n   * wrong",
   );
   if (wrapped.length !== 1) {
     console.error("[finding-sites] self-test: WRAPPED text defeated the pattern.");
@@ -267,6 +357,28 @@ function selfTest() {
     console.error("[finding-sites] self-test: the RECORD exclusion swallowed an asserting site.");
     return false;
   }
+  // EVERY REGISTER ENTRY, PROVEN BOTH WAYS. Patterns were written from memory
+  // and never run against the text the finding quoted, which is how an
+  // alternative anchored on `//` shipped unmatchable and how three structural
+  // entries shipped matching the docblocks that explain their own fix. A
+  // pattern nobody has run against the defect is a pattern nobody has tested.
+  for (const f of FINDINGS) {
+    if (f.probe !== undefined) {
+      if (openSites({ ...f, sites: ["probe"] }, () => f.probe).length === 0) {
+        console.error(`[finding-sites] self-test: ${f.id}'s pattern does not match the defect it names.`);
+        return false;
+      }
+    }
+    if (f.antiProbe !== undefined && f.absent !== undefined && f.absent.test(flatten(f.antiProbe))) {
+      console.error(`[finding-sites] self-test: ${f.id}'s pattern matches the CORRECTION.`);
+      return false;
+    }
+    if (f.absent === undefined && f.present === undefined) {
+      console.error(`[finding-sites] self-test: ${f.id} has neither an absent nor a present check.`);
+      return false;
+    }
+  }
+
   const missing = openSites(fixture, oneMissing);
   if (missing.length !== 1 || missing[0].reason !== "missing") {
     // A site that has been deleted or moved is not silently closed: the
@@ -306,8 +418,20 @@ if (open.length > 0) {
   process.exit(1);
 }
 
-const sites = FINDINGS.reduce((n, f) => n + f.sites.length, 0);
+// COUNT WHAT WAS ACTUALLY READ. Summing `sites.length` included any path
+// excluded as a record, so "all closed" would have covered sites the sweep
+// never opened. True today because no entry lists one; false the first time one
+// does, which is the kind of statement that decays silently.
+let checked = 0;
+let excluded = 0;
+for (const f of FINDINGS) {
+  for (const site of f.sites) {
+    if (RECORD_FILES.some((r) => r.test(site))) excluded += 1;
+    else checked += 1;
+  }
+}
 console.log(
-  `[finding-sites] OK: ${FINDINGS.length} multi-site finding(s), ${sites} site(s), all closed ` +
+  `[finding-sites] OK: ${FINDINGS.length} multi-site finding(s), ${checked} site(s) checked` +
+    `${excluded > 0 ? `, ${excluded} excluded as records` : ""}, all closed ` +
     `(detector self-tested in both directions).`,
 );

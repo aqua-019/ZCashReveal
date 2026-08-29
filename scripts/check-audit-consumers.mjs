@@ -55,7 +55,11 @@ const SKIP_DIRS = new Set(["node_modules", "dist", ".next", ".turbo", "build", "
  * `Object.entries(a.params)`, and demanding it name fourteen field names would
  * make the honest implementation the one that fails.
  */
-const GENERIC_READ = /Object\.(entries|keys|values|assign)\s*\(|\.\.\.\s*[A-Za-z0-9_.]*params/;
+// ANCHORED ON THE PARAMS OBJECT. Unanchored, ANY `Object.entries(` anywhere in
+// the case block - over an unrelated value - exempted the whole block, which is
+// a hole big enough to drive the original defect through.
+const GENERIC_READ =
+  /Object\.(entries|keys|values|assign)\s*\(\s*[A-Za-z0-9_.]*\bparams\b|\.\.\.\s*[A-Za-z0-9_.]*params/;
 
 /**
  * Omissions a human has looked at and accepted, each recording WHICH fields it
@@ -70,6 +74,16 @@ const GENERIC_READ = /Object\.(entries|keys|values|assign)\s*\(|\.\.\.\s*[A-Za-z
  *
  * A blanket ignore keyed on file and case would have silenced the defect this
  * guard was written for, on its first run, forever.
+ *
+ * AND AN ENTRY LISTING EVERY FIELD OF ITS VARIANT IS THAT BLANKET IGNORE, which
+ * is what the `conservation` entry below was when it shipped. It named all six
+ * fields, so every subset of the current shape was covered, and DELETING the
+ * `exitZat` render - the one substantive fix round 4 made - left the guard
+ * green. Executed. The entry's own `why` claims the variant is "split between
+ * two blocks... a partial read of a whole that IS fully read", so `coveredElsewhere`
+ * now makes the guard ENFORCE that claim: each skipped field must be read by
+ * SOME block of the same label in the same file. A claim in a comment that the
+ * code does not check is how this guard came to certify its own defect.
  *
  * These are one-line PROSE SUMMARIES. `filterParams` renders a single line under
  * a filter chip and `assumptionGloss` renders one sentence; naming fourteen
@@ -104,6 +118,9 @@ const ACKNOWLEDGED = [
   {
     file: "legacy/dashboard/src/components/CandidatesPanel.tsx",
     label: "conservation",
+    // Split across two blocks, so every field below must be read by ONE of
+    // them. Without this the entry lists the whole variant and silences itself.
+    coveredElsewhere: true,
     skipped: [
       "poolBalanceZat", "claimedZat", "exitZat",
       "rejectedForDoubleClaim", "rejectedForRivalWithdrawal", "rejectedForBalance",
@@ -131,7 +148,9 @@ function filterSwitches(text) {
   // scan found no switches and reported the tree clean having looked at
   // nothing. Its own self-test caught it on the first run, which is the whole
   // argument for self-testing a detector in both directions.
-  const head = /switch\s*\(\s*[A-Za-z0-9_.]*\.filter\s*\)\s*\{/g;
+  // `switch (f.filter)` AND `const { filter } = f; switch (filter)`, which is
+  // the standard destructured-discriminant idiom and narrows identically.
+  const head = /switch\s*\(\s*(?:[A-Za-z0-9_.]*\.filter|filter)\s*\)\s*\{/g;
   for (const m of text.matchAll(head)) {
     let depth = 0;
     let i = m.index + m[0].length - 1;
@@ -148,16 +167,48 @@ function filterSwitches(text) {
   return out;
 }
 
-/** Each `case "label":` and the text up to the next case or default. */
+/** Comments blanked to spaces, LENGTH PRESERVED so offsets and line numbers survive. */
+function blankComments(src) {
+  return src.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (m) => m.replace(/[^\n]/g, " "));
+}
+
+/**
+ * Each `case "label":` at the switch's OWN depth, and the text to the next
+ * boundary at that depth.
+ *
+ * DEPTH-AWARE, AND OVER COMMENT-FREE TEXT, BECAUSE THE FIRST VERSION WAS
+ * NEITHER AND FAILED IN BOTH DIRECTIONS. It ended a block at the first literal
+ * `default:` found by `indexOf` at any nesting depth, in text whose comments
+ * had not been stripped. So a case containing an inner
+ * `switch (mode) { ... default: ... }` BEFORE its params reads was truncated to
+ * nothing and reported clean - the guard's whole purpose defeated - and one
+ * containing it AFTER the first read was reported as a partial read of correct
+ * code. A guard that fails on correct code is a guard that gets silenced.
+ */
 function caseBlocks(switchBody) {
   const out = [];
+  const src = blankComments(switchBody);
+  const depth = new Array(src.length);
+  for (let i = 0, d = 0; i < src.length; i += 1) {
+    if (src[i] === "{") d += 1;
+    else if (src[i] === "}") d -= 1;
+    depth[i] = d;
+  }
   const re = /case\s+"([a-z_]+)"\s*:/g;
-  const marks = [...switchBody.matchAll(re)];
+  const marks = [...src.matchAll(re)].filter((m) => depth[m.index] === 1);
   for (let n = 0; n < marks.length; n += 1) {
     const from = marks[n].index + marks[n][0].length;
     const nextCase = n + 1 < marks.length ? marks[n + 1].index : Infinity;
-    const nextDefault = switchBody.indexOf("default:", from);
-    const to = Math.min(nextCase, nextDefault === -1 ? Infinity : nextDefault, switchBody.length);
+    let nextDefault = Infinity;
+    const dre = /\bdefault\s*:/g;
+    dre.lastIndex = from;
+    for (let m2; (m2 = dre.exec(src)); ) {
+      if (depth[m2.index] === 1) {
+        nextDefault = m2.index;
+        break;
+      }
+    }
+    const to = Math.min(nextCase, nextDefault, switchBody.length);
     out.push({ label: marks[n][1], body: switchBody.slice(from, to), at: marks[n].index });
   }
   return out;
@@ -250,11 +301,66 @@ function render(f) {
   }
 }`;
 
+// NAMES A FIELD, so `read.length === 0` cannot exempt it and only GENERIC_READ
+// can make it pass. Without the named field two independent exemptions shared
+// one probe and neither was tested.
 const GENERIC = `
 function all(f) {
   switch (f.filter) {
     case "demo": {
-      return Object.entries(f.params).map(String).join(",");
+      const label = f.params.alpha;
+      return label + Object.entries(f.params).map(String).join(",");
+    }
+  }
+}`;
+
+// H1's two shapes. A nested switch BEFORE the reads truncated the block to
+// nothing; a nested switch AFTER them ended it early and reported correct code
+// as a partial read.
+const NESTED_DEFAULT_FIRST = `
+function render(f, mode) {
+  switch (f.filter) {
+    case "demo": {
+      switch (mode) {
+        case "a": break;
+        default: break;
+      }
+      return f.params.alpha + f.params.beta;
+    }
+  }
+}`;
+
+const NESTED_DEFAULT_AFTER = `
+function render(f, mode) {
+  switch (f.filter) {
+    case "demo": {
+      const x = f.params.alpha;
+      switch (mode) {
+        default: break;
+      }
+      return x + f.params.beta + f.params.gamma;
+    }
+  }
+}`;
+
+// A comment containing the word `default:` mid-block, which the raw `indexOf`
+// also treated as a boundary.
+const DEFAULT_IN_COMMENT = `
+function render(f) {
+  switch (f.filter) {
+    case "demo": {
+      // the default: case is handled elsewhere
+      return f.params.alpha + f.params.beta + f.params.gamma;
+    }
+  }
+}`;
+
+const DESTRUCTURED_DISCRIMINANT = `
+function render(f) {
+  const { filter, params } = f;
+  switch (filter) {
+    case "demo": {
+      return params.alpha + params.beta;
     }
   }
 }`;
@@ -270,11 +376,61 @@ function selfTest() {
     console.error("[audit-consumers] self-test: a field named only in a COMMENT counted as read.");
     return false;
   }
-  for (const [name, src] of [["full", FULL_READ], ["label-only", LABEL_ONLY], ["generic", GENERIC]]) {
+  for (const [name, src] of [
+    ["full", FULL_READ],
+    ["label-only", LABEL_ONLY],
+    ["generic", GENERIC],
+    ["nested-default-after", NESTED_DEFAULT_AFTER],
+    ["default-in-comment", DEFAULT_IN_COMMENT],
+  ]) {
     if (scanText(src, FIXTURE_UNION).length !== 0) {
       console.error(`[audit-consumers] self-test: the ${name} fixture was wrongly flagged.`);
       return false;
     }
+  }
+  for (const [name, src] of [
+    ["nested-default-first", NESTED_DEFAULT_FIRST],
+    ["destructured-discriminant", DESTRUCTURED_DISCRIMINANT],
+  ]) {
+    const hits = scanText(src, FIXTURE_UNION);
+    if (hits.length !== 1 || !hits[0].missing.includes("gamma")) {
+      console.error(`[audit-consumers] self-test: a partial read in the ${name} shape was missed.`);
+      return false;
+    }
+  }
+
+  // THE PARSE ITSELF. `variantsOf` dropping a field per variant left the scan
+  // green and still printed "4 variants", so the count was not evidence.
+  const parsed = variantsOf(`
+      readonly filter: "demo";
+      readonly params: {
+        readonly alpha: bigint;
+        readonly beta?: number;
+        readonly gamma: string;
+      };
+`);
+  const got = parsed.get("demo");
+  if (got === undefined || got.join(",") !== "alpha,beta,gamma") {
+    console.error("[audit-consumers] self-test: variantsOf did not parse a variant's fields.");
+    return false;
+  }
+
+  // THE SUPPRESSION LOGIC, which is the property the whole guard rests on: a
+  // missing set containing ONE unacknowledged field must still be reported.
+  // `.every` -> `.some` is a one-character mutation that destroys it, and
+  // nothing caught it.
+  const ack = [{ file: "f.ts", label: "demo", skipped: ["beta"] }];
+  const suppressed = (missing) =>
+    ack.some(
+      (a) => a.file === "f.ts" && a.label === "demo" && missing.every((m) => a.skipped.includes(m)),
+    );
+  if (!suppressed(["beta"])) {
+    console.error("[audit-consumers] self-test: an acknowledged omission was not suppressed.");
+    return false;
+  }
+  if (suppressed(["beta", "gamma"])) {
+    console.error("[audit-consumers] self-test: an UNacknowledged field was suppressed alongside an acknowledged one.");
+    return false;
   }
   return true;
 }
@@ -331,8 +487,35 @@ if (variants.size === 0) {
   process.exit(2);
 }
 
+const files = sourceFiles();
+
+/**
+ * Fields read by ANY block of a given label in a given file.
+ *
+ * Two passes, because `coveredElsewhere` is a claim about the FILE and not about
+ * one block: an entry saying "the params line carries the magnitudes and the
+ * gloss carries the reasons" is only true if between them they read everything.
+ * Without this the entry lists the whole variant and silences its own site.
+ */
+const readUnion = new Map();
+for (const file of files) {
+  let text;
+  try {
+    text = readFileSync(file, "utf8");
+  } catch {
+    continue;
+  }
+  const rel = file.slice(ROOT.length + 1);
+  for (const hit of scanText(text, variants)) {
+    const key = `${rel}\u0000${hit.label}`;
+    const set = readUnion.get(key) ?? new Set();
+    for (const f of variants.get(hit.label) ?? []) if (!hit.missing.includes(f)) set.add(f);
+    readUnion.set(key, set);
+  }
+}
+
 const findings = [];
-for (const file of sourceFiles()) {
+for (const file of files) {
   let text;
   try {
     text = readFileSync(file, "utf8");
@@ -344,7 +527,17 @@ for (const file of sourceFiles()) {
     // Suppressed only when EVERY missing field was knowingly skipped. A new
     // field on the variant is in no entry, so the site fires again.
     const covered = ACKNOWLEDGED.some(
-      (a) => a.file === rel && a.label === hit.label && hit.missing.every((m) => a.skipped.includes(m)),
+      (a) =>
+        a.file === rel &&
+        a.label === hit.label &&
+        hit.missing.every(
+          (m) =>
+            a.skipped.includes(m) &&
+            // `coveredElsewhere` entries claim the variant is SPLIT across
+            // blocks, so the guard checks that claim rather than taking it.
+            (a.coveredElsewhere !== true ||
+              (readUnion.get(`${rel}\u0000${hit.label}`)?.has(m) ?? false)),
+        ),
     );
     if (covered) continue;
     findings.push({ file: rel, ...hit });

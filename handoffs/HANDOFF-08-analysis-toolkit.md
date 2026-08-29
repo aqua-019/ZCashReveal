@@ -223,7 +223,17 @@ GATE COMMANDS, all Executed and green on cf69427:
     since 67 + 368 + 38 + 131 + 454 = 1058. It is now in
     `check-finding-sites.mjs`'s register as R4-COUNT so it cannot go stale a
     fourth time.
-    content 67 - web 368 - zebra-rpc 38 - gateway 128 - indexer 445 + 1 skipped
+    content 67 - web 368 - zebra-rpc 38 - gateway 131 - indexer 454 + 1 skipped
+    AND THE NUMBER NEEDS A DATABASE. With Postgres down the same command
+    measures 991 passed / 69 skipped, because 61 indexer and 7 gateway tests
+    gate themselves on a reachable server. Observed in this round when the
+    container's test Postgres had stopped. A later session reporting 991 has not
+    regressed; it is missing a database, and this line is the only place that
+    says so.
+    (this breakdown read 128 and 445, summing to 1047 - the exact stale total -
+    two lines under the paragraph correcting it, inside the commit that
+    mechanised a guard against half-landed corrections. R4-COUNT now checks the
+    components, not just the total.)
   pnpm typecheck  10/10      pnpm lint  0
   pnpm --filter @zcashreveal/content validate  OK
   pnpm check      seven guards OK (two added by round 4)
@@ -340,7 +350,18 @@ GATE ROUNDS: 2 (the second incomplete) - fingerprints (file - rule - severity)
     check-audit-consumers.mjs (the tree)
       - `exitZat` published on every conservation record and rendered by
         NOTHING. Section 3.11 bounds exits; the panel stated the deposit side
-        only. THE ONE SUBSTANTIVE DEFECT ROUND 4 FOUND IN SHIPPED CODE.
+        only. The one defect of substance round 4 turned up in code already
+        shipped - and the claim that a READER saw it was overstated, corrected
+        by the gate lens on the guard commit: `parsers.ts` coerces an unknown
+        record into an inert `time_window` and nothing in that app produces a
+        conservation record, so the arm is unreachable there today. The
+        record-to-render seam was wrong; no page was.
+
+        THE GUARD CAUGHT THIS PARAGRAPH. The first correction written here
+        restated the overstated phrase while disclaiming it, and
+        `check-finding-sites.mjs` reported the site still open - before the
+        commit, which is the first time in four rounds that a half-landed
+        correction was stopped rather than recorded.
       - six further partial reads, all one-line prose summaries, acknowledged
         with their skipped field lists rather than silenced
     check-finding-sites.mjs (its own first runs)

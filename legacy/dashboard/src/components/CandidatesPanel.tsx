@@ -288,9 +288,20 @@ function filterParams(f: FilterApplication): string {
       // the deposit side only. `check-audit-consumers.mjs` surfaced it on its
       // first tree-wide run: `exitZat` was on the record, published by the
       // estimator, and rendered by nothing. The two differ for every inexact
-      // match, so a reader was being shown the side the law does not bound.
+      // match, so this line stated the side the law does not bound.
+      //
+      // NO READER REACHED IT, AND THE FIRST VERSION OF THIS COMMENT SAID ONE
+      // WAS. `parsers.ts` coerces any record it does not know - including
+      // `conservation` - into an inert `time_window`, and nothing in this app
+      // produces a conservation record at all, so the arm is unreachable here
+      // today. What was wrong is the record-to-render seam, not a page anyone
+      // saw. The overstatement is recorded because "the one substantive defect
+      // in shipped code" was the claim round 4 led with.
       const exits = Number(f.params.exitZat) / 100_000_000;
-      return `${claimed.toFixed(4)} in, ${exits.toFixed(4)} out of ${balance.toFixed(4)} ZEC · ${dropped} match${dropped === 1 ? "" : "es"} refused`;
+      // "out of" IS THE RATIO IDIOM, so "11.9998 out of 500.0000" reads as a
+      // fraction of the balance. The previous string could not be misread that
+      // way, and a fix that garden-paths its reader is not an improvement.
+      return `in ${claimed.toFixed(4)}, out ${exits.toFixed(4)}, against a pool of ${balance.toFixed(4)} ZEC · ${dropped} match${dropped === 1 ? "" : "es"} refused`;
     }
     default:
       return assertNever(f);
