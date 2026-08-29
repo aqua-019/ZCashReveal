@@ -3474,8 +3474,12 @@ statements, and they need separating because two of them are corrections to L2.
 
 THE RE-GATE. 1058 passed, 1 skipped, rc=0 - content 67, zebra-rpc 38, web 368, gateway 131,
 indexer 454/1. L2's 1058 for current main is exactly right, and this handoff adds none of
-it: the +22 over the pre-#40 1036 is #42's, and `git diff origin/main...HEAD` over test paths
-touches four files with no added `it(`, `test(` or `describe(` in the diff. typecheck 10/10,
+it. CORRECTED IN THIS SESSION'S OWN BLOCK BEFORE THE PR MERGED, which is not a rewrite of an
+earlier one: the +22 over the pre-#40 1036 is #40's and #41's, which b8264c8 had already
+brought onto this branch, NOT #42's. #42 added no vitest test - fourteen files, not one of
+them a `.test.ts`; what it shipped is two guard scripts, so merging it moved the guard count
+8 -> 10 and left the test count alone. `git diff origin/main...HEAD` over test paths touches
+four files with no added `it(`, `test(` or `describe(` in the diff. typecheck 10/10,
 lint clean, content validate OK, pnpm check ten guards rc=0, pnpm build 7/7 with 0 CACHED -
 forced, because after a merge Turbo had five of seven cached and `pnpm build` is on this list
 for the single reason that it is the only one running `next build`.

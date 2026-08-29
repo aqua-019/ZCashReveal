@@ -315,8 +315,16 @@ EVIDENCE (per §5 assertion: pass transcript + fail transcript, provenance)
       command that runs `next build`, which is what HANDOFF-07 shipped past. A cached
       pass is not that measurement.
 
-      THE +22 IS ALL #42's AND THIS HANDOFF STILL ADDS NO TEST. zebra-rpc +3,
-      gateway +4, indexer +15. Executed rather than assumed:
+      THE +22 IS #40's AND #41's, NOT #42's, AND THIS HANDOFF STILL ADDS NO
+      TEST. Corrected here after being written the other way: #42 added no vitest
+      test at all. `git diff --name-only 9393100 4ae0796` lists fourteen files and
+      not one is a `.test.ts` - what #42 shipped is two dependency-free guard
+      SCRIPTS with their own self-tests, which is why merging it moved the guard
+      count 8 -> 10 and left the test count where it was. The +22 over the pre-#40
+      1036 is HANDOFF-08's rounds 2 and 3 (#40, #41), which this branch already
+      carried before today's merge via b8264c8. zebra-rpc +3, gateway +4,
+      indexer +15. That this handoff adds none of it is executed rather than
+      assumed:
       `git diff origin/main...HEAD -- '*test*' '*spec*'` touches four files and
       grepping the diff for added `it(` / `test(` / `describe(` returns nothing. The
       four are isolation infrastructure - test/global-setup.ts, vitest.config.ts,
