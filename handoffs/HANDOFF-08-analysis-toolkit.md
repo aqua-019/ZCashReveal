@@ -1,7 +1,7 @@
 ---
 handoff: 08
 title: Indexer analysis toolkit: echo, clustering, labels, posterior, taint (+ golden cases)
-status: in-progress
+status: shipped
 branch: the session-designated branch (name it `feat/v2-08-analysis-toolkit` if you may choose)
 track: Data
 depends_on: 06
@@ -128,8 +128,14 @@ DIRECTORS SPAWNED (lead names each + spawn mode proven):
     commit as its own commit.
   Gate round 3, one read-only lens on 23257e4, the round-2 fix commit, for
     the same reason. RETURNED AFTER PR #40 MERGED, so its 13 findings were
-    live on main; they land as a SECOND follow-up PR off 09b9e9c, because a
-    merged PR is finished and cannot carry new work.
+    live on main; they landed as a second follow-up, PR #41.
+  Gate round 4 is NOT a review pass and spawned no lenses for the sweep
+    itself: L2 ruled that round 3 did not clear LEDGER-07 Q6's bar and that
+    the instrument changes to a guard. Its finding list is the output of
+    `check-audit-consumers.mjs` and `check-finding-sites.mjs` run over the
+    whole tree. One lens reviews the guard commit as its own commit, which
+    the contract still requires - and requires more here than usual, since
+    three of the six defects round 4 found were in the guards themselves.
 
 FILES (created / modified / moved): 37 files, +1615 / -243 against 4386e98.
   CREATED
@@ -320,6 +326,38 @@ GATE ROUNDS: 2 (the second incomplete) - fingerprints (file - rule - severity)
   that repeated the error it was correcting, about a named company. Three
   sessions is a pattern; four is the rule this project already wrote down.
 
+  ROUND 4, MECHANICAL. Not a review: two guards, run over the whole tree, and
+    their output is the list. What they returned on first run:
+    check-audit-consumers.mjs (its OWN self-test, first run)
+      - `head.matchAll(text)` written backwards behind a `? :`   - the scan
+        found no switches and would have called the tree clean having looked
+        at nothing
+      - a field named in a COMMENT counted as a field READ, so the docblock
+        explaining the defect read as evidence of its fix
+      - the rule as commissioned ("every renderer reads every field") fails
+        `filterShort`, which returns a static label and correctly reads
+        nothing; narrowed to "any implies every", stated not taken silently
+    check-audit-consumers.mjs (the tree)
+      - `exitZat` published on every conservation record and rendered by
+        NOTHING. Section 3.11 bounds exits; the panel stated the deposit side
+        only. THE ONE SUBSTANTIVE DEFECT ROUND 4 FOUND IN SHIPPED CODE.
+      - six further partial reads, all one-line prose summaries, acknowledged
+        with their skipped field lists rather than silenced
+    check-finding-sites.mjs (its own first runs)
+      - reported the LEDGER as an open site: the ledger QUOTES a finding in
+        order to record it
+      - reported F-41-1's two code sites CLOSED while both carried the
+        defect - the sentence wraps across four comment lines
+      - a negative pattern cannot tell an assertion from an explanation of
+        one; the fix for F-41-1 must say what was wrong, and the pattern
+        matched the correction as loudly as the defect
+    check-finding-sites.mjs (the tree)
+      - F-41-1 open at both code sites (L2's finding, reproduced by the guard
+        on its first working run, which is what fold 2 asked for)
+      - the section 7 count line, stale across two rounds
+      - the guard count itself, stale in three asserting places the moment
+        these two landed
+
   ROUND 3, the review of 23257e4, for the same reason. One lens, 13 findings,
     and the pattern held a third time:
     CandidatesPanel.tsx     - "Nothing was refused" when two were  - HIGH
@@ -363,6 +401,17 @@ GATE ROUNDS: 2 (the second incomplete) - fingerprints (file - rule - severity)
   it had none. What no round should find again is another A9: that shape - an
   assertion quantifying over an aggregate and a test checking an element - is
   now a rule in CLAUDE.md rather than something a reviewer must notice.
+
+  H1's FIX SHIPS WITH NO FAIL-SIDE TRANSCRIPT, AND CANNOT HAVE ONE.
+  `legacy/dashboard` has no `test` script - dev, build, preview, typecheck,
+  clean - so nothing asserts the rendered string and nothing can without
+  adding a runner to a package retired at the HANDOFF-11 cutover. That
+  violates this project's rule that every fix has a fail side, and it is
+  stated here rather than left to be discovered. `check-audit-consumers.mjs`
+  is the compensating control: a static guard needs no runner and covers
+  exactly the gap the missing runner leaves. It is a weaker instrument than a
+  test - it proves the fields are READ, not that the sentence is RIGHT - and
+  that is the honest limit of it.
 
   THE SECOND EXTRAPOLATION WAS HALF RIGHT, WHICH IS BETTER THAN THE FIRST AND
   STILL NOT GOOD. It named the sites correctly - both HIGHs and four of the
