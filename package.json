@@ -12,7 +12,7 @@
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rm -rf node_modules",
     "test": "turbo run test",
-    "check": "./scripts/check-no-emoji.sh && node scripts/check-vercel-config.mjs && node scripts/check-redis-safety.mjs && node scripts/check-pool-union.mjs && node scripts/check-corpus-citations.mjs && node scripts/check-compose.mjs && node scripts/check-zebrad-config.mjs && node scripts/check-infra-docs.mjs"
+    "check": "./scripts/check-no-emoji.sh && node scripts/check-vercel-config.mjs && node scripts/check-redis-safety.mjs && node scripts/check-pool-union.mjs && node scripts/check-corpus-citations.mjs && node scripts/check-audit-consumers.mjs && node scripts/check-finding-sites.mjs && node scripts/check-compose.mjs && node scripts/check-zebrad-config.mjs && node scripts/check-infra-docs.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

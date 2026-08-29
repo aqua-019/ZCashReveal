@@ -153,13 +153,24 @@ module says about everything.
 ### A5 — subset-sum
 
 Shields of 30,000 and 20,000 ZEC against an unshield of 49,999.98 ZEC. Residual
-0.02 ZEC, which is 4 × 10⁻⁷ relative and **6.25 times** the absolute allowance
-at `k = 2` — 2,000,000 zat against 320,000. Twelve is the ratio against the
-*unscaled* `FEE_TOLERANCE_ZAT`, and the absolute term scales with `k`; the same
-error stood in `echo.ts` and was corrected there one gate round before it was
-corrected here, which is the split LEDGER-03 Q3 rates HIGH. Either way it is
-why `subsetSumTolerance` takes the looser of the absolute and relative rules
-rather than one of them.
+0.02 ZEC, which is 4 × 10⁻⁷ relative and, against the two different denominators
+this rule has:
+
+| against | value | ratio |
+|---|---|---|
+| the unscaled `FEE_TOLERANCE_ZAT` | 160,000 zat | **12.5 times** |
+| the absolute allowance at `k = 2` | 320,000 zat | **6.25 times** |
+
+Both are given because this sentence has been wrong in both directions. It
+originally named the wrong denominator AND a figure that is not the unscaled
+ratio either; a correction then fixed the denominator here while leaving
+`echo.ts` carrying the same figure forward as though it had been the right
+answer to the other question. It was the answer to neither, and the old figure
+is deliberately not reproduced in this paragraph — a correction that quotes the
+wrong number verbatim hands a skimming reader the error in the same breath as
+the fix, and `check-finding-sites.mjs` reads it as an open site for the same
+reason. Either way this is why `subsetSumTolerance` takes the looser of the
+absolute and relative rules rather than one of them.
 
 Graded `LOW` on loose timing and `MEDIUM` when the gap is under an hour **and**
 the split is two, per §3.4 — and, in this implementation, **and** the split is
