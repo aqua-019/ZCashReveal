@@ -107,6 +107,32 @@ jobs:
       - name: Corpus citations (no citation points at nothing)
         run: node scripts/check-corpus-citations.mjs
 
+      # HANDOFF-10's three. Dependency-free node, like the five above, so they
+      # keep the same position: a PR whose build breaks still gets their verdict.
+      #
+      # The compose one matters most of the three. It proves that the managed
+      # Redis TCP URL reaches the publisher service and nothing else, reading the
+      # variable NAMES out of docs/2.0/SNAPSHOT.md section 3 rather than from a
+      # list retyped into the script - because a retyped list is how this
+      # repository came to state three variable names that Vercel injects under
+      # none of them, in thirteen places.
+      - name: Compose (healthchecks, no literal secrets, managed-store scope)
+        run: node scripts/check-compose.mjs
+
+      # Every Zebra config section is serde(deny_unknown_fields), so a misspelled
+      # key is a node that starts, exits, and is restarted forever with the
+      # reason in a log nobody is reading yet. This also cross-checks the health
+      # port, state directory and config path against docker-compose.yml, each of
+      # which is correct alone and wrong together if one moves.
+      - name: Zebra config (parses, known keys, agrees with compose)
+        run: node scripts/check-zebrad-config.mjs
+
+      # The runbook is executed by a human against a production box, so a section
+      # that reads as complete and carries no command is a real failure. This
+      # also asserts that DEPLOY-2.0.md names every variable apps/web reads.
+      - name: Infra docs (runbook commands, deploy variables)
+        run: node scripts/check-infra-docs.mjs
+
       - name: Install
         run: pnpm install --frozen-lockfile
 

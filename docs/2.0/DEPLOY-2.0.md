@@ -1,10 +1,12 @@
 # DEPLOY-2.0 — the `zecreveal` Vercel project
 
 > **Scope of this version.** HANDOFF-01 writes the front-end half: the new Vercel project for
-> `apps/web`, its build settings, and its environment variables. HANDOFF-10 extends this same
-> file with the VPS half — zebrad, the indexer, the gateway, Postgres, the VPS Redis and the
-> Cloudflare tunnel that terminates `wss://`. Until HANDOFF-10 lands, treat everything about the
-> origin server as unspecified here.
+> `apps/web`, its build settings, and its environment variables. **HANDOFF-10 has landed, so the
+> other half now exists and is a separate document:** zebrad, the indexer, the gateway, Postgres,
+> the VPS Redis and the Cloudflare tunnel that terminates `wss://` are all in
+> [`RUNBOOK-VPS.md`](RUNBOOK-VPS.md). This file stops at the Vercel project; that one owns the
+> box. Where they meet - the API origin the browser talks to, and the shared managed Redis - is
+> section 9 below.
 >
 > `zecreveal` is now the ONLY Vercel project on the account. The operator deleted both v0.2
 > projects on 23 August 2026 - `z-cash-reveal-dashboard` (the orphan pointing at a path that no
@@ -334,3 +336,59 @@ Two consequences worth stating, because three handoffs of ledger reasoned around
 6. Redeploy `zecreveal`, then walk the section 5 checklist. The first build failed with
    `NEXT_OUTPUT_DIR_MISSING`; the cause is fixed in code and a fresh build is needed to prove it.
 7. Promote to Production by hand once the checklist passes.
+
+---
+
+## 9. Where Vercel meets the VPS (HANDOFF-10)
+
+The two halves touch in exactly three places. Everything else is independent.
+
+### 9.1 The API origin
+
+`NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` point at the **tunnel hostname**, never at
+the VPS itself. There is no origin address to point at: `docker-compose.yml` publishes no
+host port for the gateway, and cloudflared dials out. So the value is the hostname routed
+in [`RUNBOOK-VPS.md`](RUNBOOK-VPS.md) section 6, for example
+`https://api.zecreveal.example` and `wss://api.zecreveal.example`.
+
+Two consequences worth stating once rather than rediscovering:
+
+* **`GATEWAY_CORS_ORIGIN` on the VPS must name the Vercel origin**, or every browser
+  request from the deployed site is refused by the gateway while `curl` from a terminal
+  works perfectly. That variable lives in the VPS `.env`, not on Vercel.
+* **`GATEWAY_TRUSTED_PROXIES` must name the tunnel container**, or the rate limiter puts
+  every reader in the world into one bucket. Runbook section 6.1 has the command that reads
+  the address, and it must be re-read after any `docker compose down`.
+
+### 9.2 The managed Redis, from both sides
+
+The store is **shared with an unrelated production project** ([`SNAPSHOT.md`](SNAPSHOT.md)).
+Two processes touch it and they use different credentials, deliberately:
+
+| Side | Reads or writes | Variable |
+|---|---|---|
+| `apps/web` on Vercel | reads | `SNAPSHOT_REDIS_KV_REST_API_URL` + `SNAPSHOT_REDIS_KV_REST_API_READ_ONLY_TOKEN` |
+| `apps/publisher` on the VPS | writes | `SNAPSHOT_REDIS_KV_URL` or `SNAPSHOT_REDIS_REDIS_URL` (TCP) |
+
+Vercel injects the first pair automatically through the connected store; **nobody sets them
+by hand**, because the integration rotates its own values and a hand-made copy does not
+rotate with it. The operator pastes a TCP URL into the VPS `.env` by hand, under the same
+name it carried in the Vercel UI so that a copied value never lands under a name this
+repository invented.
+
+`docker-compose.yml` passes the TCP URL to the `publisher` service and to no other, and
+`scripts/check-compose.mjs` proves it on every run - reading the names out of
+[`SNAPSHOT.md`](SNAPSHOT.md) section 3 rather than from a list retyped into the script.
+
+### 9.3 Branch protection and the path-filtered e2e workflow
+
+`.github/workflows/e2e.yml` runs the Playwright suite, and it is filtered to PRs that touch
+`apps/web/**`, `packages/content/**` or `packages/zec-types/**`.
+
+**Do not add it to the required-checks list.** GitHub reports a workflow that did not run as
+"expected - waiting for status" rather than as passing, so requiring a path-filtered check
+blocks every PR outside its paths, forever, with no failing job to point at. The required
+check stays `CI / typecheck, lint, test` from `ci.yml`, which runs on every pull request.
+
+This is written down here rather than left to be discovered because the failure looks like a
+GitHub outage rather than like a configuration choice.
