@@ -1,8 +1,8 @@
 ---
 handoff: 10
 title: Infra: Zebra 6.2.x compose, VPS runbook, tunnel, DEPLOY-2.0
-status: open
-branch: the session-designated branch (name it `feat/v2-10-infra` if you may choose)
+status: in-progress
+branch: `claude/handoff-08-completion-wngbjj` (session-designated; the harness names branches)
 track: Infra
 depends_on: 00
 written_by: L2 (Cowork) · 22 Aug 2026
