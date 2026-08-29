@@ -2662,3 +2662,173 @@ OPERATOR NOTE (Aqua): `main` currently carries the conservation defect. The foll
 optional cleanup; it is the fix for a HIGH finding that is live. Nothing downstream should capture
 golden cases or build on the analysis toolkit until it lands.
 ```
+
+---
+
+## HANDOFF-08 (Indexer analysis toolkit: echo, clustering, labels, posterior, taint) - L3 session, 29 Aug 2026
+
+Two PRs. [#39](https://github.com/aqua-019/ZCashReveal/pull/39) merged at `4386e98` while gate round 1 was
+still running and carries the toolkit WITHOUT its fixes; [#40](https://github.com/aqua-019/ZCashReveal/pull/40)
+is the follow-up and carries gate round 1, the conservation law and this write-back. Same handoff, one ledger
+entry, which is this one.
+
+```
+QUESTIONS (for the operator / L2):
+
+ Q1. TWO OF SECTION 1.5's FOUR CONSENSUS LABEL FAMILIES ARE NOT IN THIS
+     REPOSITORY, and are refused rather than invented. The ZIP 1014/1015/1016
+     funding-stream recipient addresses and the Founders' Reward addresses: the
+     repo holds every percentage and every activation height and not one
+     address. Both are named in `UNSOURCED_CONSENSUS_LABELS`, the same artefact
+     `fingerprint.ts` uses for the wallets whose deltas nobody can source.
+     Writing either from recall would have produced strings indistinguishable
+     from the sourced ones carrying `consensus`, the strongest label this site
+     issues. To close: the recipient addresses per height from the ZIPs or from
+     a node's consensus parameters (Zebra's funding-stream tables), and the
+     historic Founders' list from the original chainparams. A session cannot
+     fetch a ZIP - zips.z.cash is refused by the egress proxy with CONNECT
+     tunnel 403. Note ECC's and ZF's streams ENDED at NU6 (block 2,726,400), so
+     a complete implementation is historical for two of three recipients.
+
+ Q2. A8's STATED TOLERANCE IS NOT SATISFIABLE BY THE CORRECT ANSWER.
+     H(0.8, 0.1, 0.1) = 0.9219280948873623, which is 1.93e-3 from the stated
+     0.92 against a stated tolerance of 1e-3; N_eff = 1.8946457081379975, which
+     is 5.35e-3 from 1.9. The two halves of the assertion were written to
+     different precisions: 0.92 and 1.9 are two-figure roundings and 1e-3 is a
+     tolerance for three. Resolved by asserting the exact values at 15 digits -
+     strictly stronger than asked - and the rounded figures at the precision a
+     two-figure rounding implies. Neither wrong repair was taken: not loosening
+     the tolerance silently, not "fixing" the module until it emits 0.92, which
+     would mean breaking the entropy formula to satisfy a literal.
+
+     AND A CORRECTION TO THIS QUESTION AS IT WAS FIRST WRITTEN, because it is
+     an instance of its own subject. This session first recorded A8 as "the
+     fifth section 5 assertion not to survive literal execution". THAT ORDINAL
+     IS WRONG AND THE LEDGER ALREADY SAID SO: LEDGER-03 records "the fourth
+     section 5 assertion in three handoffs that does not survive literal
+     execution", and HANDOFF-04's A3 probe, HANDOFF-06's Q4 test and
+     HANDOFF-07's A4 unit collision each came after it. A running tally nobody
+     can recount from where it sits decays silently, and here it decayed in the
+     direction that UNDERSTATES the pattern. The ordinal is struck rather than
+     re-counted; `analysis-purity.test.ts` shows the form that holds, which
+     names its three predecessors instead of counting them.
+
+ Q3. THE COINBASE NARROWING IS AN INFERENCE BEYOND THE FOLD'S WORDING AND
+     NEEDS A RULING. LEDGER-07 fold 2 gave the wide rule as "a deposit requires
+     a transparent input; a withdrawal requires a transparent output".
+     `round-trip.ts` implements the source half as `vin.some(v => !v.coinbase)`
+     - a coinbase input has no prior owner, so it is not somebody's transparent
+     funds entering the pool. The gateway's `shield` test did not, so a ZIP 213
+     coinbase paying a shielded recipient published `class: "shield"`,
+     `flow: "t to z"`, asserting a transparent sender for a transaction that
+     has none. One rule with two answers across two files, which HANDOFF-06's
+     A9 rules out. Aligned here, so such a transaction falls to the `shielded`
+     residual. TWO THINGS TO RULE ON: whether "transparent input" in the fold
+     was meant to exclude coinbase (this session read it as yes), and whether
+     `shielded` is the right destination or whether the row-class enum wants a
+     `coinbase` member - which would be another consumer sweep, so it is asked
+     rather than done.
+
+ Q4. `apps/web/src/lib/api/stream.ts`'s `CLASSES` SET IS A HAND-COPIED
+     DUPLICATE OF THE ROW-CLASS ENUM WITH NO COMPILE-TIME LINK, and it has now
+     had to be taught two members in two handoffs. When it lags, `asRow`
+     rejects the row and `asView` returns null for the WHOLE snapshot - one
+     unrecognised transaction empties /track, and the failure looks like a dead
+     feed rather than a schema drift. The named fix is to derive it from
+     `mempoolRowSchema` (`mempoolRowSchema.shape.class.options`) so the two
+     cannot diverge. Not done here: it is a change to the live snapshot parser
+     and this handoff had no assertion covering it, so it is proposed rather
+     than taken.
+
+ Q5. SECTION 1.3 AND SECTION 1.4 DISAGREE ABOUT WHICH OUTPUT IS CHANGE, ON
+     1.4's OWN WORKED CASE, AND THIS SESSION ORDERED THEM. 1.3: "the fresh one
+     is change". 1.4: an exchange withdrawal is "one payout + change back to
+     the *same* address", with t1PKBiv7 on 24 Dec 2025 - 120,552.69 in,
+     29,999.99 out, 90,552.70 back. There the change is the REUSED output.
+     `guessChange` implemented 1.3 literally and therefore named the payout as
+     change, while `detectExchangeShapes` four functions away named the other
+     one; the module answered one transaction two contradictory ways and the
+     test pinned the wrong answer. This is not cosmetic: a change output
+     extends the cluster with weight p_change, so naming the payout as change
+     soft-merges the WITHDRAWING CUSTOMER's address into the exchange's
+     cluster - a claim that two different parties are one, about a named
+     exchange's counterparty. Ordered 1.4 first, and that branch extends no
+     cluster because the address is already a member by 1.2. RULING WANTED on
+     the ordering, and on whether section 1.3 should be amended in
+     TRACKING-MATH rather than only ordered beneath 1.4 in code.
+
+ Q6. THE LOOP QUESTION, WHICH IS L2's AND IS RECORDED HERE AS ASKED. PR #39
+     opened before the gate finished, was marked ready for review by the
+     operator, was read by L2 as a finished branch and verified as one, and was
+     merged while four lenses were still out. Every tier behaved reasonably in
+     isolation. L2's finding F-08-1 said "the write-back did not happen", which
+     was true of the tree and wrong about the cause: the write-back had not
+     happened because the session was not finished, and `status: in-progress`
+     in the front matter said so correctly. The loop has no signal for "this
+     branch is not ready to be read yet" that survives contact with a green CI
+     badge. L2 proposes two halves: the PR stays a DRAFT until the write-back
+     commit lands, and L2 declines to verify any branch whose handoff front
+     matter is not `status: shipped`. Both are needed - the first is a signal,
+     the second is L2 agreeing to read it. PR #40 is opened as a draft as the
+     first instance of the first half.
+
+     L3's ADDITION, from having been the tier that was read too early: the
+     draft flag fixes WHEN a branch is read and not WHAT the reader checks.
+     A9 had a property test, 300 runs, a fail-side and a green badge - every
+     surface signal a reader consults - and the condition could not fail.
+     LEDGER-08 fold 3 is the half that addresses the second, and it is now in
+     CLAUDE.md's gate contract: a property test is verified by executing the
+     concrete scenario it exists to forbid, against the pre-fix code.
+
+INFERRED (non-empty inferences a worker made):
+  - That section 3.4's four bullets are four rules despite a heading saying
+    three. Implemented four; `analysis.ts` quotes the heading verbatim so the
+    two files do not silently disagree.
+  - That "round" in section 1.3 means a whole number of ZEC or better. Recorded
+    in `isRoundAmount`'s docblock. 29,999.99 is therefore NOT round, which is
+    the answer that keeps the heuristic off the wrong output on 1.4's example.
+  - That a TEX label's provenance is weaker than its rank: cited to the ZIP
+    publisher the corpus registers, at `confidence: "med"`, with the docblock
+    saying the ZIP text has not been read in this repository.
+  - That greedy-by-grade is the available proxy for section 4's "greedy by
+    weight" in conservation.ts, grade being what the echo emits.
+
+NOT-MATCHED (patterns handed over that did not apply):
+  - Deliverable 4's warning that "a consumer with a `default:` arm is not
+    thereby swept" did not fire: no row-class consumer had a silent default.
+    The one that bit was the opposite shape - `stream.ts`'s hand-copied set,
+    which REJECTS rather than absorbing, and takes the whole snapshot with it.
+  - LEDGER-06 Q3's "dropping a NOT NULL runs every branch the constraint kept
+    unreachable" had no migration to apply to here. Its generalisation did
+    apply, twice: `WalletGuess` NARROWING (YWALLET, EDGE) and the row-class
+    enum WIDENING both needed the same consumer enumeration.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+  - A8's tolerance, Q2 above.
+  - Section 3.4's "three tolerances" heading over four bullets.
+  - A11's fail side named MEDIUM/FEE_TOLERANT; the legs carry the same amount,
+    so the link is HIGH/EXACT. The stated grade would have been satisfied by an
+    index producing the WRONG link at the right confidence.
+  - A13's fail side said the row falls to `shielded`; it falls to `shield`,
+    because `direction` is DEPOSIT whenever any pool leg is negative. The
+    assertion described the milder failure; the real one publishes
+    `flow: "t to z"` for a transaction whose transparent side is one end of
+    three - which is exactly why the `mixed` arm goes BEFORE shield/deshield.
+  - A7's "an unknown address -> `behaviour`/none" reads as a choice. It is
+    none: a behaviour-tier label still has to have been MADE by someone looking
+    at behaviour, and manufacturing one would put a label on every address on
+    the chain.
+
+GATE ROUND COUNTS: round 1 four lenses, ~65 findings, 14 changed behaviour.
+  Round 2 (the fix commit reviewed as its own commit) two lenses, NEITHER
+  RETURNED at write-back; reported as work rather than as a clean round.
+  Extrapolation stated in section 7 rather than convergence claimed.
+
+DEFERRED ASSUMPTIONS:
+  - epsilon, tau and p_change uncalibrated on Zcash; HANDOFF-10's captured
+    blocks are the first corpus that could calibrate them.
+  - `Cand_0` in the A4 fixture is a stand-in, not a measurement.
+  - The ZIP 320 encoding rests on recall throughout the tree, including
+    `apps/gateway/src/address.ts`, which decodes it.
+  - The standing `IRONWOOD_HEIGHTS_REST_ON_A_DRAFT_ZIP` exposure is unchanged.
+```
