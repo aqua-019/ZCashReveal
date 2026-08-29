@@ -2562,3 +2562,103 @@ but the mainnet height now has a second, non-ZIP source. The standing DEFERRED e
 rather than closed - the testnet height, `poolsActiveAt` and `orchardExitOnlyFrom` are not
 covered by that corroboration, and HANDOFF-10's captured fixture is still what closes it.
 ```
+
+---
+
+## L2 CORRECTION — HANDOFF-08, A9 (Cowork, 29 Aug 2026)
+
+Arrived mid-session in the HANDOFF-08 session, after PR #39 had been merged and while gate
+round 1 was still running. Appended verbatim.
+
+**On placement.** The instruction was to append it "above the L2 RESOLUTION you were already
+given". The resolution this session was given is HANDOFF-07's, dated 24 Aug and already in the
+ledger; inserting a 29 Aug block above it would rewrite an earlier block, which the revolution
+protocol forbids in as many words ("append-only - never rewrite an earlier block, including
+L2's"), and would put the ledger out of order without correcting anything, since HANDOFF-07's
+resolution is not what this corrects. It is therefore appended here, where it sits ABOVE
+HANDOFF-08's own §8 block and above any future L2 RESOLUTION for HANDOFF-08 - which is the
+position the instruction's purpose asks for. Move it if that reading is wrong; the block itself
+is untouched.
+
+```
+L2 CORRECTION - HANDOFF-08, A9 (Cowork, 29 Aug 2026)
+
+L2's HANDOFF-08 verification said "every one of the thirteen assertions holds". THAT SENTENCE IS
+FALSE AND MUST NOT ENTER THE LEDGER UNCORRECTED. A9 did not hold. It was a tautology, this
+session found it, and L2 did not - for a reason worth recording, because it is the exact failure
+this project's verification discipline exists to prevent.
+
+L2 VERIFIED A9 BY READING IT. Twelve of the thirteen assertions got a mutation probe: A11's wide
+rule reverted, A12 forced to emit nothing, A13's `mixed` arm removed, the zero-deposit guard
+re-admitted, A3's version ceiling raised, A5's proof constant perturbed. A9 got `grep numRuns`
+(300, as specified) and a read of its `describe` block, and was passed on that basis. A property
+test's run count is not evidence that the property is the right one. Breaking twelve things and
+reading the thirteenth is how the thirteenth is the one that was wrong.
+
+THE VIOLATION, REPRODUCED BY L2 ON `main` AT 4386e98 rather than relayed from this session's
+report. One 100 ZEC Orchard deposit, three 100 ZEC withdrawals in window:
+
+    matches = 3   grades = HIGH, HIGH, HIGH
+    pool balance   = 100 ZEC
+    sum of claimed = 300 ZEC
+    AssertionError: expected 30000000000 to be less than or equal to 10000000000
+
+Three separate HIGH-confidence links, each claiming the same single deposit, summing to three
+times the value the pool ever held. TRACKING-MATH section 3.11 says "for every pool and window,
+sum estimated exits <= Bal^p", and this is a direct contradiction of it, live on main.
+
+WHY A9 COULD NOT SEE IT, precisely - the shape is general and worth naming. A9's property tests
+each match individually:
+
+    if (m.depositAmountZat > balance) return false;
+
+where `balance` is the sum of ALL deposits in the window. One match's claim can never exceed the
+sum of everything it could have been drawn from, so the condition is vacuously true for every
+input fast-check can generate. Three hundred runs of a condition that cannot fail is three
+hundred runs of nothing. THE ASSERTION SAYS SIGMA AND THE TEST NEVER SUMS. A property test that
+checks each element where the property quantifies over the aggregate is the tautology shape, and
+it is invisible in a green run by construction: the test is not weak, it is measuring a different
+property that happens to be true.
+
+This is the fourth member of a family this project keeps finding: `expiryheight` casing
+(HANDOFF-05) made every fingerprint inert; `tx.feeZat` (HANDOFF-06) was `0n` for every
+transaction ever analysed; the "unknown fee" test that passed `0n` (HANDOFF-06 Q4) pinned the
+conflation rather than the behaviour; and now A9. Every one of them was green. Green is the
+symptom, not the reassurance.
+
+FOLDS - into this handoff's follow-up commit.
+
+ 1. A9's replacement is verified by THE SCENARIO IT WAS WRITTEN TO FORBID, not by its run count:
+    the one-deposit/three-withdrawal case above becomes a named, non-property regression test
+    beside the property, asserting the SUM across all matches in the window against the pool
+    balance. A property test and a worked case are different instruments and this assertion needs
+    both - the case is what a later reader can check by eye.
+ 2. `conservation.ts` is the right move and its API should make the tautology unrepresentable:
+    the function that answers section 3.11 takes the SET of matches and the pool balance, so a
+    caller cannot ask the question one match at a time. If a per-match check is still wanted, it
+    gets a different name that does not claim to be conservation.
+ 3. `CLAUDE.md`, gate contract - add: a property test is verified by executing the concrete
+    scenario it exists to forbid, and by watching that scenario fail against the pre-fix code.
+    `numRuns` is a budget, not evidence. Cite A9: 300 runs of a condition that could not fail.
+ 4. `CLAUDE.md`, and this one is L2's rule about itself, recorded here because the ledger is where
+    this project keeps what it learned rather than who learned it: every section 5 assertion gets
+    a mutation, property tests included; an assertion verified by reading is an assertion not
+    verified. L2 broke twelve and read one, and the one it read is the one that was wrong.
+ 5. section 7 records that PR #39 was merged mid-gate, and section 8 asks the question that
+    follows from it - see below.
+
+FOR SECTION 8, THE QUESTION THIS RAISES ABOUT THE LOOP RATHER THAN THE CODE: the PR opened before
+the gate finished, was marked ready for review by the operator, was read by L2 as a finished
+branch and verified as one, and was merged while four lenses were still out. Every tier behaved
+reasonably in isolation. L2's finding F-08-1 said "the write-back did not happen", which was true
+of the tree and wrong about the cause - the write-back had not happened because the session was
+not finished, and `status: in-progress` in the front matter said so correctly. The loop has no
+signal for "this branch is not ready to be read yet" that survives contact with a green CI badge.
+Propose one: L2 suggests the PR stays a DRAFT until the write-back commit lands, and that L2
+declines to verify any branch whose handoff front matter is not `status: shipped`. Both halves are
+needed - the first is a signal, the second is L2 agreeing to read it.
+
+OPERATOR NOTE (Aqua): `main` currently carries the conservation defect. The follow-up PR is not
+optional cleanup; it is the fix for a HIGH finding that is live. Nothing downstream should capture
+golden cases or build on the analysis toolkit until it lands.
+```
