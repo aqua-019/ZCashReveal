@@ -379,6 +379,11 @@ export function orchardDrain(
   // this is a lookup rather than a rate. Ties on height are broken by timestamp
   // so the choice is deterministic for a caller who supplied two readings of one
   // block; the two balances disagreeing is the caller's defect, not this one's.
+  //
+  // Sorted in place on `readable`, which `filter` returned - this module's own
+  // array, not the caller's. The distinction is worth the line because an
+  // in-place sort one refactor away from the argument itself is exactly how the
+  // "no mutation of the input array" promise gets broken.
   const byHeight = readable.sort((a, b) => a.height - b.height || a.timeMs - b.timeMs);
   const current = byHeight[byHeight.length - 1]!;
 
