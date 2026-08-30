@@ -7,6 +7,7 @@ export * from "./zip317.js";
 export * from "./zip318.js";
 export * from "./analysis.js";
 export * from "./views.js";
+export * from "./snapshot.js";
 
 export type WsServerMessage =
   | { type: "hello"; version: string; tipHeight: number }

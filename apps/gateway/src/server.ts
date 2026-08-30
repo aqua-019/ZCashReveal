@@ -32,7 +32,8 @@ import { secretValues, trustProxyFor, type GatewayConfig } from "./config.js";
 import type { GatewayApp } from "./routes/deps.js";
 import { registerReadRoutes } from "./routes/index.js";
 import { toStatus } from "./routes/errors.js";
-import { WsBroker, snapshotFrame } from "./ws-broker.js";
+import { readSnapshotFile } from "./snapshot-source.js";
+import { WsBroker, snapshotFrame, snapshotV1Frame } from "./ws-broker.js";
 
 export type RedisFactory = (url: string, options?: RedisOptions) => Redis;
 
@@ -178,7 +179,39 @@ export async function buildServer(options: BuildServerOptions): Promise<BuiltSer
       if (!admitted) return;
       log.info({ clientCount: count }, "client connected");
 
+      /**
+       * The two frames a new client is given, in the order A9 fixes.
+       *
+       * THE `SnapshotV1` DOCUMENT GOES FIRST AND THE MEMPOOL SNAPSHOT SECOND,
+       * and the order is the assertion rather than an aesthetic. The first frame
+       * is what a page has to render with; the pool-level document is the one
+       * that makes a dashboard non-empty (plan section 4, decision 2), and the
+       * mempool table is a panel inside it. A client that got the mempool first
+       * would paint a table with no ledger behind it.
+       *
+       * ONE SEQUENCE, TWO INDEPENDENT FAILURES. They are awaited in order so the
+       * sends happen in order, and each has its own `try` so that a missing
+       * snapshot file does not cost the client its mempool frame, or the other
+       * way round. That is the same independence `docs/2.0/SNAPSHOT.md` section
+       * 8.5 requires of the publisher's sinks, for the same reason.
+       *
+       * NO PLACEHOLDER WHEN THERE IS NO SNAPSHOT. Sending an empty document
+       * would be the WebSocket version of the empty 200 that `routes/snapshot.ts`
+       * refuses: it would satisfy a client's snapshot source and stop it falling
+       * through. Nothing is sent, and the absence is logged with its reason.
+       */
       void (async () => {
+        try {
+          const read = await readSnapshotFile(cfg.SNAPSHOT_FILE);
+          if (read.ok) {
+            socket.send(JSON.stringify(snapshotV1Frame(read.snapshot)));
+          } else {
+            log.warn({ reason: read.reason }, "no snapshot frame to send on connect");
+          }
+        } catch (err) {
+          log.warn({ err }, "failed to send the snapshot frame");
+        }
+
         try {
           const reports = reader === null ? [] : await readLive(reader);
           socket.send(JSON.stringify(snapshotFrame(reports)));

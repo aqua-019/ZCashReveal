@@ -5,7 +5,8 @@
 //
 // TWO OF THOSE THREE ARE CHECKED HERE AND THE THIRD CANNOT EXIST. There are no
 // address-index keys in Zebra 6.2.3 - not under `[rpc]`, not under `[state]`,
-// not anywhere in `ZebradConfig` (zebrad/src/config.rs:54-95 at v6.2.3). The
+// not anywhere in `ZebradConfig` (zebrad/src/config.rs:54-95 at v6.2.3, and that
+// file is byte-identical at v6.3.0, the tag now pinned). The
 // address RPCs the gateway depends on are unconditional: `getaddressbalance`,
 // `getaddresstxids` and `getaddressutxos` are declared on the RPC trait at
 // zebra-rpc/src/methods.rs lines 232, 438 and 459. Nothing turns them on because
@@ -34,10 +35,17 @@ const CONFIG = "infra/zebrad/zebrad.toml";
 const COMPOSE = "docker-compose.yml";
 
 /**
- * The keys Zebra 6.2.3 accepts, for the sections this project writes.
+ * The keys Zebra accepts, for the sections this project writes.
  *
  * Read from the source at tag v6.2.3, file by file, and cited here so the next
- * reader can check rather than trust:
+ * reader can check rather than trust. THE PIN MOVED TO v6.3.0 (LEDGER-10 Q1) AND
+ * THIS LIST WAS RE-VERIFIED RATHER THAN ASSUMED FORWARD: every file below was
+ * fetched at both tags and diffed. `zebrad/src/config.rs` and all of
+ * [state] [rpc] [health] [tracing] [metrics] [notify] [mempool] [consensus]
+ * [mining] [zcashd_compat] are byte-identical; [network] differs by two entries
+ * added to the default DNS seeder list, which is a default VALUE and not a key.
+ * No key in this table was removed, renamed or gained a required sibling, so the
+ * list is correct at v6.3.0 for the same reason it was correct at v6.2.3.
  *
  *   [network]  zebra-network/src/config.rs
  *   [state]    zebra-state/src/config.rs
@@ -363,7 +371,7 @@ if (findings.length > 0) {
 
 const sections = [...tables.keys()].sort().join(", ");
 console.log(
-  `[zebrad-config] OK: ${CONFIG} parses, every key in [${sections}] is one Zebra 6.2.3 accepts, ` +
+  `[zebrad-config] OK: ${CONFIG} parses, every key in [${sections}] is one Zebra 6.3.0 accepts, ` +
     "[rpc] enable_cookie_auth = false, and the health port, state directory and config path all agree with " +
     `${COMPOSE} (parser self-tested in both directions).`,
 );

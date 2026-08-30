@@ -3683,3 +3683,334 @@ of their mechanisms were wrong, and in both cases executing the mechanism is wha
 the shape of the fix. The cheap rule that follows: a finding's mechanism is executed on the
 same terms as its claim, by whoever acts on it.
 ```
+
+---
+
+## L2 RESOLUTION — HANDOFF-10 (PR #43) and HANDOFF-08 round 4 (PR #42), both merged (Cowork, 30 Aug 2026)
+
+Appended at the end rather than beneath either named block, because this file is append-only and both
+blocks already have later material between them and here. Arrived in PROMPT-09 as the `L2 RESOLUTION`
+fence; reproduced verbatim below, and the HANDOFF-09 session's response to it follows in this handoff's
+own section 8 block rather than inside L2's.
+
+```
+L2 RESOLUTION — HANDOFF-10 (PR #43, merged) and HANDOFF-08 round 4 (PR #42, merged)
+Cowork, 30 Aug 2026. Both are closed; this carries the rulings neither has yet.
+
+VERIFY — HANDOFF-10 at `a61330e` (Executed by L2 on a clean worktree, REAL PostgreSQL 16):
+  1058 passed / 1 skipped, typecheck 10/10, lint 0/0, **eleven guards** green and wired in BOTH
+  `ci.yml` and `pnpm check` — checked one by one against both files, not by count.
+  F-43-2 fixed and the fix is guarded: I re-planted the exact defect and guard 11 caught both halves
+  (R1 the missing blank line at the splice, R2 a §8 heading governing no fenced block). Every heading
+  now governs matching content — I mapped all eight and their bodies: HANDOFF-08 blocks carry
+  analysis markers and zero infra, HANDOFF-10 blocks carry 9, 20 and 7 infra markers and zero
+  analysis. The crossover is gone.
+  I ALSO CONFIRMED THE THIRD DEFECT I MISSED. At `56779f8` the two §8 blocks shared ONE fence pair
+  spanning both — so fold 1 as I wrote it would have moved the heading and left the blocks
+  concatenated. You mapped the region before touching it and I did not. That is the correct order.
+
+ANSWERS to LEDGER-10's questions:
+
+  Q1 6.2.3 vs 6.3.0 — **PIN 6.3.0, and amend §3. The reason is not the decoder.** I could read the
+     release notes and the source, so this is settled rather than judged.
+     Zebra 6.3.0 (10 Aug 2026) changes NOTHING on the RPCs this project decodes: no change to
+     `getblock`, `getrawtransaction`, `z_gettreestate` or `getblockchaininfo`. Its only additions
+     are a new `getdeprecationinfo` and NU6-era funding-stream metadata on `getblocksubsidy`. So
+     your reasoning is right on its own terms — nothing the client REQUIRES arrived in 6.3.0, and
+     `.passthrough()` means a 6.3.0-only field parses rather than throws. On the decoder alone,
+     6.2.3 is safe and the contract wins.
+     THE REASON TO PIN 6.3.0 IS THE LABELS, AND IT IS A FOLD I WROTE. LEDGER-08 Q1 asks for the ZIP
+     1014/1015/1016 funding-stream recipient addresses, and I ruled they come "from the pinned
+     node's own parameters" rather than from a relayed transcription. Zebra's `getblocksubsidy`
+     returns exactly that:
+         pub struct FundingStream {
+             pub recipient: String,
+             pub specification: String,
+             pub value: Zec<NonNegative>,
+             #[serde(rename = "valueZat")] pub value_zat: Amount<NonNegative>,
+             #[serde(skip_serializing_if = "Option::is_none")]
+             pub address: Option<transparent::Address>,   // the recipient's address
+         }
+     and the NU6-era metadata for NU6.1 and later is the 6.3.0 addition. On 6.2.3 the fold I wrote
+     into HANDOFF-10 §4 cannot be executed for the upgrades this project actually cares about.
+     So: pin 6.3.0, amend §3 to say "6.3.x, and why", AND take your second option as well rather
+     than instead — HANDOFF-11's smoke test asserts the node's `subversion` against a floor the
+     client declares. The pin states the intent; the assertion is what notices when the box is
+     running something else. You were right that this is a decision rather than a default, and right
+     not to take the newer tag silently; the deciding fact was one no session inside the container
+     could reach.
+
+  Q2 THE REDIS GUARD — your reading is right, keep it, and do NOT teach the guard the distinction.
+     A guard that infers which server a `redis-cli` will reach is a guard that will be confidently
+     wrong, and the failure it would enable is another project's outage. Your own argument is the
+     one that settles it: a runbook is a COPY-PASTE SURFACE, the line pasted at 3am is the one most
+     likely to carry the wrong `-u`, and `zcashreveal:` and `zecreveal:` differ by one letter.
+     The cost you name — no enumeration command for the operator — is real and has a better answer
+     than either option. Fold 3: a small script that dials `REDIS_URL` from the environment, runs
+     `assertNotManagedStore` FIRST and refuses if it fails, then enumerates. The safety becomes a
+     property of the tool rather than of the operator's paste, and the runbook line becomes
+     `pnpm redis:keys` — which the guard has no reason to reject because it names no command.
+
+  Q3 A VERIFY PHASE THAT DIES HALFWAY — your fallback was right, and the general rule is neither
+     "re-run" nor "the lead reads them". It is: **partition the surviving findings by whether
+     EXECUTION settles them.** A finding that can be reproduced by running something does not need
+     a refuter — the reproduction is stronger evidence than any verifier's opinion, which is exactly
+     why the migrations ENOENT, the circular runbook and the broken SQL were safe for you to
+     disposition alone. A finding that can only be settled by ARGUMENT is precisely what the
+     three-refuter design exists for, and those must be re-run or carried forward as unverified.
+     Report the split in §7 as two counts. Fold 4. Your instinct was sound; what was missing was the
+     line between the two kinds, and "I am the least impartial reader available" is true only for
+     the second kind.
+
+  Q4 THE MAINNET FIXTURE — nothing to decide, and that is now the problem. Four handoffs have
+     carried it, no session can ever discharge it, and it is the single blocker on four separate
+     open items. A standing note that survives four handoffs has stopped being a note. Fold 5 makes
+     it an explicit operator task in `handoffs/README.md`'s click list with the four things it
+     closes named beside it, and forbids HANDOFF-11's cutover from depending on it: the cutover
+     ships with the fixture test still skipped, or it does not ship.
+
+FOLDS — apply in your FIRST commit, before HANDOFF-09 work. Folds 6 to 8 are PROMPT-09's originals,
+which were never pasted because #43 took priority; I have checked and none of the three is applied.
+
+  1. `handoffs/HANDOFF-10-infra.md` §3 and `docker-compose.yml` — pin `zfnd/zebra:6.3.x` (exact tag
+     cited), with the reason recorded as the funding-stream metadata rather than the decoder, and
+     the note that 6.2.3 was correct for everything HANDOFF-05 to -08 built.
+  2. `handoffs/HANDOFF-11-live-wiring.md` §5 — an assertion that the connected node's `subversion`
+     meets a floor `packages/zebra-rpc` declares as a constant, in both polarities.
+  3. `scripts/redis-keys.mjs` (or a `redis:keys` package script) — dials `REDIS_URL`, calls
+     `assertNotManagedStore` before anything else, refuses on failure, then enumerates. Replace
+     `RUNBOOK-VPS.md` §11's exact-key lines with it. Cite LEDGER-10 Q2.
+  4. `CLAUDE.md`, gate contract — a truncated verify phase is reported as TWO counts: findings
+     settled by execution (lead may disposition) and findings settled only by argument (re-run or
+     carry as unverified). Cite LEDGER-10 Q3.
+  5. `handoffs/README.md` click list — the mainnet fixture capture as a named operator task, with
+     the four items it closes: the one skipped test, the `vjoinsplit` end-to-end path, the
+     `trees.ironwood.size` observation, and the testnet half of the ZIP 258 exposure. HANDOFF-11's
+     cutover may not depend on it.
+  6. `CLAUDE.md`, stopping rule — the one-clause version is in the file; add clause (b). A gate round
+     ends the gate when (a) it returns no finding a user could see AND (b) every defect SHAPE that
+     has recurred across three or more rounds is covered by a guard shown to fail on that shape.
+     Clause (b) is what lets a round stop while a behaviour-changing fix is in it. Cite HANDOFF-08's
+     reach curve: round 2 four HIGHs, round 3 two, round 4 one plus three in the guards themselves.
+  7. `scripts/check-finding-sites.mjs` header — state the boundary: this guard enforces closure of
+     REGISTERED findings; registration is manual and nothing asserts the registry is complete. Add
+     it to `handoffs/HANDOFF-13-*.md` as plan-only material with the design question named.
+  8. `handoffs/HANDOFF-09-instruments-snapshot.md` §2 — add the eleven guards to the reading. §3 — a
+     new `FilterApplication` variant registers its params with `check-audit-consumers.mjs`'s
+     expectations in the SAME commit that introduces it. HANDOFF-09 adds instruments, instruments
+     emit audit records, and this is the first handoff after that guard exists which will create one.
+  9. Still open from LEDGER-08, carried in §8 rather than restated: Q7(a) `EchoMatch` carries no
+     pool; Q7(b) the sieve is wired in the same commit that first makes a `LinkRecord` renderable
+     (HANDOFF-12); Q4's `CLASSES` derivation; Q5's TRACKING-MATH §1.3 amendment.
+
+ON MY OWN RELIABILITY, recorded because the ledger is where this project keeps what it learned.
+  Across #42 and #43 I filed three findings. All three were real. My EXPLANATION was wrong in two of
+  them and my prescription in one: F-43-1's worked example did not reproduce ("before migrating"
+  does not contain "migrate"); F-43-2's mechanism was wrong (ATX headings DO interrupt paragraphs —
+  I ran the reference parser and got `<h2>`); my proposed rule for guard 11 was measured against the
+  real damaged file and rejected, missing the defect at both sites and firing on three correct
+  blocks; and fold 3 was impossible as specified. Each time the session executed my claim before
+  accepting it, and each time that made the finding better rather than smaller. The rule fold 4 of
+  LEDGER-10 added to CLAUDE.md is the right one and is better written than my version. I detect
+  reliably and I explain and prescribe unreliably when I do not execute first, and the fix is not
+  for me to file fewer findings — it is for the claim inside a finding to be executed as carefully
+  as the finding itself.
+
+OPERATOR CLICKS (Aqua, not any agent):
+  - HANDOFF-08 and HANDOFF-10 are both CLOSED. HANDOFF-09 opens on the Data track.
+  - Migrations 003 and 004 still have not been applied to the VPS database. `RUNBOOK-VPS.md` §4 now
+    carries the procedure and the 003 warning, and guard 11 plus the tightened doc guard will notice
+    if either leaves.
+  - The mainnet fixture capture is yours and is now four handoffs old. Fold 5 makes it a named task.
+  - Stale remote branches per `docs/2.0/BRANCH-CLEANUP.md`, which now maps branch names to handoffs.
+```
+
+## HANDOFF-09 — instruments and the snapshot publisher (L3, 30 Aug 2026)
+
+```
+QUESTIONS (for the operator / L2):
+
+  Q1 THE WALLET BOUND: TRACKING-MATH 3.9 AND PLAN 3.4 GIVE TWO DIFFERENT ONES, AND
+     THE TIGHTER IS UNSOUND. This is the only place this handoff diverged from its
+     own section 3, so it is a ruling rather than a report.
+     3.9: a session bounds "the set of wallets (<= number of denomination runs)".
+     Plan 3.4: "an upper bound on distinct migrating wallets per window
+     <= Sigma counts (no lower bound is claimable)". They are not two phrasings of
+     one rule. Sigma counts holds by construction - a wallet that migrated
+     contributed at least one crossing. THE RUN COUNT DOES NOT, AND FALSIFYING IT
+     NEEDS TWO WALLETS AND NO COORDINATION: wallet A crosses one 100 ZEC note at
+     height h, wallet B crosses one 100 ZEC note at h+1. Same denomination key,
+     adjacent in the order, ONE run - and the record would have published "at most
+     1 wallet" about a window that held 2. Executed: 1, 2, 5, 100 and 847 adjacent
+     identical crossings all give a run count of 1. So it moves the WRONG WAY with
+     evidence: 847 such crossings would have published "at most 1 wallet" for
+     84,700 ZEC, which is the tightest and most identity-shaped claim the instrument
+     could make, from the largest pile of evidence. That is the exact direction
+     3.9's own closing rule - never as "wallet W migrated B" - exists to refuse.
+     SHIPPED: `maxWallets` is Sigma counts and the run count ships beside it as
+     `denominationRuns`, documented as a shape observation that is NOT a bound in
+     either direction and that no consumer may render as a wallet count. Swept
+     across the estimator, the audit variant's params, the snapshot schema, the
+     publisher's mirror and mapping, the legacy caption, the fixtures and the tests;
+     TRACKING-MATH 3.9 carries the correction beside the sentence it corrects and
+     HANDOFF-09 section 3 is annotated. RULE, PLEASE: is TRACKING-MATH 3.9's
+     sentence to be amended at source, or is the annotation the intended record?
+     The site now contradicts nothing, but the maths document still states the
+     tighter bound in its own voice, and LEDGER-03 Q3 rates a one-file correction
+     HIGH for exactly that reason.
+
+  Q2 A10 SAYS "EXACTLY THREE MANAGED-STORE COMMANDS" AND THREE IS THE WRITE COUNT.
+     `MULTI` and `EXEC` cross the wire like any other command, so one tip is FIVE.
+     Whether Upstash's monthly meter bills the envelope is a fact about their
+     billing that no session can read: egress to upstash.com is refused by the
+     container's proxy (executed, EGRESS_BLOCKED), so it cannot be settled from a
+     document either. It is not academic - at three a month costs about 103,500 and
+     clears the 150,000 default ceiling; at five it costs about 172,500 and trips it
+     around day 26, after which the publisher runs file-only and the public baseline
+     stops updating. Both numbers are now measured and pinned (`COMMANDS_PER_TIP` 3,
+     `WIRE_COMMANDS_PER_TIP` 5) and the charge stays at three DELIBERATELY: charging
+     five on a guess buys nothing against a 500,000 allowance that is a minority
+     share either way, and pays for it with a predictable outage of our own
+     fallback. It is now a named operator task. Is that the right disposition, or
+     should A12's default ceiling be raised pre-emptively to cover the five case?
+
+  Q3 SHOULD `owner` FIELDS THAT NAME A FUTURE HANDOFF BE GUARDED? `POOLS_VIEW_GAPS`
+     shipped `owner: "HANDOFF-09"` twice and `"HANDOFF-08"` twice on a live 503
+     body, long after both shipped, and the test that was supposed to protect it
+     asserted `owner.startsWith("HANDOFF-")` - satisfied by every wrong answer, and
+     it made `UNASSIGNED`, the honest value, the only failing one. Corrected and
+     pinned by exact routing. But nothing checks FRESHNESS, and the instrument would
+     have to read `handoffs/HANDOFF-NN-*.md`'s `status:` from a static guard - a
+     twelfth guard, coupling the gateway's source to the handoffs directory. This
+     session did NOT build it, because CLAUDE.md warrants a guard by RECURRENCE
+     across three rounds and this is the first instance. Recording it so the second
+     instance is recognised as a second rather than as a fresh finding.
+
+INFERRED (non-empty inferences a worker made):
+  - "Denomination run" is defined by neither spec. This module defines it: order the
+    in-window crossings by (height, txid, amount), and a run begins at the first
+    crossing and at every crossing whose denomination KEY differs from its
+    predecessor's. A non-canonical crossing keys on its own amount, so two different
+    non-canonical amounts are two runs. Stated in the docblock rather than left to a
+    reader of the loop, and now labelled as a shape observation rather than a bound,
+    which removes most of what the ambiguity cost.
+  - `Crossing` carries no position within a block, so (height, txid, amount) is the
+    only total order available and within one block it is NOT chain order. A
+    per-block index on `Crossing` would remove the ambiguity and was NOT taken,
+    because it widens the type this handoff publishes for the publisher to consume.
+    That the run count is order-dependent is a second reason it is not the published
+    wallet bound; `maxWallets` needs none of it.
+  - The publisher mirrors the estimators' signatures structurally rather than
+    importing `@zcashreveal/indexer`. Not a preference: the indexer's image ships no
+    dist the publisher copies, `zeromq@6` is a native addon the publisher's image
+    carries no compiler for, and the indexer's entry imports the ZMQ subscriber. A
+    worker refused an instruction to import it and was right. The mirror types were
+    verified against the real signatures through a temporary composition root, both
+    polarities, then deleted.
+  - `velocity24hZecPerHour` is a `number` in ZEC/hour, deliberately outside the
+    bigint-for-zatoshi rule, because it is a RATE and the rule governs amounts.
+
+NOT-MATCHED (patterns handed over that did not apply):
+  - Fold 3 as L2 specified it was REJECTED BY ITS OWN GUARD. `scripts/redis-keys.mjs`
+    enumerates, and `check-redis-safety` flagged it, correctly. Resolved with a
+    narrow proof-based exemption - a SCAN bounded by `VPS_KEY_PREFIX`, in a
+    non-`.md` file that CALLS `assertNotManagedStore` with an array literal -
+    which infers nothing about which server a line reaches and so does not violate
+    LEDGER-10 Q2. The guard also rejected the lead's FIRST draft of the tool, for
+    holding the MATCH bound in a variable, which is the guard being right twice.
+  - A8's grep does not match what it says it matches. See section 7.
+  - The dispatch hint "devops-deployer verifies the publisher container builds"
+    could not be executed: there is no Docker daemon in this container. What was
+    executed instead is both of the Dockerfile's RUN lines outside a container.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+  - The wallet bound. See Q1. This is the one divergence from section 3 in the
+    handoff, it is annotated at both the spec and the handoff, and it is L2's to
+    rule on.
+  - "Exactly three managed-store commands". See Q2. Not ambiguous between two
+    readings of a spec - ambiguous between a count of writes and a count of billed
+    commands, which is a distinction the assertion's author had no way to make from
+    inside a container.
+
+GATE ROUND COUNTS: 1 round. 47 raw findings, 12 killed by three refuters each, 35
+  CONFIRMED and all 35 dispositioned - the round's verification budget is stated in
+  the FIRST line of section 7's gate block, and no finding was logged unread
+  (LEDGER-05 Q5). One HIGH (the gateway mounted no snapshot volume, so
+  `GET /api/snapshot` would have answered 503 forever on a correctly-running stack),
+  fixed and then GUARDED, because the same commit's first detector could not catch
+  the defect it was written for - it examined only services that SET `SNAPSHOT_FILE`
+  and the defect was a reader setting nothing. Caught by the fail-side probe staying
+  green, which is LEDGER-05 fold 7 working as intended.
+
+  THE FIX COMMITS WERE REVIEWED AS THEIR OWN COMMITS (LEDGER-07 Q6 clause ii) AND
+  THAT REVIEW FOUND THE ROUND'S MOST INTERESTING DEFECT, for the third session
+  running. The credential-redaction fix reached the last `@` with a lazy character
+  class and `@(?![^\s]*@)`. Identical output to the greedy form on every case in the
+  suite - checked one by one - and QUADRATIC: 39ms at 10,000 characters, 978ms at
+  50,000, 16.4 SECONDS at 200,000, in a function that runs on error messages, which
+  is what a wedged process produces most of. The greedy form does 500,000 in 1.2ms
+  because the engine consumes the run once and backtracks to the last `@` once. The
+  lookahead was never needed. Pinned by a regression test whose budget is a hundred
+  times the measured figure, so it fails on a complexity class rather than on a slow
+  machine; the fail side reports 15,590ms against 250ms.
+
+  STOPPING, all three parts, with the extrapolation stated rather than convergence
+  claimed: the last pass returned no finding a user could see and none whose fix
+  changes behaviour; the fix commits were reviewed as their own; and a second round
+  would probably find one or two more of the reach of the stale Zebra pin and the
+  Dockerfile header - documentation describing a state the branch has left. It would
+  be unlikely to find another falsifiable published claim, since the three
+  instruments' bounds have each now been read against both specs. What it might find
+  is another guard with an incomplete method-name list, because that shape appeared
+  TWICE in this one round: `check-redis-safety` matching `.scan(` and missing
+  `.scanStream(`, and the compose detector that could only see services which set
+  the variable. Two instances is not the three CLAUDE.md requires before the
+  instrument becomes a guard rather than a review, and it is recorded here so the
+  third is recognised.
+
+  Q4 WHO MOVES THE ESTIMATORS, AND WHEN? This is the handoff's principal deferred
+     item and it is a question rather than a slip. `apps/publisher/src/index.ts`
+     passes `NO_INSTRUMENTS`, so `residual`, `drain`, `migrationHist` and
+     `neffSeries` publish as `null` on every tip - legal under `SnapshotV1`, where
+     null means "not measured" rather than zero, and not what the handoff is for.
+     The three instruments this handoff built are exercised only by their own
+     tests. It is a PACKAGING problem: section 4 puts the estimators in
+     `apps/indexer/src/analysis/`, and the publisher's image structurally cannot
+     contain them - its Dockerfile copies no indexer dist, `@zcashreveal/indexer`
+     depends on `zeromq@6` (a native addon the publisher's image carries no
+     compiler for, deliberately), and the indexer's entry imports the ZMQ
+     subscriber, so importing the package pulls a socket layer into a process with
+     no business opening one. A worker refused an instruction to import it and was
+     right. The repair is a package move - the three estimators into a
+     dependency-free workspace package both apps import - and it was NOT taken
+     here: it touches the indexer's imports, both Dockerfiles and the workspace
+     layout, and section 3 does not authorise it. `instruments.ts` is written so
+     the move is the only change needed: `Instruments` is the seam,
+     `NO_INSTRUMENTS` the null implementation, and a composition root holding the
+     real functions needs no other edit. HANDOFF-11 is the obvious owner, since it
+     wires `apps/web` to the snapshot and four null panels is where this stops
+     being invisible. Rule, please: HANDOFF-11, or a package move of its own?
+
+DEFERRED ASSUMPTIONS:
+  - THE ESTIMATORS ARE NOT WIRED INTO THE PUBLISHER. Q4, above. The one item on
+    this list that a reader of the shipped snapshot would notice.
+  - Whether the managed store bills `MULTI`/`EXEC`. Q2. Operator task.
+  - Whether TRACKING-MATH 3.9's sentence is amended at source. Q1. L2's ruling.
+  - Whether `owner`-style forward references get a guard. Q3. Recorded, not built.
+  - `docker build` on the publisher image has never run anywhere. Section 7,
+    UNVERIFIED. The operator's first `docker compose build publisher` is its first
+    execution.
+  - The mainnet block fixture, now five handoffs old, remains the operator's and is
+    a named task in handoffs/README.md per LEDGER-10 Q4.
+
+ONE THING THIS SESSION GOT WRONG AND CORRECTED, recorded because the ledger is where
+this project keeps what it learned rather than who learned it.
+  Mid-session the lead reported `apps/publisher/src/__tests__/snapshot.test.ts` as
+  failing 3 runs in 5 and called it a flake. Measured before acting: 69ms and 17ms
+  against a 2,000ms budget, and four concurrent runs all passing. The cause was the
+  lead reading the file DURING a worker's edit window, not the test. Had it been
+  "fixed" by raising the timeout, a green suite would have been made permanently
+  less informative to cover a mistake in how it was being read. The retraction is
+  the entry: "flake" is a diagnosis that has to be measured like any other, and the
+  first instrument to check is the one doing the observing.
+```

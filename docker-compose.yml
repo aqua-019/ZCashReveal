@@ -30,10 +30,9 @@ services:
   # zebrad - the Zcash full node. Everything else in the stack reads from it.
   # ---------------------------------------------------------------------------
   zebrad:
-    # 6.2.3 is the newest 6.2.x, published 2026-07-28 (Docker Hub tags API,
-    # queried for this handoff). THE FLOOR IS A CORRECTNESS FLOOR AND IT HAS TWO
-    # SEPARATE REASONS, both of which 4.4.1 - the tag this file carried until now
-    # - is on the wrong side of:
+    # 6.3.0, published 2026-08-10. THE FLOOR IS A CORRECTNESS FLOOR AND IT HAS
+    # THREE SEPARATE REASONS, and 4.4.1 - the tag this file carried until
+    # HANDOFF-10 - is on the wrong side of the first two:
     #
     #   1. Below 6.0.0 there is no NU6.3/Ironwood support at all.
     #   2. Below ZcashFoundation/zebra PR #9805 (merged 22 Aug 2025)
@@ -42,12 +41,62 @@ services:
     #      `sproutValueBalanceZat` is 0n for every transaction, silently, with no
     #      failing test - the same shape as the `expiryheight` casing defect that
     #      made every wallet fingerprint inert for three revolutions.
+    #   3. Below 6.3.0 `getblocksubsidy` returns the PRE-NU6 funding-stream
+    #      recipient names and specification URLs for every upgrade after NU6 -
+    #      which is every upgrade this project cares about. That is the reason
+    #      this pin moved off 6.2.3 (LEDGER-10 Q1, ruled by L2 on 30 Aug 2026).
     #
-    # `packages/zebra-rpc/src/sprout-field.ts` reports the absent field as
-    # INDETERMINATE rather than as zero, which is what makes reason 2 a detected
-    # condition rather than a silent one - but only a node at or above the floor
-    # makes it a non-condition.
-    image: zfnd/zebra:6.2.3
+    # WHY THE MOVE IS NOT ABOUT THE DECODER. Nothing this project decodes changed
+    # in 6.3.0: `getblock`, `getrawtransaction`, `z_gettreestate` and
+    # `getblockchaininfo` are untouched between the two tags, and the client's
+    # schemas are `.passthrough()`, so a 6.3.0-only field parses rather than
+    # throws. On the decoder alone 6.2.3 was correct, and it was correct for
+    # everything HANDOFF-05 through HANDOFF-08 built - the gateway's read API,
+    # the four-pool state machine, the v6/Ironwood decoder and the analysis
+    # toolkit all hold against it. The reason is the LABELS: LEDGER-08 Q1 asks
+    # for the ZIP 1014/1015/1016 funding-stream label family and rules that it
+    # comes from the pinned node's own parameters rather than from a relayed
+    # transcription.
+    #
+    # AND THE RULING'S STATED REASON IS CORRECTED HERE RATHER THAN COPIED,
+    # because it was executed against the source before being written down and
+    # its load-bearing half does not reproduce. L2 ruled that the ADDRESSES are
+    # the 6.3.0 addition and that "on 6.2.3 the fold cannot be executed". They
+    # are not, and it can. Read at both tags:
+    #
+    #   - `zebra-rpc/src/methods/types/subsidy.rs` is BYTE-IDENTICAL between
+    #     v6.2.3 and v6.3.0, `FundingStream.address` included.
+    #   - `zebra-chain/src/parameters/network/subsidy.rs`, which holds the
+    #     funding-stream tables, is byte-identical too.
+    #   - the whole 6.3.0 change to `getblocksubsidy` is one predicate in
+    #     `zebra-rpc/src/methods.rs`: `is_nu6 = current == Nu6` becomes
+    #     `is_post_nu6 = current >= Nu6`. `address` is computed by
+    #     `funding_stream_address(height, &net, receiver)` on BOTH tags.
+    #   - the 6.3.0 CHANGELOG says so in as many words: "`getblocksubsidy` now
+    #     returns NU6-era funding stream metadata (recipient names and
+    #     specification URLs) for NU6.1 and later upgrades. AMOUNTS AND ADDRESSES
+    #     WERE NEVER AFFECTED" (PR #11172).
+    #
+    # THE DECISION SURVIVES THE CORRECTION AND THE REASON IS BETTER FOR IT. What
+    # 6.2.3 gets wrong is `recipient` and `specification` - the recipient's NAME
+    # and the URL of the ZIP that defines the stream - for NU6.1, NU6.2 and
+    # NU6.3, because `current == Nu6` is false at every one of them and the
+    # zcashd-compat pre-NU6 strings are emitted instead. This project's label
+    # precedence DISPLAYS the labeller and the method beside every label, so a
+    # `consensus`-tier funding-stream label needs the name and the specification
+    # URL as much as it needs the address. On 6.2.3 the address would be right
+    # and the two provenance fields wrong, at every height after NU6 - which is
+    # a worse failure than an absent field, because it is a sourced-looking
+    # string that is not the source.
+    #
+    # `packages/zebra-rpc/src/sprout-field.ts` reports the absent `vjoinsplit`
+    # as INDETERMINATE rather than as zero, which is what makes reason 2 a
+    # detected condition rather than a silent one - but only a node at or above
+    # the floor makes it a non-condition. Reason 3 has the same shape and needs
+    # the same treatment: a pin states an intent and notices nothing, so
+    # HANDOFF-11 §5 A11 asserts the connected node's `subversion` against the
+    # floor `packages/zebra-rpc` declares as a constant.
+    image: zfnd/zebra:6.3.0
     container_name: zecreveal-zebrad
     restart: unless-stopped
     stop_grace_period: 5m
@@ -236,6 +285,24 @@ services:
       ZEBRAD_RPC_URL: http://zebrad:8232
       DATABASE_URL: postgres://${POSTGRES_USER:-zcashreveal}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-zcashreveal}
       REDIS_URL: redis://redis:6379
+      # THE FILE SINK IS THE SEAM BETWEEN TWO PROCESSES AND THIS IS THE HALF
+      # THAT MAKES IT ONE. The publisher writes this exact path on
+      # `publisher-data`; this service reads it. Both halves must name the SAME
+      # path on the SAME volume, and until this line existed they did not: the
+      # gateway fell back to `./snapshot.json`, which its own image resolves to
+      # /app/apps/gateway/snapshot.json (Dockerfile WORKDIR), a path nothing
+      # writes. The symptom was silent and total - `GET /api/snapshot` answering
+      # 503 forever and no WS snapshot frame ever sent, while the publisher
+      # logged successful writes - which is exactly the empty dashboard
+      # docs/2.0/SNAPSHOT.md section 8.1 says this design exists to make
+      # structurally impossible.
+      SNAPSHOT_FILE: /var/lib/zecreveal/snapshot.json
+    volumes:
+      # READ-ONLY, and that is rule 6 rather than caution: the publisher is the
+      # ONLY writer of the snapshot, and that applies to the file copy as much
+      # as to the managed store. A gateway that could write here could publish a
+      # document no publisher produced.
+      - publisher-data:/var/lib/zecreveal:ro
     # NO `ports:`. The tunnel reaches `gateway:8080` on this network. Publishing
     # it would create an origin that can be scanned and hit directly, which is
     # the thing a tunnel exists to prevent.
@@ -269,13 +336,26 @@ services:
   # that proves it on every run. Handing it to the gateway or the indexer would
   # put a second writer on someone else's database.
   #
-  # PROFILE-GATED BECAUSE apps/publisher DOES NOT EXIST YET. It is HANDOFF-09's
-  # deliverable. `docker compose up -d` today starts the other six services and
-  # skips this one rather than failing on a missing build context; the runbook
-  # says to add `--profile publisher` once HANDOFF-09 has landed.
+  # NO LONGER PROFILE-GATED, BECAUSE apps/publisher NOW EXISTS. Until HANDOFF-09
+  # landed it there was no build context to point at, so this service sat behind
+  # `profiles: ["publisher"]` and `docker compose up -d` started the other six
+  # and skipped it. The app, its Dockerfile and its tests are here; the profile
+  # is gone and a plain `docker compose up -d` brings up all seven.
+  #
+  # THE MONTHLY COUNTER IS A FILE ON A NAMED VOLUME AND IS NEVER IN THE STORE IT
+  # COUNTS. docs/2.0/SNAPSHOT.md section 5 gives both halves of why: in the
+  # managed store it would be a FOURTH command per tip and would break the
+  # assertion that says there are exactly three, and in memory alone it would
+  # reset on every restart and make the ceiling vacuous. `publisher-data` below
+  # is that volume, and SNAPSHOT_BUDGET_FILE is what puts the counter in it.
+  #
+  # THE MOUNT POINT MUST EXIST IN THE PUBLISHER IMAGE, OWNED BY `node`. Docker
+  # creates a missing mount point root-owned, and this container drops to the
+  # unprivileged `node` user, so a volume mounted at a path the image does not
+  # create is a directory the process cannot write - which surfaces as the first
+  # publish failing rather than as anything about a volume.
   # ---------------------------------------------------------------------------
   publisher:
-    profiles: ["publisher"]
     build:
       context: .
       dockerfile: apps/publisher/Dockerfile
@@ -299,6 +379,22 @@ services:
       SNAPSHOT_REDIS_KV_URL: ${SNAPSHOT_REDIS_KV_URL:-}
       SNAPSHOT_REDIS_REDIS_URL: ${SNAPSHOT_REDIS_REDIS_URL:-}
       SNAPSHOT_REDIS_MONTHLY_BUDGET: ${SNAPSHOT_REDIS_MONTHLY_BUDGET:-150000}
+      # BOTH PATHS ARE LITERAL AND NOT `${VAR:-...}`, unlike every other value in
+      # this block, because they are not operator preferences: they are the
+      # volume mount below. A variable here would let a .env move the counter off
+      # the volume, and a counter on the container filesystem is gone on the next
+      # `up --force-recreate`, which makes the ceiling vacuous in exactly the way
+      # SNAPSHOT.md section 5 forbids. The same reasoning as ZEBRAD_RPC_URL and
+      # REDIS_URL above, which name the compose network and so are not knobs.
+      #
+      # The file sink is `required: yes` (SNAPSHOT.md section 8.5) and writes
+      # write-then-rename, so its temporary file lands beside it on the same
+      # filesystem; a snapshot on one volume and a `.tmp` on another would be a
+      # cross-device rename and would fail on every publish.
+      SNAPSHOT_FILE: /var/lib/zecreveal/snapshot.json
+      SNAPSHOT_BUDGET_FILE: /var/lib/zecreveal/snapshot-budget.json
+    volumes:
+      - publisher-data:/var/lib/zecreveal
     healthcheck:
       # Probes the LOCAL dependencies only and never dials the managed store: a
       # 30-second timer against a shared third-party database is roughly 86,400
@@ -353,7 +449,17 @@ services:
 # state directory inside the git working tree, where it is one `git clean -xdf`
 # away from a multi-day resync and inside every Docker build context that does
 # not exclude it.
+#
+# `publisher-data` is the smallest of the four and the one whose absence is
+# hardest to see. It carries the monthly managed-store command counter, keyed
+# YYYY-MM, which SNAPSHOT.md section 5 requires to survive a restart: the
+# ceiling that stops this project from spending an allowance it shares with
+# another project's production is only a ceiling if the count outlives the
+# process. It carries `snapshot.json` beside it for the same durability reason -
+# a publisher refused by its own budget writes nothing, and the last good
+# snapshot staying on disk is what the gateway keeps serving.
 volumes:
   zebrad-data:
   postgres-data:
   redis-data:
+  publisher-data:

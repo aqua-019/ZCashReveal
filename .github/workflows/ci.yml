@@ -15,6 +15,15 @@ env:
   # docs/2.0/v0.2-notes/postgres-port-5433.patch is a dev-host workaround, not a
   # project convention, so CI stays on 5432.
   DATABASE_URL: postgres://zcashreveal:zcashreveal@localhost:5432/zcashreveal
+  # Matches the redis service below and the default in apps/publisher/src/config.ts.
+  # THIS IS THE LOCAL REDIS AND IT IS NOT THE VERCEL-MANAGED STORE. No
+  # SNAPSHOT_REDIS_* name is set anywhere in this file, deliberately:
+  # docs/2.0/SNAPSHOT.md rule 5 says tests, local development and builds never
+  # point at the store that is shared with an unrelated production project.
+  # The publisher's A7 sink suite reaches 127.0.0.1:6379 directly rather than
+  # reading this variable, so the address is stated in two places and they have
+  # to agree; the suite skips itself with a named reason if nothing answers.
+  REDIS_URL: redis://localhost:6379
 
 jobs:
   verify:
@@ -32,6 +41,25 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U zcashreveal"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      # THE PUBLISHER'S A7 SINK TEST IS THE ONLY THING IN THIS REPOSITORY THAT
+      # NEEDS IT. That suite writes the three snapshot keys through the real
+      # ioredis adapter, the real MULTI and the real TTL, then reads them back;
+      # without a Redis on 6379 it skips itself and A7 has no integration half.
+      #
+      # IT IS A LOCAL REDIS AND IT CAN NEVER BE THE MANAGED ONE. The Vercel
+      # store is shared with an unrelated production project, and rule 5 of
+      # docs/2.0/SNAPSHOT.md keeps every test off it - which is why this service
+      # exists at all rather than CI being handed a real URL.
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
@@ -64,7 +92,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      # THE SEVEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose. None of
+      # THE ELEVEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose. None of
       # them needs node_modules or a build - they are bash, grep and dependency-free
       # node - and putting them after meant a PR whose build broke never got its
       # verdict on any of them. The Redis one in particular protects another
@@ -196,6 +224,14 @@ jobs:
 
       - name: Test - apps/gateway (vitest run)
         run: pnpm --filter @zcashreveal/gateway exec vitest run
+
+      # apps/publisher arrives in HANDOFF-09, and this is the step the redis:7
+      # service above exists for. Only A7's sink suite touches that service; the
+      # cadence, the three-command count, the key prefix and the budget refusal
+      # are unit tests over a spy, because counting commands against a real
+      # server would prove less and cost more.
+      - name: Test - apps/publisher (vitest run, Redis-backed)
+        run: pnpm --filter @zcashreveal/publisher exec vitest run
 
       # apps/web arrives in HANDOFF-01. Its unit suite covers the seeded RNG,
       # the zatoshi formatters and assertion A2's token check, and none of it

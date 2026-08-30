@@ -63,7 +63,7 @@ Verdicts: **KEEP** (port as-is, already tested), **EXTEND** (keep + grow for Iro
 | Types | `packages/zec-types/*` (branded `Hex`, `Zatoshi`, leak taxonomy, `ClaimAssessment`, `FilterApplication` union) | **EXTEND** | Same widening. |
 | Gateway | `apps/gateway` (Fastify + ws, `{channel,payload}` envelope, `snapshotFrame`) | **EXTEND** | Add `@fastify/rate-limit`, WsBroker connection cap, and a **snapshot publisher** (below). |
 | Dashboard | `apps/dashboard` (Vite SPA, Tailwind v4 tokens, 14 components, mock fixtures) | **REBUILD** (harvest) | Keep the panel logic (`CandidatesPanel` inference chain, `BoundaryFlowPanel`, `PoolStatePanel`, `parsers.ts`, `formatters.ts`, `tokens.ts`, icons) as React islands inside the new app; the SPA shell, routing and the empty-state behaviour go. |
-| Infra | `docker-compose.yml`, `infra/zebrad/zebrad.toml` (4.4.1, cookie-auth off, loopback RPC) | **REBUILD** | Zebra 6.2.x; wipe forked state; re-validate `enable_cookie_auth` semantics on the new major; keep loopback bind. |
+| Infra | `docker-compose.yml`, `infra/zebrad/zebrad.toml` (4.4.1, cookie-auth off, loopback RPC) | **REBUILD** | Zebra **6.3.x** (amended from 6.2.x by LEDGER-10 Q1, 30 Aug 2026 - the reason is `getblocksubsidy`'s funding-stream provenance strings after NU6, not the decoder); wipe forked state; re-validate `enable_cookie_auth` semantics on the new major; keep loopback bind. |
 | Prototype | Project docs `*.jsx` / `*.html` (Splash, Mempool, Tracker, Pool) | **RETIRE as code, KEEP as reference** | Their grammar (numbered `00 · SYSTEM` blocks, mono eyebrows, italic serif display, footer ledger, pool-flow colour semantics) is carried into 2.0's design system. |
 | Python scratchpad | `tools/zc-analyzer/` (not present in `main`) | **RETIRE** | Nothing to salvage on `main`. |
 
@@ -92,7 +92,7 @@ All of it stays inside the mantra — these are bounds and public aggregates, ne
 ## 4. Architecture 2.0
 
 ```
-Zebra 6.2.x (VPS) ── RPC/ZMQ ──▶ indexer (decode v4/v5/v6 · 4-pool state · analysis)
+Zebra 6.3.x (VPS) ── RPC/ZMQ ──▶ indexer (decode v4/v5/v6 · 4-pool state · analysis)
                                    │            │
                                    ▼            ▼
                               Postgres        Redis pub/sub ──▶ gateway (Fastify WS, rate-limited, capped)
@@ -133,7 +133,7 @@ Decisions:
 - Definition of done: Lighthouse ≥ 95 perf/a11y/SEO on `/beware`; every claim resolves to a source; reduced-motion honoured by architecture (LAW-12).
 
 **Phase 2 — Node modernization + Ironwood awareness (weeks 2–4).** Can run in parallel with Phase 1.
-- Provision the VPS; `docker-compose.yml` → `zfnd/zebra:6.2.x` (pin exact tag), fresh `zebrad-data`, RPC loopback-bound, re-validate cookie-auth flags on the 6.x major (the 7Y posture may need re-expressing); budget a from-genesis sync (Zebra's checkpoints make it hours-to-a-day on NVMe; verify).
+- Provision the VPS; `docker-compose.yml` → `zfnd/zebra:6.3.x` (pin exact tag; **amended from `6.2.x` by LEDGER-10 Q1**, 30 Aug 2026 — nothing this project decodes changed in 6.3.0, but below it `getblocksubsidy` returns the pre-NU6 funding-stream recipient names and specification URLs for every upgrade after NU6, and LEDGER-08 Q1 rules those labels come from the pinned node's own parameters), fresh `zebrad-data`, RPC loopback-bound, re-validate cookie-auth flags on the 6.x major (the 7Y posture may need re-expressing); budget a from-genesis sync (Zebra's checkpoints make it hours-to-a-day on NVMe; verify).
 - Module **7A.2 — v6/Ironwood decoder**: parse ZIP 229 v6 transactions (new bundle fields; canonical `proofsOrchard` length rule `2720 + 2272·n` post-NU6.2), emit Ironwood actions into the 4-pool state; `activation-heights.ts` gains NU6 → NU6.3 + the soft-fork height; `Pool` union widened; per-pool `CHECK` constraint migrated.
 - Fixture capture (7A.1) against the NU6.3 node: one pre-NU6.3 block, one post-NU6.3 block with a migration, one with Ironwood spends → un-skips the guarded decoder test.
 - Definition of done: `getblockchaininfo` advancing past 3,456,854; decoder round-trips real v6 blocks; replay from NU6.3 height reconstructs `Bal^ironwood` to the explorer's figure within rounding.

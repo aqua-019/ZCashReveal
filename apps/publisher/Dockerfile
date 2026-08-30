@@ -1,13 +1,24 @@
 # @zcashreveal/publisher - writes the snapshot to the Vercel-managed Redis.
 #
-# THIS IMAGE DOES NOT BUILD YET, AND THAT IS THE HONEST STATE RATHER THAN AN
-# OVERSIGHT. `apps/publisher` is HANDOFF-09's deliverable; today this directory
-# holds only this Dockerfile and its healthcheck. HANDOFF-10 owns the compose
-# stack and the runbook, so the container definition is written here, against
-# the app's specified shape, and the compose service that uses it sits behind
-# the `publisher` profile so that a bring-up today does not fail on a missing
-# build context. When HANDOFF-09 lands `apps/publisher/package.json` and its
-# `src/`, this file builds with no change and the profile comes off.
+# WRITTEN BY HANDOFF-10 AGAINST AN APP THAT DID NOT EXIST YET; HANDOFF-09
+# LANDED THAT APP AND THIS FILE DID NOT CHANGE. It said so at the time - "when
+# HANDOFF-09 lands `apps/publisher/package.json` and its `src/`, this file
+# builds with no change and the profile comes off" - and the profile is off:
+# `docker-compose.yml`'s publisher service no longer carries one, so a bring-up
+# includes it.
+#
+# WHAT HAS AND HAS NOT BEEN EXECUTED, because "it builds" is a claim and this
+# file is where a reader would look for it. No session can run `docker build`:
+# there is no daemon in the container these sessions run in, so the operator's
+# first `docker compose build publisher` is the first execution of this file and
+# the first thing that can contradict it. What HAS been executed, on the
+# HANDOFF-09 branch, is both of its RUN lines outside a container:
+# `pnpm install --frozen-lockfile --filter @zcashreveal/publisher...` (exit 0,
+# "Lockfile is up to date", 4 of 9 workspace projects in scope) and
+# `pnpm --filter @zcashreveal/publisher... build` (exit 0, four `tsc -b`
+# invocations, `apps/publisher/dist/index.js` present). Those are the two steps
+# that would fail on a manifest or a lockfile this image gets wrong; the base
+# image pull, the layer copies and the `node` user are not covered.
 #
 # Build from the REPOSITORY ROOT, not from this directory:
 #   docker build -f apps/publisher/Dockerfile -t zecreveal/publisher:local .

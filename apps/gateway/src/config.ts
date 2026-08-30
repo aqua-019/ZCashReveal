@@ -42,6 +42,28 @@ const Schema = z.object({
       "postgres://zcashreveal:zcashreveal@localhost:5432/zcashreveal",
     ),
 
+  /**
+   * Where `apps/publisher`'s `file` sink writes, and therefore what
+   * `GET /api/snapshot` and the WebSocket snapshot frame serve.
+   *
+   * A PATH AND NOT A URL, WHICH IS THE POINT. docs/2.0/SNAPSHOT.md section 8.5
+   * marks the `file` sink required because "this is what the gateway serves":
+   * the two processes meet on a shared volume, not on the Vercel-managed store.
+   * Reading that store from here would put per-request traffic on an allowance
+   * an unrelated production project is also drawing on, which is the rule the
+   * docblock at the top of this file states and `assertGatewayRedisIsLocal`
+   * enforces.
+   *
+   * THE DEFAULT MATCHES `apps/publisher`'s DEFAULT (`./snapshot.json`) so a
+   * laptop running both from the repository root needs no configuration at all.
+   * The two values must agree, and in compose that means one named volume
+   * mounted into both containers with this variable set to the same path in
+   * each. They can disagree silently - the gateway would answer 503 forever
+   * while the publisher wrote happily - so the runbook, not the type system,
+   * carries that pairing.
+   */
+  SNAPSHOT_FILE: z.string().min(1).default("./snapshot.json"),
+
   /* ----------------------------------------------------------------- zebra */
 
   ZEBRAD_RPC_URL: z.string().url().default("http://127.0.0.1:8232"),

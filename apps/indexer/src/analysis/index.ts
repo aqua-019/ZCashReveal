@@ -12,3 +12,7 @@ export * from "./labels.js";
 export * from "./posterior.js";
 export * from "./taint.js";
 export * from "./conservation.js";
+/* HANDOFF-09's instruments - plan sections 3.1 to 3.5. */
+export * from "./turnstile-accounting.js";
+export * from "./migration-lens.js";
+export * from "./ironwood-birth.js";

@@ -59,9 +59,9 @@ whichever survives, one line in `src/routes/index.ts` removes the other.
 | `413` | A bound was exceeded — see `GATEWAY_MAX_FUNDING_LOOKUPS`. The body names the bound. |
 | `429` | Rate limited. |
 | `500` | The gateway's own defect, including a DTO violation. |
-| `501` | Understood and not implemented yet (`/snapshot`). |
+| `501` | Understood and not implemented yet. **No route returns this any more** — `/api/snapshot` was the only one and HANDOFF-09 implemented it. The row stays because the code is still meaningful for a future stub; a route that returns it is claiming it has no implementation at all. |
 | `502` / `504` | **The node refused, or did not answer.** Never a 404: a gateway that answered 404 for an unreachable node would have every page quietly reporting that the chain is empty. |
-| `503` | The resource exists but part of its content is not produced yet (`/pools`). The body names what is missing and which handoff owns it. |
+| `503` | The resource exists but its content is not produced yet (`/pools`, `/snapshot`). The body names what is missing: for `/pools` the blocks and where each is routed, for `/snapshot` a `reason` of `absent`, `unreadable`, `malformed` or `invalid`. |
 
 No error body carries a node URL, a credential or an internal hostname. That is
 assertion A7, and it is checked on failing responses as well as successful ones,
@@ -358,13 +358,11 @@ entire subject is where the value is.
 `share` is floating point and exists only for display. The zatoshi figure beside
 it is the exact one, and nothing is derived from the share.
 
-## `GET /api/pools` — 503 until HANDOFF-09
+## `GET /api/pools` — 503 while four blocks have no producer
 
-`poolsViewSchema` requires four structures no chain query can produce. Two are
-analysis (HANDOFF-08's estimators and note survey) and two are published through
-the snapshot (HANDOFF-09's). Filling them with plausible numbers is the one thing
-this project must not do, and filling them with zeros would be a claim that the
-counts *are* zero.
+`poolsViewSchema` requires four structures no chain query can produce. Filling
+them with plausible numbers is the one thing this project must not do, and
+filling them with zeros would be a claim that the counts *are* zero.
 
 So the endpoint answers `503` and names what is absent:
 
@@ -373,18 +371,28 @@ So the endpoint answers `503` and names what is absent:
   "error": "the full pools view needs blocks this gateway cannot compute yet",
   "detail": "The chain-derived half is served at /pools/balances and is included below. The rest arrives with the snapshot.",
   "missing": [
-    { "block": "history",       "owner": "HANDOFF-09", "why": "A long per-pool balance series ..." },
-    { "block": "unsoundBands",  "owner": "HANDOFF-09", "why": "The windows in which a pool's soundness rested on a broken proof system ..." },
-    { "block": "denominations", "owner": "HANDOFF-08", "why": "The Sprout residual's denomination histogram ..." },
-    { "block": "neff",          "owner": "HANDOFF-08", "why": "The distribution of claim levels across spends ..." }
+    { "block": "history",       "owner": "HANDOFF-12",  "why": "A long per-pool balance series ..." },
+    { "block": "unsoundBands",  "owner": "UNASSIGNED",  "why": "The windows in which a pool's soundness rested on a broken proof system ..." },
+    { "block": "denominations", "owner": "UNASSIGNED",  "why": "The Sprout residual's denomination histogram ..." },
+    { "block": "neff",          "owner": "HANDOFF-11",  "why": "The distribution of claim levels across spends ..." }
   ],
   "balances": { "...": "the /pools/balances body, inline" }
 }
 ```
 
-This follows the handoff sequence rather than fighting it: HANDOFF-11, the
-cutover, depends on 05, 09 and 10 together, so a `/pools` page that is complete
-only after 09 is the order the plan asks for.
+**`owner` DECAYS AND THIS DOCUMENT IS WHERE IT WAS FIRST WRITTEN DOWN.** Until
+HANDOFF-09's gate, two entries named HANDOFF-09 and two HANDOFF-08 — both long
+shipped without closing them, so a live API was telling its callers that a
+closed handoff owed them a field. A number here is a *prediction*, and a
+prediction that outlives its subject reads as a fact. `UNASSIGNED` is now a legal
+value and is the honest one wherever no open handoff's scope covers the block:
+`unsoundBands` is a Record claim for `packages/content` and `denominations` needs
+a Sprout note survey, and nothing open owns either. `history` needs the persisted
+per-pool series HANDOFF-12's `PoolState` work produces — HANDOFF-09's snapshot
+carries `pools` at the tip only. `neff`'s estimator now exists (HANDOFF-09's
+`ironwood-birth.ts`, published as the snapshot's `neffSeries`); what is missing is
+that this route reads the chain and not the snapshot, which is HANDOFF-11's
+wiring.
 
 ## `GET /api/mempool`
 
@@ -602,20 +610,52 @@ which is most of them: the research read these movements from an explorer, and
 inventing a height to fill the field would be fabricating a precision the source
 does not have.
 
-## `GET /api/snapshot` — 501 until HANDOFF-09
+## `GET /api/snapshot` — the published snapshot, or a stated absence
+
+**Implemented by HANDOFF-09.** This section described a `501` stub until then;
+what follows is the route as it now behaves.
+
+`200` carries the `SnapshotV1` document the publisher wrote, read from
+`SNAPSHOT_FILE` — the local copy the publisher's file sink writes onto a volume
+this gateway mounts read-only. `Cache-Control: max-age=60` is roughly one block,
+so a cached copy is at worst one tip behind and carries the height it was taken
+at.
+
+`503` is every way of having no snapshot, with the difference in the body rather
+than in the status code:
 
 ```json
 {
-  "error": "the snapshot is not produced yet",
-  "detail": "HANDOFF-09 adds the publisher that writes zecreveal:snapshot:* and this endpoint then serves it. Until it does, a client must fall through to its next source rather than treat this as an empty snapshot.",
-  "owner": "HANDOFF-09"
+  "error": "no snapshot is available",
+  "reason": "absent",
+  "detail": "no snapshot has been published yet"
 }
 ```
 
-`501`, deliberately. A `404` would be wrong — the resource exists and is planned
-— and a `200` carrying an empty object would be worse: `apps/web`'s snapshot
-store falls through four sources in order, and an empty `200` would satisfy the
-gateway source and stop it falling through to the bundled fixture.
+| `reason` | `detail` says | Means |
+|---|---|---|
+| `absent` | no snapshot has been published yet | Nothing has been published to this box yet. |
+| `unreadable` | the snapshot file could not be read (`code`) | The file is there and this process cannot read it. |
+| `malformed` | the snapshot file is not JSON | It is not JSON. |
+| `invalid` | (the schema's own words) | It is JSON and not a `SnapshotV1`. Only this reason adds an `issues` array, in the same shape `ApiError.issues` carries elsewhere. |
+
+`detail` is client-safe and never carries the file path: which file this gateway
+reads is a fact about this box, and the path goes to the log instead. That is
+assertion A7 applied to this route.
+
+Four things to an operator, one thing to a client — "there is nothing to render,
+try the next source" — so they share a status and differ in a field.
+
+The `503` carries `Cache-Control: no-store`. A shared cache holding it for sixty
+seconds would keep serving "there is no snapshot" for a minute after the first
+one was published, turning a startup window into a minute of empty dashboard.
+
+The stub's argument still binds and is why there is a failure branch at all: a
+`404` would be wrong — the resource exists — and a `200` carrying an empty object
+would be worse, because `apps/web`'s snapshot store falls through four sources in
+order and an empty `200` would satisfy the gateway source and stop it falling
+through to the bundled fixture. What changed is only the other half: `501` means
+"understood and not implemented", and it is implemented.
 
 ## `WS /stream`
 

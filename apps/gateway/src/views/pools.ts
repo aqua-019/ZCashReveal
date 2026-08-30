@@ -115,30 +115,58 @@ export function buildPoolBalances(pools: readonly ValuePoolBalance[], atHeight: 
 }
 
 /**
- * The blocks of `PoolsView` a chain query cannot produce, and who owns each.
+ * The blocks of `PoolsView` a chain query cannot produce, and where each is
+ * routed.
  *
  * Returned to a caller as the reason `/api/pools` cannot serve a full view yet,
  * so the answer names the gap instead of being an opaque 503.
+ *
+ * `owner` IS A LIVE STATEMENT ON THE WIRE AND DECAYS SILENTLY, which is what
+ * this array got wrong until HANDOFF-09's gate. Every entry named a handoff -
+ * two of them HANDOFF-09, two HANDOFF-08 - and both of those handoffs shipped
+ * without closing what was assigned to them, so `/api/pools` was telling its
+ * callers that a closed handoff owed them a field. A number here is a
+ * PREDICTION about a future handoff, and a prediction that outlives its
+ * subject reads as a fact. So `UNASSIGNED` is now a legal value and is used
+ * wherever no open handoff's scope actually covers the block: an honest
+ * "nobody has been given this" is worth more to a caller than a number that
+ * was true when it was written.
  */
 export const POOLS_VIEW_GAPS: ReadonlyArray<{ readonly block: string; readonly owner: string; readonly why: string }> = [
   {
     block: "history",
-    owner: "HANDOFF-09",
-    why: "A long per-pool balance series. The chain answers for the tip; the series is accumulated by the indexer and published in the snapshot.",
+    // HANDOFF-09 until it shipped. Its snapshot carries `pools` AT THE TIP -
+    // `snapshotV1Schema` has no history array - so the series still has no
+    // producer. HANDOFF-12 is where one appears: it makes the indexer maintain
+    // and PERSIST `PoolState` for all four pools, which is the accumulation
+    // this block needs.
+    owner: "HANDOFF-12",
+    why: "A long per-pool balance series. The chain answers for the tip only; the series has to be accumulated and persisted by the indexer first.",
   },
   {
     block: "unsoundBands",
-    owner: "HANDOFF-09",
-    why: "The windows in which a pool's soundness rested on a broken proof system. A Record fact with its own sources, not a chain query.",
+    // HANDOFF-09 until it shipped, and it was never in that handoff's scope:
+    // this is a Record fact with sources, confidence and lastVerified, which
+    // is `packages/content`'s shape and not an instrument's.
+    owner: "UNASSIGNED",
+    why: "The windows in which a pool's soundness rested on a broken proof system. A Record claim in packages/content with its own sources, not a chain query and not an estimator output.",
   },
   {
     block: "denominations",
-    owner: "HANDOFF-08",
-    why: "The Sprout residual's denomination histogram and its stranded-note count. Needs the note survey, not a balance.",
+    // HANDOFF-08 until it shipped without the note survey. HANDOFF-09's
+    // migration lens is the ZIP 318 Orchard->Ironwood histogram, which is a
+    // different pool and a different ladder; it does not answer this.
+    owner: "UNASSIGNED",
+    why: "The Sprout residual's denomination histogram and its stranded-note count. Needs a note survey of the Sprout set, not a balance and not the ZIP 318 migration lens.",
   },
   {
     block: "neff",
-    owner: "HANDOFF-08",
-    why: "The distribution of claim levels across spends. Needs the estimators; a distribution invented to fill the field would be exactly the fabricated precision this site documents in others.",
+    // HANDOFF-08 until it shipped. THE ESTIMATOR NOW EXISTS: HANDOFF-09's
+    // `analysis/ironwood-birth.ts` produces the claim-level distribution and
+    // the publisher writes it as the snapshot's `neffSeries`. What is missing
+    // is the read path - this route answers from the chain and has no snapshot
+    // reader - which is HANDOFF-11's wiring.
+    owner: "HANDOFF-11",
+    why: "The distribution of claim levels across spends. The estimator exists and the publisher writes it into the snapshot; this route reads the chain and not the snapshot yet. A distribution invented to fill the field would be exactly the fabricated precision this site documents in others.",
   },
 ];

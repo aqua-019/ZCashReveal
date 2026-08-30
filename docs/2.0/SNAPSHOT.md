@@ -1,9 +1,10 @@
 # SNAPSHOT.md — the managed Redis, and the rules that come with sharing it
 
-**Status: the safety half of this document exists; the schema half does not yet.**
-HANDOFF-09 owns `SnapshotV1`, the publish cadence and the sink list, and adds them below.
-What is written here is the part that could not wait for HANDOFF-09, because the store is
-already connected and already shared.
+**Status: complete for HANDOFF-09.** The safety half (sections 1 to 7) was written by HANDOFF-05
+because the store was connected before HANDOFF-09 opened. The schema half - `SnapshotV1`, the
+publish cadence, the sink list and their independent-failure behaviour - is section 8, written by
+HANDOFF-09. Sections 1 to 6 were not weakened by that addition and may not be weakened by any
+later one. What is still owed is HANDOFF-11's half, which is named at the foot of section 8.
 
 Provenance: the connection facts were established by the operator (L2) in the Vercel UI on
 23 August 2026 and delivered to the HANDOFF-05 session as a written note. They are read from
@@ -179,24 +180,55 @@ not a licence to treat the store as ours.
 
 ## 7. What the guard covers, and what it does not
 
-`scripts/check-redis-safety.mjs` runs in CI and under `pnpm check`. It self-tests twenty
-detectors on every run against fixtures in both polarities — strings it must catch and strings it
+`scripts/check-redis-safety.mjs` runs in CI and under `pnpm check`. It self-tests its detectors on
+every run against fixtures in four directions — strings it must catch and strings it
 must not — and exits 2 rather than 0 if either direction has broken, so it cannot degrade into a
 scan that reports a clean tree having detected nothing.
 
+**One narrow, checked exemption, added 30 Aug 2026 (LEDGER-10 Q2), and it does not weaken §§1-6.**
+A `SCAN` line bounded by the VPS prefix is permitted in a non-Markdown file that itself CALLS
+`assertNotManagedStore` with a candidate array. Both halves are required and neither is inferred: the
+call is the same one the indexer and the gateway make at boot, and it throws if the URL it is handed
+is this store by hostname or by an exact value match against any `SNAPSHOT_REDIS_*` variable. The file
+proves its target at runtime and the guard reads the proof. It exists for one tool,
+`scripts/redis-keys.mjs` (`pnpm redis:keys`), which is how `RUNBOOK-VPS.md` section 11 enumerates the
+VPS Redis without putting an enumerating `redis-cli` line on a copy-paste surface. Rule 3 is unchanged
+for this store: a file that refuses to connect to it cannot scan it. `KEYS`, the `redis-cli`
+enumeration flags, the destructive commands and the cross-tenant readers are untouched by the
+exemption in every file. Self-tested in four directions: the exemption applies where it must, it does
+not widen to an unbounded scan or to any other rule, the same two lines are still findings in a file
+without the proof, and a mere mention of `assertNotManagedStore` in a comment or an import is not a
+proof.
+
+**The exemption's own bound:** the proof is per FILE, not per CLIENT. A file that asserts on one URL
+and scans a different client would buy the exemption for both. Nothing here does that, and a review
+that sees it should treat it as a finding on its own - the same treatment this section gives a command
+assembled at runtime.
+
 **Covered.** Rules 2, 3, 4 and 7: `FLUSHDB`, `FLUSHALL`, `SWAPDB`, `SCRIPT FLUSH` (both the bare
-words and the `client.script('FLUSH')` call shape); `KEYS` as a method call, a quoted command
-argument and a `redis-cli` line; `SCAN` unbounded by `zecreveal:`; the `redis-cli` enumeration
+words and the `client.script('FLUSH')` call shape); `KEYS` as a method call (`keys` and
+`keysBuffer`), a quoted command argument and a `redis-cli` line; `SCAN` unbounded by `zecreveal:`,
+in all three ioredis spellings (`scan`, `scanBuffer`, `scanStream`); the `redis-cli` enumeration
 flags; `DEL` and `UNLINK` by glob or by a non-literal first argument; and the cross-tenant
 readers. It scans every file in the repository except vendor and build directories, lockfiles and
 binary extensions — Dockerfiles, `.json`, compose files and extensionless scripts included.
 
 **Not covered, and stated so nobody reads the list above as complete:**
 
-- **Rule 1, the `zecreveal:` key namespace, is not mechanically enforced.** No code in this
-  repository speaks to the managed store today, so there is nothing yet to check. It lands with
-  HANDOFF-09's A11: one module builds every key, and a test asserts no other module constructs
-  one.
+- **Rule 1, the `zecreveal:` key namespace, is not enforced by THIS guard.** It is enforced at
+  runtime instead, by HANDOFF-09's `assertOwnedNamespace` in `apps/publisher/src/sinks/redis.ts`:
+  every key the sink issues passes through it while the `MULTI` is built, so a key outside the
+  namespace throws before `EXEC` and nothing is committed. A11 pins both polarities, and it pins
+  them by INJECTING an untrusted key builder — its first version reached a different throw one
+  function earlier and never ran the guard at all, which is a fail-side probe that does not fail.
+- **The guard reads METHOD NAMES, so a client library's alias is a hole until it is named.** Found
+  in HANDOFF-09's gate: `redis.scanStream({})` is an unbounded enumeration of the whole keyspace
+  and passed this guard, because the rule matched `.scan(` and ioredis's streaming helper is
+  `.scanStream(`. `scanBuffer` and `keysBuffer` were the same shape. All four spellings are named
+  now, and the general bound stands: a NEW alias, or another client library with different method
+  names, is invisible to a text scan until someone adds it. What is not a hole is the bounding
+  check — it looks for `zecreveal:` anywhere on the line, so it covers a new spelling for free the
+  moment the method name is recognised.
 - **Rule 5 is enforced only at the one place it currently bites** — `apps/web`'s Playwright
   config, which blanks the five variables for the build it starts. Nothing stops a future test
   file from reading them directly.
@@ -210,10 +242,162 @@ binary extensions — Dockerfiles, `.json`, compose files and extensionless scri
   cannot say how much of the shared allowance is already spent. Only the operator can read that,
   and only in the Upstash console.
 
-## 8. Still owed to this document
+## 8. The schema, the cadence and the sinks
 
-HANDOFF-09 adds: the `SnapshotV1` schema, the publish cadence, the sink list (`file`, `redis`,
-optional `blob`) and their independent-failure behaviour, and how the operator connects the store.
-HANDOFF-11 adds: `apps/web`'s `SnapshotStore` resolution order and the staleness indicator.
+Written by HANDOFF-09. §§1-6 are unchanged by it.
 
-Neither may weaken §§1–6.
+### 8.1 What the document is for
+
+Plan decision 2, verbatim: the publisher "writes `snapshot.json` every block ... The site renders
+from it at build/ISR time; the WS layer upgrades it live. **Empty dashboards become structurally
+impossible.**"
+
+That last sentence is the design goal and it decides the shape. A snapshot that refuses to parse is
+an empty dashboard, so **four fields are required and every panel is nullable**:
+
+| required | why |
+| --- | --- |
+| `schema` | the literal `1`. See §8.2. |
+| `height` | a page must never print a number with no height beside it |
+| `hash` | which block, unambiguously, across a reorg |
+| `time` | the block's own timestamp, so staleness is measured against the chain |
+
+Everything else — `pools`, `residual`, `drain`, `migrationHist`, `neffSeries`, `lastReports`,
+`labelsVersion` — is a panel that can say "not measured". An indexer that has not reached NU6.3 has
+no drain; one with an empty mempool has no reports. **A `null` renders as an absence and a zero
+renders as a measurement**, which is the same rule `sprout-field.ts` applies to a missing
+`vjoinsplit` and `zip318.ts` applies to a non-canonical denomination.
+
+The schema is `packages/zec-types/src/snapshot.ts`. It is a zod schema, so the assertion that a
+published document conforms is a parse and not a review.
+
+### 8.2 Why there is a `schema` field the handoff did not ask for
+
+HANDOFF-09 §3 names ten fields and this document carries eleven. A type called `SnapshotV1` that
+carries no version cannot tell a reader it is a V1, and `apps/web`'s resolution order (HANDOFF-11)
+has to distinguish two cases that a bare parse failure conflates:
+
+- **a snapshot I do not understand** — fall through to the next source, quietly. This is what a V2
+  looks like to a V1 reader, and it is not a fault.
+- **not a snapshot** — the store answered with something else entirely. That IS a fault and should
+  be reported rather than silently downgraded.
+
+`z.literal(1)` makes the difference a parse result rather than a guess.
+
+### 8.3 Zatoshi on the wire
+
+`JSON.stringify` throws on a `bigint`. The throw is the good case; the bad case is a caller reaching
+for `Number(...)` to get past it and losing precision without a symptom.
+
+So **every zatoshi crosses the wire as a decimal string** and comes back as a `bigint` through
+`zatSchema`, which is the contract `views.ts` already used for every other DTO in this project.
+`serializeSnapshot` in `packages/zec-types/src/snapshot.ts` is the single function that writes them,
+and every sink goes through it, so there is exactly one answer to "how does a zatoshi appear in the
+file".
+
+**One field deliberately leaves that rule: drain velocity, which is ZEC per hour as a float.** Plan
+§3.3 names the unit, and a rate is a quotient — the elapsed time comes from block timestamps and is
+not a whole number of hours. A `bigint` there would have to round a rate to the nearest
+zatoshi-per-hour and claim a precision the measurement does not have.
+
+### 8.4 The cadence
+
+**One publish per NEW tip.** The publisher de-duplicates by height: a repeated tip writes nothing,
+to any sink. At the 75-second target interval that is ~1,152 publishes a day.
+
+A tip that arrives while a publish is in flight does not start a second one; the newer height is
+published on the next turn. The snapshot is a *latest-wins* document and skipping an intermediate
+height loses nothing a reader can observe, whereas two concurrent `MULTI`s against a shared store
+could interleave `latest` and `height` and leave the two disagreeing.
+
+### 8.5 The sinks, and what "independent" means
+
+| sink | destination | configured by | required |
+| --- | --- | --- | --- |
+| `file` | `snapshot.json` on the local filesystem | `SNAPSHOT_FILE` | yes — this is what the gateway serves and what a dev run produces |
+| `redis` | the Vercel-managed store | `SNAPSHOT_REDIS_KV_URL` or `SNAPSHOT_REDIS_REDIS_URL` | no — absent both, the sink is not constructed |
+| `blob` | object storage | `SNAPSHOT_BLOB_URL` | no — stub |
+
+**SINKS ARE INDEPENDENT AND THE PROCESS NEVER EXITS ON A SINK FAILURE.** A failing sink is logged as
+`{sink, err}` and the others still write. The reason is the whole point of the design: the snapshot
+exists so the public site renders when the VPS or the tunnel is down, and a publisher that dies
+because the managed store was briefly unreachable would take the file sink — the gateway's own copy
+— down with it, converting a partial outage into a total one.
+
+The redis sink is the only writer this project has against the managed store, per rule 6.
+
+### 8.6 The three commands, and why it is exactly three
+
+Per new tip, in one `MULTI`:
+
+```
+SET zecreveal:snapshot:latest    <json>
+SET zecreveal:snapshot:<height>  <json>   EX 86400
+SET zecreveal:snapshot:height    <height>
+```
+
+The keys are built by `SNAPSHOT_KEYS` and `snapshotKeyForHeight()` in
+`packages/zec-types/src/redis-topology.ts`. **The prefix is never retyped**, here or anywhere: it
+differs from the VPS prefix by one letter.
+
+`zecreveal:snapshot:latest` carries no TTL, because a store that expires the latest snapshot
+produces the empty dashboard this design exists to prevent. The per-height copy carries 86,400
+seconds so the keyspace does not grow without bound; `zecreveal:snapshot:height` is an integer string
+a reader can fetch without parsing the document.
+
+The count is asserted by **counting**, not by reading the code — HANDOFF-09 A10, with a spy on the
+client, across a fake tip stream, asserting `3 x tips`. §5 gives the reason: "counting commands is
+the only honest way to assert 'exactly three'". A10's fail side adds a fourth command and watches the
+count assert.
+
+**THREE IS THE WRITE COUNT. FIVE CROSS THE WIRE, AND WHICH ONE THE METER CHARGES IS UNVERIFIED.**
+`MULTI` and `EXEC` are commands the client sends over RESP like the three `SET`s, so one tip is five
+commands on the connection. Whether Upstash's monthly meter bills the transaction envelope is a fact
+about their billing, not about this repository, and **no session can read it**: egress to
+`upstash.com` is refused by the container's proxy, so it cannot be resolved from a document either.
+Both numbers are therefore measured and pinned by A10 — `COMMANDS_PER_TIP` is 3 and
+`WIRE_COMMANDS_PER_TIP` is 5, both in `apps/publisher/src/budget.ts` — and the difference is left
+visible rather than resolved in one direction.
+
+It is not academic. At three, a month of tips costs about **103,500** commands and clears the 150,000
+default ceiling of §8.7. At five it costs about **172,500** and does not, so the publisher would trip
+the ceiling around day 26 and run file-only for the rest of every month — the managed-store baseline
+this whole document exists for stops updating. Against the shared 500,000 allowance both are a
+minority share (21% and 35%), so the risk of under-counting is to **this** project's fallback, not to
+the other tenant's headroom.
+
+**The charge stays at three until it is measured, and measuring it is an operator task** (it is in
+`handoffs/README.md`'s click list): read the command count the Upstash console reports for one full
+month against the number of tips published in it. Whichever number the meter charged,
+`COMMANDS_PER_TIP` and the `redis` sink's `managedStoreCommandsPerWrite` become it, and §8.7's
+default ceiling is re-checked against the new arithmetic. Charging five on a guess would buy nothing
+against the shared allowance and would pay for it with a predictable outage of our own fallback.
+
+### 8.7 The monthly ceiling
+
+`SNAPSHOT_REDIS_MONTHLY_BUDGET` (default `150000`) is a hard refusal, not a warning: over the
+ceiling, the publisher **exits non-zero with a message naming it, and writes nothing to the managed
+store**. The file sink is unaffected, so a publisher that has run out of budget still keeps the
+gateway's copy fresh.
+
+The counter is a file on a named VPS volume, keyed `YYYY-MM`, read at startup and flushed after each
+tip. §5 gives both halves of why it is not anywhere else: in the managed store it would be a fourth
+command per tip and would break the assertion in §8.6, and in memory alone it would reset on every
+restart and make the ceiling vacuous.
+
+### 8.8 How the operator connects the store
+
+Already done, 23 August 2026, and recorded in §3: the store `upstash-kv-blue-garden` is connected to
+the `zecreveal` project for Production and Preview under the variable prefix `SNAPSHOT_REDIS`, so
+Vercel injects the five names automatically. **Nothing is copied by hand on the Vercel side, and no
+agent sets a Vercel environment variable.**
+
+The one manual step that remains is the VPS: the operator pastes one of the two `rediss://` TCP URLs
+into the VPS `.env`, under the name it carried in the Vercel UI, so a value copied out of that UI
+lands under the name it came with. It never enters git — HANDOFF-09 A8 greps for exactly that.
+
+### 8.9 Still owed
+
+HANDOFF-11 adds: `apps/web`'s `SnapshotStore` resolution order, the staleness indicator, and the
+measured read figure that replaces §5's row saying the combined share is unknown. It may not weaken
+§§1-6, and it may not weaken this section either.

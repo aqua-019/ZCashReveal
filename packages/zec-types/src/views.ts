@@ -215,8 +215,27 @@ export const filterNameSchema = z.enum([
   "fingerprint",
   "anchor_recency",
   "pool_payout",
+  /**
+   * NO LONGER UNEMITTED. HANDOFF-09's `migration-lens.ts` emits this, so the
+   * paragraph above - which lists it among "section 3 estimators still to be
+   * written" - is now wrong about this one member and right about the other
+   * four. Left in place rather than rewritten, because the reasoning it records
+   * about `subset_sum` is what the list exists for; this note is the correction.
+   */
   "migration_lens",
   "conservation",
+  /**
+   * HANDOFF-09's two new instruments, added in the same commit as the estimators
+   * that emit them - which is the rule this enum states about itself, and which
+   * `handoffs/HANDOFF-09-instruments-snapshot.md` section 3 now states about
+   * `check-audit-consumers.mjs` as well.
+   *
+   * `turnstile_window` is the window SELECTION behind a drain velocity, not the
+   * accounting: `U_h` and `V_h` narrow nothing and emit no record. See the
+   * variant's docblock in `analysis.ts`.
+   */
+  "turnstile_window",
+  "ironwood_birth",
 ]);
 export type FilterName = z.infer<typeof filterNameSchema>;
 

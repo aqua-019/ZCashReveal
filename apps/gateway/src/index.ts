@@ -12,12 +12,12 @@
  *   GET  /api/tx/:txid            transaction, plus the indexer's record if it has one
  *   GET  /api/block/:height       block at a height, from getblock verbosity 2
  *   GET  /api/pools/balances      live per-pool balances, and the lockbox
- *   GET  /api/pools               503 until HANDOFF-09, naming what is missing
+ *   GET  /api/pools               503 while four blocks have no producer, named
  *   GET  /api/mempool             the indexer's live mempool
  *   GET  /api/flows               the Tracking side of the Record's /flows
  *   GET  /api/labels              address labels, from packages/content
  *   GET  /api/cases               golden cases, from packages/content
- *   GET  /api/snapshot            501 until HANDOFF-09
+ *   GET  /api/snapshot            the published snapshot, or 503 with a reason
  *   WS   /stream                  live mempool diff stream, capped
  */
 import { Redis } from "ioredis";

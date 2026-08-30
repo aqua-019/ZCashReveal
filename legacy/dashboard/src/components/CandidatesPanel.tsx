@@ -256,6 +256,12 @@ function filterShort(f: FilterApplication): string {
       return "amount echo";
     case "conservation":
       return "turnstile conservation";
+    case "turnstile_window":
+      return "turnstile window";
+    case "migration_lens":
+      return "migration lens";
+    case "ironwood_birth":
+      return "Ironwood birth";
     default:
       return assertNever(f);
   }
@@ -303,6 +309,42 @@ function filterParams(f: FilterApplication): string {
       // way, and a fix that garden-paths its reader is not an improvement.
       return `in ${claimed.toFixed(4)}, out ${exits.toFixed(4)}, against a pool of ${balance.toFixed(4)} ZEC · ${dropped} match${dropped === 1 ? "" : "es"} refused`;
     }
+    // HANDOFF-09's three instruments. EVERY FIELD OF EACH `params` IS READ IN
+    // THIS BLOCK, which is `check-audit-consumers.mjs`'s rule and is also the
+    // cheapest way to keep these arms honest: a variant that later gains a field
+    // fails the guard here rather than rendering a caption that quietly omits it.
+    // These arms are UNREACHABLE in this app today - `parsers.ts` coerces any
+    // record it does not know into an inert `time_window`, and nothing here
+    // produces an instrument record - which is LEDGER-08 Q7(d), still open, and
+    // is why the arms exist for `assertNever` rather than for a reader.
+    case "turnstile_window": {
+      const delta = Number(f.params.deltaZat) / 100_000_000;
+      const sign = delta < 0 ? "" : "+";
+      return `${f.params.pool} · ${f.params.windowHours}h window · heights ${f.params.lowHeight.toLocaleString()} to ${f.params.highHeight.toLocaleString()} · ${sign}${delta.toFixed(4)} ZEC`;
+    }
+    case "migration_lens": {
+      const sum = Number(f.params.sumZat) / 100_000_000;
+      const dust = Number(f.params.strandedDustZat) / 100_000_000;
+      return (
+        `heights ${f.params.lowHeight.toLocaleString()} to ${f.params.highHeight.toLocaleString()} · ` +
+        `${f.params.canonicalCount} canonical, ${f.params.nonCanonicalCount} not · ` +
+        `${sum.toFixed(4)} ZEC crossed, ${dust.toFixed(4)} stranded · ` +
+        `at least ${f.params.minNotes} note${f.params.minNotes === 1 ? "" : "s"}, at most ${f.params.maxWallets} wallet${f.params.maxWallets === 1 ? "" : "s"} · ` +
+        // `denominationRuns` IS RENDERED AS THE SHAPE OBSERVATION IT IS AND
+        // NEVER AS A WALLET COUNT. It is below the wallet count whenever two
+        // wallets cross the same denomination adjacently, so a caption calling
+        // it wallets would state a bound the record does not carry.
+        `${f.params.denominationRuns} denomination run${f.params.denominationRuns === 1 ? "" : "s"}`
+      );
+    }
+    case "ironwood_birth": {
+      const pct = (f.params.requiresDisclosureShare * 100).toFixed(1);
+      return (
+        `since h=${f.params.birthHeight.toLocaleString()} · ` +
+        `heights ${f.params.lowHeight.toLocaleString()} to ${f.params.highHeight.toLocaleString()} · ` +
+        `smallest N_eff ${f.params.minNEff.toFixed(2)} · ${pct}% at requires_disclosure`
+      );
+    }
     default:
       return assertNever(f);
   }
@@ -348,6 +390,18 @@ function assumptionGloss(f: FilterApplication): string {
         ? "Turnstile conservation: every surviving link is consistent with the pool balance and with each note being spent once. Nothing was refused."
         : `Turnstile conservation refused ${dropped} link${dropped === 1 ? "" : "s"}: ${f.params.rejectedForDoubleClaim} claimed a note another link had already claimed, ${f.params.rejectedForRivalWithdrawal} explained a withdrawal another link had already explained, ${f.params.rejectedForBalance} would have attributed more value out of the pool than it held. A refusal means this build's heuristics were wrong, never that the chain was.`;
     }
+    // THESE THREE READ NO FIELD OF `params`, DELIBERATELY, and the guard exempts
+    // a block that reads none. The reason is not brevity: an assumption gloss
+    // states what a step ASSUMES, and none of the three assumes anything about a
+    // candidate. `countIn`/`countOut` are on the record rather than in `params`,
+    // so naming them here is not a partial read - it is the same distinction the
+    // `amount_echo` gloss already relies on.
+    case "turnstile_window":
+      return `Assumes nothing about any note. A window selection: ${f.countOut} of ${f.countIn} balance samples fell inside it, and a velocity computed from few samples is a weaker measurement than the number alone shows.`;
+    case "migration_lens":
+      return `Assumes nothing about who migrated. TRACKING-MATH section 3.9 permits distributions and counts per window and forbids "wallet W migrated B"; the note count is a lower bound and the wallet count an upper bound, with no lower bound on wallets claimable at all. ${f.countIn - f.countOut} crossing${f.countIn - f.countOut === 1n ? "" : "s"} did not match a canonical denomination and ${f.countIn - f.countOut === 1n ? "is" : "are"} counted rather than bucketed.`;
+    case "ironwood_birth":
+      return `Assumes: the candidate set behind each N_eff is the anchor bound of section 3.1 and nothing narrower. ${f.countOut} of ${f.countIn} spends belong to the series; a share over a small series is the same number as a share over a large one and is not the same claim.`;
     default:
       return assertNever(f);
   }
