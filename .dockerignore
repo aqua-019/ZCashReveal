@@ -1,0 +1,86 @@
+# Build context exclusions, shared by all three service images.
+#
+# WHY THIS FILE MATTERS MORE THAN IT LOOKS. Without it the build context is the
+# whole repository including `node_modules`, `zebrad-data` and `postgres-data` -
+# the last two are bind-mount directories the compose stack creates beside itself
+# on the VPS, and a synced Zebra state directory is hundreds of gigabytes. A
+# missing `.dockerignore` sends that to the daemon on every build.
+#
+# It also keeps `.env` out of every image. Nothing in `docker build` needs a
+# secret, and an image layer is readable by anyone who can pull it.
+#
+# WHAT IS DELIBERATELY *NOT* EXCLUDED, and the reason, because getting this
+# wrong fails the build in a way that is confusing rather than obvious: every
+# workspace `package.json`, including `legacy/dashboard`'s and `apps/web`'s.
+# `pnpm install --frozen-lockfile` reconciles the lockfile against EVERY importer
+# `pnpm-workspace.yaml` resolves, so a manifest missing from the context makes
+# the lockfile look out of date and the install fails - even though the image
+# builds only one app. The Dockerfiles copy the manifests first and the sources
+# after, so the cost of keeping them is one small file each. Excluding a whole
+# directory and then trying to re-include a file inside it with `!` is the
+# version of this that looks correct and is not.
+
+# Dependencies and build output - reinstalled and rebuilt inside the image. A
+# host `node_modules` would be actively wrong here: it is resolved for the host
+# platform and this image is linux/amd64 musl.
+node_modules
+**/node_modules
+dist
+**/dist
+.next
+**/.next
+.turbo
+**/.turbo
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Runtime state written beside the compose file on the VPS. See the volumes in
+# docker-compose.yml. These are the entries that matter most for build speed.
+zebrad-data
+postgres-data
+redis-data
+
+# Secrets. `.env.example` carries no values and is documentation, so it stays.
+.env
+.env.*
+!.env.example
+
+# Version control, CI and editor state.
+.git
+.github
+.gitignore
+.vscode
+.idea
+
+# Heavy documentation and media. Named individually rather than by excluding
+# `docs/` wholesale, so nothing a build needs disappears with them.
+docs/2.0/research
+docs/2.0/mockups
+docs/2.0/screens
+docs/2.0/v0.2-notes
+docs/2.0/AQUA-STACK-v4.1.png
+handoffs
+
+# Test surface. No service image runs a test, and `apps/indexer/test/fixtures`
+# alone is most of a megabyte.
+**/__tests__
+**/*.test.ts
+apps/indexer/test
+apps/web/test
+packages/content/test
+packages/zebra-rpc/test
+playwright-report
+test-results
+coverage
+**/coverage
+
+# The web app's source. The three service images are the indexer, the gateway
+# and the publisher; `apps/web` is built by Vercel, never here. Its manifest is
+# kept, per the note above; its source is not.
+apps/web/src
+apps/web/public
+apps/web/scripts
+
+# Local tooling artefacts.
+*.log
+.DS_Store

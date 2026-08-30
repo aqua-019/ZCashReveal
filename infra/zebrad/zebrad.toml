@@ -1,22 +1,155 @@
+# zebrad configuration for the ZECReveal 2.0 VPS stack.
+#
+# TARGET VERSION: zfnd/zebra 6.2.3. Every key below was read from that tag's
+# source rather than from a doc page or from memory, because each config section
+# in Zebra carries `#[serde(deny_unknown_fields)]` - an unknown or misspelled key
+# is a HARD PARSE FAILURE at startup, not a warning. The sections and their
+# fields were confirmed at:
+#
+#   [network]  zebra-network/src/config.rs      - `listen_addr`, `network`
+#   [state]    zebra-state/src/config.rs:101    - `cache_dir`
+#   [rpc]      zebra-rpc/src/config/rpc.rs      - `listen_addr`, `enable_cookie_auth`
+#   [health]   zebrad/src/components/health/config.rs
+#   [tracing]  zebrad/src/components/tracing.rs - `filter`
+#   [metrics]  zebrad/src/components/metrics.rs - `endpoint_addr`
+#
+# (all at https://github.com/ZcashFoundation/zebra/tree/v6.2.3)
+#
+# The container reads this file because docker-compose.yml sets
+# `CONFIG_FILE_PATH=/etc/zebrad/zebrad.toml`, which the image's entrypoint turns
+# into `zebrad --config <path>` (docker/entrypoint.sh:100-102 at the same tag).
+# That variable name is the image's, not zebrad's, and it is confirmed rather
+# than assumed.
+#
+# WHAT IS DELIBERATELY ABSENT, so nobody adds it back believing it was forgotten:
+#
+#   * `parallel_cpu_threads`. The field still exists but Zebra's own source says
+#     it "actually do nothing" since the migration from jsonrpc-core to jsonrpsee
+#     (zebra-rpc/src/config/rpc.rs). A config line that has no effect is worse
+#     than no line, because it reads as a tuning decision somebody made.
+#
+#   * ANY ADDRESS-INDEX KEY. HANDOFF-10 §3 says to "enable the address indexes
+#     HANDOFF-05 needs". THERE IS NO SUCH KEY IN ZEBRA 6.2.3 - not under [rpc],
+#     not under [state], not anywhere in ZebradConfig. The address RPCs the
+#     gateway depends on are unconditional: `getaddressbalance`,
+#     `getaddresstxids` and `getaddressutxos` are declared on the RPC trait at
+#     zebra-rpc/src/methods.rs lines 232, 438 and 459, alongside
+#     `z_gettreestate` (361) and `z_getsubtreesbyindex` (382), which HANDOFF-12
+#     needs for the Ironwood anchor. Nothing turns them on because nothing turns
+#     them off. The requirement is satisfied by the node, not by this file.
+#
+#   * `indexer_listen_addr`. This is NOT the address index. It is Zebra's
+#     internal gRPC indexer service, it requires a build with the `indexer`
+#     feature, and `default-release-binaries` - what the published image is
+#     built with - does not include it (zebrad/Cargo.toml). Setting it here
+#     would be a key that parses and a server that never starts.
+#
+#   * ANY ZMQ SECTION. Zebrad exposes no ZMQ socket, at any version. `ZebradConfig`
+#     (zebrad/src/config.rs:54-95) has twelve sections and none of them is zmq. See the note under [notify] below.
+
 [network]
 network = "Mainnet"
+# Inbound peer connections. This is the one port the stack publishes to the
+# public internet, and it must be reachable for Zebra to be a good citizen of
+# the network rather than a leech.
 listen_addr = "0.0.0.0:8233"
 
 [state]
+# Matches the named volume mounted at this path in docker-compose.yml. The
+# image's HOME is /home/zebra (docker/Dockerfile ARG HOME="/home/${USER}",
+# USER="zebra"), and the entrypoint defaults ZEBRA_STATE__CACHE_DIR to
+# ${HOME}/.cache/zebra, so this is the path the image expects rather than one
+# chosen here.
 cache_dir = "/home/zebra/.cache/zebra"
 
 [rpc]
+# 0.0.0.0 INSIDE THE CONTAINER, and that is not a loosening of the v0.2 setting
+# it replaces - it is the same decision in a different topology. In v0.2 the
+# indexer ran on the host and reached Zebra through a loopback-published port,
+# so the container bound loopback. Here the indexer is a container on the
+# compose network and reaches `zebrad:8232` by service name, which a
+# loopback-bound socket refuses. The exposure is controlled at the PUBLISH
+# boundary instead: docker-compose.yml publishes no host port for 8232 at all,
+# so the RPC is reachable from the compose network and from nowhere else. The
+# dev override republishes it on 127.0.0.1 for a host-run indexer.
 listen_addr = "0.0.0.0:8232"
-parallel_cpu_threads = 4
-# Dev box: the host-run indexer reaches Zebra over the loopback-mapped RPC port.
-# Zebra has no username/password RPC auth — it's cookie-or-nothing — and the
-# generated cookie rotates on every zebrad restart, which is brittle for a
-# long-lived host process. Disable cookie auth here. Acceptable because the RPC
-# is only reached locally; Phase A tunnels the gateway (:8080), never :8232.
+
+# RE-VALIDATED FOR 6.x, as §3 requires. Zebra's RPC auth is cookie-or-nothing -
+# there is no username/password mode - and the cookie is regenerated on every
+# zebrad restart, which a long-lived indexer cannot follow without re-reading
+# the file. `false` is therefore the only workable setting, and it is safe only
+# because of the publish boundary described above: nothing outside the compose
+# network can open a socket to this port. If you ever publish 8232 to a public
+# interface, this line becomes a remote unauthenticated RPC and the tunnel
+# ingress in RUNBOOK-VPS.md is what must stay pointed at the gateway instead.
 enable_cookie_auth = false
 
+[health]
+# HTTP health endpoints, added in the 6.x line and used by this stack's
+# container healthcheck: GET /healthy and GET /ready
+# (zebrad/src/components/health.rs:196-197).
+#
+#   /healthy - the node has at least `min_connected_peers` live peers.
+#   /ready   - /healthy AND close to the chain tip AND the tip is younger than
+#              `ready_max_tip_age` AND within `ready_max_blocks_behind`.
+#
+# THE CONTAINER HEALTHCHECK USES /healthy, NOT /ready, AND THE DIFFERENCE IS
+# LOAD-BEARING. First sync takes days; a healthcheck on /ready would report the
+# container unhealthy for that entire period, which trains an operator to ignore
+# it. /ready is the right gate for "may the indexer start reading", and
+# RUNBOOK-VPS.md uses it there, by hand, once.
+#
+# Port 8080 is upstream's own convention for these endpoints (the ZF compose
+# file labels "8080:8080  # Health endpoints"). The gateway container also
+# listens on 8080 - inside its OWN container. Two containers, two network
+# namespaces, no conflict; neither is published to the host.
+listen_addr = "0.0.0.0:8080"
+
 [tracing]
-filter = "info"
+# `warn` globally with `info` for Zebra's own crates keeps the sync progress
+# lines that an operator watches during first sync without the peer-level chatter
+# underneath them. Syntax is tracing-subscriber's EnvFilter.
+filter = "warn,zebrad=info,zebra_network=warn,zebra_state=info"
 
 [metrics]
+# Prometheus endpoint. It is live in the published image: the metrics field is
+# gated on the `prometheus` feature, and `default-release-binaries` - what the
+# official image builds - includes it (zebrad/Cargo.toml [features]). Checked
+# rather than assumed, because a config line for a feature that was not compiled
+# in parses cleanly and then does nothing.
+#
+# Bound to 0.0.0.0 so a scraper elsewhere on the compose network can reach it,
+# and published to no host port, so nothing off the box can.
 endpoint_addr = "0.0.0.0:9999"
+
+# [notify]
+# THE ZMQ QUESTION, ANSWERED. §3 says "ZMQ if supported else document the
+# polling fallback". ZEBRAD ITSELF EXPOSES NO ZMQ SOCKET - it has no zmq config
+# section and never has; ZMQ was zcashd's mechanism.
+#
+# PRECISELY, because the first gate round caught this stated too absolutely: the
+# claim is about zebrad's own RPC/notification surface, which is what this stack
+# dials. Zebra 6.x can SUPERVISE a zcashd sidecar (`[zcashd_compat]`), and that
+# zcashd is a different process which does speak ZMQ - but this stack does not
+# run it, `zcashd_compat` is absent from this file, and the indexer points
+# ZEBRAD_ZMQ_URL at the zebrad service. So the operational fact is unchanged and
+# the sentence is now true as written. What Zebra offers instead is
+# `[notify] block_notify_command`, a shell command run on every best-chain tip
+# change with %s replaced by the block hash, mirroring zcashd's -blocknotify
+# (zebrad/src/components/notify.rs).
+#
+# THE FALLBACK IS ALREADY THE SHIPPED PATH, and it is silent, which is the part
+# worth writing down. apps/indexer/src/index.ts constructs a
+# ZebradZmqSubscriber against ZEBRAD_ZMQ_URL and, when the connection fails,
+# logs `zmq unavailable - falling back to polling only` at WARN and continues
+# (index.ts:86-87). Against Zebra that branch is not a degraded mode, it is the
+# ONLY mode - the ZMQ socket can never connect because there is nothing to
+# connect to. So the indexer runs on INDEXER_POLL_INTERVAL_MS polling, forever,
+# and the only evidence is one warn line at boot.
+#
+# It is left commented rather than enabled because turning it on means choosing
+# what the command does, and the honest options both belong to a later handoff:
+# a curl into the gateway, or a redis-cli publish, neither of which exists in
+# this image. RUNBOOK-VPS.md records the polling reality under "what the indexer
+# is actually doing", and the standing item is HANDOFF-12's.
+# block_notify_command = "..."

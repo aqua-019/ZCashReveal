@@ -1,0 +1,100 @@
+# Development override - the Windows/WSL2 box, not the VPS.
+#
+# Use with BOTH files, base first, and the order is not stylistic - compose
+# merges later files over earlier ones:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
+# WHAT THIS OVERRIDE IS FOR. On the dev box the application processes run on the
+# HOST (`pnpm dev`), against containerised infrastructure. So this file does two
+# things: it publishes the infrastructure ports a host process needs to reach,
+# and it removes the three application services and the tunnel, which have no
+# business running here.
+#
+# WHY THE APPLICATION SERVICES ARE REMOVED RATHER THAN LEFT RUNNING. Two
+# indexers against one Postgres is not a redundant setup, it is two writers
+# racing on the same state-machine tables - the same hazard LEDGER-06 Q6 records
+# for two concurrent vitest processes, with the same symptom of rows vanishing
+# mid-transaction. `replicas: 0` is the compose-native way to say "defined, not
+# started", and it keeps the service's definition visible in `config` output
+# rather than deleting it and letting the two files drift.
+
+services:
+  zebrad:
+    ports:
+      - "8233:8233"
+      # THE RPC IS REPUBLISHED HERE AND ONLY HERE. On the VPS the indexer is a
+      # container and reaches `zebrad:8232` over the compose network, so the
+      # base file publishes nothing; on the dev box the indexer is a host
+      # process and needs a host port. Loopback-bound, because the RPC runs with
+      # enable_cookie_auth = false and this is the boundary that makes that safe.
+      - "127.0.0.1:8232:8232"
+      # Zebra's health endpoints, so a developer can curl /healthy and /ready
+      # without exec-ing into the container.
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:9999:9999"
+    # A dev box is not reserving 4 CPUs and 8 GB for a node that is usually
+    # pointed at a testnet or left stopped.
+    deploy:
+      resources:
+        reservations:
+          cpus: "1"
+          memory: 2G
+
+  postgres:
+    ports:
+      # Same 5433 remap as production, for the same reason: a Postgres already
+      # installed on the host owns 5432. This is what
+      # docs/2.0/v0.2-notes/postgres-port-5433.patch was working around by hand.
+      #
+      # NOTE THE CONSEQUENCE FOR DATABASE_URL. A host-run indexer, gateway or
+      # `pnpm --filter @zcashreveal/indexer migrate` must use port 5433:
+      #   DATABASE_URL=postgres://zcashreveal:<POSTGRES_PASSWORD>@localhost:5433/zcashreveal
+      # The integration suites default to 5432 when DATABASE_URL is unset
+      # (apps/indexer/src/persistence/__tests__/integration/_setup.ts), so on
+      # this box the variable is not optional.
+      - "127.0.0.1:5433:5432"
+    environment:
+      # NO PASSWORD OVERRIDE HERE, and the two earlier attempts are worth
+      # recording because both were wrong in instructive ways.
+      #
+      # The first draft wrote the dev credentials out in full, reasoning that a
+      # loopback throwaway database holds nothing. A5 flagged it. The second
+      # wrote `${POSTGRES_PASSWORD:-zcashreveal}`, which satisfied A5 - and only
+      # because A5 could not yet see inside an interpolation default. The first
+      # gate round fixed that blindness, and the same line was flagged again,
+      # correctly: a default IS a committed literal, and a weak known password in
+      # the dev file is the template somebody copies into the production one.
+      #
+      # So the base file's `${POSTGRES_PASSWORD:?...}` applies here unchanged and
+      # a dev box sets POSTGRES_PASSWORD in .env exactly as the VPS does. USER and
+      # DB are not secrets and keep their convenience defaults from the base file.
+
+  redis:
+    ports:
+      # Published on the dev box because host processes need it; still loopback.
+      - "127.0.0.1:6379:6379"
+
+  # The three application services and the tunnel are defined by the base file
+  # and deliberately not started here. `pnpm dev` runs them on the host with
+  # hot reload, which is the point of a dev box.
+  indexer:
+    deploy:
+      replicas: 0
+
+  gateway:
+    deploy:
+      replicas: 0
+
+  publisher:
+    deploy:
+      replicas: 0
+
+  cloudflared:
+    # THE TUNNEL NEVER RUNS ON A DEV BOX. Starting it with a production token
+    # would publish a laptop at the production hostname and take the site down
+    # for as long as it stayed up - cloudflared load-balances across every
+    # connection registered for a tunnel, so this would not even fail loudly. It
+    # would serve half the traffic from a machine with no data.
+    deploy:
+      replicas: 0

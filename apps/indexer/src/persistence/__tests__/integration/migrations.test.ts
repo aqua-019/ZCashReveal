@@ -59,14 +59,40 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const INDEXER_ROOT = resolve(HERE, "..", "..", "..", "..");
 const MIGRATIONS_DIR = join(INDEXER_ROOT, "migrations");
 const REAL_RUNNER = join(INDEXER_ROOT, "src", "migrate.ts");
-const TEMP_ROOT = join(tmpdir(), "zecreveal-migrations-test");
+/**
+ * A suffix unique to this vitest RUN.
+ *
+ * THIS FILE IS THE ONE HAZARD SCHEMA-PER-RUN DOES NOT COVER, and two concurrent
+ * runs found it: `test/global-setup.ts` isolates TABLES inside a schema, but the
+ * scratch DATABASES below live in `pg_database`, which is cluster-wide and has
+ * no schema to hide in. With fixed names the second run's `CREATE DATABASE`
+ * failed on `duplicate key value violates unique constraint
+ * "pg_database_datname_index"` - or worse, its `DROP DATABASE ... WITH (FORCE)`
+ * would have terminated the first run's connections mid-assertion.
+ *
+ * `ZR_TEST_SCHEMA` is set once per run by globalSetup and is already unique, so
+ * reusing it keeps one source of run identity instead of inventing a second.
+ * The fallback matters for a run started without globalSetup: it must still be
+ * unique, and `Math.random` is banned repository-wide, so it comes from the pid
+ * and the high-resolution clock exactly as globalSetup's does.
+ */
+const RUN_ID = (
+  process.env["ZR_TEST_SCHEMA"] ?? `${process.pid}_${process.hrtime.bigint().toString(36)}`
+)
+  .replace(/^zr_test_/, "")
+  .replace(/[^a-z0-9_]/gi, "")
+  .toLowerCase()
+  .slice(0, 24);
+
+const TEMP_ROOT = join(tmpdir(), `zecreveal-migrations-test-${RUN_ID}`);
 
 /** Every scratch database this file creates. The DROP helper refuses anything
- *  outside this prefix, so a typo cannot reach the project's own database. */
+ *  outside this prefix, so a typo cannot reach the project's own database. The
+ *  run id is inside the prefixed part, so that guard still covers all three. */
 const SCRATCH_PREFIX = "zecreveal_migtest_";
-const DB_FRESH = `${SCRATCH_PREFIX}fresh`;
-const DB_UPGRADE = `${SCRATCH_PREFIX}upgrade`;
-const DB_TXN = `${SCRATCH_PREFIX}txn`;
+const DB_FRESH = `${SCRATCH_PREFIX}${RUN_ID}_fresh`;
+const DB_UPGRADE = `${SCRATCH_PREFIX}${RUN_ID}_upgrade`;
+const DB_TXN = `${SCRATCH_PREFIX}${RUN_ID}_txn`;
 
 /** Mirrors _setup.ts, which keeps its default private. */
 const DEFAULT_URL =

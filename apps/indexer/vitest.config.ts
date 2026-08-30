@@ -34,6 +34,11 @@ export default defineConfig({
     environment: "node",
     globals: false,
     pool: "forks",
+    // Gives this RUN its own Postgres schema and drops it afterwards, so two
+    // concurrent vitest processes on one database cannot truncate each other's
+    // rows. See the header of test/global-setup.ts for why schema-per-run was
+    // chosen over an advisory lock or a database per worker.
+    globalSetup: ["./test/global-setup.ts"],
     // Disable cross-file parallelism: integration tests share a single
     // Postgres database, so concurrent beforeEach TRUNCATEs from different
     // files race and wipe each other's mid-test rows. Sequential file

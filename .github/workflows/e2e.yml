@@ -1,0 +1,98 @@
+name: e2e (apps/web)
+
+# WHY THIS IS A SEPARATE WORKFLOW FILE RATHER THAN A SECOND JOB IN ci.yml.
+# HANDOFF-10 deliverable 4 (LEDGER-01 Q3, fold 6) asks for a job separate from
+# the main verify job, "triggered only by a paths filter on apps/web/**", that
+# "gates apps/web PRs without gating unrelated ones".
+#
+# GitHub applies `on.pull_request.paths` at the WORKFLOW level, not the job
+# level. Putting this job inside ci.yml with a paths filter would gate the
+# typecheck, lint and test job on the same filter - so a PR touching only
+# apps/indexer would run no tests at all, which is the opposite of the intent
+# and exactly the kind of green-because-nothing-ran result this repository has
+# been bitten by twice. The alternatives inside one file are a marketplace
+# paths-filter action or a changed-files API call in an `if:`, both of which add
+# a dependency and a failure mode to answer a question the workflow trigger
+# already answers correctly.
+#
+# OPERATIONAL NOTE FOR WHOEVER CONFIGURES BRANCH PROTECTION. A path-filtered
+# workflow does not run on PRs that do not touch its paths, and a check that
+# never runs is reported as "expected - waiting for status" rather than as
+# passing. So this job must NOT be added to the required-checks list as-is; the
+# required check stays ci.yml's "typecheck, lint, test". This is recorded in
+# docs/2.0/DEPLOY-2.0.md so it is decided once rather than rediscovered.
+
+on:
+  pull_request:
+    paths:
+      - "apps/web/**"
+      # The web app renders from these, so a change to either can break a
+      # Playwright assertion without touching apps/web at all.
+      - "packages/content/**"
+      - "packages/zec-types/**"
+      # And a change to this file must be able to test itself.
+      - ".github/workflows/e2e.yml"
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  playwright:
+    name: playwright (chromium)
+    runs-on: ubuntu-latest
+    # The suite builds apps/web from scratch and serves it before the first
+    # assertion (see apps/web/playwright.config.ts, which deliberately never
+    # reuses a server), so it is slower than the whole unit gate.
+    timeout-minutes: 30
+
+    steps:
+      # Same node24-runtime pins as ci.yml, chosen the same way and for the same
+      # reason. See the comment above the action block there.
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Chromium only. The suite's own config declares a single chromium
+      # project, so installing the other two browsers would download about
+      # 400 MB to run nothing. `--with-deps` brings the system libraries the
+      # runner image does not carry.
+      #
+      # The version is not pinned here on purpose: it comes from the
+      # `@playwright/test` version in apps/web/package.json, which IS pinned
+      # exactly (1.56.1, no caret). A browser downloaded by a different CLI
+      # version than the one driving it is a mismatch that fails at run time
+      # with a message about the protocol rather than about versions.
+      - name: Install chromium
+        run: pnpm --filter @zcashreveal/web exec playwright install --with-deps chromium
+
+      # Builds the workspace packages apps/web imports. `test:e2e` runs
+      # `playwright test`, whose webServer command then runs `pnpm build` for
+      # apps/web itself; without this step that build resolves workspace
+      # dependencies that have never been compiled.
+      - name: Build workspace packages
+        run: pnpm build
+
+      - name: Playwright
+        run: pnpm --filter @zcashreveal/web test:e2e
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          if-no-files-found: ignore
+          retention-days: 7
