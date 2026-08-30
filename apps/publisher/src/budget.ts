@@ -35,8 +35,39 @@
 
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 
-/** How many commands one new tip spends against the managed store. SNAPSHOT.md section 8.6. */
+/**
+ * How many commands one new tip spends against the managed store. SNAPSHOT.md
+ * section 8.6.
+ *
+ * THREE IS THE WRITE COUNT, AND IT IS NOT CERTAIN TO BE THE BILLED COUNT. The
+ * publish is one `MULTI`, three `SET`s and one `EXEC`, so five commands cross
+ * the wire and three of them write. Whether Upstash's meter charges the
+ * envelope is a fact about their billing that no session can read - egress to
+ * `upstash.com` is refused by the container's proxy - so it is recorded as
+ * UNVERIFIED rather than guessed at, here, in `sinks/redis.ts` and in
+ * SNAPSHOT.md section 8.6.
+ *
+ * THE CHARGE STAYS AT THREE UNTIL THE METER IS READ, and the reason is that the
+ * conservative-looking change is the damaging one. At three, a month of tips
+ * costs about 103,500 and clears the 150,000 default ceiling; at five it costs
+ * about 172,500 and trips it around day 26, after which the publisher runs
+ * file-only and the public site's managed-store baseline stops updating for the
+ * rest of the month. Charging five on a guess buys nothing against the shared
+ * allowance - 172,500 of 500,000 is still a third - and pays for it with a
+ * predictable outage of this project's own fallback. So: measure first. The
+ * operator reads the console's command count for one full month
+ * (`handoffs/README.md`'s click list), and whichever number it is, this
+ * constant and `Sink.managedStoreCommandsPerWrite` become it.
+ */
 export const COMMANDS_PER_TIP = 3;
+
+/**
+ * Commands one publish puts on the wire, envelope included: `MULTI` + 3 x `SET`
+ * + `EXEC`. Exported so a reader of the ceiling arithmetic can see both numbers
+ * without deriving one of them, and so a test can pin it. Not charged - see
+ * {@link COMMANDS_PER_TIP}.
+ */
+export const WIRE_COMMANDS_PER_TIP = 5;
 
 /** The counter, as it is held in memory and on disk. */
 export interface BudgetState {

@@ -426,13 +426,38 @@ describe("the pools endpoints", () => {
     await h.close();
   });
 
-  it("answers 503 for the full view, naming every block it cannot compute and who owns it", async () => {
+  it("answers 503 for the full view, naming every block it cannot compute and where it is routed", async () => {
     const h = await harness({ handle: node });
     const res = await h.app.inject({ method: "GET", url: "/api/pools" });
     expect(res.statusCode).toBe(503);
     const body = res.json() as { missing: { block: string; owner: string }[] };
     expect(body.missing.map((m) => m.block).sort()).toEqual(["denominations", "history", "neff", "unsoundBands"]);
-    expect(body.missing.every((m) => m.owner.startsWith("HANDOFF-"))).toBe(true);
+
+    // THE OLD ASSERTION WAS `owner.startsWith("HANDOFF-")` AND IT IS THE REASON
+    // THE STALE OWNERS SURVIVED. It was satisfied by every wrong answer: two
+    // entries named HANDOFF-09 and two HANDOFF-08 long after both shipped, and
+    // a prefix check cannot tell a live routing from a dead one. What it also
+    // did was make `UNASSIGNED` - the honest answer where no open handoff's
+    // scope covers the block - the one value that failed. So the shape asserted
+    // here is the shape the field is allowed to take, and the exact routing is
+    // pinned below so that changing it is a deliberate edit rather than a
+    // drift.
+    for (const m of body.missing) {
+      expect(m.owner === "UNASSIGNED" || /^HANDOFF-\d\d$/.test(m.owner)).toBe(true);
+    }
+    expect(Object.fromEntries(body.missing.map((m) => [m.block, m.owner]))).toEqual({
+      history: "HANDOFF-12",
+      unsoundBands: "UNASSIGNED",
+      denominations: "UNASSIGNED",
+      neff: "HANDOFF-11",
+    });
+
+    // NOTHING HERE CHECKS THAT THOSE TWO NUMBERS ARE STILL OPEN, and no guard
+    // in `pnpm check` does either: this test pins the values, and a handoff
+    // that ships without closing its block leaves a true-looking prediction on
+    // a live API. Recorded in HANDOFF-09's LEDGER section 8 as the design
+    // question rather than fixed here, because the instrument would have to
+    // read `handoffs/HANDOFF-NN-*.md`'s `status:` from a static guard.
     await h.close();
   });
 

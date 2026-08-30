@@ -7,11 +7,28 @@
  * wrong figure on a page - it is an outage, or a disclosure, for a project that
  * never agreed to run alongside us. Three consequences shape this file:
  *
- *   EXACTLY THREE COMMANDS PER NEW TIP, IN ONE MULTI (section 8.6). The
+ *   EXACTLY THREE WRITES PER NEW TIP, IN ONE MULTI (section 8.6). The
  *   allowance is 500,000 a month and it is shared. Assertion A10 proves the
  *   three by COUNTING them with a spy on the client - not by reading this code -
  *   which is why {@link createRedisSink} takes a factory instead of building its
  *   own connection. A test cannot count what it cannot see.
+ *
+ *   THE TRANSACTION ENVELOPE IS TWO MORE ROUND TRIPS AND WHETHER THE METER
+ *   BILLS THEM IS UNVERIFIED. `MULTI` and `EXEC` are commands the client sends
+ *   over RESP like any other, so one tip puts FIVE commands on the wire and
+ *   three of them are writes. Which number the managed store's monthly meter
+ *   counts is a fact about Upstash's billing, not about this code, and no
+ *   session can reach it: egress to `upstash.com` is refused by the container's
+ *   proxy, so it cannot be read from a document either. Both numbers are
+ *   therefore MEASURED here and pinned by A10 - `store.calls.length` is 3 per
+ *   tip and `store.transactions`/`store.execs` are 1 each - and the difference
+ *   is carried into `budget.ts` and SNAPSHOT.md section 8.6 rather than being
+ *   quietly resolved in one direction. It matters: at 3 per tip a month costs
+ *   about 103,500 commands and clears the 150,000 default ceiling; at 5 it costs
+ *   about 172,500 and does not, so the publisher would fall back to file-only
+ *   near the end of every month. Resolving it is an operator task - the number
+ *   the meter actually charged is on the Upstash console - and it is in
+ *   `handoffs/README.md`'s click list.
  *
  *   EVERY KEY BEGINS `zecreveal:` (rule 1, assertion A11). {@link snapshotWriteKeys}
  *   is the ONE place a key is built, and it builds all three from the constants
@@ -80,7 +97,7 @@ export function snapshotWriteKeys(height: number): readonly [string, string, str
  *
  * @throws RangeError if `key` is outside `zecreveal:`.
  */
-function assertOwnedNamespace(key: string): string {
+export function assertOwnedNamespace(key: string): string {
   if (!isOwnedSnapshotKey(key)) {
     throw new RangeError(
       `the publisher refused to write ${JSON.stringify(key)}: it is outside the zecreveal: namespace. ` +
@@ -126,6 +143,25 @@ export interface RedisSinkOptions {
    * budget gate can be built without ever dialling the store.
    */
   readonly connect: () => SnapshotStore;
+  /**
+   * Where the three keys come from. Defaults to `snapshotWriteKeys`, which is
+   * the only builder production uses.
+   *
+   * A SEAM THAT EXISTS FOR A FAIL SIDE, AND IT IS DECLARED AS ONE RATHER THAN
+   * DRESSED UP. {@link assertOwnedNamespace} is defence in depth: every key it
+   * has ever seen came from `snapshotWriteKeys`, which builds the prefix from
+   * `redis-topology.ts`'s constants, so the guard cannot throw for any input the
+   * sink can be given. A11's fail side was therefore reaching a DIFFERENT throw
+   * - `snapshotKeyForHeight`'s "not a block height" - while its comment said the
+   * guard needed "a height whose key builder cannot be trusted". A guard nothing
+   * can trip is indistinguishable from a guard that does nothing, and CLAUDE.md
+   * makes a fail-side probe that does not fail a finding in its own right. So
+   * the untrusted builder is injectable, one test hands over a key outside the
+   * namespace, and the guard is shown refusing it BEFORE any `set` reaches the
+   * store - which is the property A11 actually wants and could not previously
+   * demonstrate.
+   */
+  readonly keysFor?: (height: number) => readonly [string, string, string];
 }
 
 /**
@@ -147,7 +183,7 @@ export function createRedisSink(options: RedisSinkOptions): Sink {
 
     async write(snapshot: SnapshotV1, json: string): Promise<void> {
       store ??= options.connect();
-      const [latest, perHeight, height] = snapshotWriteKeys(snapshot.height);
+      const [latest, perHeight, height] = (options.keysFor ?? snapshotWriteKeys)(snapshot.height);
 
       // ONE MULTI, THREE COMMANDS, IN SNAPSHOT.md SECTION 8.6's OWN ORDER.
       // `latest` first so that a reader polling it never sees a height key

@@ -184,4 +184,42 @@ describe("the logger", () => {
       "connect ECONNREFUSED 127.0.0.1:6399",
     );
   });
+
+  it("a base64 password containing / or = is removed, which the first pattern left in the log", () => {
+    // THE SHAPE THE MANAGED STORE'S OWN TOKEN TAKES. `SNAPSHOT_REDIS_REDIS_URL`
+    // carries a base64 password, and base64's alphabet is `A-Za-z0-9+/=`. The
+    // original pattern's password class was `[^/\s@]*`, so it stopped at the
+    // `/` and matched nothing at all - the whole credential went to the log
+    // verbatim, in the one case this module exists for. The test above passed
+    // throughout, because its fixture happened to be alphanumeric.
+    const line = redactUrlCredentials(
+      "AUTH failed for rediss://default:AbC/d12+34=@example-store.upstash.io:6379",
+    );
+    expect(line).not.toContain("AbC/d12+34=");
+    expect(line).toBe("AUTH failed for rediss://[redacted]@example-store.upstash.io:6379");
+  });
+
+  it("a password containing @ is removed WHOLE, not up to its first @", () => {
+    // The original pattern terminated at the first `@` and produced
+    // `rediss://[redacted]@ssword@host` - the tail of the password surviving a
+    // line that reads as redacted, which is worse than no redaction because it
+    // looks handled.
+    const line = redactUrlCredentials("AUTH failed for rediss://default:pa@ssword@host:6379");
+    expect(line).not.toContain("ssword");
+    expect(line).toBe("AUTH failed for rediss://[redacted]@host:6379");
+  });
+
+  it("two credentialled URLs in one line are both redacted, and a bare address is not touched", () => {
+    // The `@`-lookahead picks the LAST `@` in a whitespace-free run, so it must
+    // not reach across the space into the next URL. And a line that merely
+    // contains an email address and an uncredentialled URL is left alone -
+    // over-redaction is the safe direction but it is not free, and a rule that
+    // fired here would redact hosts out of ordinary connection errors.
+    expect(redactUrlCredentials("redis://u:p1@h1 and postgres://u2:p/2@h2 both failed")).toBe(
+      "redis://[redacted]@h1 and postgres://[redacted]@h2 both failed",
+    );
+    expect(redactUrlCredentials("see redis://host:6379 and mail ops@example.com")).toBe(
+      "see redis://host:6379 and mail ops@example.com",
+    );
+  });
 });

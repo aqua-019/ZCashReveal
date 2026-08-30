@@ -30,8 +30,27 @@ import pino, { type Logger, type LoggerOptions } from "pino";
  * since the alternative is redacting only the well-formed ones and writing the
  * rest to disk. The scheme and host survive, which is what an operator reading
  * the line actually needs.
+ *
+ * THE PASSWORD CLASS EXCLUDES WHITESPACE AND NOTHING ELSE, AND THE FIRST
+ * VERSION OF THIS PATTERN LEAKED BECAUSE IT EXCLUDED MORE. It was
+ * `(:[^/\s@]*)?`, which stops at a `/` or an `@` inside the password - and the
+ * one credential this process is most likely to hold is a base64 token, whose
+ * alphabet is `A-Za-z0-9+/=`. Measured, not argued: against
+ * `AUTH failed for rediss://default:AbC/d12+34=@fly-x.upstash.io:6379` the old
+ * pattern matched nothing and wrote the token verbatim, and against
+ * `rediss://default:pa@ssword@host` it produced `rediss://[redacted]@ssword@host`
+ * - the tail of the password surviving the redaction. That is the exact failure
+ * this module exists to prevent, in the exact shape the managed store's own URL
+ * takes, and the docblock above already claimed the malformed case was covered.
+ *
+ * `@(?![^\s]*@)` PICKS THE LAST `@` IN THE RUN, which is what makes a password
+ * containing `@` redact whole rather than in half. Its cost is stated rather
+ * than hidden: in `redis://u:pw@host/x@y` the later `@` wins and the HOST is
+ * redacted too. That is over-redaction, which is the safe direction - it loses
+ * an operator a hostname and never writes a password - and a URL whose path
+ * carries an `@` is not a shape any of this process's two URLs take.
  */
-const URL_USERINFO = /\b([a-z][a-z0-9+.-]*:\/\/)([^/\s:@]+)(:[^/\s@]*)?@/gi;
+const URL_USERINFO = /\b([a-z][a-z0-9+.-]*:\/\/)([^\s:@]+)(:[^\s]*?)?@(?![^\s]*@)/gi;
 
 /** Replace the userinfo of every URL in a string. Exported so the assertion uses the same rule. */
 export function redactUrlCredentials(value: string): string {

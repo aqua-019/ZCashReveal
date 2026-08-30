@@ -492,7 +492,10 @@ wipe-and-resync (section 9), not an upgrade.
 # 2. Back Postgres up (section 5). Zebra's own state is disposable; the
 #    indexer's analysis is not.
 # 3. Edit the pin in docker-compose.yml. It is an exact tag on purpose:
-#      image: zfnd/zebra:6.2.3
+#      image: zfnd/zebra:6.3.0
+#    (6.2.3 until LEDGER-10 Q1 moved it on 30 Aug 2026; the reason is the
+#     funding-stream recipient names and specification URLs `getblocksubsidy`
+#     returns for NU6.1 and later, not the decoder, which did not change.)
 # 4. Pull and recreate only the node.
 docker compose pull zebrad
 docker compose up -d zebrad

@@ -206,18 +206,29 @@ that sees it should treat it as a finding on its own - the same treatment this s
 assembled at runtime.
 
 **Covered.** Rules 2, 3, 4 and 7: `FLUSHDB`, `FLUSHALL`, `SWAPDB`, `SCRIPT FLUSH` (both the bare
-words and the `client.script('FLUSH')` call shape); `KEYS` as a method call, a quoted command
-argument and a `redis-cli` line; `SCAN` unbounded by `zecreveal:`; the `redis-cli` enumeration
+words and the `client.script('FLUSH')` call shape); `KEYS` as a method call (`keys` and
+`keysBuffer`), a quoted command argument and a `redis-cli` line; `SCAN` unbounded by `zecreveal:`,
+in all three ioredis spellings (`scan`, `scanBuffer`, `scanStream`); the `redis-cli` enumeration
 flags; `DEL` and `UNLINK` by glob or by a non-literal first argument; and the cross-tenant
 readers. It scans every file in the repository except vendor and build directories, lockfiles and
 binary extensions — Dockerfiles, `.json`, compose files and extensionless scripts included.
 
 **Not covered, and stated so nobody reads the list above as complete:**
 
-- **Rule 1, the `zecreveal:` key namespace, is not mechanically enforced.** No code in this
-  repository speaks to the managed store today, so there is nothing yet to check. It lands with
-  HANDOFF-09's A11: one module builds every key, and a test asserts no other module constructs
-  one.
+- **Rule 1, the `zecreveal:` key namespace, is not enforced by THIS guard.** It is enforced at
+  runtime instead, by HANDOFF-09's `assertOwnedNamespace` in `apps/publisher/src/sinks/redis.ts`:
+  every key the sink issues passes through it while the `MULTI` is built, so a key outside the
+  namespace throws before `EXEC` and nothing is committed. A11 pins both polarities, and it pins
+  them by INJECTING an untrusted key builder — its first version reached a different throw one
+  function earlier and never ran the guard at all, which is a fail-side probe that does not fail.
+- **The guard reads METHOD NAMES, so a client library's alias is a hole until it is named.** Found
+  in HANDOFF-09's gate: `redis.scanStream({})` is an unbounded enumeration of the whole keyspace
+  and passed this guard, because the rule matched `.scan(` and ioredis's streaming helper is
+  `.scanStream(`. `scanBuffer` and `keysBuffer` were the same shape. All four spellings are named
+  now, and the general bound stands: a NEW alias, or another client library with different method
+  names, is invisible to a text scan until someone adds it. What is not a hole is the bounding
+  check — it looks for `zecreveal:` anywhere on the line, so it covers a new spelling for free the
+  moment the method name is recognised.
 - **Rule 5 is enforced only at the one place it currently bites** — `apps/web`'s Playwright
   config, which blanks the five variables for the build it starts. Nothing stops a future test
   file from reading them directly.
@@ -338,6 +349,29 @@ The count is asserted by **counting**, not by reading the code — HANDOFF-09 A1
 client, across a fake tip stream, asserting `3 x tips`. §5 gives the reason: "counting commands is
 the only honest way to assert 'exactly three'". A10's fail side adds a fourth command and watches the
 count assert.
+
+**THREE IS THE WRITE COUNT. FIVE CROSS THE WIRE, AND WHICH ONE THE METER CHARGES IS UNVERIFIED.**
+`MULTI` and `EXEC` are commands the client sends over RESP like the three `SET`s, so one tip is five
+commands on the connection. Whether Upstash's monthly meter bills the transaction envelope is a fact
+about their billing, not about this repository, and **no session can read it**: egress to
+`upstash.com` is refused by the container's proxy, so it cannot be resolved from a document either.
+Both numbers are therefore measured and pinned by A10 — `COMMANDS_PER_TIP` is 3 and
+`WIRE_COMMANDS_PER_TIP` is 5, both in `apps/publisher/src/budget.ts` — and the difference is left
+visible rather than resolved in one direction.
+
+It is not academic. At three, a month of tips costs about **103,500** commands and clears the 150,000
+default ceiling of §8.7. At five it costs about **172,500** and does not, so the publisher would trip
+the ceiling around day 26 and run file-only for the rest of every month — the managed-store baseline
+this whole document exists for stops updating. Against the shared 500,000 allowance both are a
+minority share (21% and 35%), so the risk of under-counting is to **this** project's fallback, not to
+the other tenant's headroom.
+
+**The charge stays at three until it is measured, and measuring it is an operator task** (it is in
+`handoffs/README.md`'s click list): read the command count the Upstash console reports for one full
+month against the number of tips published in it. Whichever number the meter charged,
+`COMMANDS_PER_TIP` and the `redis` sink's `managedStoreCommandsPerWrite` become it, and §8.7's
+default ceiling is re-checked against the new arithmetic. Charging five on a guess would buy nothing
+against the shared allowance and would pay for it with a predictable outage of our own fallback.
 
 ### 8.7 The monthly ceiling
 

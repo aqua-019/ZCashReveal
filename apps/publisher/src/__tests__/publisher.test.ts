@@ -11,8 +11,14 @@
 import { SNAPSHOT_KEY_PREFIX, snapshotKeyForHeight, SNAPSHOT_KEYS } from "@zcashreveal/types";
 import { describe, expect, it } from "vitest";
 
+import { COMMANDS_PER_TIP, WIRE_COMMANDS_PER_TIP } from "../budget.js";
 import { SnapshotPublisher, type Tip } from "../publisher.js";
-import { createRedisSink, snapshotWriteKeys, SNAPSHOT_TTL_SECONDS } from "../sinks/redis.js";
+import {
+  assertOwnedNamespace,
+  createRedisSink,
+  snapshotWriteKeys,
+  SNAPSHOT_TTL_SECONDS,
+} from "../sinks/redis.js";
 import type { Sink } from "../sinks/sink.js";
 import { fixtureBuild, fixtureTip, hashFor, RecordingLog, SpyManagedStore } from "./harness.js";
 
@@ -110,6 +116,19 @@ describe("A10 - one tip produces exactly three managed-store commands", () => {
     expect(store.calls.length).toBe(3 * tips.length);
     expect(store.transactions).toBe(tips.length);
     expect(store.execs).toBe(tips.length);
+
+    // THREE WRITES, FIVE COMMANDS ON THE WIRE, AND BOTH ARE PINNED because only
+    // the first is certain to be the number the meter charges. `MULTI` and
+    // `EXEC` cross the wire like any other command; whether Upstash bills them
+    // is a fact about their meter that no session can read (egress to
+    // upstash.com is refused by the container's proxy), so `budget.ts` charges
+    // three and states the uncertainty rather than guessing at five. The
+    // difference is a month of publishing: about 103,500 commands against the
+    // 150,000 default ceiling, or about 172,500 against it.
+    const onTheWire = store.transactions + store.calls.length + store.execs;
+    expect(onTheWire).toBe(WIRE_COMMANDS_PER_TIP * tips.length);
+    expect(COMMANDS_PER_TIP).toBe(3);
+    expect(WIRE_COMMANDS_PER_TIP).toBe(5);
   });
 
   it("A10 PASS STATE: a duplicate tip spends nothing at all", async () => {
@@ -183,20 +202,50 @@ describe("A11 - every key the publisher writes begins zecreveal:", () => {
     for (const k of keys) expect(k.startsWith(SNAPSHOT_KEY_PREFIX)).toBe(true);
   });
 
-  it("A11 FAIL STATE: a key outside the namespace is refused by name before it is sent", async () => {
+  it("A11 FAIL STATE: a key outside the namespace is refused BY THE GUARD before it is sent", async () => {
+    // THE PROBE THAT USED TO STAND HERE DID NOT REACH THE GUARD. It called
+    // `sink.write({ height: -1 })` and asserted `/not a block height/` - which
+    // is `snapshotKeyForHeight` refusing an impossible height, one function
+    // earlier. `assertOwnedNamespace` never ran, and its own comment said so:
+    // "reaching the guard needs a height whose key builder cannot be trusted".
+    // A guard nothing can trip and a guard that does nothing produce the same
+    // green test, so `keysFor` makes the untrusted builder injectable and this
+    // probe hands over exactly that.
     const store = new SpyManagedStore();
-    // The sink guards every key it ISSUES, not only the ones it builds. Reaching
-    // the guard needs a height whose key builder cannot be trusted, so this
-    // exercises the guard's own message on a foreign key directly.
+    const sink = createRedisSink({
+      connect: () => store,
+      // The second key is the other tenant's namespace, one letter away from
+      // ours - `zcashreveal:` is the VPS prefix - which is the transposition
+      // rule 1 exists for.
+      keysFor: (h) => [SNAPSHOT_KEYS.latest, `zcashreveal:snapshot:${h}`, SNAPSHOT_KEYS.height],
+    });
+    await expect(sink.write({ height: 3_700_040 } as never, "{}")).rejects.toThrow(
+      /outside the zecreveal: namespace/,
+    );
+    // NOTHING WAS COMMITTED, AND THE FOREIGN KEY WAS NEVER EVEN QUEUED. The
+    // guard runs while the MULTI is being built: the first owned key is queued,
+    // the second throws, and `exec` is never reached - so the store sees one
+    // queued `set` and no transaction. That ordering is the reason the guard
+    // sits on the argument rather than after the chain.
+    expect(store.keyArguments().filter((k) => !k.startsWith(SNAPSHOT_KEY_PREFIX))).toEqual([]);
+    expect(store.calls.length).toBe(1);
+    expect(store.execs).toBe(0);
+
+    // AND THE GUARD ITSELF, IN BOTH POLARITIES, so the wiring above is not the
+    // only evidence that it discriminates.
+    expect(assertOwnedNamespace(SNAPSHOT_KEYS.latest)).toBe(SNAPSHOT_KEYS.latest);
+    expect(() => assertOwnedNamespace("zcashreveal:snapshot:latest")).toThrow(RangeError);
+    expect(() => assertOwnedNamespace("snapshot:latest")).toThrow(RangeError);
+    expect(() => assertOwnedNamespace("")).toThrow(RangeError);
+  });
+
+  it("A11: an impossible height is still refused one function earlier, by the key builder", async () => {
+    // The half the old probe actually exercised, kept as its own case rather
+    // than deleted: a key is never assembled by hand, so a height that cannot
+    // be a block height fails before a key exists to guard.
+    const store = new SpyManagedStore();
     const sink = createRedisSink({ connect: () => store });
-    await expect(
-      sink.write(
-        // A height of -1 is refused earlier, by `snapshotKeyForHeight`, which is
-        // the other half of the same rule: a key is never assembled by hand.
-        { height: -1 } as never,
-        "{}",
-      ),
-    ).rejects.toThrow(/not a block height/);
+    await expect(sink.write({ height: -1 } as never, "{}")).rejects.toThrow(/not a block height/);
     expect(store.calls).toEqual([]);
   });
 });

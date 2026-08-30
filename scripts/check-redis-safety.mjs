@@ -142,8 +142,17 @@ const DESTRUCTIVE = [
  */
 const KEYS_QUOTED = /["']\s*keys\s*["']\s*[,)\]]/i;
 
-/** `redis.keys(pattern)`. The non-empty argument list is what excludes `map.keys()`. */
-const KEYS_METHOD = new RegExp(`\\b${RECV}\\s*\\.\\s*keys\\s*\\(\\s*[^)\\s]`, "i");
+/**
+ * `redis.keys(pattern)` and `redis.keysBuffer(pattern)`. The non-empty argument
+ * list is what excludes `map.keys()`.
+ *
+ * `keysBuffer` IS THE SAME COMMAND WITH A DIFFERENT RETURN TYPE, and it slipped
+ * this rule until HANDOFF-09's gate. ioredis generates a `<cmd>Buffer` variant
+ * for every command; the wire command is `KEYS` either way, so a rule that reads
+ * the method name has to name both spellings or it forbids only the convenient
+ * one.
+ */
+const KEYS_METHOD = new RegExp(`\\b${RECV}\\s*\\.\\s*keys(?:Buffer)?\\s*\\(\\s*[^)\\s]`, "i");
 
 /** `redis-cli ... KEYS <pattern>`, or a bare `KEYS *` as a session transcript spells it. */
 const KEYS_SHELL = /\bredis-cli\b[^\n]*\bKEYS\b|^\s*KEYS\s+["']?\*/;
@@ -158,8 +167,30 @@ const KEYS_SHELL = /\bredis-cli\b[^\n]*\bKEYS\b|^\s*KEYS\s+["']?\*/;
 const CLI_SCAN = /\bredis-cli\b[^\n]*--scan\b/i;
 const CLI_DUMP = /\bredis-cli\b[^\n]*--(bigkeys|hotkeys|memkeys|rdb)\b/i;
 
-/** `SCAN` on a Redis-ish receiver, or the quoted command. */
-const SCAN_CALL = new RegExp(`(?:["']\\s*scan\\s*["']\\s*[,)\\]]|\\b${RECV}\\s*\\.\\s*scan\\s*\\()`, "i");
+/**
+ * `SCAN` on a Redis-ish receiver, or the quoted command.
+ *
+ * THREE METHOD SPELLINGS, AND THE RULE CAUGHT ONE OF THEM UNTIL HANDOFF-09's
+ * GATE. ioredis exposes `scan()`, the buffer variant `scanBuffer()`, and
+ * `scanStream()` - which is the one a developer actually reaches for, because it
+ * hides the cursor loop. All three issue `SCAN` on the wire and all three
+ * enumerate the whole keyspace when unbounded, so `redis.scanStream({})` was an
+ * unbounded enumeration of a store shared with another project's production
+ * data, passing a guard whose entire purpose is to forbid exactly that.
+ *
+ * The bounding check is unchanged and covers the new spellings for free: it
+ * looks for `zecreveal:` anywhere on the line, and `scanStream({ match:
+ * "zecreveal:*" })` carries it in the options object the same way `scan(cursor,
+ * "MATCH", "zecreveal:*")` carries it in an argument.
+ *
+ * `hscan`, `sscan` and `zscan` are deliberately NOT here: they enumerate inside
+ * one key, so they are key-scoped like any other read and rule 3 is about
+ * enumerating the KEYSPACE.
+ */
+const SCAN_CALL = new RegExp(
+  `(?:["']\\s*scan\\s*["']\\s*[,)\\]]|\\b${RECV}\\s*\\.\\s*scan(?:Buffer|Stream)?\\s*\\()`,
+  "i",
+);
 
 /**
  * Deletion. `UNLINK` is `DEL` by another name and defeated rule 4 outright until
@@ -281,11 +312,22 @@ const MUST_CATCH = [
   ["await conn.sendCommand(['keys', '*']);", "keys lowercase quoted"],
   ["redis.call('keys', KEYS[1])", "Lua keys"],
   ["for await (const k of redisClient.scan(0)) {", "SCAN method"],
+  // THE THREE IOREDIS SPELLINGS, all of which issue SCAN or KEYS on the wire.
+  // `scanStream` is the one this rule missed and the one a developer reaches
+  // for, because it hides the cursor loop.
+  ["const stream = redis.scanStream({ count: 200 });", "scanStream unbounded"],
+  ["for await (const batch of client.scanStream()) {", "scanStream unbounded, for-await"],
+  ['await redis.scanBuffer(cursor, "COUNT", 100);', "scanBuffer unbounded"],
+  ['const all = await redis.keysBuffer("*");', "keysBuffer, which is KEYS"],
   // The VPS-bounded scan is STILL a finding in a file that does not carry the
   // proof - which is every file except the one tool that does. Without this
   // entry the exemption would be untested in the direction that matters.
   ['await client.scan(cursor, "MATCH", `${VPS_KEY_PREFIX}*`);', "VPS-bounded SCAN with no proof in the file"],
   ['await redisClient.scan(cursor, "MATCH", "zcashreveal:*");', "VPS-prefix SCAN with no proof in the file"],
+  [
+    'const stream = redis.scanStream({ match: `${VPS_KEY_PREFIX}*`, count: 200 });',
+    "VPS-bounded scanStream with no proof in the file",
+  ],
   ['await kvStore.del("zecreveal:snapshot:*");', "DEL glob"],
   ["await cache.unlink(pattern);", "UNLINK non-literal"],
   ["redis-cli --scan --pattern '*'", "cli --scan unbounded"],
@@ -315,6 +357,13 @@ const MUST_IGNORE = [
   "3. `KEYS` is forbidden outright. `SCAN` is permitted only with `MATCH zecreveal:*`.",
   "types/transaction.rs:268-429 scanned in full",
   "await redis.scan(0, 'MATCH', 'zecreveal:*');",
+  // The bounded form of each new spelling, so widening the rule did not also
+  // forbid the legal use of it.
+  'const stream = redis.scanStream({ match: "zecreveal:snapshot:*", count: 200 });',
+  "await redis.scanBuffer(cursor, 'MATCH', 'zecreveal:*');",
+  // Key-scoped scans are not keyspace enumeration and stay legal.
+  "await redis.hscan('zecreveal:snapshot:latest', 0);",
+  "const s = redis.zscanStream(key);",
   'await redis.del("zecreveal:snapshot:3456227");',
   "expect(Object.keys(body.summary)).toContain('bytes');",
   "redis-cli --scan --pattern 'zecreveal:*'",
@@ -334,9 +383,14 @@ const PROVEN = { provesVpsTarget: true };
 const MUST_ALLOW_WITH_PROOF = [
   ['await client.scan(cursor, "MATCH", `${VPS_KEY_PREFIX}*`, "COUNT", 200);', "VPS-bounded SCAN in a proving file"],
   ['await redisClient.scan(cursor, "MATCH", "zcashreveal:*");', "VPS-prefix SCAN in a proving file"],
+  [
+    'const stream = redis.scanStream({ match: `${VPS_KEY_PREFIX}*`, count: 200 });',
+    "VPS-bounded scanStream in a proving file",
+  ],
 ];
 const MUST_STILL_CATCH_WITH_PROOF = [
   ["for await (const k of redisClient.scan(0)) {", "unbounded SCAN, even in a proving file"],
+  ["const stream = redis.scanStream({ count: 200 });", "unbounded scanStream, even in a proving file"],
   ['const all = await redis.keys("zcashreveal:*");', "KEYS, which the proof never unlocks"],
   ["redis-cli --scan --pattern 'zcashreveal:*'", "cli --scan, which the proof never unlocks"],
   ["await redis.flushdb();", "FLUSHDB, which the proof never unlocks"],

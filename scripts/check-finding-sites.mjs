@@ -217,23 +217,43 @@ const FINDINGS = [
   },
   {
     id: "R4-GUARDS",
-    what: "the number of static guards `pnpm check` runs, stated in three asserting places and correct in none of them for one commit",
+    what: "the number of static guards `pnpm check` runs, stated in several asserting places and correct in none of them for one commit",
     // The historical statements - HANDOFF-07's own report, the LOG rows - are
-    // RECORDS of what that handoff did and stay at five. Only the sites that
-    // assert the CURRENT count are listed.
-    present: /seven (static )?guards/i,
-    probe: "# THE FOUR STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
-    antiProbe: "# THE SEVEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
-    absent: /five static guards|the five guards|five guards OK|FOUR STATIC GUARDS/i,
+    // RECORDS of what that handoff did and stay at the count of their day. Only
+    // the sites that assert the CURRENT count are listed.
+    //
+    // FIVE, THEN SEVEN, NOW ELEVEN. This entry tracks the CURRENT count rather
+    // than one correction: the shape recurs every time a guard is added, which
+    // is exactly what makes it worth a register row instead of a review. Each
+    // widening moves `present` and pushes the superseded count into `absent`.
+    present: /eleven (static )?guards/i,
+    probe: "# THE SEVEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
+    antiProbe: "# THE ELEVEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
+    absent: /five static guards|the five guards|five guards OK|seven static guards|the seven guards|seven guards OK|FOUR STATIC GUARDS|SEVEN STATIC GUARDS/i,
     sites: [
       "CLAUDE.md",
       "README.md",
-      "handoffs/HANDOFF-08-analysis-toolkit.md",
       // The FOURTH asserting site, in the hunk the commit that wrote this entry
       // was editing, and missed by the sweep that wrote it. The commit message
       // said "three asserting places"; it was four.
       ".github/workflows/ci.yml",
     ],
+    // `handoffs/HANDOFF-08-analysis-toolkit.md` WAS A SITE HERE AND IS REMOVED,
+    // deliberately and with the reason stated rather than dropped quietly.
+    //
+    // Its hit was the line `pnpm check      seven guards OK (two added by round
+    // 4)`, which sits in that handoff's section 7 among `pnpm typecheck 10/10`
+    // and `pnpm build OK`. It is a TRANSCRIPT of a run at a commit where the
+    // answer was seven, and it was true then and is true now. A transcript
+    // cannot track a moving count without being falsified: to satisfy an
+    // `eleven` pattern it would have to claim a run that never happened.
+    //
+    // THE GENERAL RULE IS UNCHANGED AND IS STILL PINNED. A handoff's section 7
+    // asserts facts and IS an asserting site - the self-test below proves the
+    // RECORD exclusion does not swallow `HANDOFF-08-analysis-toolkit.md` - and
+    // every other entry that names a section 7 keeps it. What is narrowed is
+    // this one row, for the one line in it that is a measurement rather than a
+    // claim about the present.
   },
   {
     id: "R4-EXITZAT-REACH",
