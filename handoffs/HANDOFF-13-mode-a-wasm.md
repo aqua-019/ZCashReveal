@@ -45,10 +45,23 @@ Produce a design and risk assessment for client-side viewing-key decryption (`pa
 
 1. `docs/2.0/MODE-A-PLAN.md` with architecture, crate/version table, build pipeline, gateway endpoints needed (`/api/compact/:range`), threat model, open questions for §8, and a proposed §5 for the build handoff.
 
+2. *(added by LEDGER-10 fold 7, 30 Aug 2026 - PLAN-ONLY, and unrelated to Mode A except that this is the plan-only handoff.)* **A named design question about `scripts/check-finding-sites.mjs`, answered nowhere and carried here so it is not lost.**
+
+   **THE QUESTION: what makes registration in the finding registry non-optional?**
+
+   That guard enforces CLOSURE of REGISTERED multi-site findings - a fix that lands in three of four named sites fails the build naming the fourth. It says nothing about whether the registry is COMPLETE, because registration is manual. A finding nobody wrote down is invisible to it, and **a green run looks identical either way**, which is the same shape as a fail-side probe that does not fail: the output carries no information about the case it was supposed to discriminate.
+
+   Why it is not closable by the guard itself, and therefore why it is a design question rather than a task: a finding lives in a gate return, a ledger block or a review comment, and deciding which of those named two `file:line` sites is a judgement. A script that guessed would give the registry a false air of completeness - the objection `check-corpus-citations.mjs` already records about its own bound, and the objection round 4 of HANDOFF-08 proved twice by finding its two new guards certifying their own failures.
+
+   Directions worth costing in the plan, none of them endorsed here:
+   - a gate return format that emits its multi-site findings as machine-readable rows, so registration is a by-product of reporting rather than a separate act of will;
+   - a check that every finding fingerprint named in a §7 GATE ROUNDS line with more than one site has a registry entry, which moves the manual step from "remember to register" to "the write-back does not pass without it";
+   - accepting the bound explicitly and stating it in the guard's output line, so a reader is never misled by a green run - **the header of `scripts/check-finding-sites.mjs` now states the boundary, which is the cheap half already taken.**
+
 ## §5 ASSERTIONS — binary, machine-checkable, each needs a pass-state and a fail-state transcript
 
 - **A1.** `docs/2.0/MODE-A-PLAN.md` exists, cites ≥ 5 upstream sources with versions, and contains sections Architecture / Threat model / Build pipeline / Gateway needs / Open questions / Proposed §5.
-- **A2.** `git diff --stat main..HEAD -- apps packages` is empty (plan only).
+- **A2.** `git diff --stat main..HEAD -- apps packages` is empty (plan only). Deliverable 2 is inside `docs/2.0/MODE-A-PLAN.md` and this file, both outside `apps` and `packages`, so it does not weaken this assertion.
 - **A3.** The §7 report lists every assumption with a disposition.
 
 ## §6 DISPATCH HINTS (director-build decides; these are L2's routing suggestions)

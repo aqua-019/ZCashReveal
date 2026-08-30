@@ -34,6 +34,25 @@
 // question: does any site the finding named still match the shape the finding
 // described.
 //
+// THE BOUNDARY OF THIS GUARD, STATED BECAUSE IT IS EASY TO READ IT AS WIDER THAN
+// IT IS (LEDGER-10 fold 7). This guard enforces CLOSURE of REGISTERED findings.
+// Registration is MANUAL, and nothing asserts the registry is complete.
+//
+// So a green run says: every site of every finding somebody wrote down is
+// closed. It does NOT say: every multi-site finding this project made was
+// written down. A finding nobody registered is invisible here, and the guard's
+// output looks identical either way - which is the same shape as a fail-side
+// probe that does not fail, and it is why this paragraph exists rather than a
+// line in a handoff nobody reads next.
+//
+// The gap is not closable by this script. A finding lives in a gate return, a
+// ledger block or a review comment; deciding which of those named two file:line
+// sites is a judgement, and a script that guessed would give the registry a
+// false air of completeness - the same objection check-corpus-citations.mjs
+// records about its own bound. The design question is carried as plan-only
+// material in handoffs/HANDOFF-13-mode-a-wasm.md, where it is named rather than
+// answered: what, mechanically, makes registration non-optional?
+//
 // Self-tested in both directions on every run.
 
 import { readFileSync } from "node:fs";

@@ -63,7 +63,7 @@ Verdicts: **KEEP** (port as-is, already tested), **EXTEND** (keep + grow for Iro
 | Types | `packages/zec-types/*` (branded `Hex`, `Zatoshi`, leak taxonomy, `ClaimAssessment`, `FilterApplication` union) | **EXTEND** | Same widening. |
 | Gateway | `apps/gateway` (Fastify + ws, `{channel,payload}` envelope, `snapshotFrame`) | **EXTEND** | Add `@fastify/rate-limit`, WsBroker connection cap, and a **snapshot publisher** (below). |
 | Dashboard | `apps/dashboard` (Vite SPA, Tailwind v4 tokens, 14 components, mock fixtures) | **REBUILD** (harvest) | Keep the panel logic (`CandidatesPanel` inference chain, `BoundaryFlowPanel`, `PoolStatePanel`, `parsers.ts`, `formatters.ts`, `tokens.ts`, icons) as React islands inside the new app; the SPA shell, routing and the empty-state behaviour go. |
-| Infra | `docker-compose.yml`, `infra/zebrad/zebrad.toml` (4.4.1, cookie-auth off, loopback RPC) | **REBUILD** | Zebra 6.2.x; wipe forked state; re-validate `enable_cookie_auth` semantics on the new major; keep loopback bind. |
+| Infra | `docker-compose.yml`, `infra/zebrad/zebrad.toml` (4.4.1, cookie-auth off, loopback RPC) | **REBUILD** | Zebra **6.3.x** (amended from 6.2.x by LEDGER-10 Q1, 30 Aug 2026 - the reason is `getblocksubsidy`'s funding-stream provenance strings after NU6, not the decoder); wipe forked state; re-validate `enable_cookie_auth` semantics on the new major; keep loopback bind. |
 | Prototype | Project docs `*.jsx` / `*.html` (Splash, Mempool, Tracker, Pool) | **RETIRE as code, KEEP as reference** | Their grammar (numbered `00 · SYSTEM` blocks, mono eyebrows, italic serif display, footer ledger, pool-flow colour semantics) is carried into 2.0's design system. |
 | Python scratchpad | `tools/zc-analyzer/` (not present in `main`) | **RETIRE** | Nothing to salvage on `main`. |
 
@@ -92,7 +92,7 @@ All of it stays inside the mantra — these are bounds and public aggregates, ne
 ## 4. Architecture 2.0
 
 ```
-Zebra 6.2.x (VPS) ── RPC/ZMQ ──▶ indexer (decode v4/v5/v6 · 4-pool state · analysis)
+Zebra 6.3.x (VPS) ── RPC/ZMQ ──▶ indexer (decode v4/v5/v6 · 4-pool state · analysis)
                                    │            │
                                    ▼            ▼
                               Postgres        Redis pub/sub ──▶ gateway (Fastify WS, rate-limited, capped)

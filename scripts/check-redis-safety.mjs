@@ -187,8 +187,50 @@ const CROSS_TENANT = [
   { re: /\binfo\s+keyspace\b/i, name: "INFO keyspace reports the other tenant's keyspace" },
 ];
 
-/** Inspect one line. Returns the rule that fired, or null. */
-function inspect(line) {
+/**
+ * THE ONE FILE-SCOPED FACT THIS GUARD USES, and the reason it is not the thing
+ * L2 forbade.
+ *
+ * LEDGER-10 Q2 ruled that this guard must NOT be taught to infer which of the
+ * two Redis servers a `redis-cli` line will reach. That ruling stands and this
+ * does not violate it, because nothing here is inferred. A file matching
+ * `PROVES_VPS_TARGET` contains a CALL to `assertNotManagedStore` with an array
+ * of candidates - the same function `apps/indexer/src/config.ts` and
+ * `apps/gateway/src/config.ts` call at boot, which throws if the URL it is
+ * handed is the managed store by hostname OR by an exact value match against
+ * any `SNAPSHOT_REDIS_*` variable in the environment. The file proves its own
+ * target at runtime; the guard reads the proof rather than guessing.
+ *
+ * What it unlocks is narrow and both halves are required: a `SCAN` line, in such
+ * a file, ALSO bounded by the VPS prefix. Neither half alone is enough, an
+ * unbounded scan is still a finding there, and every other rule - KEYS, the
+ * enumeration flags, the destructive commands, the cross-tenant readers - is
+ * untouched in every file including this one.
+ *
+ * WHY THE `.md` EXCLUSION. A document can quote the call; a document cannot
+ * execute it. A runbook that pastes `assertNotManagedStore([...])` beside a
+ * `redis-cli --scan` line would otherwise buy the exemption with a sentence,
+ * which is the copy-paste surface this whole rule exists to protect.
+ *
+ * WHAT IT DOES NOT COVER, stated here rather than discovered later: the proof is
+ * per FILE, not per CLIENT. A file that calls `assertNotManagedStore` on one URL
+ * and then scans a DIFFERENT client bought the exemption for both. Nothing in
+ * this repository does that, and a review that sees it should treat it as a
+ * finding on its own - the same bound `docs/2.0/SNAPSHOT.md` section 7 records
+ * for a command assembled at runtime.
+ */
+const PROVES_VPS_TARGET = /\bassertNotManagedStore\s*\(\s*\[/;
+
+/** The VPS namespace, spelled as a literal or imported under its constant name. */
+const VPS_BOUNDED = /\bVPS_KEY_PREFIX\b|zcashreveal:/;
+
+/**
+ * Inspect one line. Returns the rule that fired, or null.
+ *
+ * `ctx.provesVpsTarget` defaults to FALSE, so every file that does not carry the
+ * proof is inspected exactly as it was before this parameter existed.
+ */
+function inspect(line, ctx = { provesVpsTarget: false }) {
   for (const { re, name } of DESTRUCTIVE) {
     if (re.test(line)) return `${name} is forbidden against the shared store (rule 2)`;
   }
@@ -202,7 +244,12 @@ function inspect(line) {
     return "redis-cli --scan is permitted only bounded by --pattern 'zecreveal:*' (rule 3)";
   }
   if (SCAN_CALL.test(line) && !/zecreveal:/.test(line)) {
-    return "SCAN is permitted only with MATCH zecreveal:* (rule 3)";
+    if (ctx.provesVpsTarget && VPS_BOUNDED.test(line)) {
+      // A scan bounded to the VPS namespace, in a file that refuses to start
+      // against the managed store. See PROVES_VPS_TARGET above.
+    } else {
+      return "SCAN is permitted only with MATCH zecreveal:*, or bounded by VPS_KEY_PREFIX in a file that calls assertNotManagedStore (rule 3)";
+    }
   }
   if (DEL_GLOB.test(line) || DEL_NONLITERAL.test(line) || DEL_SHELL.test(line)) {
     return "no DEL or UNLINK except on an exact zecreveal: key this project wrote (rule 4)";
@@ -234,6 +281,11 @@ const MUST_CATCH = [
   ["await conn.sendCommand(['keys', '*']);", "keys lowercase quoted"],
   ["redis.call('keys', KEYS[1])", "Lua keys"],
   ["for await (const k of redisClient.scan(0)) {", "SCAN method"],
+  // The VPS-bounded scan is STILL a finding in a file that does not carry the
+  // proof - which is every file except the one tool that does. Without this
+  // entry the exemption would be untested in the direction that matters.
+  ['await client.scan(cursor, "MATCH", `${VPS_KEY_PREFIX}*`);', "VPS-bounded SCAN with no proof in the file"],
+  ['await redisClient.scan(cursor, "MATCH", "zcashreveal:*");', "VPS-prefix SCAN with no proof in the file"],
   ['await kvStore.del("zecreveal:snapshot:*");', "DEL glob"],
   ["await cache.unlink(pattern);", "UNLINK non-literal"],
   ["redis-cli --scan --pattern '*'", "cli --scan unbounded"],
@@ -270,7 +322,56 @@ const MUST_IGNORE = [
   "// the estimator monitors the drain rate over a window",
 ];
 
+/**
+ * The exemption, in both directions, with the proof supplied explicitly.
+ *
+ * MUST_CATCH above already pins that these same two lines FAIL without the
+ * proof. A one-directional fixture would let the exemption widen to everything
+ * and still report green, which is the shape round 4 of HANDOFF-08 found twice
+ * in the guards it had just written.
+ */
+const PROVEN = { provesVpsTarget: true };
+const MUST_ALLOW_WITH_PROOF = [
+  ['await client.scan(cursor, "MATCH", `${VPS_KEY_PREFIX}*`, "COUNT", 200);', "VPS-bounded SCAN in a proving file"],
+  ['await redisClient.scan(cursor, "MATCH", "zcashreveal:*");', "VPS-prefix SCAN in a proving file"],
+];
+const MUST_STILL_CATCH_WITH_PROOF = [
+  ["for await (const k of redisClient.scan(0)) {", "unbounded SCAN, even in a proving file"],
+  ['const all = await redis.keys("zcashreveal:*");', "KEYS, which the proof never unlocks"],
+  ["redis-cli --scan --pattern 'zcashreveal:*'", "cli --scan, which the proof never unlocks"],
+  ["await redis.flushdb();", "FLUSHDB, which the proof never unlocks"],
+  ["const n = await redis.dbsize();", "DBSIZE, which the proof never unlocks"],
+];
+
 let broken = false;
+for (const [line, why] of MUST_ALLOW_WITH_PROOF) {
+  const hit = inspect(line, PROVEN);
+  if (hit !== null) {
+    console.error(`check-redis-safety: FATAL - the proof exemption did not apply where it must (${why}): ${hit}`);
+    broken = true;
+  }
+}
+for (const [line, why] of MUST_STILL_CATCH_WITH_PROOF) {
+  if (inspect(line, PROVEN) === null) {
+    console.error(`check-redis-safety: FATAL - the proof exemption widened past its rule (${why}): ${line}`);
+    broken = true;
+  }
+}
+// The detector for the proof itself, both ways: a call is a proof, a mention is not.
+if (!PROVES_VPS_TARGET.test('assertNotManagedStore([["REDIS_URL", url]], process.env);')) {
+  console.error("check-redis-safety: FATAL - PROVES_VPS_TARGET does not match the call shape it exists to find.");
+  broken = true;
+}
+for (const notAProof of [
+  "// see assertNotManagedStore in packages/zec-types",
+  "import { assertNotManagedStore } from \"@zcashreveal/types\";",
+  "assertNotManagedStore(candidates, env);",
+]) {
+  if (PROVES_VPS_TARGET.test(notAProof)) {
+    console.error(`check-redis-safety: FATAL - PROVES_VPS_TARGET accepted something that is not a call with a candidate array: ${notAProof}`);
+    broken = true;
+  }
+}
 for (const [line, why] of MUST_CATCH) {
   if (inspect(line) === null) {
     console.error(`check-redis-safety: FATAL - the detector missed a line it must catch (${why}): ${line}`);
@@ -329,9 +430,11 @@ function walk(dir) {
     // A NUL in the first kilobyte means binary content under an unknown extension.
     if (source.slice(0, 1024).includes("\u0000")) continue;
 
+    const ctx = { provesVpsTarget: ext !== ".md" && PROVES_VPS_TARGET.test(source) };
+
     const lines = source.split("\n");
     for (let i = 0; i < lines.length; i += 1) {
-      const rule = inspect(lines[i]);
+      const rule = inspect(lines[i], ctx);
       if (rule !== null) findings.push({ file: rel, line: i + 1, rule, text: lines[i].trim().slice(0, 120) });
     }
   }
@@ -350,6 +453,6 @@ if (findings.length > 0) {
 }
 
 console.log(
-  `check-redis-safety: OK - ${MUST_CATCH.length} detectors self-tested, no forbidden Redis command ` +
+  `check-redis-safety: OK - ${MUST_CATCH.length + MUST_IGNORE.length + MUST_ALLOW_WITH_PROOF.length + MUST_STILL_CATCH_WITH_PROOF.length} fixtures self-tested in four directions, no forbidden Redis command ` +
     `in any scanned file (the rule's own documents are allowed to name them).`,
 );

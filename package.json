@@ -12,13 +12,16 @@
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rm -rf node_modules",
     "test": "turbo run test",
-    "check": "./scripts/check-no-emoji.sh && node scripts/check-vercel-config.mjs && node scripts/check-redis-safety.mjs && node scripts/check-pool-union.mjs && node scripts/check-corpus-citations.mjs && node scripts/check-audit-consumers.mjs && node scripts/check-finding-sites.mjs && node scripts/check-compose.mjs && node scripts/check-zebrad-config.mjs && node scripts/check-infra-docs.mjs && node scripts/check-ledger-structure.mjs"
+    "check": "./scripts/check-no-emoji.sh && node scripts/check-vercel-config.mjs && node scripts/check-redis-safety.mjs && node scripts/check-pool-union.mjs && node scripts/check-corpus-citations.mjs && node scripts/check-audit-consumers.mjs && node scripts/check-finding-sites.mjs && node scripts/check-compose.mjs && node scripts/check-zebrad-config.mjs && node scripts/check-infra-docs.mjs && node scripts/check-ledger-structure.mjs",
+    "redis:keys": "node scripts/redis-keys.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.9.0",
+    "@zcashreveal/types": "workspace:*",
     "eslint": "^10.9.0",
     "globals": "^17.11.0",
+    "ioredis": "^5.4.1",
     "turbo": "^2.3.0",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.67.0"

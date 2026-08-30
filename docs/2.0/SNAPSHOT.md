@@ -179,10 +179,30 @@ not a licence to treat the store as ours.
 
 ## 7. What the guard covers, and what it does not
 
-`scripts/check-redis-safety.mjs` runs in CI and under `pnpm check`. It self-tests twenty
-detectors on every run against fixtures in both polarities — strings it must catch and strings it
+`scripts/check-redis-safety.mjs` runs in CI and under `pnpm check`. It self-tests its detectors on
+every run against fixtures in four directions — strings it must catch and strings it
 must not — and exits 2 rather than 0 if either direction has broken, so it cannot degrade into a
 scan that reports a clean tree having detected nothing.
+
+**One narrow, checked exemption, added 30 Aug 2026 (LEDGER-10 Q2), and it does not weaken §§1-6.**
+A `SCAN` line bounded by the VPS prefix is permitted in a non-Markdown file that itself CALLS
+`assertNotManagedStore` with a candidate array. Both halves are required and neither is inferred: the
+call is the same one the indexer and the gateway make at boot, and it throws if the URL it is handed
+is this store by hostname or by an exact value match against any `SNAPSHOT_REDIS_*` variable. The file
+proves its target at runtime and the guard reads the proof. It exists for one tool,
+`scripts/redis-keys.mjs` (`pnpm redis:keys`), which is how `RUNBOOK-VPS.md` section 11 enumerates the
+VPS Redis without putting an enumerating `redis-cli` line on a copy-paste surface. Rule 3 is unchanged
+for this store: a file that refuses to connect to it cannot scan it. `KEYS`, the `redis-cli`
+enumeration flags, the destructive commands and the cross-tenant readers are untouched by the
+exemption in every file. Self-tested in four directions: the exemption applies where it must, it does
+not widen to an unbounded scan or to any other rule, the same two lines are still findings in a file
+without the proof, and a mere mention of `assertNotManagedStore` in a comment or an import is not a
+proof.
+
+**The exemption's own bound:** the proof is per FILE, not per CLIENT. A file that asserts on one URL
+and scans a different client would buy the exemption for both. Nothing here does that, and a review
+that sees it should treat it as a finding on its own - the same treatment this section gives a command
+assembled at runtime.
 
 **Covered.** Rules 2, 3, 4 and 7: `FLUSHDB`, `FLUSHALL`, `SWAPDB`, `SCRIPT FLUSH` (both the bare
 words and the `client.script('FLUSH')` call shape); `KEYS` as a method call, a quoted command

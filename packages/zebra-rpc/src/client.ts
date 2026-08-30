@@ -22,12 +22,14 @@ import {
   addressUtxosSchema,
   blockHeaderSchema,
   blockchainInfoSchema,
+  getInfoSchema,
   rawMempoolSchema,
   rawMempoolVerboseSchema,
   rpcBlockSchema,
   rpcTransactionSchema,
   type AddressBalance,
   type AddressUtxo,
+  type GetInfo,
 } from "./schemas.js";
 import type { BlockHeaderResult, BlockchainInfoResult, RpcBlock } from "./types.js";
 import type { Hex, RpcTransaction } from "@zcashreveal/types";
@@ -210,6 +212,20 @@ export class ZebraRpc {
   }
 
   /* ------------------------------------------------------------------ chain */
+
+  /**
+   * `getinfo`, for `subversion` - the only field this project reads from it.
+   *
+   * The version floor is a CORRECTNESS floor with three named reasons (see
+   * `version-floor.ts`), and every one of them is silent when it is unmet: an
+   * older node answers, the schemas parse, and the numbers are wrong. A pin in
+   * `docker-compose.yml` binds the image an operator brings up and says nothing
+   * about the node a gateway is talking to later. This is the call that lets
+   * something notice.
+   */
+  getInfo(): Promise<GetInfo> {
+    return this.call("getinfo", [], getInfoSchema);
+  }
 
   getBlockchainInfo(): Promise<BlockchainInfoResult> {
     return this.call("getblockchaininfo", [], blockchainInfoSchema).then(asBlockchainInfo);

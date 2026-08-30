@@ -30,10 +30,9 @@ services:
   # zebrad - the Zcash full node. Everything else in the stack reads from it.
   # ---------------------------------------------------------------------------
   zebrad:
-    # 6.2.3 is the newest 6.2.x, published 2026-07-28 (Docker Hub tags API,
-    # queried for this handoff). THE FLOOR IS A CORRECTNESS FLOOR AND IT HAS TWO
-    # SEPARATE REASONS, both of which 4.4.1 - the tag this file carried until now
-    # - is on the wrong side of:
+    # 6.3.0, published 2026-08-10. THE FLOOR IS A CORRECTNESS FLOOR AND IT HAS
+    # THREE SEPARATE REASONS, and 4.4.1 - the tag this file carried until
+    # HANDOFF-10 - is on the wrong side of the first two:
     #
     #   1. Below 6.0.0 there is no NU6.3/Ironwood support at all.
     #   2. Below ZcashFoundation/zebra PR #9805 (merged 22 Aug 2025)
@@ -42,12 +41,62 @@ services:
     #      `sproutValueBalanceZat` is 0n for every transaction, silently, with no
     #      failing test - the same shape as the `expiryheight` casing defect that
     #      made every wallet fingerprint inert for three revolutions.
+    #   3. Below 6.3.0 `getblocksubsidy` returns the PRE-NU6 funding-stream
+    #      recipient names and specification URLs for every upgrade after NU6 -
+    #      which is every upgrade this project cares about. That is the reason
+    #      this pin moved off 6.2.3 (LEDGER-10 Q1, ruled by L2 on 30 Aug 2026).
     #
-    # `packages/zebra-rpc/src/sprout-field.ts` reports the absent field as
-    # INDETERMINATE rather than as zero, which is what makes reason 2 a detected
-    # condition rather than a silent one - but only a node at or above the floor
-    # makes it a non-condition.
-    image: zfnd/zebra:6.2.3
+    # WHY THE MOVE IS NOT ABOUT THE DECODER. Nothing this project decodes changed
+    # in 6.3.0: `getblock`, `getrawtransaction`, `z_gettreestate` and
+    # `getblockchaininfo` are untouched between the two tags, and the client's
+    # schemas are `.passthrough()`, so a 6.3.0-only field parses rather than
+    # throws. On the decoder alone 6.2.3 was correct, and it was correct for
+    # everything HANDOFF-05 through HANDOFF-08 built - the gateway's read API,
+    # the four-pool state machine, the v6/Ironwood decoder and the analysis
+    # toolkit all hold against it. The reason is the LABELS: LEDGER-08 Q1 asks
+    # for the ZIP 1014/1015/1016 funding-stream label family and rules that it
+    # comes from the pinned node's own parameters rather than from a relayed
+    # transcription.
+    #
+    # AND THE RULING'S STATED REASON IS CORRECTED HERE RATHER THAN COPIED,
+    # because it was executed against the source before being written down and
+    # its load-bearing half does not reproduce. L2 ruled that the ADDRESSES are
+    # the 6.3.0 addition and that "on 6.2.3 the fold cannot be executed". They
+    # are not, and it can. Read at both tags:
+    #
+    #   - `zebra-rpc/src/methods/types/subsidy.rs` is BYTE-IDENTICAL between
+    #     v6.2.3 and v6.3.0, `FundingStream.address` included.
+    #   - `zebra-chain/src/parameters/network/subsidy.rs`, which holds the
+    #     funding-stream tables, is byte-identical too.
+    #   - the whole 6.3.0 change to `getblocksubsidy` is one predicate in
+    #     `zebra-rpc/src/methods.rs`: `is_nu6 = current == Nu6` becomes
+    #     `is_post_nu6 = current >= Nu6`. `address` is computed by
+    #     `funding_stream_address(height, &net, receiver)` on BOTH tags.
+    #   - the 6.3.0 CHANGELOG says so in as many words: "`getblocksubsidy` now
+    #     returns NU6-era funding stream metadata (recipient names and
+    #     specification URLs) for NU6.1 and later upgrades. AMOUNTS AND ADDRESSES
+    #     WERE NEVER AFFECTED" (PR #11172).
+    #
+    # THE DECISION SURVIVES THE CORRECTION AND THE REASON IS BETTER FOR IT. What
+    # 6.2.3 gets wrong is `recipient` and `specification` - the recipient's NAME
+    # and the URL of the ZIP that defines the stream - for NU6.1, NU6.2 and
+    # NU6.3, because `current == Nu6` is false at every one of them and the
+    # zcashd-compat pre-NU6 strings are emitted instead. This project's label
+    # precedence DISPLAYS the labeller and the method beside every label, so a
+    # `consensus`-tier funding-stream label needs the name and the specification
+    # URL as much as it needs the address. On 6.2.3 the address would be right
+    # and the two provenance fields wrong, at every height after NU6 - which is
+    # a worse failure than an absent field, because it is a sourced-looking
+    # string that is not the source.
+    #
+    # `packages/zebra-rpc/src/sprout-field.ts` reports the absent `vjoinsplit`
+    # as INDETERMINATE rather than as zero, which is what makes reason 2 a
+    # detected condition rather than a silent one - but only a node at or above
+    # the floor makes it a non-condition. Reason 3 has the same shape and needs
+    # the same treatment: a pin states an intent and notices nothing, so
+    # HANDOFF-11 §5 A11 asserts the connected node's `subversion` against the
+    # floor `packages/zebra-rpc` declares as a constant.
+    image: zfnd/zebra:6.3.0
     container_name: zecreveal-zebrad
     restart: unless-stopped
     stop_grace_period: 5m

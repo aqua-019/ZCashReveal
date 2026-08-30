@@ -1,6 +1,6 @@
 ---
 handoff: 10
-title: Infra: Zebra 6.2.x compose, VPS runbook, tunnel, DEPLOY-2.0
+title: "Infra: Zebra 6.3.x compose (shipped 6.2.x; amended by LEDGER-10 Q1), VPS runbook, tunnel, DEPLOY-2.0"
 status: closed
 branch: `claude/handoff-08-completion-wngbjj` (session-designated; the harness names branches)
 track: Infra
@@ -9,13 +9,15 @@ written_by: L2 (Cowork) · 22 Aug 2026
 stack: Aqua Stack v4.1
 ---
 
-# HANDOFF-10 — Infra: Zebra 6.2.x compose, VPS runbook, tunnel, DEPLOY-2.0
+# HANDOFF-10 — Infra: Zebra 6.3.x compose, VPS runbook, tunnel, DEPLOY-2.0
+
+> **Amended after shipping.** This handoff shipped pinning `zfnd/zebra:6.2.3` and asked LEDGER-10 Q1 whether the node and `packages/zebra-rpc` should be on the same minor. L2 ruled on 30 Aug 2026 that the pin moves to `6.3.0`; the HANDOFF-09 session applied it to `docker-compose.yml`, to §3 and to assumption 5 of §7, and corrected the ruling's stated reason against Zebra's source at both tags. Everything §7 records as executed was executed against 6.2.3 and is left as the record of that run.
 
 > **L3 protocol.** The lead owns this handoff and the gate. Directors report spawn mode as their first output (proven by tool attempt). Workers return on the status ladder (`DONE` / `DONE-WITH-ASSUMPTIONS` / `BLOCKED` / `OUT-OF-DEPTH`) with FILES · EVIDENCE · ASSUMPTIONS · NOTICED · UNVERIFIED. Every §5 assertion needs a two-polarity transcript. The gate is capped at 3 rounds; `NOT CONVERGING` escalates to the operator. The PR stops at **opened**.
 
 ## §1 SCOPE
 
-Production infrastructure as files: a compose stack for a Linux VPS (Zebra 6.2.x, Postgres 16, Redis 7, indexer, gateway, publisher, cloudflared), a dev override for the Windows box, the Zebra 6 config, a VPS runbook, and the 2.0 deploy guide for the new Vercel project. **No containers are started by any agent.**
+Production infrastructure as files: a compose stack for a Linux VPS (Zebra 6.3.x - amended from 6.2.x by LEDGER-10 Q1 - Postgres 16, Redis 7, indexer, gateway, publisher, cloudflared), a dev override for the Windows box, the Zebra 6 config, a VPS runbook, and the 2.0 deploy guide for the new Vercel project. **No containers are started by any agent.**
 
 **Out of scope:** No `docker compose up`, no cloud provisioning, no DNS changes. `docker build` of the repo Dockerfiles is allowed.
 
@@ -67,7 +69,7 @@ Production infrastructure as files: a compose stack for a Linux VPS (Zebra 6.2.x
 - Design: ZEC gold `#F4B728` is a budgeted accent; one hover verb (dim); one curve `cubic-bezier(.32,.72,0,1)`; reduced motion honoured by not constructing the animation system; `Math.random` banned (FNV-1a → mulberry32 from a chain seed).
 - The PR stops at **opened**. No merge, no deploy, no production promotion by any agent at any tier.
 - Provenance on every claim in §7: Executed (output shown) / Read (file + commit cited) / UNVERIFIED (labelled). Stale or fabricated claims are a gate failure.
-- Pin `zfnd/zebra` at **>= 6.0.0**, `6.2.x` (exact tag chosen and cited). The floor is not stylistic: below 6.0.0 there is no Ironwood support, and below PR #9805 (merged 22 Aug 2025) `getrawtransaction` does not serialise `vjoinsplit` at all, which makes every Sprout value term silently `0n`. See §2. Healthchecks and `restart: unless-stopped` for all services; named volumes; Postgres on host port 5433; Redis AOF; multi-stage Dockerfiles on `node:22-alpine` for indexer/gateway/publisher; cloudflared from an env token.
+- Pin `zfnd/zebra` at **>= 6.0.0**, **`6.3.x` (exact tag chosen and cited; `6.3.0`, published 2026-08-10)**. The floor is not stylistic and it now has three reasons: below 6.0.0 there is no Ironwood support; below PR #9805 (merged 22 Aug 2025) `getrawtransaction` does not serialise `vjoinsplit` at all, which makes every Sprout value term silently `0n`; and below 6.3.0 `getblocksubsidy` returns the PRE-NU6 funding-stream `recipient` and `specification` strings for every upgrade after NU6. See §2. **AMENDED FROM `6.2.x` BY LEDGER-10 Q1** (L2's ruling, 30 Aug 2026, applied by the HANDOFF-09 session): `6.2.x` was correct for everything HANDOFF-05 through HANDOFF-08 built - nothing this project decodes changed in 6.3.0, and the client's schemas are `.passthrough()`, so a 6.3.0-only field parses rather than throws. The reason to move is the LABELS, not the decoder: LEDGER-08 Q1 rules that the ZIP 1014/1015/1016 funding-stream label family comes from the pinned node's own parameters. **And the ruling's stated reason is corrected here rather than copied.** L2 ruled that the recipient ADDRESSES are the 6.3.0 addition and that on 6.2.3 the fold "cannot be executed"; executed against the source at both tags, they are not and it can. `zebra-rpc/src/methods/types/subsidy.rs` is byte-identical between v6.2.3 and v6.3.0 with `FundingStream.address` in both; `zebra-chain/src/parameters/network/subsidy.rs` is byte-identical; the entire 6.3.0 change to `getblocksubsidy` is `is_nu6 = current == Nu6` becoming `is_post_nu6 = current >= Nu6` in `zebra-rpc/src/methods.rs`, with `address` computed by `funding_stream_address(height, &net, receiver)` on both; and the 6.3.0 CHANGELOG states it outright - "`getblocksubsidy` now returns NU6-era funding stream metadata (recipient names and specification URLs) for NU6.1 and later upgrades. Amounts and addresses were never affected" (PR #11172). The decision survives and the reason is stronger: what 6.2.3 gets wrong at NU6.1, NU6.2 and NU6.3 is the recipient's NAME and the specification URL, and this project displays the labeller and the method beside every label, so a `consensus`-tier label carrying a right address under a wrong provenance string is worse than an absent field. Healthchecks and `restart: unless-stopped` for all services; named volumes; Postgres on host port 5433; Redis AOF; multi-stage Dockerfiles on `node:22-alpine` for indexer/gateway/publisher; cloudflared from an env token.
 - `infra/zebrad/zebrad.toml` for 6.x: re-validate `enable_cookie_auth = false` with the loopback-bound RPC; enable the address indexes HANDOFF-05 needs; ZMQ if supported else document the polling fallback.
 - `docs/2.0/RUNBOOK-VPS.md`: sizing (≥ 4 vCPU / 16 GB / ≥ 500 GB NVMe), first sync with checkpoints, wipe-and-resync, Postgres backups, upgrade within one Zebra major, alert on snapshot age > 20 blocks, the tunnel steps (`cloudflared tunnel create zecreveal-gateway`, DNS route, ingress → `gateway:8080`).
 - `docs/2.0/DEPLOY-2.0.md`: Vercel project `zecreveal` (Root `apps/web`, Framework Next.js, env vars) and the post-deploy smoke (assert the snapshot fallback is present in the built JS). There is no cutover from `z-cash-reveal-dashboard2` to write: the operator deleted both v0.2 projects on 23 Aug 2026 and `zecreveal` is the only one on the account (HANDOFF-04 correction).
@@ -479,13 +481,26 @@ ASSUMPTIONS (each: ACCEPTED / CORRECTED / DEFERRED — reason)
      fails A4 and leaves the one externally-facing component unmonitored).
      infra/cloudflared/Dockerfile adds a static busybox and changes nothing else.
 
-  5. ACCEPTED - the Zebra pin is 6.2.3, the newest 6.2.x, published 2026-07-28,
-     read from the Docker Hub tags API. §3 says "6.2.x (exact tag chosen and cited)".
+  5. ACCEPTED, THEN SUPERSEDED BY LEDGER-10 Q1 - recorded in both states rather
+     than rewritten, because the assumption was correct when taken and the ruling
+     that replaced it turned on a fact no session inside this container could
+     reach at the time.
+     AS TAKEN: the Zebra pin is 6.2.3, the newest 6.2.x, published 2026-07-28,
+     read from the Docker Hub tags API. §3 said "6.2.x (exact tag chosen and cited)".
      NOTED AND NOT ACTED ON: `packages/zebra-rpc` was written in HANDOFF-05 against
      Zebra 6.3.0's structs, and 6.3.0 exists (2026-08-10). The contract says 6.2.x,
      so 6.2.x is what is pinned; whether the client and the node should be on the
      same minor is a question for the ledger, not a decision to take silently. See
      §8 QUESTIONS.
+     AS RULED (L2, 30 Aug 2026, applied by the HANDOFF-09 session): pin 6.3.0 and
+     amend §3. The decoder was never the reason - 6.2.3 is correct for everything
+     HANDOFF-05 to -08 built. The reason is the funding-stream label family, and
+     L2's own explanation of it is corrected in §3 above against the source at
+     both tags: the ADDRESSES were never the 6.3.0 addition, the recipient NAMES
+     and specification URLs for NU6.1 and later were. This session's second half
+     of the ruling is HANDOFF-11 §5 A11, which asserts the connected node's
+     `subversion` against a floor `packages/zebra-rpc` declares, because a pin
+     states an intent and notices nothing.
 
   6. ACCEPTED - schema-per-run, over an advisory lock or a database per worker, for
      deliverable 5. Reasoning is in the header of apps/indexer/test/global-setup.ts

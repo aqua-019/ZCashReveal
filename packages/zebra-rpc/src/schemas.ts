@@ -107,6 +107,32 @@ export const valuePoolBalanceSchema = z
 export type ValuePoolBalance = z.infer<typeof valuePoolBalanceSchema>;
 
 /**
+ * `getinfo`, declared for exactly one field.
+ *
+ * This project reads `subversion` and nothing else here. `subversion` is the
+ * node's network protocol user-agent verbatim -
+ * `GetInfoResponse { subversion: self.user_agent.clone(), .. }` in
+ * `zebra-rpc/src/methods.rs`, and `user_agent()` is
+ * `format!("/Zebra:{release_version}/")` in `zebrad/src/application.rs:160-162`,
+ * both read at tag v6.3.0 - so it is the one field that says which build is
+ * answering on this endpoint. `packages/zebra-rpc/src/version-floor.ts` holds
+ * the floor and the parser; HANDOFF-11 §5 A11 is the assertion against a live
+ * node.
+ *
+ * DECLARED NARROW AND `.passthrough()`, deliberately. `getinfo` carries a dozen
+ * other fields and two of them (`errors`, `errorstimestamp`) are shaped
+ * differently across zcashd-compat modes; declaring them would make this schema
+ * a second thing to maintain for no reader. A field this project does not read
+ * is a field whose shape it should not assert.
+ */
+export const getInfoSchema = z
+  .object({
+    subversion: z.string().min(1),
+  })
+  .passthrough();
+export type GetInfo = z.infer<typeof getInfoSchema>;
+
+/**
  * `getblockchaininfo`.
  *
  * The v0.2 client declared four fields and cast the rest. This declares what

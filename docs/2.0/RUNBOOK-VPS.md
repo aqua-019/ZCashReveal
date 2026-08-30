@@ -634,9 +634,9 @@ is section 8.
 # Logs for one service, last hour.
 docker compose logs --since 1h gateway
 
-# The VPS Redis. Named keys only - see the note below this block.
+# The VPS Redis: liveness, then the whole namespace. See the note below.
 docker compose exec redis redis-cli ping
-docker compose exec redis redis-cli hlen zcashreveal:mempool:live
+pnpm redis:keys
 
 # Postgres, interactively.
 docker compose exec postgres psql -U zcashreveal zcashreveal
@@ -657,22 +657,46 @@ removes the named volumes, which means Postgres, and the indexer's analysis
 history is not reproducible from the chain. Section 9 removes the one volume
 that is disposable, by name.
 
-### Why the Redis commands above name exact keys
+### Why the enumeration is a tool and not a `redis-cli` line
 
-The obvious diagnostics - a keyspace summary, or a scan for `zcashreveal:*` -
-are safe against the VPS Redis, which this project owns outright. They are
-absent anyway, because `scripts/check-redis-safety.mjs` rejects them in this file
-and is right to.
+`pnpm redis:keys` (`scripts/redis-keys.mjs`) lists every key on the **VPS**
+Redis with its type. It is a script rather than a pasteable command, and the
+reason is the whole of this section.
 
-The guard reads files, not intentions: it cannot see which of the two servers a
-`redis-cli` invocation will reach, so it treats every enumeration and every
-keyspace report as if it were aimed at the shared managed store. In most of the
-repository that conservatism costs nothing. **In a runbook it is the point**,
-because a runbook is a copy-paste surface: the line an operator pastes at 3am is
-the line most likely to be pointed at the wrong `-u` URL, and the two prefixes
-differ by one letter (`zcashreveal:` here, `zecreveal:` there).
+`scripts/check-redis-safety.mjs` reads files, not intentions. It cannot see
+which of the two Redis servers a `redis-cli` invocation will reach, so it treats
+every enumeration and every keyspace report as if it were aimed at the shared
+managed store. In most of the repository that conservatism costs nothing. **In a
+runbook it is the point**, because a runbook is a copy-paste surface: the line an
+operator pastes at 3am is the line most likely to be pointed at the wrong `-u`
+URL, and the two prefixes differ by one letter (`zcashreveal:` here,
+`zecreveal:` there).
 
-So the commands above name exact keys and enumerate nothing. If you need a
-broader view of the VPS Redis, take it interactively with
-`docker compose exec redis redis-cli` and do not write the result back into this
-file.
+LEDGER-10 Q2 ruled that the guard must **not** be taught to tell the two servers
+apart - a guard that infers a `redis-cli` line's target is a guard that will be
+confidently wrong, and the failure it would enable is an outage for another
+project's production data. The cost of that ruling was that the operator had no
+enumeration command at all. The answer is neither to loosen the guard nor to
+accept the cost: the safety moves **inside the tool**.
+
+- The URL comes from `REDIS_URL` in the environment. There is no `--url` flag
+  and there will not be one. A flag is a paste.
+- `assertNotManagedStore` runs **before a socket is opened**, and the tool exits
+  non-zero if it throws. That is the same function the indexer and the gateway
+  call at boot, and it refuses both by hostname and by an exact value match
+  against every `SNAPSHOT_REDIS_*` variable in the environment.
+- The scan is bounded by `VPS_KEY_PREFIX`, imported from `@zcashreveal/types`
+  rather than typed here, and the bound is written at the call site so both a
+  reader and the guard can see it.
+
+So the runbook line names no Redis command, which gives the text guard nothing to
+be wrong about, and the enumeration is safe because of what the tool does rather
+than because of what the operator remembered.
+
+**There is still no enumeration command for the managed store, and there will not
+be one.** It holds three keys, this project wrote all of them, and
+`docs/2.0/SNAPSHOT.md` rule 7 is about exactly the temptation to look.
+
+If you need something `pnpm redis:keys` does not show, take it interactively with
+`docker compose exec redis redis-cli` against a named key, and do not write the
+result back into this file.
