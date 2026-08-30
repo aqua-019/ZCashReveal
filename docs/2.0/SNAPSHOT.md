@@ -1,9 +1,10 @@
 # SNAPSHOT.md — the managed Redis, and the rules that come with sharing it
 
-**Status: the safety half of this document exists; the schema half does not yet.**
-HANDOFF-09 owns `SnapshotV1`, the publish cadence and the sink list, and adds them below.
-What is written here is the part that could not wait for HANDOFF-09, because the store is
-already connected and already shared.
+**Status: complete for HANDOFF-09.** The safety half (sections 1 to 7) was written by HANDOFF-05
+because the store was connected before HANDOFF-09 opened. The schema half - `SnapshotV1`, the
+publish cadence, the sink list and their independent-failure behaviour - is section 8, written by
+HANDOFF-09. Sections 1 to 6 were not weakened by that addition and may not be weakened by any
+later one. What is still owed is HANDOFF-11's half, which is named at the foot of section 8.
 
 Provenance: the connection facts were established by the operator (L2) in the Vercel UI on
 23 August 2026 and delivered to the HANDOFF-05 session as a written note. They are read from
@@ -230,10 +231,139 @@ binary extensions — Dockerfiles, `.json`, compose files and extensionless scri
   cannot say how much of the shared allowance is already spent. Only the operator can read that,
   and only in the Upstash console.
 
-## 8. Still owed to this document
+## 8. The schema, the cadence and the sinks
 
-HANDOFF-09 adds: the `SnapshotV1` schema, the publish cadence, the sink list (`file`, `redis`,
-optional `blob`) and their independent-failure behaviour, and how the operator connects the store.
-HANDOFF-11 adds: `apps/web`'s `SnapshotStore` resolution order and the staleness indicator.
+Written by HANDOFF-09. §§1-6 are unchanged by it.
 
-Neither may weaken §§1–6.
+### 8.1 What the document is for
+
+Plan decision 2, verbatim: the publisher "writes `snapshot.json` every block ... The site renders
+from it at build/ISR time; the WS layer upgrades it live. **Empty dashboards become structurally
+impossible.**"
+
+That last sentence is the design goal and it decides the shape. A snapshot that refuses to parse is
+an empty dashboard, so **four fields are required and every panel is nullable**:
+
+| required | why |
+| --- | --- |
+| `schema` | the literal `1`. See §8.2. |
+| `height` | a page must never print a number with no height beside it |
+| `hash` | which block, unambiguously, across a reorg |
+| `time` | the block's own timestamp, so staleness is measured against the chain |
+
+Everything else — `pools`, `residual`, `drain`, `migrationHist`, `neffSeries`, `lastReports`,
+`labelsVersion` — is a panel that can say "not measured". An indexer that has not reached NU6.3 has
+no drain; one with an empty mempool has no reports. **A `null` renders as an absence and a zero
+renders as a measurement**, which is the same rule `sprout-field.ts` applies to a missing
+`vjoinsplit` and `zip318.ts` applies to a non-canonical denomination.
+
+The schema is `packages/zec-types/src/snapshot.ts`. It is a zod schema, so the assertion that a
+published document conforms is a parse and not a review.
+
+### 8.2 Why there is a `schema` field the handoff did not ask for
+
+HANDOFF-09 §3 names ten fields and this document carries eleven. A type called `SnapshotV1` that
+carries no version cannot tell a reader it is a V1, and `apps/web`'s resolution order (HANDOFF-11)
+has to distinguish two cases that a bare parse failure conflates:
+
+- **a snapshot I do not understand** — fall through to the next source, quietly. This is what a V2
+  looks like to a V1 reader, and it is not a fault.
+- **not a snapshot** — the store answered with something else entirely. That IS a fault and should
+  be reported rather than silently downgraded.
+
+`z.literal(1)` makes the difference a parse result rather than a guess.
+
+### 8.3 Zatoshi on the wire
+
+`JSON.stringify` throws on a `bigint`. The throw is the good case; the bad case is a caller reaching
+for `Number(...)` to get past it and losing precision without a symptom.
+
+So **every zatoshi crosses the wire as a decimal string** and comes back as a `bigint` through
+`zatSchema`, which is the contract `views.ts` already used for every other DTO in this project.
+`serializeSnapshot` in `packages/zec-types/src/snapshot.ts` is the single function that writes them,
+and every sink goes through it, so there is exactly one answer to "how does a zatoshi appear in the
+file".
+
+**One field deliberately leaves that rule: drain velocity, which is ZEC per hour as a float.** Plan
+§3.3 names the unit, and a rate is a quotient — the elapsed time comes from block timestamps and is
+not a whole number of hours. A `bigint` there would have to round a rate to the nearest
+zatoshi-per-hour and claim a precision the measurement does not have.
+
+### 8.4 The cadence
+
+**One publish per NEW tip.** The publisher de-duplicates by height: a repeated tip writes nothing,
+to any sink. At the 75-second target interval that is ~1,152 publishes a day.
+
+A tip that arrives while a publish is in flight does not start a second one; the newer height is
+published on the next turn. The snapshot is a *latest-wins* document and skipping an intermediate
+height loses nothing a reader can observe, whereas two concurrent `MULTI`s against a shared store
+could interleave `latest` and `height` and leave the two disagreeing.
+
+### 8.5 The sinks, and what "independent" means
+
+| sink | destination | configured by | required |
+| --- | --- | --- | --- |
+| `file` | `snapshot.json` on the local filesystem | `SNAPSHOT_FILE` | yes — this is what the gateway serves and what a dev run produces |
+| `redis` | the Vercel-managed store | `SNAPSHOT_REDIS_KV_URL` or `SNAPSHOT_REDIS_REDIS_URL` | no — absent both, the sink is not constructed |
+| `blob` | object storage | `SNAPSHOT_BLOB_URL` | no — stub |
+
+**SINKS ARE INDEPENDENT AND THE PROCESS NEVER EXITS ON A SINK FAILURE.** A failing sink is logged as
+`{sink, err}` and the others still write. The reason is the whole point of the design: the snapshot
+exists so the public site renders when the VPS or the tunnel is down, and a publisher that dies
+because the managed store was briefly unreachable would take the file sink — the gateway's own copy
+— down with it, converting a partial outage into a total one.
+
+The redis sink is the only writer this project has against the managed store, per rule 6.
+
+### 8.6 The three commands, and why it is exactly three
+
+Per new tip, in one `MULTI`:
+
+```
+SET zecreveal:snapshot:latest    <json>
+SET zecreveal:snapshot:<height>  <json>   EX 86400
+SET zecreveal:snapshot:height    <height>
+```
+
+The keys are built by `SNAPSHOT_KEYS` and `snapshotKeyForHeight()` in
+`packages/zec-types/src/redis-topology.ts`. **The prefix is never retyped**, here or anywhere: it
+differs from the VPS prefix by one letter.
+
+`zecreveal:snapshot:latest` carries no TTL, because a store that expires the latest snapshot
+produces the empty dashboard this design exists to prevent. The per-height copy carries 86,400
+seconds so the keyspace does not grow without bound; `zecreveal:snapshot:height` is an integer string
+a reader can fetch without parsing the document.
+
+The count is asserted by **counting**, not by reading the code — HANDOFF-09 A10, with a spy on the
+client, across a fake tip stream, asserting `3 x tips`. §5 gives the reason: "counting commands is
+the only honest way to assert 'exactly three'". A10's fail side adds a fourth command and watches the
+count assert.
+
+### 8.7 The monthly ceiling
+
+`SNAPSHOT_REDIS_MONTHLY_BUDGET` (default `150000`) is a hard refusal, not a warning: over the
+ceiling, the publisher **exits non-zero with a message naming it, and writes nothing to the managed
+store**. The file sink is unaffected, so a publisher that has run out of budget still keeps the
+gateway's copy fresh.
+
+The counter is a file on a named VPS volume, keyed `YYYY-MM`, read at startup and flushed after each
+tip. §5 gives both halves of why it is not anywhere else: in the managed store it would be a fourth
+command per tip and would break the assertion in §8.6, and in memory alone it would reset on every
+restart and make the ceiling vacuous.
+
+### 8.8 How the operator connects the store
+
+Already done, 23 August 2026, and recorded in §3: the store `upstash-kv-blue-garden` is connected to
+the `zecreveal` project for Production and Preview under the variable prefix `SNAPSHOT_REDIS`, so
+Vercel injects the five names automatically. **Nothing is copied by hand on the Vercel side, and no
+agent sets a Vercel environment variable.**
+
+The one manual step that remains is the VPS: the operator pastes one of the two `rediss://` TCP URLs
+into the VPS `.env`, under the name it carried in the Vercel UI, so a value copied out of that UI
+lands under the name it came with. It never enters git — HANDOFF-09 A8 greps for exactly that.
+
+### 8.9 Still owed
+
+HANDOFF-11 adds: `apps/web`'s `SnapshotStore` resolution order, the staleness indicator, and the
+measured read figure that replaces §5's row saying the combined share is unknown. It may not weaken
+§§1-6, and it may not weaken this section either.
