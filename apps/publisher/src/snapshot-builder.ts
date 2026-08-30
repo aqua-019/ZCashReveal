@@ -1,0 +1,329 @@
+/**
+ * Assemble a `SnapshotV1` from one tip's inputs (HANDOFF-09 section 3,
+ * docs/2.0/SNAPSHOT.md section 8).
+ *
+ * PURE. NO I/O, NO CLOCK, NO MUTATION OF THE INPUT ARRAYS. Both halves matter
+ * and the second is the one that bites: `publishedAt` is a timestamp this
+ * function must not read from a clock, so it arrives as `publishedAtMs`. A
+ * builder that called `Date.now()` would produce a different document on every
+ * call for the same block, and the assertion that a snapshot round-trips through
+ * `serializeSnapshot` and `snapshotV1Schema` would be pinning a moving target.
+ *
+ * EVERY PANEL IS NULLABLE AND A NULL IS AN ABSENCE, NOT A ZERO. SNAPSHOT.md
+ * section 8.1 states the rule and this is its enforcement: an instrument that is
+ * not wired, a window with no data, a supply figure the node did not report -
+ * each of those produces `null` for its panel rather than a zero. The four
+ * fields that are NOT nullable are `schema`, `height`, `hash` and `time`,
+ * because a document that cannot say which block it describes is not a snapshot,
+ * and a page rendering it would print numbers with no height beside them.
+ *
+ * THE FIVE LANE SHARES ARE OF THE LANES' OWN TOTAL, AND THAT IS A DIFFERENT
+ * DENOMINATOR FROM `residual.supplyZat`. The shares are what a `/pools` bar
+ * chart reads, so they have to sum to 1; the supply figure is a separate
+ * measurement with a separate source string, and the two differ by whatever the
+ * node accounts for outside these five lanes - the ZIP 271 lockbox above all,
+ * which `apps/gateway/src/views/pools.ts` also carries separately because it is
+ * "the protocol's own reserve, not a lane value moves along". Dividing the lanes
+ * by the supply would give five shares that visibly do not sum to one, and a
+ * reader would have no way to tell that from an arithmetic fault.
+ */
+
+import {
+  SNAPSHOT_MAX_REPORTS,
+  SNAPSHOT_SCHEMA_VERSION,
+  type LedgerLane,
+  type MempoolRow,
+  type Pool,
+  type SnapshotDrain,
+  type SnapshotLane,
+  type SnapshotMigrationHist,
+  type SnapshotNeffSeries,
+  type SnapshotResidual,
+  type SnapshotV1,
+} from "@zcashreveal/types";
+
+import type { Crossing, Instruments, IronwoodSpend, PoolBalanceSample } from "./instruments.js";
+
+/** One lane's balance as the caller read it from the node. */
+export interface LaneBalance {
+  readonly lane: LedgerLane;
+  readonly balanceZat: bigint;
+}
+
+/** A height range, inclusive at both ends. */
+export interface HeightWindow {
+  readonly lowHeight: number;
+  readonly highHeight: number;
+}
+
+/** Everything one publish needs, already read from the world. */
+export interface SnapshotInputs {
+  readonly height: number;
+  /** The block hash: 64 lowercase hex characters, no `0x`. */
+  readonly hash: string;
+  /** The BLOCK's own timestamp, milliseconds since epoch. Never the publish time. */
+  readonly timeMs: number;
+  /** When this publish happened, milliseconds since epoch. Supplied, never read from a clock here. */
+  readonly publishedAtMs: number;
+
+  /** The five site lanes, as read from `valuePools`. The lockbox is not one of them. */
+  readonly lanes: ReadonlyArray<LaneBalance>;
+
+  /**
+   * `Supply_h`, or null when the node did not report one.
+   *
+   * Null suppresses the whole residual panel rather than substituting the lane
+   * total: `U/Supply` computed against a denominator the caller did not ask for
+   * is a different number wearing the same label, and plan section 3.2 requires
+   * the supply's SOURCE to be published beside it for exactly that reason.
+   */
+  readonly supplyZat: bigint | null;
+  /** Free text naming where `supplyZat` came from. Never empty when `supplyZat` is present. */
+  readonly supplySource: string;
+
+  /** Per-pool shielded balances at this height, for the residual. */
+  readonly poolBalances: Readonly<Partial<Record<Pool, bigint>>>;
+
+  /** Orchard balance samples, for the drain and its two velocities. */
+  readonly orchardSeries: ReadonlyArray<PoolBalanceSample>;
+  /** The drain's denominator. Null suppresses the drain panel. */
+  readonly drainBaseline: { readonly height: number; readonly zat: bigint } | null;
+
+  /** Orchard to Ironwood crossings the migration lens reads. */
+  readonly crossings: ReadonlyArray<Crossing>;
+  /** The window the lens reports over. Null suppresses the panel. */
+  readonly migrationWindow: HeightWindow | null;
+
+  /** Ironwood spends the N_eff series is computed over. Null suppresses the panel. */
+  readonly ironwoodSpends: ReadonlyArray<IronwoodSpend> | null;
+  /** The birth height and the window. Null suppresses the panel. */
+  readonly ironwoodWindow: (HeightWindow & { readonly birthHeight: number }) | null;
+
+  /** Mempool rows, any order. Trimmed to `SNAPSHOT_MAX_REPORTS`, newest first. */
+  readonly lastReports: ReadonlyArray<MempoolRow>;
+  /** Which `packages/content` labels build produced any label a page renders. */
+  readonly labelsVersion: string;
+}
+
+/** 64 lowercase hex characters, which is what `txidSchema` accepts for a block hash. */
+const BLOCK_HASH = /^[0-9a-f]{64}$/;
+
+/**
+ * A ratio of two zatoshi amounts as a float in [0, 1].
+ *
+ * SCALED IN `bigint` BEFORE THE DIVISION, the same way
+ * `analysis/turnstile-accounting.ts` does it. Converting both sides with
+ * `Number()` first is correct for every balance this chain can hold and stops
+ * being correct the moment somebody reuses the helper for something larger; the
+ * scaled form has no such edge and costs nothing.
+ */
+const RATIO_SCALE = 10n ** 12n;
+function ratioToNumber(numerator: bigint, denominator: bigint): number {
+  if (denominator <= 0n) return 0;
+  const scaled = (numerator * RATIO_SCALE) / denominator;
+  return Number(scaled) / Number(RATIO_SCALE);
+}
+
+/** ISO 8601 UTC, which is what `z.string().datetime()` accepts. */
+function isoOf(ms: number, field: string): string {
+  if (!Number.isFinite(ms)) {
+    throw new RangeError(`buildSnapshot: ${field} is ${ms}, which is not a timestamp`);
+  }
+  return new Date(ms).toISOString();
+}
+
+/**
+ * The five lanes with their shares.
+ *
+ * @throws RangeError on a negative lane balance. ZIP 209 makes non-negativity a
+ * consensus invariant, so a negative here is our decoder being wrong and never
+ * the chain - the same reading `turnstileResidual` and `ValuePool` take. The
+ * alternative is publishing a negative share, which renders as a bar pointing
+ * the wrong way with nothing to say why.
+ *
+ * Pure. No I/O, no clock, no mutation of the input array.
+ */
+export function lanesWithShares(lanes: ReadonlyArray<LaneBalance>): SnapshotLane[] {
+  let total = 0n;
+  for (const l of lanes) {
+    if (l.balanceZat < 0n) {
+      throw new RangeError(
+        `buildSnapshot: lane ${l.lane} has a negative balance (${l.balanceZat} zat). ` +
+          "ZIP 209 requires Bal >= 0, so this is our replay being wrong, never the chain.",
+      );
+    }
+    total += l.balanceZat;
+  }
+  return lanes.map((l) => ({
+    lane: l.lane,
+    balanceZat: l.balanceZat,
+    share: ratioToNumber(l.balanceZat, total),
+  }));
+}
+
+/**
+ * The most recent rows, newest first, capped at `SNAPSHOT_MAX_REPORTS`.
+ *
+ * SORTS A COPY. `mempoolRowSchema` carries `ageSeconds`, so "newest" is the
+ * smallest age; the caller's array is not assumed to be ordered and is not
+ * reordered either, because a builder that sorted its argument in place would
+ * have mutated an input the caller may still be reading.
+ *
+ * Pure. No I/O, no clock, no mutation of the input array.
+ */
+export function newestReports(rows: ReadonlyArray<MempoolRow>): MempoolRow[] {
+  return [...rows]
+    .sort((a, b) => a.ageSeconds - b.ageSeconds)
+    .slice(0, SNAPSHOT_MAX_REPORTS);
+}
+
+/**
+ * Build the document.
+ *
+ * @throws RangeError if `hash` is not 64 lowercase hex characters, if a
+ * timestamp is not finite, or if a lane balance is negative. Each of those is a
+ * contradiction in the inputs rather than an unusual reading, and the publisher
+ * catches the throw, logs it and publishes nothing for that tip - which is
+ * correct, because the alternative is a document that names the wrong block.
+ *
+ * Pure. No I/O, no clock, no mutation of the input arrays.
+ */
+export function buildSnapshot(inputs: SnapshotInputs, instruments: Instruments): SnapshotV1 {
+  if (!BLOCK_HASH.test(inputs.hash)) {
+    throw new RangeError(
+      `buildSnapshot: ${JSON.stringify(inputs.hash)} is not a block hash. ` +
+        "Sixty-four lowercase hex characters, no 0x - a snapshot that names the wrong block is worse than no snapshot.",
+    );
+  }
+
+  return {
+    schema: SNAPSHOT_SCHEMA_VERSION,
+    height: inputs.height,
+    hash: inputs.hash,
+    time: isoOf(inputs.timeMs, "timeMs"),
+    publishedAt: isoOf(inputs.publishedAtMs, "publishedAtMs"),
+    pools: lanesWithShares(inputs.lanes),
+    residual: buildResidual(inputs, instruments),
+    drain: buildDrain(inputs, instruments),
+    migrationHist: buildMigrationHist(inputs, instruments),
+    neffSeries: buildNeffSeries(inputs, instruments),
+    lastReports: newestReports(inputs.lastReports),
+    labelsVersion: inputs.labelsVersion,
+  };
+}
+
+/** Plan section 3.2. Null when the instrument is not wired or the supply is unknown. */
+function buildResidual(inputs: SnapshotInputs, instruments: Instruments): SnapshotResidual | null {
+  const fn = instruments.turnstileResidual;
+  if (fn === null || inputs.supplyZat === null) return null;
+  const r = fn(inputs.poolBalances, inputs.supplyZat);
+  return {
+    unprovableZat: r.unprovableZat,
+    supplyZat: r.supplyZat,
+    supplySource: inputs.supplySource,
+    unprovableShare: r.unprovableShare,
+    verifiedShare: r.verifiedShare,
+  };
+}
+
+/**
+ * Plan section 3.3. Null when the instrument is not wired or no baseline is known.
+ *
+ * THE VELOCITIES ARE COPIED THROUGH AND NEVER SUBSTITUTED. `orchardDrain`
+ * answers `null` for a window that admitted fewer than two samples, and
+ * `snapshotDrainSchema` records why that null must survive: "a velocity from two
+ * samples and a velocity from a thousand print identically", and a zero here
+ * would render as "the drain has stopped".
+ */
+function buildDrain(inputs: SnapshotInputs, instruments: Instruments): SnapshotDrain | null {
+  const fn = instruments.orchardDrain;
+  const baseline = inputs.drainBaseline;
+  if (fn === null || baseline === null) return null;
+  const d = fn(inputs.orchardSeries, {
+    baselineHeight: baseline.height,
+    baselineZat: baseline.zat,
+    atHeight: inputs.height,
+  });
+  return {
+    pool: d.pool,
+    baselineHeight: d.baselineHeight,
+    baselineZat: d.baselineZat,
+    currentZat: d.currentZat,
+    drained: d.drained,
+    velocity24hZecPerHour: d.velocity24hZecPerHour,
+    velocity7dZecPerHour: d.velocity7dZecPerHour,
+    sampleCount: d.sampleCount,
+  };
+}
+
+/**
+ * Plan section 3.4 / TRACKING-MATH section 3.9. Null when not wired or no window.
+ *
+ * `overCapCount` AND `audit` ARE DROPPED HERE AND THAT IS THE SCHEMA'S DECISION,
+ * NOT A LOSS THIS FUNCTION CHOSE. `snapshotMigrationHistSchema` carries neither:
+ * the audit record belongs to the inference chain the gateway renders, and it is
+ * not what a public snapshot is for. `nonCanonicalCount` survives and is the
+ * measurement a reader needs - `zip318.ts`'s rule is that an over-cap crossing is
+ * "a finding, never a rejection", and it is counted, not dropped, upstream.
+ */
+function buildMigrationHist(
+  inputs: SnapshotInputs,
+  instruments: Instruments,
+): SnapshotMigrationHist | null {
+  const fn = instruments.migrationLens;
+  const window = inputs.migrationWindow;
+  if (fn === null || window === null) return null;
+  const m = fn(inputs.crossings, {
+    lowHeight: window.lowHeight,
+    highHeight: window.highHeight,
+  });
+  return {
+    lowHeight: m.lowHeight,
+    highHeight: m.highHeight,
+    buckets: m.buckets.map((b) => ({
+      n: b.n,
+      kZatoshi: b.kZatoshi,
+      kZec: b.kZec,
+      count: b.count,
+      sumZat: b.sumZat,
+    })),
+    canonicalCount: m.canonicalCount,
+    nonCanonicalCount: m.nonCanonicalCount,
+    sumZat: m.sumZat,
+    strandedDustZat: m.strandedDustZat,
+    minNotes: m.minNotes,
+    maxWallets: m.maxWallets,
+  };
+}
+
+/** Plan section 3.5. Null when the instrument is not wired or there are no spends to read. */
+function buildNeffSeries(
+  inputs: SnapshotInputs,
+  instruments: Instruments,
+): SnapshotNeffSeries | null {
+  const fn = instruments.ironwoodBirth;
+  const window = inputs.ironwoodWindow;
+  const spends = inputs.ironwoodSpends;
+  if (fn === null || window === null || spends === null) return null;
+  const b = fn(spends, {
+    birthHeight: window.birthHeight,
+    lowHeight: window.lowHeight,
+    highHeight: window.highHeight,
+  });
+  return {
+    birthHeight: b.birthHeight,
+    series: b.series.map((p) => ({
+      height: p.height,
+      candidateCount: p.candidateCount,
+      nEff: p.nEff,
+      claimLevel: p.claimLevel,
+    })),
+    spendCount: b.spendCount,
+    shares: {
+      aggregate_only: b.shares.aggregate_only,
+      broad_candidate_set: b.shares.broad_candidate_set,
+      small_heuristic_set: b.shares.small_heuristic_set,
+      requires_disclosure: b.shares.requires_disclosure,
+    },
+  };
+}
