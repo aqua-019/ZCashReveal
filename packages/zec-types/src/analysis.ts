@@ -285,6 +285,103 @@ export type FilterApplication =
       };
       readonly countIn: bigint;
       readonly countOut: bigint;
+    }
+  /**
+   * HANDOFF-09's turnstile window (plan section 3.1-3.3, TRACKING-MATH section 3.11's
+   * balance side).
+   *
+   * WHAT THIS RECORD IS A FILTER APPLICATION OF, because "accounting" does not
+   * sound like a narrowing and the reader is entitled to ask. A drain velocity is
+   * `(balance at the end of a window - balance at the start) / hours`, and the
+   * only honest way to compute it from a series is to SELECT the samples inside
+   * the window. `countIn` is the samples the caller supplied, `countOut` is the
+   * samples the window admitted. A velocity computed from two samples out of
+   * 1,150 is a different claim from one computed from 1,150, and that difference
+   * is invisible in the number itself - which is exactly what an audit record is
+   * for.
+   *
+   * `U_h` and `V_h` are NOT in this record. They are aggregates over a single
+   * height with no candidate set and nothing narrowed, so a filter record for
+   * them would be a record of a filter that did not happen. `turnstileResidual`
+   * returns them without one and says so in its docblock.
+   */
+  | {
+      readonly filter: "turnstile_window";
+      readonly params: {
+        readonly pool: ShieldedPool;
+        /** Inclusive lower bound of the window, in heights. */
+        readonly lowHeight: number;
+        /** Inclusive upper bound of the window, in heights. */
+        readonly highHeight: number;
+        /** The window as the caller asked for it: 24 or 168, per plan section 3.3. */
+        readonly windowHours: number;
+        /** `balance(highHeight) - balance(lowHeight)`, signed. Negative while a pool drains. */
+        readonly deltaZat: bigint;
+      };
+      readonly countIn: bigint;
+      readonly countOut: bigint;
+    }
+  /**
+   * HANDOFF-09's migration lens (plan section 3.4, TRACKING-MATH section 3.9).
+   *
+   * `migration_lens` was already a member of `views.ts`'s `filterNameSchema`
+   * before anything emitted it - one of the names that file records as "section 3
+   * estimators still to be written". This is the commit that writes one, so the
+   * promise the enum made is now kept.
+   *
+   * `countIn` is every crossing in the window; `countOut` is the crossings that
+   * landed in a canonical `n x 10^k` bucket. THE DIFFERENCE IS THE MEASUREMENT,
+   * NOT THE ERROR: `zip318.ts` rules that a non-canonical amount is recorded with
+   * both denomination fields null rather than rounded into a neighbouring bucket,
+   * and that a crossing over `ZIP318_MAX_CROSSING_ZAT` is "a finding, never a
+   * rejection". So `nonCanonicalCount` is a first-class number here rather than a
+   * silent gap between the two counts.
+   */
+  | {
+      readonly filter: "migration_lens";
+      readonly params: {
+        readonly lowHeight: number;
+        readonly highHeight: number;
+        /** Crossings that matched `n x 10^k, n in {1,2,5}`. */
+        readonly canonicalCount: number;
+        /** Crossings that did not. Counted, never bucketed. */
+        readonly nonCanonicalCount: number;
+        /** Summed magnitude of every crossing in the window, canonical or not. */
+        readonly sumZat: bigint;
+        /** Crossings strictly below `ZIP318_MAX_RESIDUAL_ZAT` - stranded, not migrating. */
+        readonly strandedDustZat: bigint;
+        /** `ceil(sum / 10,000 ZEC)` - the note-count LOWER bound, per section 3.4. */
+        readonly minNotes: number;
+        /** Denomination runs - the wallet-count UPPER bound. No lower bound is claimable. */
+        readonly maxWallets: number;
+      };
+      readonly countIn: bigint;
+      readonly countOut: bigint;
+    }
+  /**
+   * HANDOFF-09's Ironwood birth series (plan section 3.5).
+   *
+   * `countIn` is every spend the caller offered; `countOut` is the spends that
+   * belong to the series - Ironwood, at or after the pool's birth height, with a
+   * candidate count an `N_eff` can be computed from. A spend excluded for any of
+   * those reasons is excluded from the shares too, which is why the two counts
+   * are on the record: a share of 25% over four spends and a share of 25% over
+   * four thousand are the same number and not the same claim.
+   */
+  | {
+      readonly filter: "ironwood_birth";
+      readonly params: {
+        /** NU6.3, where `|T^ironwood|` was 0. Mainnet 3,428,143. */
+        readonly birthHeight: number;
+        readonly lowHeight: number;
+        readonly highHeight: number;
+        /** Share of the series at `requires_disclosure` - the claim level that gates publication. */
+        readonly requiresDisclosureShare: number;
+        /** Smallest `N_eff` in the series. The tree grows, so this is the series' worst case. */
+        readonly minNEff: number;
+      };
+      readonly countIn: bigint;
+      readonly countOut: bigint;
     };
 
 /**
