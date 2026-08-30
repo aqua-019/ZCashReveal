@@ -1,6 +1,8 @@
 import type { WebSocket } from "ws";
 import type { Logger } from "pino";
-import { REDIS_CHANNELS, type LeakReport } from "@zcashreveal/types";
+import { REDIS_CHANNELS, type LeakReport, type SnapshotV1 } from "@zcashreveal/types";
+
+import { toJsonSafe } from "./serialize.js";
 
 /**
  * Every frame the gateway emits is a `{ channel, payload }` envelope. The
@@ -115,6 +117,59 @@ export function snapshotFrame(reports: LeakReport[]): OutboundFrame {
   return {
     channel: REDIS_CHANNELS.mempool,
     payload: { type: "mempool_snapshot", reports },
+  };
+}
+
+/**
+ * The channel the `SnapshotV1` frame rides on.
+ *
+ * NEITHER REDIS PREFIX, AND THAT IS THE WHOLE REASON FOR THE NAME. The other two
+ * channel values are Redis pub/sub channel names (`zcashreveal:mempool`,
+ * `zcashreveal:tip`) because those frames are relayed from Redis verbatim. This
+ * one is not relayed: the gateway builds it on connect from the file the
+ * publisher renamed into place, and nothing publishes it on any channel. Calling
+ * it `zcashreveal:snapshot` would name a Redis channel that does not exist, one
+ * letter from `zecreveal:snapshot:*` - the managed store's namespace, which
+ * `redis-topology.ts` exists to keep from being retyped. `gateway:` says who
+ * built the frame and cannot be mistaken for either store.
+ *
+ * The legacy dashboard's `WsClient` dispatches on `channel` and drops a channel
+ * nothing listens for (`legacy/dashboard/src/lib/ws.ts`), so a client that
+ * predates this frame ignores it rather than mis-routing it.
+ */
+export const WS_SNAPSHOT_CHANNEL = "gateway:snapshot" as const;
+
+/**
+ * The `SnapshotV1` document, as the first frame a new client receives (A9).
+ *
+ * THE PAYLOAD TYPE IS `snapshot_v1` AND NOT `snapshot`, BECAUSE `snapshot` IS
+ * ALREADY TAKEN BY A DIFFERENT DOCUMENT. `packages/zec-types/src/views.ts`'s
+ * `zecFrameSchema` has a `{ type: "snapshot", view: mempoolViewSchema }` arm and
+ * that is a MEMPOOL snapshot - the table of unconfirmed rows. This is the
+ * pool-level document `apps/publisher` writes every tip: residual, drain,
+ * migration histogram, the N_eff series. Two documents under one discriminator
+ * would be resolved by whoever read them last, which is exactly the conflation
+ * HANDOFF-11 is going to have to unpick when it reconciles `ZecFrame` with this
+ * envelope. Naming this one after the schema it carries means that
+ * reconciliation is a mapping and not an archaeology.
+ *
+ * THE ENVELOPE IS NOT WIDENED. `OutboundFrame` stays `{ channel, payload }` and
+ * this frame rides inside it, which is what `ws-broker.test.ts`'s
+ * `@ts-expect-error` guard protects: a new bare union arm would make that
+ * directive unused and fail `tsc`, and that failure IS the regression alarm.
+ *
+ * `toJsonSafe` RATHER THAN THE RAW DOCUMENT, because `SnapshotV1` carries
+ * `bigint` zatoshi and `JSON.stringify` throws on one - the connect path
+ * stringifies this frame exactly as `broadcast` stringifies every other. It is
+ * the same conversion `respond` applies at the REST boundary, so `GET
+ * /api/snapshot` and this frame carry the identical document, which
+ * `snapshot.test.ts` asserts by comparing the two rather than by trusting that
+ * one function called twice agrees with itself.
+ */
+export function snapshotV1Frame(snapshot: SnapshotV1): OutboundFrame {
+  return {
+    channel: WS_SNAPSHOT_CHANNEL,
+    payload: { type: "snapshot_v1", snapshot: toJsonSafe(snapshot) },
   };
 }
 

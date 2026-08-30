@@ -1,3 +1,6 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { harness, LOCKBOX, LOCKBOX_BALANCE_ZAT, MemoryCache, TESTNET_P2SH, type RpcHandler } from "./harness.js";
@@ -433,11 +436,24 @@ describe("the pools endpoints", () => {
     await h.close();
   });
 
-  it("answers 501 for the snapshot, so a client falls through instead of caching an empty one", async () => {
-    const h = await harness({ handle: node });
+  it("answers 503 for a snapshot that has not been published, so a client falls through instead of caching an empty one", async () => {
+    // THIS ASSERTION USED TO READ 501 AND `owner: HANDOFF-09`, and both had to
+    // change: the route is implemented now, so 501 - "understood and not
+    // implemented" - would be a false statement about this gateway, and the
+    // owner field would keep naming a handoff that shipped. What did NOT change
+    // is the half the stub existed for, and it is the half asserted here: the
+    // answer is never an empty 200, because apps/web's snapshot store falls
+    // through four sources in order and an empty 200 would satisfy the gateway
+    // source and stop the fall-through. The rest of A9 is in snapshot.test.ts,
+    // against a real file.
+    const h = await harness({
+      handle: node,
+      env: { SNAPSHOT_FILE: join(tmpdir(), "zecreveal-gateway-no-such-directory", "snapshot.json") },
+    });
     const res = await h.app.inject({ method: "GET", url: "/api/snapshot" });
-    expect(res.statusCode).toBe(501);
-    expect((res.json() as { owner: string }).owner).toBe("HANDOFF-09");
+    expect(res.statusCode).toBe(503);
+    expect(res.statusCode).not.toBe(200);
+    expect((res.json() as { reason: string }).reason).toBe("absent");
     await h.close();
   });
 });
