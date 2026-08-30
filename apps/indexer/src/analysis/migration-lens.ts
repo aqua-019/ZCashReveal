@@ -137,7 +137,23 @@ export interface MigrationLens {
   readonly sumZat: bigint;
   readonly strandedDustZat: bigint;
   readonly minNotes: number;
+  /**
+   * Upper bound on distinct migrating wallets: the number of crossings the
+   * window held. Plan section 3.4's `<= Sigma counts`. See the header of
+   * {@link migrationLens} for why this is the published bound and
+   * {@link MigrationLens.denominationRuns} is not.
+   */
   readonly maxWallets: number;
+  /**
+   * Maximal runs of one denomination key in `(height, txid, amount)` order. A
+   * SHAPE OBSERVATION ABOUT THE WINDOW AND NOT A BOUND ON ANYTHING. It is not
+   * an upper bound on wallets - two wallets each crossing one 100 ZEC note in
+   * adjacent blocks form one run - and it is not a lower bound either, so no
+   * consumer may render it as a wallet count. It is here because section 3.9
+   * names the quantity and because the run structure is the distributional
+   * evidence of a scheduling window.
+   */
+  readonly denominationRuns: number;
   /** Crossings over ZIP318_MAX_CROSSING_ZAT. A finding, never a rejection. */
   readonly overCapCount: number;
   readonly audit: FilterApplication;
@@ -146,24 +162,44 @@ export interface MigrationLens {
 /**
  * Measure a window of Orchard -> Ironwood crossings.
  *
- * WHAT A DENOMINATION RUN IS, WHICH IS AN INFERRED READING AND THE ONE GENUINELY
- * UNDERSPECIFIED QUANTITY IN THIS MODULE. Section 3.9 gives only "the set of
- * wallets (`<= number of denomination runs`)" and plan section 3.4 gives only
- * "an upper bound on distinct migrating wallets per window `<= Sigma counts` (no
- * lower bound is claimable)". Neither says what a run is. This module defines it,
- * and the definition is stated here rather than left to a reader of the loop:
+ * THE TWO SPECS GIVE TWO DIFFERENT WALLET BOUNDS AND ONLY ONE OF THEM IS SOUND.
+ * TRACKING-MATH section 3.9 says a session "bounds [...] the set of wallets
+ * (`<= number of denomination runs`)"; plan section 3.4 says "an upper bound on
+ * distinct migrating wallets per window `<= Sigma counts` (no lower bound is
+ * claimable)". They are not two phrasings of one rule. `Sigma counts` holds by
+ * construction - a wallet that crossed contributed at least one crossing, so the
+ * crossings cannot be fewer than the wallets. The run count does not hold, and
+ * the counterexample needs two wallets and no coordination: wallet A crosses one
+ * 100 ZEC note at height h, wallet B crosses one 100 ZEC note at height h+1.
+ * Same denomination key, adjacent in the order, so one run - and the record
+ * would have said "at most 1 wallet" about 2. It gets worse with evidence rather
+ * than better: 847 such crossings are still one run, so the more the window
+ * holds the TIGHTER and the more identity-shaped the published claim becomes.
+ * That is the exact direction section 3.9's own closing rule - "never as 'wallet
+ * W migrated B'" - exists to refuse.
  *
- *   Order the in-window crossings ascending by height, breaking ties by txid.
- *   Walk that order. A run begins at the first crossing, and at every crossing
- *   whose DENOMINATION KEY differs from its predecessor's. `maxWallets` is the
- *   number of runs.
+ * SO `maxWallets` IS `Sigma counts` AND THE RUN COUNT SHIPS BESIDE IT UNDER ITS
+ * OWN NAME. `denominationRuns` is a shape observation about the window; it is
+ * not a bound in either direction and no consumer may render it as a wallet
+ * count. This is a divergence from HANDOFF-09 section 3, which repeats section
+ * 3.9's form, and it is recorded as SPEC-WAS-AMBIGUOUS rather than taken
+ * silently: the conservative reading is the one that ships, because the other
+ * one publishes a falsifiable claim about how few wallets were involved.
+ *
+ * WHAT A DENOMINATION RUN IS. Neither spec says, so this module defines it, and
+ * the definition is stated here rather than left to a reader of the loop:
+ *
+ *   Order the in-window crossings ascending by height, breaking ties by txid and
+ *   then by amount. Walk that order. A run begins at the first crossing, and at
+ *   every crossing whose DENOMINATION KEY differs from its predecessor's.
+ *   `denominationRuns` is the number of runs.
  *
  * The key of a canonical crossing is its denomination `n x 10^kZatoshi`; the key
  * of a non-canonical one is its own amount, so a non-canonical crossing forms a
- * singleton bucket of one and never joins a canonical run. That extension is not
- * decoration: without it a stretch of non-canonical amounts would collapse into
- * one run and UNDERSTATE an upper bound, which is the one direction an upper
- * bound must never move.
+ * singleton run of one and never joins a canonical run. That extension is not
+ * decoration: without it a stretch of DIFFERENT non-canonical amounts would
+ * collapse into one run, and a run count that merges observably different
+ * amounts is not describing the window's shape at all.
  *
  * A denomination key and an amount are in bijection on the canonical ladder -
  * `n x 10^k` determines the amount and the amount determines `(n, k)` - so for
@@ -171,16 +207,18 @@ export interface MigrationLens {
  * the same thing, and the implementation compares keys because that is the
  * phrase section 3.9 uses.
  *
- * WHY THE ORDER IS `(height, txid)` AND WHAT IT COSTS. `Crossing` carries no
- * position within a block, so `(height, txid)` is the only total order
- * available. Within one block it is NOT chain order, and a different order gives
- * a different run count: `100, 50, 100` is three runs and `100, 100, 50` is two.
+ * WHY THE ORDER IS `(height, txid, amount)` AND WHAT IT COSTS. `Crossing`
+ * carries no position within a block, so this is the only total order available.
+ * Within one block it is NOT chain order, and a different order gives a
+ * different run count: `100, 50, 100` is three runs and `100, 100, 50` is two.
  * The alternative - a per-block index on `Crossing` - is the change that would
  * remove the ambiguity and it is not taken here, because it widens the type this
  * handoff publishes for the publisher to consume. What the fixed order does buy
- * is REPRODUCIBILITY: the same set of crossings yields the same `maxWallets` in
- * any array order, which an audit record has to have. This whole paragraph is
- * why `maxWallets` is a bound and not a measurement.
+ * is REPRODUCIBILITY: the same set of crossings yields the same
+ * `denominationRuns` in any array order, which an audit record has to have. That
+ * an order-dependent quantity needed this paragraph is a second reason it is not
+ * the published wallet bound; `maxWallets` needs none of it, because a count of
+ * crossings does not depend on how they are sorted.
  *
  * THE CEILING IS TAKEN ON BIGINTS. `minNotes = ceil(sumZat / ZIP318_MAX_CROSSING_ZAT)`
  * is computed as `(sum + cap - 1) / cap` in bigint arithmetic and converted only
@@ -235,7 +273,11 @@ export function migrationLens(
   }
 
   const minNotes = Number(ceilDiv(sumZat, ZIP318_MAX_CROSSING_ZAT));
-  const maxWallets = countDenominationRuns(inWindow);
+  // PLAN SECTION 3.4's BOUND, NOT SECTION 3.9's. Each wallet that crossed
+  // contributes at least one crossing, so the crossing count is an upper bound
+  // on the wallets; the run count is not one. See the header.
+  const maxWallets = inWindow.length;
+  const denominationRuns = countDenominationRuns(inWindow);
 
   const audit: FilterApplication = {
     filter: "migration_lens",
@@ -248,6 +290,7 @@ export function migrationLens(
       strandedDustZat,
       minNotes,
       maxWallets,
+      denominationRuns,
     },
     // `analysis.ts`: countIn is every crossing in the window, countOut the
     // crossings that landed in a canonical bucket. The difference is
@@ -266,6 +309,7 @@ export function migrationLens(
     strandedDustZat,
     minNotes,
     maxWallets,
+    denominationRuns,
     overCapCount,
     audit,
   };
@@ -401,8 +445,9 @@ function bucketize(crossings: ReadonlyArray<Crossing>): {
  * The number of maximal consecutive-by-order runs of one denomination key.
  *
  * See {@link migrationLens}'s docblock for the definition, the order it depends
- * on and why this is an INFERRED reading of section 3.9 rather than a quotation
- * of one.
+ * on, and why this quantity is NOT the published wallet bound: it is smaller
+ * than the number of wallets whenever two wallets cross the same denomination
+ * adjacently, which is the one direction an upper bound must never move.
  */
 function countDenominationRuns(inWindow: ReadonlyArray<Crossing>): number {
   if (inWindow.length === 0) return 0;

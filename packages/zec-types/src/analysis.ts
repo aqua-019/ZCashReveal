@@ -352,8 +352,18 @@ export type FilterApplication =
         readonly strandedDustZat: bigint;
         /** `ceil(sum / 10,000 ZEC)` - the note-count LOWER bound, per section 3.4. */
         readonly minNotes: number;
-        /** Denomination runs - the wallet-count UPPER bound. No lower bound is claimable. */
+        /**
+         * `Sigma counts` - the wallet-count UPPER bound of plan section 3.4. No
+         * lower bound is claimable.
+         */
         readonly maxWallets: number;
+        /**
+         * Maximal runs of one denomination key. A SHAPE OBSERVATION, NOT A
+         * BOUND: two wallets crossing the same denomination in adjacent blocks
+         * form one run, so this is below the wallet count and must never be
+         * rendered as one. Kept because section 3.9 names the quantity.
+         */
+        readonly denominationRuns: number;
       };
       readonly countIn: bigint;
       readonly countOut: bigint;

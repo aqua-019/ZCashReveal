@@ -293,6 +293,7 @@ function buildMigrationHist(
     strandedDustZat: m.strandedDustZat,
     minNotes: m.minNotes,
     maxWallets: m.maxWallets,
+    denominationRuns: m.denominationRuns,
   };
 }
 

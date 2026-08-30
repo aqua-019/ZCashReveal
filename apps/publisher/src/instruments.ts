@@ -152,7 +152,10 @@ export interface MigrationLens {
   readonly sumZat: bigint;
   readonly strandedDustZat: bigint;
   readonly minNotes: number;
+  /** `Sigma counts` - plan section 3.4's wallet-count upper bound. */
   readonly maxWallets: number;
+  /** Maximal denomination runs. A shape observation, never a wallet bound. */
+  readonly denominationRuns: number;
   /** Crossings over `ZIP318_MAX_CROSSING_ZAT`. A finding, never a rejection. */
   readonly overCapCount: number;
   readonly audit: FilterApplication;

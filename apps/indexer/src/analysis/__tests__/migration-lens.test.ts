@@ -56,8 +56,8 @@ const WINDOW = { lowHeight: 3_456_000, highHeight: 3_456_900 } as const;
  *
  * INTERLEAVED BY LADDER POSITION RATHER THAN GROUPED BY DENOMINATION, so the
  * histogram is not being handed a pre-sorted input. A fixture that emitted all
- * 56 halves, then all 178 ones, would make `maxWallets` equal the number of
- * denominations by construction and would leave the run-detection logic
+ * 56 halves, then all 178 ones, would make `denominationRuns` equal the number
+ * of denominations by construction and would leave the run-detection logic
  * untested by the very fixture that exercises everything else.
  */
 function ladderCrossings(): Crossing[] {
@@ -135,6 +135,7 @@ describe("A3 - the migration lens over the fixture ladder", () => {
     expect(audit.params.highHeight).toBe(WINDOW.highHeight);
     expect(audit.params.minNotes).toBe(lens.minNotes);
     expect(audit.params.maxWallets).toBe(lens.maxWallets);
+    expect(audit.params.denominationRuns).toBe(lens.denominationRuns);
     expect(audit.params.strandedDustZat).toBe(lens.strandedDustZat);
   });
 
@@ -271,6 +272,13 @@ describe("A3 property - bucket counts plus nonCanonicalCount is every in-window 
           if (reversed.canonicalCount !== lens.canonicalCount) return false;
           if (reversed.nonCanonicalCount !== lens.nonCanonicalCount) return false;
           if (reversed.maxWallets !== lens.maxWallets) return false;
+          if (reversed.denominationRuns !== lens.denominationRuns) return false;
+          // THE BOUND IS THE ONE PLAN SECTION 3.4 STATES, checked on every
+          // generated window rather than only on the hand-built ones: the
+          // wallet bound is the crossing count, and the run count is at or
+          // below it and is a different number.
+          if (lens.maxWallets !== inWindow.length) return false;
+          if (lens.denominationRuns > lens.maxWallets) return false;
           if (reversed.sumZat !== lens.sumZat) return false;
           return true;
         },
@@ -419,7 +427,7 @@ describe("the derived bounds", () => {
     expect(migrationLens([], { lowHeight: 0, highHeight: 10 }).minNotes).toBe(0);
   });
 
-  it("maxWallets counts maximal consecutive-by-height runs of one denomination", () => {
+  it("denominationRuns counts maximal consecutive-by-height runs of one denomination", () => {
     // 100, 100, 50, 100 in height order is THREE runs, not two: the run is
     // maximal and consecutive, so the two 100s at the ends do not merge across
     // the 50 between them. This is the whole definition, executed.
@@ -429,40 +437,84 @@ describe("the derived bounds", () => {
       { txid: hx(3), height: 12, amountZat: zec("50") },
       { txid: hx(4), height: 13, amountZat: zec("100") },
     ];
-    expect(migrationLens(crossings, { lowHeight: 0, highHeight: 100 }).maxWallets).toBe(3);
+    expect(migrationLens(crossings, { lowHeight: 0, highHeight: 100 }).denominationRuns).toBe(3);
 
     // It is defined on the ORDER, not on the array: reversing the input changes
-    // nothing, because the module sorts by (height, txid) first.
+    // nothing, because the module sorts by (height, txid, amount) first.
     expect(
-      migrationLens([...crossings].reverse(), { lowHeight: 0, highHeight: 100 }).maxWallets,
+      migrationLens([...crossings].reverse(), { lowHeight: 0, highHeight: 100 }).denominationRuns,
     ).toBe(3);
 
     // A non-canonical crossing is its own singleton run and never merges into a
-    // canonical one - the direction that matters, because merging would make an
-    // UPPER bound smaller.
+    // canonical one: a run count that lumped observably different amounts
+    // together would not be describing the window's shape at all.
     const withOdd: Crossing[] = [
       { txid: hx(1), height: 10, amountZat: zec("100") },
       { txid: hx(2), height: 11, amountZat: zec("99.7") },
       { txid: hx(3), height: 12, amountZat: zec("100") },
     ];
-    expect(migrationLens(withOdd, { lowHeight: 0, highHeight: 100 }).maxWallets).toBe(3);
+    expect(migrationLens(withOdd, { lowHeight: 0, highHeight: 100 }).denominationRuns).toBe(3);
 
     // AND TWO DIFFERENT NON-CANONICAL AMOUNTS ARE TWO RUNS, NOT ONE. A key of
-    // "non-canonical" rather than of the amount would lump them together and
-    // report a SMALLER upper bound on wallets than the evidence supports, which
-    // is the one direction an upper bound must not move. 99.7 and 33.3 ZEC both
-    // miss the ladder and are not each other.
+    // "non-canonical" rather than of the amount would lump together two amounts
+    // the chain published as different. 99.7 and 33.3 ZEC both miss the ladder
+    // and are not each other.
     const twoOdd: Crossing[] = [
       { txid: hx(1), height: 10, amountZat: zec("99.7") },
       { txid: hx(2), height: 11, amountZat: zec("33.3") },
     ];
-    expect(migrationLens(twoOdd, { lowHeight: 0, highHeight: 100 }).maxWallets).toBe(2);
+    expect(migrationLens(twoOdd, { lowHeight: 0, highHeight: 100 }).denominationRuns).toBe(2);
 
-    // maxWallets never exceeds the crossing count, which is plan section 3.4's
-    // own bound: "<= Sigma counts".
+    // The run count never exceeds the crossing count and is positive whenever
+    // the window held anything.
     const lens = migrationLens(ladderCrossings(), WINDOW);
-    expect(lens.maxWallets).toBeLessThanOrEqual(lens.canonicalCount + lens.nonCanonicalCount);
-    expect(lens.maxWallets).toBeGreaterThan(0);
+    expect(lens.denominationRuns).toBeLessThanOrEqual(lens.canonicalCount + lens.nonCanonicalCount);
+    expect(lens.denominationRuns).toBeGreaterThan(0);
+
+    // An empty window has no runs.
+    expect(migrationLens([], { lowHeight: 0, highHeight: 10 }).denominationRuns).toBe(0);
+  });
+
+  it("maxWallets is the crossing count, and the run count is NOT a wallet bound", () => {
+    // THE CONCRETE SCENARIO THE SPLIT EXISTS TO FORBID, executed rather than
+    // argued. Two DIFFERENT wallets each cross one 100 ZEC note, one block
+    // apart. Same denomination key, adjacent in the order, so ONE run - and a
+    // record that published the run count as `maxWallets` would have said "at
+    // most 1 wallet" about a window that held 2. `Sigma counts` says 2, which
+    // is true and is the bound plan section 3.4 states.
+    const twoWallets: Crossing[] = [
+      { txid: hx(1), height: 10, amountZat: zec("100") },
+      { txid: hx(2), height: 11, amountZat: zec("100") },
+    ];
+    const two = migrationLens(twoWallets, { lowHeight: 0, highHeight: 100 });
+    expect(two.denominationRuns).toBe(1);
+    expect(two.maxWallets).toBe(2);
+
+    // AND IT MOVES THE WRONG WAY WITH EVIDENCE, which is what made the run form
+    // dangerous rather than merely loose: 847 identical adjacent crossings are
+    // still one run, so the more the window holds the tighter and the more
+    // identity-shaped the claim would have become. The crossing count grows
+    // with the evidence, as an honest upper bound must.
+    const many: Crossing[] = Array.from({ length: 847 }, (_, i) => ({
+      txid: hx(i + 1),
+      height: 10 + i,
+      amountZat: zec("100"),
+    }));
+    const lensMany = migrationLens(many, { lowHeight: 0, highHeight: 10_000 });
+    expect(lensMany.denominationRuns).toBe(1);
+    expect(lensMany.maxWallets).toBe(847);
+
+    // `maxWallets` counts the window, not the caller's history: the two
+    // out-of-window crossings below are not wallets this window saw.
+    const spread: Crossing[] = [
+      { txid: hx(1), height: 5, amountZat: zec("100") },
+      { txid: hx(2), height: 50, amountZat: zec("100") },
+      { txid: hx(3), height: 60, amountZat: zec("200") },
+      { txid: hx(4), height: 500, amountZat: zec("100") },
+    ];
+    const win = migrationLens(spread, { lowHeight: 10, highHeight: 100 });
+    expect(win.maxWallets).toBe(2);
+    expect(win.maxWallets).toBe(Number(win.audit.countIn));
 
     // An empty window bounds the wallets at zero.
     expect(migrationLens([], { lowHeight: 0, highHeight: 10 }).maxWallets).toBe(0);
@@ -539,6 +591,7 @@ describe("the window and the refusals", () => {
     expect(lens.audit.countIn).toBe(3n);
     expect(lens.buckets.reduce((a, b) => a + b.count, 0)).toBe(3);
     expect(lens.maxWallets).toBe(3);
+    expect(lens.denominationRuns).toBe(3);
     expect(lens.lowHeight).toBe(100);
     expect(lens.highHeight).toBe(200);
     // A single-height window is legal and holds only that height.

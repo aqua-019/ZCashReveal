@@ -205,8 +205,17 @@ export const snapshotMigrationHistSchema = z.object({
   strandedDustZat: zatSchema,
   /** Lower bound on notes: `ceil(sumZat / 10,000 ZEC)`. */
   minNotes: countSchema,
-  /** Upper bound on distinct wallets: the number of denomination runs. No lower bound exists. */
+  /**
+   * Upper bound on distinct wallets: the number of crossings the window held
+   * (plan section 3.4's `Sigma counts`). No lower bound exists.
+   */
   maxWallets: countSchema,
+  /**
+   * Maximal runs of one denomination key. A shape observation, NOT a wallet
+   * bound - two wallets crossing the same denomination in adjacent blocks form
+   * one run - and no renderer may present it as one.
+   */
+  denominationRuns: countSchema,
 });
 export type SnapshotMigrationHist = z.infer<typeof snapshotMigrationHistSchema>;
 

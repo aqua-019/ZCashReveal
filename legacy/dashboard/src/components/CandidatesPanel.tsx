@@ -329,7 +329,12 @@ function filterParams(f: FilterApplication): string {
         `heights ${f.params.lowHeight.toLocaleString()} to ${f.params.highHeight.toLocaleString()} · ` +
         `${f.params.canonicalCount} canonical, ${f.params.nonCanonicalCount} not · ` +
         `${sum.toFixed(4)} ZEC crossed, ${dust.toFixed(4)} stranded · ` +
-        `at least ${f.params.minNotes} note${f.params.minNotes === 1 ? "" : "s"}, at most ${f.params.maxWallets} wallet${f.params.maxWallets === 1 ? "" : "s"}`
+        `at least ${f.params.minNotes} note${f.params.minNotes === 1 ? "" : "s"}, at most ${f.params.maxWallets} wallet${f.params.maxWallets === 1 ? "" : "s"} · ` +
+        // `denominationRuns` IS RENDERED AS THE SHAPE OBSERVATION IT IS AND
+        // NEVER AS A WALLET COUNT. It is below the wallet count whenever two
+        // wallets cross the same denomination adjacently, so a caption calling
+        // it wallets would state a bound the record does not carry.
+        `${f.params.denominationRuns} denomination run${f.params.denominationRuns === 1 ? "" : "s"}`
       );
     }
     case "ironwood_birth": {
