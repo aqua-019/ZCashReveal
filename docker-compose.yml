@@ -318,13 +318,26 @@ services:
   # that proves it on every run. Handing it to the gateway or the indexer would
   # put a second writer on someone else's database.
   #
-  # PROFILE-GATED BECAUSE apps/publisher DOES NOT EXIST YET. It is HANDOFF-09's
-  # deliverable. `docker compose up -d` today starts the other six services and
-  # skips this one rather than failing on a missing build context; the runbook
-  # says to add `--profile publisher` once HANDOFF-09 has landed.
+  # NO LONGER PROFILE-GATED, BECAUSE apps/publisher NOW EXISTS. Until HANDOFF-09
+  # landed it there was no build context to point at, so this service sat behind
+  # `profiles: ["publisher"]` and `docker compose up -d` started the other six
+  # and skipped it. The app, its Dockerfile and its tests are here; the profile
+  # is gone and a plain `docker compose up -d` brings up all seven.
+  #
+  # THE MONTHLY COUNTER IS A FILE ON A NAMED VOLUME AND IS NEVER IN THE STORE IT
+  # COUNTS. docs/2.0/SNAPSHOT.md section 5 gives both halves of why: in the
+  # managed store it would be a FOURTH command per tip and would break the
+  # assertion that says there are exactly three, and in memory alone it would
+  # reset on every restart and make the ceiling vacuous. `publisher-data` below
+  # is that volume, and SNAPSHOT_BUDGET_FILE is what puts the counter in it.
+  #
+  # THE MOUNT POINT MUST EXIST IN THE PUBLISHER IMAGE, OWNED BY `node`. Docker
+  # creates a missing mount point root-owned, and this container drops to the
+  # unprivileged `node` user, so a volume mounted at a path the image does not
+  # create is a directory the process cannot write - which surfaces as the first
+  # publish failing rather than as anything about a volume.
   # ---------------------------------------------------------------------------
   publisher:
-    profiles: ["publisher"]
     build:
       context: .
       dockerfile: apps/publisher/Dockerfile
@@ -348,6 +361,22 @@ services:
       SNAPSHOT_REDIS_KV_URL: ${SNAPSHOT_REDIS_KV_URL:-}
       SNAPSHOT_REDIS_REDIS_URL: ${SNAPSHOT_REDIS_REDIS_URL:-}
       SNAPSHOT_REDIS_MONTHLY_BUDGET: ${SNAPSHOT_REDIS_MONTHLY_BUDGET:-150000}
+      # BOTH PATHS ARE LITERAL AND NOT `${VAR:-...}`, unlike every other value in
+      # this block, because they are not operator preferences: they are the
+      # volume mount below. A variable here would let a .env move the counter off
+      # the volume, and a counter on the container filesystem is gone on the next
+      # `up --force-recreate`, which makes the ceiling vacuous in exactly the way
+      # SNAPSHOT.md section 5 forbids. The same reasoning as ZEBRAD_RPC_URL and
+      # REDIS_URL above, which name the compose network and so are not knobs.
+      #
+      # The file sink is `required: yes` (SNAPSHOT.md section 8.5) and writes
+      # write-then-rename, so its temporary file lands beside it on the same
+      # filesystem; a snapshot on one volume and a `.tmp` on another would be a
+      # cross-device rename and would fail on every publish.
+      SNAPSHOT_FILE: /var/lib/zecreveal/snapshot.json
+      SNAPSHOT_BUDGET_FILE: /var/lib/zecreveal/snapshot-budget.json
+    volumes:
+      - publisher-data:/var/lib/zecreveal
     healthcheck:
       # Probes the LOCAL dependencies only and never dials the managed store: a
       # 30-second timer against a shared third-party database is roughly 86,400
@@ -402,7 +431,17 @@ services:
 # state directory inside the git working tree, where it is one `git clean -xdf`
 # away from a multi-day resync and inside every Docker build context that does
 # not exclude it.
+#
+# `publisher-data` is the smallest of the four and the one whose absence is
+# hardest to see. It carries the monthly managed-store command counter, keyed
+# YYYY-MM, which SNAPSHOT.md section 5 requires to survive a restart: the
+# ceiling that stops this project from spending an allowance it shares with
+# another project's production is only a ceiling if the count outlives the
+# process. It carries `snapshot.json` beside it for the same durability reason -
+# a publisher refused by its own budget writes nothing, and the last good
+# snapshot staying on disk is what the gateway keeps serving.
 volumes:
   zebrad-data:
   postgres-data:
   redis-data:
+  publisher-data:

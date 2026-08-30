@@ -42,6 +42,7 @@ COPY packages/content/package.json ./packages/content/
 COPY packages/zebra-rpc/package.json ./packages/zebra-rpc/
 COPY apps/indexer/package.json ./apps/indexer/
 COPY apps/gateway/package.json ./apps/gateway/
+COPY apps/publisher/package.json ./apps/publisher/
 COPY apps/web/package.json ./apps/web/
 COPY legacy/dashboard/package.json ./legacy/dashboard/
 
