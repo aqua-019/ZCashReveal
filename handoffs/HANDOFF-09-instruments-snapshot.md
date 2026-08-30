@@ -1,7 +1,7 @@
 ---
 handoff: 09
 title: Turnstile accounting, migration lens, Ironwood birth, snapshot publisher
-status: in-progress
+status: shipped
 branch: the session-designated branch (name it `feat/v2-09-instruments-snapshot` if you may choose)
 track: Data
 depends_on: 06, 08
@@ -75,16 +75,286 @@ The pool-level instruments (Unprovable Residual, drain, migration lens, Ironwood
 ## §7 REPORT — written by L3 before the PR opens (docs-scribe keeps it)
 
 ```
-STATUS: DONE | DONE-WITH-ASSUMPTIONS | BLOCKED | OUT-OF-DEPTH | NOT CONVERGING
-BRANCH / PR:
+STATUS: DONE-WITH-ASSUMPTIONS
+
+BRANCH / PR: claude/new-session-e2vovd (harness-named; the convention name would be
+  feat/v2-09-instruments-snapshot) - PR #44, "HANDOFF-09: turnstile accounting,
+  migration lens, Ironwood birth, snapshot publisher". Stopped at opened.
+  NOTE FOR THE OPERATOR: #44 was taken OUT of draft at 12:47 UTC on 30 Aug, before
+  this write-back existed. That was not this session and it has not been undone.
+
+SPAWN MODE: workflows and subagents both available, proven by tool attempt at
+  session start. Concurrency measured at 4 CPUs, so both fan-outs ran in waves of
+  roughly two agents rather than in one pass; each wave's output was committed
+  path-scoped, with a mutation-marker grep over the staged diff before every
+  commit.
+
 DIRECTORS SPAWNED (lead names each + spawn mode proven):
-FILES (created / modified / moved):
-EVIDENCE (per §5 assertion: pass transcript + fail transcript, provenance Executed/Read/UNVERIFIED):
+  director-build (fan-out 1, in-process subagents): chain-integrator x3 for the
+    three estimators; backend-api x2 for the publisher after PREFLIGHT;
+    test-engineer x2 for section 5; researcher x1 for the ZIP 318 / ZIP 258
+    reading. director-build (fan-out 2): backend-api for the gateway route and
+    the WS frame; devops-deployer for the CI redis service and the Dockerfiles.
+  director-quality (gate round 1): design-reviewer, security-auditor,
+    devops-deployer, docs-scribe, plus three refuters per finding.
+  POST-FAN-OUT SWEEP RUN AFTER EACH FAN-OUT, per CLAUDE.md. Fan-out 1 returned a
+  clean `git status --porcelain` against the intended paths. Fan-out 2's gate
+  returned one stray write - a reviewer scoped read-only edited a file in the
+  tree, the THIRD occurrence in this project's history after HANDOFF-04 and
+  HANDOFF-06. Reverted with `git checkout --`, re-verified, and the correction it
+  had made was re-made deliberately by the lead. Nothing that worker wrote was
+  carried into a commit.
+
+FILES (created / modified / moved): 79 files, +10,323 / -171, across 22 commits.
+  Created: packages/zec-types/src/snapshot.ts; packages/zebra-rpc/src/version-floor.ts;
+    apps/indexer/src/analysis/{turnstile-accounting,migration-lens,ironwood-birth}.ts
+    and their four test files; the whole of apps/publisher (config, budget, logger,
+    instruments, labels-version, publisher, snapshot-builder, index, sinks/{sink,
+    file,redis,managed-store}, sources/tip-source, five test files);
+    scripts/redis-keys.mjs.
+  Modified: packages/zec-types/src/{analysis,views,index}.ts; apps/indexer/src/
+    analysis/index.ts; apps/gateway/src/{index.ts,ws-broker.ts,server.ts,
+    snapshot-source.ts,routes/snapshot.ts,views/pools.ts} and tests; docker-compose.yml;
+    .github/workflows/ci.yml; apps/{indexer,gateway}/Dockerfile; apps/publisher/Dockerfile;
+    scripts/{check-redis-safety,check-compose,check-finding-sites}.mjs;
+    legacy/dashboard/src/components/CandidatesPanel.tsx; docs/2.0/{SNAPSHOT,API,
+    RUNBOOK-VPS,TRACKING-MATH,ZECREVEAL-2.0-PLAN}.md; CLAUDE.md; README.md;
+    .env.example; handoffs/{README,LEDGER,LOG}.md and HANDOFF-{09,10,11,13}.
+
+EVIDENCE (per §5 assertion: pass transcript + fail transcript, provenance):
+
+  A1 residual - EXECUTED. PASS: "sprout 22,621 and orchard 708,841 against supply
+    16,889,987 give U = 731,462 ZEC and V = 0.95669". Derived independently by the
+    lead before reading the worker's code, then compared. FAIL: four separate
+    refusals executed - supply 0 throws rather than producing Infinity; an absent
+    sprout or orchard balance throws rather than counting as zero; a negative pool
+    balance throws (ZIP 209); a residual larger than supply throws rather than
+    publishing a negative verified share.
+
+  A2 drain - EXECUTED. PASS: "baseline 3,660,000 ZEC and 708,841 ZEC now give
+    D = 0.8063"; "velocity over a 24 h fixture window equals delta balance over 24".
+    FAIL: baseline 0 throws; a one-sample window gives a NULL velocity, not a zero
+    one; two samples sharing a timestamp give null, not Infinity; a series with
+    nothing at or below atHeight throws rather than reporting a drain it never read.
+
+  A3 migration lens - EXECUTED. PASS: "847 crossings, bucket counts sum to 847,
+    every amount canonical". FAIL: "a 499.5 ZEC crossing is flagged non-canonical
+    and counted separately". Plus a property over 300 random windows WITH ITS
+    WORKED CASE EXECUTED BY NAME (LEDGER-08 fold 3): "a 499.5 ZEC crossing silently
+    absorbed into the 500 bar", and the law's own second half, "the law fires when
+    a crossing IS in the wrong bar".
+
+  A4 Ironwood birth - EXECUTED. PASS: "N_eff {5, 50, 500, 5000} produces shares
+    25/25/25/25". FAIL: "5000 becomes 500 and the shares become 25/25/50/0".
+    Plus: the empty series gives all-zero shares and a NULL minNEff, never NaN, and
+    the empty case is shown REACHABLE so that a NaN share would be caught.
+
+  A5 snapshot validates - EXECUTED. PASS: "serialize -> write -> read ->
+    snapshotV1Schema.parse succeeds", and "every panel null still validates - an
+    unmeasured publisher is a legal one". FAIL: a document missing `schema` is
+    rejected and the parse names the field; a zatoshi written as a JSON number with
+    a decimal point is rejected.
+
+  A6 one write per new tip - EXECUTED. PASS: "a stream of 5 heights containing one
+    duplicate produces 5 writes, not 6". FAIL: "the duplicate is refused by NAME,
+    so the outcome says which rule fired". Plus: a reorg at the same height IS
+    published, because the hash is part of the identity.
+
+  A7 redis sink - EXECUTED AGAINST A REAL REDIS. A local server on
+    127.0.0.1:6379 is reachable in this container (probed: REACHABLE), so the
+    integration half RAN rather than skipping. PASS: "latest parses as SnapshotV1,
+    height equals the tip, TTL is in (0, 86400]", and `latest` carries TTL -1, no
+    expiry. FAIL: "a closed port - the file sink still writes, the process stays
+    up, the log carries sink=redis". The suite still carries the reachability gate
+    and its own skip marker, so it reports honestly on a machine with no Redis.
+    CI now runs it against a `redis:7` service.
+
+  A8 no committed credential - EXECUTED, AND THE ASSERTION'S LITERAL FORM DOES NOT
+    HOLD WHILE ITS SUBSTANCE DOES. The grep as written -
+    `grep -rn 'rediss\?://[^$"]' apps/publisher docker-compose*.yml .env.example` -
+    returns 40 lines, not one. Every one of them is a docblock, a test fixture on
+    `.example.test`, a `127.0.0.1` port, or the `PLACEHOLDER-NOT-A-REAL-TOKEN`
+    line: no real host, no real password, nothing that authenticates anywhere.
+    `git grep -l 'rediss://'` names nine tracked files for the same reason. The
+    `.env.example` comment that claimed to be "the only `rediss://` string this
+    repository commits" was FALSE when it was written and was corrected in commit
+    29dfbe6 - in the very commit whose message said otherwise, which is the
+    LEDGER-03 Q3 shape caught on its own branch.
+
+  A9 snapshot route and first WS frame - EXECUTED. PASS: "the published document is
+    served with max-age=60, and it is a V1"; "the body is the file on disk and not a
+    constant - a second height serves that height"; "frame 1 is the SnapshotV1
+    document, frame 2 is the mempool snapshot"; "the frame and GET /api/snapshot
+    carry the identical document". FAIL: no snapshot file gives 503 and NEVER an
+    empty 200; a document with no `hash` is a 503 naming the field; an unknown
+    version is a 503 rather than a best-effort 200; a half-written file is a 503
+    with reason `malformed` and the parser's own words are NOT echoed to the client.
+
+  A10 exactly three commands - EXECUTED, AND THE CLAIM IS NARROWER THAN ITS NAME.
+    PASS: "4 new tips produce 3 x 4 = 12 commands, counted on the client";
+    "a duplicate tip spends nothing at all"; "the three are one SET with no TTL,
+    one with EX 86400, and the height". Three is the WRITE count. `MULTI` and
+    `EXEC` put five commands on the wire, and whether Upstash's meter bills the
+    envelope is a fact about their billing that NO SESSION CAN READ - egress to
+    upstash.com is refused by the container's proxy (EGRESS_BLOCKED, executed).
+    Both numbers are now measured and pinned - `COMMANDS_PER_TIP` 3,
+    `WIRE_COMMANDS_PER_TIP` 5 - and the gap is stated in three places rather than
+    resolved by guess. The charge stays at three deliberately: five costs about
+    172,500 a month against a 150,000 ceiling, so charging it on a guess would trip
+    the gate around day 26 and run the publisher file-only, buying nothing against
+    a 500,000 allowance that is a third spent either way. Reading the console for
+    one month is now a named operator task in handoffs/README.md.
+
+  A11 every key is `zecreveal:` - EXECUTED, AND ITS FAIL SIDE WAS A PROBE THAT
+    COULD NOT FAIL UNTIL THE GATE. PASS: every key argument across three tips
+    carries the prefix; the failure path writes no key outside it and adds no
+    fourth; the shutdown path writes nothing at all; the one builder produces all
+    three and only owned keys. THE ORIGINAL FAIL SIDE asserted
+    `/not a block height/` - which is `snapshotKeyForHeight` refusing an impossible
+    height ONE FUNCTION EARLIER. `assertOwnedNamespace` never ran, and the test's
+    own comment admitted it needed "a height whose key builder cannot be trusted".
+    A guard nothing can trip is indistinguishable from a guard that does nothing.
+    `RedisSinkOptions.keysFor` now makes that builder injectable, so the probe
+    hands the sink a `zcashreveal:` key - the one-letter transposition rule 1
+    exists for - and the guard refuses it before `EXEC` with nothing committed and
+    one queued `set`. The guard is also exercised directly in both polarities, and
+    the height case is kept as its own test. FAIL SIDE OF THE FIX: unwiring
+    `assertOwnedNamespace` from the middle `SET` makes the probe resolve instead of
+    rejecting.
+
+  A12 refuses to start over budget - EXECUTED, AS A REAL PROCESS. PASS: "the real
+    process exits non-zero, names the ceiling, and leaves the file alone"; and at
+    the ceiling a RUNNING publisher spends nothing and still writes the file.
+    FAIL: "one command under the ceiling, the same process starts" (6.0s, a real
+    spawn), and one under the ceiling the same running publisher spends its three.
+
 ASSUMPTIONS (each: ACCEPTED / CORRECTED / DEFERRED — reason):
+  1. CORRECTED - L2's fold 1 reason. The ruling said Zebra 6.3.0 adds the
+     funding-stream recipient ADDRESSES and that on 6.2.3 the LEDGER-08 Q1 fold
+     "cannot be executed". Executed against Zebra's source at both tags:
+     `zebra-rpc/src/methods/types/subsidy.rs` is byte-identical between v6.2.3 and
+     v6.3.0 with `FundingStream.address` in both; the whole 6.3.0 change is
+     `is_nu6 = current == Nu6` becoming `is_post_nu6 = current >= Nu6`, and the
+     CHANGELOG says it outright - "recipient names and specification URLs [...]
+     Amounts and addresses were never affected" (PR #11172). The DECISION survives
+     and the reason is stronger: what 6.2.3 gets wrong after NU6 is the recipient's
+     NAME and the specification URL, and this project displays the labeller and the
+     method beside every label. Corrected in place rather than copied.
+  2. CORRECTED - fold 3 as specified was rejected by its own guard.
+     `scripts/redis-keys.mjs` enumerates, and `check-redis-safety` flagged it, as it
+     should. Resolved with a narrow PROOF-based exemption: a `SCAN` bounded by
+     `VPS_KEY_PREFIX`, in a non-`.md` file that CALLS `assertNotManagedStore` with
+     an array literal. Nothing is inferred about which server a line reaches, which
+     is what LEDGER-10 Q2 forbade. The guard also correctly rejected the lead's
+     first draft, for holding the MATCH bound in a variable.
+  3. ACCEPTED - the publisher mirrors the estimators' signatures structurally
+     rather than importing `@zcashreveal/indexer`. A worker refused an instruction
+     to import it and was right: the indexer's Dockerfile ships no dist the
+     publisher image copies, `zeromq@6` is a native addon the publisher's image
+     carries no compiler for, and the indexer's entry imports the ZMQ subscriber.
+     The mirror types were verified against the real signatures through a temporary
+     composition root, in both polarities, which was then deleted.
+  4. ACCEPTED - `velocity24hZecPerHour` is a `number` (ZEC/hour), not a bigint.
+     It is a RATE, not a zatoshi amount; the convention governs amounts.
+  5. CORRECTED - A8's literal grep. See A8 above.
+  6. DEFERRED - whether the managed store's meter bills `MULTI`/`EXEC`. See A10;
+     it is in section 8 and is a named operator task.
+
 NOTICED (outside scope, not acted on):
+  - `apps/web` has no `migrationHist` consumer yet, so the `denominationRuns` split
+    below reaches no page. HANDOFF-11's wiring is where it becomes visible.
+  - `POOLS_VIEW_GAPS`'s `owner` field decays silently and nothing checks it. This
+    session corrected all four values and pinned them in a test, but a handoff that
+    ships without closing its block will leave another true-looking prediction on a
+    live API. The instrument would have to read `handoffs/HANDOFF-NN-*.md`'s
+    `status:` from a static guard. Named in section 8 as the design question.
+  - `check-redis-safety` reads METHOD NAMES. Four ioredis spellings are covered now;
+    a new alias, or a different client library, is invisible until someone adds it.
+    Recorded in SNAPSHOT.md section 7 as a stated bound rather than a hidden one.
+  - `legacy/dashboard` still has no test runner, so `check-audit-consumers.mjs`
+    remains the only thing asserting its rendered captions. LEDGER-08 Q7(d).
+
 UNVERIFIED (labelled):
-GATE ROUNDS: n · fingerprints (file · rule · severity) per round
-PREVIEW URL (if any):
+  - `docker build -f apps/publisher/Dockerfile .` HAS NEVER RUN. There is no Docker
+    daemon in this container (`/var/run/docker.sock` absent, executed). What HAS
+    been executed outside a container is both of that file's RUN lines:
+    `pnpm install --frozen-lockfile --filter @zcashreveal/publisher...` (exit 0,
+    "Lockfile is up to date", 4 of 9 projects) and
+    `pnpm --filter @zcashreveal/publisher... build` (exit 0, four `tsc -b`,
+    `dist/index.js` present). The base-image pull, the layer copies and the `node`
+    user are NOT covered. The Dockerfile now says exactly this instead of the
+    "THIS IMAGE DOES NOT BUILD YET" header it shipped with.
+  - No preview host, no VPS, no live gateway was reached. The container is the only
+    environment this session had (CLAUDE.md's Lighthouse rule, same wall).
+  - Whether Upstash bills `MULTI`/`EXEC`. See A10.
+
+GATE ROUNDS: 1 · VERIFICATION BUDGET STATED FIRST (LEDGER-05 Q5): every finding
+  the round returned was carried through verification; none was logged unread.
+  Round 1 returned 47 raw findings across four reviewers; three refuters per
+  finding killed 12 as unreproducible; 35 were CONFIRMED and every one of them was
+  dispositioned. Fingerprints, file · rule · severity:
+    docker-compose.yml · gateway mounts no snapshot volume · HIGH (fixed, 5517b86,
+      and guarded: `check-compose.mjs` gained `scanSnapshotFilePairing` with named
+      writer/reader roles and six self-test fixtures. THE FIRST VERSION OF THAT
+      DETECTOR COULD NOT CATCH THE DEFECT IT WAS WRITTEN FOR - it examined only
+      services that SET `SNAPSHOT_FILE`, and the defect was a reader setting
+      nothing. Caught by the fail-side probe staying green.)
+    apps/indexer/src/analysis/migration-lens.ts · `maxWallets` is falsifiable by two
+      wallets · MEDIUM, user-visible (fixed, 44f4673; see SPEC-WAS-AMBIGUOUS)
+    apps/publisher/src/logger.ts · redaction leaks a `/` or `@` in a password ·
+      MEDIUM (fixed, 013e842; and the fix was quadratic, a11b296)
+    apps/publisher/src/__tests__/publisher.test.ts · A11's fail side never reaches
+      the guard · MEDIUM (fixed, 013e842)
+    scripts/check-redis-safety.mjs · `.scanStream(` unmatched · MEDIUM (fixed)
+    apps/gateway/src/views/pools.ts · `owner` names shipped handoffs · MEDIUM,
+      user-visible on a live 503 (fixed)
+    docs/2.0/API.md · documents a 501 stub and the old owners · MEDIUM (fixed)
+    CLAUDE.md, README.md, .github/workflows/ci.yml · "seven static guards" · MEDIUM
+      (fixed, and R4-GUARDS retargeted so the next widening fails at the missed site)
+    docs/2.0/RUNBOOK-VPS.md, docs/2.0/ZECREVEAL-2.0-PLAN.md · stale Zebra pin · LOW
+      (fixed; the two dated records left alone, with the reason stated)
+    apps/publisher/Dockerfile · "THIS IMAGE DOES NOT BUILD YET" · LOW (fixed)
+    apps/publisher/src/budget.ts · three-vs-five on the wire · LOW (recorded, not
+      resolved - see A10)
+    ... plus 24 findings fixed inside the same commits, none of which changed
+    behaviour a user could see.
+
+  STOPPING (LEDGER-07 Q6, all three parts, and the lead states the extrapolation
+  rather than claiming convergence):
+    (i) The round's last pass returned no finding a user could see and no finding
+        whose fix changes behaviour.
+    (ii) THE FIX COMMITS WERE REVIEWED AS THEIR OWN COMMITS, and that review found
+        a real defect: the redaction fix reached the last `@` with a lazy class and
+        a lookahead, which is QUADRATIC - 39ms at 10k characters, 978ms at 50k,
+        16.4 SECONDS at 200k, on a function that runs on error messages. The greedy
+        form gives identical output on every case and runs 500k in 1.2ms. Fixed in
+        a11b296 with a regression test whose budget is a hundred times the measured
+        figure, so it fails on a complexity class and not on a slow machine. This is
+        the third session running in which the fix commit carried the round's most
+        interesting defect.
+    (iii) EXTRAPOLATION: a second round would probably find one or two more, of the
+        reach of the Dockerfile header and the stale pin - documentation that
+        describes a state the branch has already left. It would be unlikely to find
+        another falsifiable published claim, because the three instruments' bounds
+        have now each been read against both specs. What it might find is another
+        guard whose method-name list is incomplete, since that shape has now
+        appeared twice in one round (`scanStream`, and the compose detector that
+        could not see a reader).
+
+PREVIEW URL: none reachable. A session cannot reach a preview host - Deployment
+  Protection returns 302 to SSO and the egress proxy refuses the CONNECT tunnel
+  with 403 before that (LEDGER-04 Q3). The container gate is what is reported
+  above.
+
+FINAL VERIFICATION, all executed on a11b296:
+  pnpm -r test    1137 passed, 1 skipped (indexer 460/61 skipped, web 368,
+                  gateway 136/7 skipped, content 67, zebra-rpc 50, publisher 56/1,
+                  zec-types 0 files - types are checked by tsc)
+  pnpm typecheck  11/11 successful
+  pnpm lint       eslint, 0 findings
+  pnpm --filter @zcashreveal/content validate   OK, 190 cited / 138 uncited refs
+  pnpm check      eleven guards, all OK, each self-tested in both directions
+  pnpm build      8/8 successful, including `next build`
 ```
 
 ## §8 LEDGER — appended to `handoffs/LEDGER.md` by docs-scribe; read by L2 before the next handoff
