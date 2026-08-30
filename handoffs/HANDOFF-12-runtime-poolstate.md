@@ -1,7 +1,7 @@
 ---
 handoff: 12
 title: 7B / 7C runtime wiring — PoolState replay, confirmed-block driver, assessments on the live path
-status: queued
+status: open
 branch: the session-designated branch (name it `feat/v2-12-runtime-poolstate` if you may choose)
 track: Integration
 depends_on: 06, 07, 08
