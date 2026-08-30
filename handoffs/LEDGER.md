@@ -3968,7 +3968,32 @@ GATE ROUND COUNTS: 1 round. 47 raw findings, 12 killed by three refuters each, 3
   instrument becomes a guard rather than a review, and it is recorded here so the
   third is recognised.
 
+  Q4 WHO MOVES THE ESTIMATORS, AND WHEN? This is the handoff's principal deferred
+     item and it is a question rather than a slip. `apps/publisher/src/index.ts`
+     passes `NO_INSTRUMENTS`, so `residual`, `drain`, `migrationHist` and
+     `neffSeries` publish as `null` on every tip - legal under `SnapshotV1`, where
+     null means "not measured" rather than zero, and not what the handoff is for.
+     The three instruments this handoff built are exercised only by their own
+     tests. It is a PACKAGING problem: section 4 puts the estimators in
+     `apps/indexer/src/analysis/`, and the publisher's image structurally cannot
+     contain them - its Dockerfile copies no indexer dist, `@zcashreveal/indexer`
+     depends on `zeromq@6` (a native addon the publisher's image carries no
+     compiler for, deliberately), and the indexer's entry imports the ZMQ
+     subscriber, so importing the package pulls a socket layer into a process with
+     no business opening one. A worker refused an instruction to import it and was
+     right. The repair is a package move - the three estimators into a
+     dependency-free workspace package both apps import - and it was NOT taken
+     here: it touches the indexer's imports, both Dockerfiles and the workspace
+     layout, and section 3 does not authorise it. `instruments.ts` is written so
+     the move is the only change needed: `Instruments` is the seam,
+     `NO_INSTRUMENTS` the null implementation, and a composition root holding the
+     real functions needs no other edit. HANDOFF-11 is the obvious owner, since it
+     wires `apps/web` to the snapshot and four null panels is where this stops
+     being invisible. Rule, please: HANDOFF-11, or a package move of its own?
+
 DEFERRED ASSUMPTIONS:
+  - THE ESTIMATORS ARE NOT WIRED INTO THE PUBLISHER. Q4, above. The one item on
+    this list that a reader of the shipped snapshot would notice.
   - Whether the managed store bills `MULTI`/`EXEC`. Q2. Operator task.
   - Whether TRACKING-MATH 3.9's sentence is amended at source. Q1. L2's ruling.
   - Whether `owner`-style forward references get a guard. Q3. Recorded, not built.

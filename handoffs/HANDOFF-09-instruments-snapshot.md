@@ -260,6 +260,37 @@ ASSUMPTIONS (each: ACCEPTED / CORRECTED / DEFERRED — reason):
   6. DEFERRED - whether the managed store's meter bills `MULTI`/`EXEC`. See A10;
      it is in section 8 and is a named operator task.
 
+THE PRINCIPAL DEFERRED ITEM, stated before NOTICED because it is not an aside:
+  THE PUBLISHER DOES NOT REACH THE INSTRUMENTS. `apps/publisher/src/index.ts`
+  passes `NO_INSTRUMENTS` to `buildSnapshot`, so `residual`, `drain`,
+  `migrationHist` and `neffSeries` publish as `null` on every tip. That is LEGAL
+  under `SnapshotV1` - every panel is nullable by design, and null means "not
+  measured" rather than zero, which is the distinction section 8.2 of SNAPSHOT.md
+  exists to keep - and it is not what the handoff is for. The three instruments
+  this handoff built are exercised only by their own tests.
+
+  IT IS A PACKAGING PROBLEM, NOT AN OVERSIGHT, and the shape is worth stating
+  because it decides who fixes it. The estimators live in
+  `apps/indexer/src/analysis/`, where section 4 of this handoff puts them. The
+  publisher's image STRUCTURALLY cannot contain them: its Dockerfile copies no
+  indexer dist, `@zcashreveal/indexer` depends on `zeromq@6` (a native addon the
+  publisher's image carries no compiler for, deliberately - see that Dockerfile's
+  header), and the indexer's entry point imports the ZMQ subscriber, so importing
+  the package at all pulls a socket layer into a process that has no business
+  opening one. A worker refused an instruction to import it and was right.
+
+  THE REPAIR IS A PACKAGE MOVE - the three estimators into a dependency-free
+  workspace package both apps can import - and it is NOT taken here. It touches
+  the indexer's imports, both Dockerfiles and the workspace layout, it is an
+  architectural decision this handoff's section 3 does not authorise, and taking
+  it unilaterally at write-back time is exactly the widening the gate exists to
+  refuse. `instruments.ts` is written so that the move is the only change needed:
+  its `Instruments` type is the seam, `NO_INSTRUMENTS` is the null implementation,
+  and a composition root that has the functions needs no other edit. Routed to L2
+  in section 8 as a question, with HANDOFF-11 (which wires `apps/web` to the
+  snapshot) as the obvious owner, since a page rendering four null panels is where
+  this stops being invisible.
+
 NOTICED (outside scope, not acted on):
   - `apps/web` has no `migrationHist` consumer yet, so the `denominationRuns` split
     below reaches no page. HANDOFF-11's wiring is where it becomes visible.
