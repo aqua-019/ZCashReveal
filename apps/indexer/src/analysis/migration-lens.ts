@@ -72,9 +72,11 @@
  */
 
 import type { FilterApplication, Hex, Zip318Denomination } from "@zcashreveal/types";
+// The residual floor is reached through `isBelowMaxResidual` rather than by
+// importing `ZIP318_MAX_RESIDUAL_ZAT` and comparing here, so there is one place
+// in the repository that decides what "strictly below" means.
 import {
   ZIP318_MAX_CROSSING_ZAT,
-  ZIP318_MAX_RESIDUAL_ZAT,
   canonicalDenomination,
   isBelowMaxResidual,
   isOverMaxCrossing,
@@ -406,8 +408,20 @@ function countDenominationRuns(inWindow: ReadonlyArray<Crossing>): number {
   if (inWindow.length === 0) return 0;
   // A COPY. The caller's array is not this module's to reorder, and the purity
   // scan beside these files exists because that mistake is easy to make.
+  // THE ORDER HAS TO BE TOTAL, NOT MERELY DEFINED. `conservation.ts` records
+  // what a partial tie costs: its comparator agreed on every key for two
+  // matches that differed elsewhere, returned 0, and `Array.prototype.sort`
+  // fell back to input order - so a result that documented itself as
+  // order-independent was not. Two crossings can share a height and a txid
+  // (one transaction is one crossing, but nothing in this type enforces that),
+  // and if they also differed in amount the run count would depend on the
+  // caller's array order. The amount is the last tie-break, and after it a tie
+  // means the two crossings are indistinguishable and interchangeable.
   const ordered = [...inWindow].sort(
-    (a, b) => a.height - b.height || a.txid.localeCompare(b.txid),
+    (a, b) =>
+      a.height - b.height ||
+      a.txid.localeCompare(b.txid) ||
+      compareBigint(a.amountZat, b.amountZat),
   );
 
   let runs = 0;
@@ -450,10 +464,3 @@ function ceilDiv(a: bigint, b: bigint): bigint {
 function compareBigint(a: bigint, b: bigint): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
-
-/**
- * Re-exported so a reader of the lens can see, without leaving this file, which
- * two ZIP 318 bounds every number above rests on. Both are `zip318.ts`'s and
- * neither is redefined here.
- */
-export { ZIP318_MAX_CROSSING_ZAT, ZIP318_MAX_RESIDUAL_ZAT };
