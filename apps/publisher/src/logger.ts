@@ -43,14 +43,27 @@ import pino, { type Logger, type LoggerOptions } from "pino";
  * this module exists to prevent, in the exact shape the managed store's own URL
  * takes, and the docblock above already claimed the malformed case was covered.
  *
- * `@(?![^\s]*@)` PICKS THE LAST `@` IN THE RUN, which is what makes a password
- * containing `@` redact whole rather than in half. Its cost is stated rather
- * than hidden: in `redis://u:pw@host/x@y` the later `@` wins and the HOST is
- * redacted too. That is over-redaction, which is the safe direction - it loses
- * an operator a hostname and never writes a password - and a URL whose path
- * carries an `@` is not a shape any of this process's two URLs take.
+ * THE PASSWORD IS GREEDY, WHICH PICKS THE LAST `@` IN THE RUN. That is what
+ * makes a password containing `@` redact whole rather than in half. Its cost is
+ * stated rather than hidden: in `redis://u:pw@host/x@y` the later `@` wins and
+ * the HOST is redacted too. That is over-redaction, which is the safe direction
+ * - it loses an operator a hostname and never writes a password - and a URL
+ * whose path carries an `@` is not a shape either of this process's two URLs
+ * takes.
+ *
+ * GREEDY RATHER THAN LAZY-PLUS-LOOKAHEAD, AND THE REASON IS COMPLEXITY. The
+ * first version of this fix reached the same last-`@` by writing the password
+ * lazily and adding `@(?![^\s]*@)`. It produces identical output on every case
+ * below - checked one by one - and it is QUADRATIC: the lazy class grows one
+ * character at a time and the lookahead rescans the rest of the run at each
+ * step. Measured on `"rediss://default:" + "a@".repeat(n/2)`: 39ms at 10k
+ * characters, 978ms at 50k, 16.4 SECONDS at 200k. This function runs on error
+ * messages, which is exactly the input a wedged process produces most of. The
+ * greedy form runs the same 200k in 0.6ms and 500k in 1.2ms, because the engine
+ * consumes the run once and backtracks to the last `@` once. A redaction that
+ * hangs the logger is not a safer redaction.
  */
-const URL_USERINFO = /\b([a-z][a-z0-9+.-]*:\/\/)([^\s:@]+)(:[^\s]*?)?@(?![^\s]*@)/gi;
+const URL_USERINFO = /\b([a-z][a-z0-9+.-]*:\/\/)([^\s:@]+)(:[^\s]*)?@/gi;
 
 /** Replace the userinfo of every URL in a string. Exported so the assertion uses the same rule. */
 export function redactUrlCredentials(value: string): string {

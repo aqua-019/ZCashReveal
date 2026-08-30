@@ -222,4 +222,20 @@ describe("the logger", () => {
       "see redis://host:6379 and mail ops@example.com",
     );
   });
+
+  it("a pathological message is redacted in linear time, not quadratic", () => {
+    // THE FIX'S OWN FIRST VERSION FAILED THIS. Reaching the last `@` with a lazy
+    // password and `@(?![^\s]*@)` gives identical output on every case above and
+    // is quadratic: 39ms at 10k characters, 978ms at 50k, 16.4 SECONDS at 200k.
+    // This function runs on error messages, which is what a wedged process
+    // produces most of. The greedy form does the same 200k in under a
+    // millisecond. The budget here is deliberately loose - a hundred times the
+    // measured figure - so the test fails on a complexity class and not on a
+    // slow machine.
+    const pathological = `rediss://default:${"a@".repeat(100_000)}`;
+    const started = performance.now();
+    const out = redactUrlCredentials(pathological);
+    expect(performance.now() - started).toBeLessThan(250);
+    expect(out.startsWith("rediss://[redacted]@")).toBe(true);
+  });
 });
