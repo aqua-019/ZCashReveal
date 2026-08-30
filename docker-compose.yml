@@ -285,6 +285,24 @@ services:
       ZEBRAD_RPC_URL: http://zebrad:8232
       DATABASE_URL: postgres://${POSTGRES_USER:-zcashreveal}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-zcashreveal}
       REDIS_URL: redis://redis:6379
+      # THE FILE SINK IS THE SEAM BETWEEN TWO PROCESSES AND THIS IS THE HALF
+      # THAT MAKES IT ONE. The publisher writes this exact path on
+      # `publisher-data`; this service reads it. Both halves must name the SAME
+      # path on the SAME volume, and until this line existed they did not: the
+      # gateway fell back to `./snapshot.json`, which its own image resolves to
+      # /app/apps/gateway/snapshot.json (Dockerfile WORKDIR), a path nothing
+      # writes. The symptom was silent and total - `GET /api/snapshot` answering
+      # 503 forever and no WS snapshot frame ever sent, while the publisher
+      # logged successful writes - which is exactly the empty dashboard
+      # docs/2.0/SNAPSHOT.md section 8.1 says this design exists to make
+      # structurally impossible.
+      SNAPSHOT_FILE: /var/lib/zecreveal/snapshot.json
+    volumes:
+      # READ-ONLY, and that is rule 6 rather than caution: the publisher is the
+      # ONLY writer of the snapshot, and that applies to the file copy as much
+      # as to the managed store. A gateway that could write here could publish a
+      # document no publisher produced.
+      - publisher-data:/var/lib/zecreveal:ro
     # NO `ports:`. The tunnel reaches `gateway:8080` on this network. Publishing
     # it would create an origin that can be scanned and hit directly, which is
     # the thing a tunnel exists to prevent.

@@ -295,6 +295,124 @@ function scanManagedStore(serviceMap, names) {
   return findings;
 }
 
+/**
+ * THE SNAPSHOT FILE SINK IS A SEAM BETWEEN TWO NAMED CONTAINERS, and a seam
+ * nothing checked until it broke.
+ *
+ * THE FIRST VERSION OF THIS DETECTOR COULD NOT CATCH THE DEFECT IT WAS WRITTEN
+ * FOR, and that is recorded here rather than quietly rewritten. It checked only
+ * services that SET `SNAPSHOT_FILE` - did each mount a volume containing its
+ * path. The actual defect was a reader that set NOTHING, so it was never in the
+ * set being checked; the guard reported OK against the exact broken file, and
+ * its own self-test asserted that non-flagging was correct. A rule about the
+ * services that opted in cannot see the one that did not. The fail-side probe
+ * is what said so - reverting the fix left the guard green - which is why
+ * CLAUDE.md makes a probe that does not fail a finding in its own right.
+ *
+ * The publisher writes `SNAPSHOT_FILE` and the gateway reads it. For that to be
+ * one file rather than two, three things must hold at once: both services must
+ * set the variable, both must set it to the SAME path, and both must mount the
+ * volume that path lives on. Miss any one and the two processes each behave
+ * correctly against a different file.
+ *
+ * HOW IT ACTUALLY FAILED, which is why this reads three conditions rather than
+ * one. HANDOFF-09's gate found the gateway with NO `SNAPSHOT_FILE` and NO
+ * volume: it fell back to its schema default of `./snapshot.json`, which its
+ * image resolves against `WORKDIR /app/apps/gateway`. The publisher wrote every
+ * tip successfully and logged that it had; `GET /api/snapshot` answered 503
+ * `absent` forever and no WebSocket client ever received a snapshot frame. That
+ * is the empty dashboard `docs/2.0/SNAPSHOT.md` section 8.1 says the design
+ * exists to make structurally impossible, and this guard passed the whole time,
+ * because it checked healthchecks and secret literals and not this.
+ *
+ * A DEFAULT IS NOT A PAIRING. The gateway's zod default makes the variable
+ * optional at the type level and therefore invisible to `tsc`; only the
+ * deployment can say whether the two paths agree, so only a compose-level check
+ * can see it.
+ */
+function scanSnapshotFilePairing(serviceMap) {
+  const findings = [];
+
+  // THE PAIR IS NAMED, NOT INFERRED. `docs/2.0/SNAPSHOT.md` section 8.5 marks
+  // the file sink required because "this is what the gateway serves": the
+  // publisher writes it and the gateway reads it. Compose cannot tell a reader
+  // from a bystander - `apps/gateway/src/config.ts` gives the variable a zod
+  // DEFAULT, so a service that reads the snapshot looks identical to one that
+  // does not - so the roles are declared here. A third participant is a line in
+  // this list, deliberately, because adding one should be a decision.
+  const WRITER = "publisher";
+  const READERS = ["gateway"];
+
+  const env = new Map();
+  const mounts = new Map();
+  for (const [service, lines] of serviceMap) {
+    for (const line of lines) {
+      if (/^\s*#/.test(line)) continue;
+      const kv = /^\s*SNAPSHOT_FILE:\s*(\S+)/.exec(line);
+      if (kv !== null) env.set(service, kv[1]);
+      const vol = /^\s*-\s*([A-Za-z0-9_-]+):(\/\S*?)(?::(ro|rw))?\s*$/.exec(line);
+      if (vol !== null) {
+        if (!mounts.has(service)) mounts.set(service, []);
+        mounts.get(service).push({ volume: vol[1], target: vol[2] });
+      }
+    }
+  }
+
+  // The writer is absent from this document: nothing to pair. That is the state
+  // every compose file in this repository was in before HANDOFF-09.
+  if (!serviceMap.has(WRITER)) return findings;
+
+  const writerPath = env.get(WRITER);
+  if (writerPath === undefined) {
+    findings.push({
+      service: WRITER,
+      rule: "writes the snapshot but names no SNAPSHOT_FILE, so no reader can be paired to it",
+      text: "SNAPSHOT_FILE absent",
+    });
+    return findings;
+  }
+
+  const containedBy = (service, filePath) =>
+    (mounts.get(service) ?? []).some((m) => filePath.startsWith(m.target.replace(/\/$/, "") + "/"));
+
+  if (!containedBy(WRITER, writerPath)) {
+    findings.push({
+      service: WRITER,
+      rule: "sets SNAPSHOT_FILE but mounts no volume containing that path - the file lives inside the container and dies with it",
+      text: `SNAPSHOT_FILE: ${writerPath}`,
+    });
+  }
+
+  for (const reader of READERS) {
+    if (!serviceMap.has(reader)) continue;
+    const readerPath = env.get(reader);
+    if (readerPath === undefined) {
+      findings.push({
+        service: reader,
+        rule: `reads the snapshot but sets no SNAPSHOT_FILE, so it falls back to a path inside its own image while ${WRITER} writes elsewhere`,
+        text: `${WRITER} writes ${writerPath}; ${reader} sets nothing`,
+      });
+      continue;
+    }
+    if (readerPath !== writerPath) {
+      findings.push({
+        service: reader,
+        rule: `names a different SNAPSHOT_FILE from ${WRITER} - they are two files, not one`,
+        text: `${WRITER}=${writerPath}  ${reader}=${readerPath}`,
+      });
+    }
+    if (!containedBy(reader, readerPath)) {
+      findings.push({
+        service: reader,
+        rule: "sets SNAPSHOT_FILE but mounts no volume containing that path, so it reads an empty directory in its own image",
+        text: `SNAPSHOT_FILE: ${readerPath}`,
+      });
+    }
+  }
+  return findings;
+}
+
+
 // ---------------------------------------------------------------------------
 // Self-test, both directions, on every run.
 // ---------------------------------------------------------------------------
@@ -397,6 +515,55 @@ function selfTest() {
   ]);
   if (scanManagedStore(goodMap, names).length > 0) fail("A8 flagged the correct placement");
 
+  // ---- the snapshot file pairing, both directions -----------------------
+  // The PASS shape: one path, both services, each mounting a volume that
+  // contains it.
+  const pairedOk = new Map([
+    ["publisher", ["      SNAPSHOT_FILE: /var/lib/zecreveal/snapshot.json", "    volumes:", "      - publisher-data:/var/lib/zecreveal"]],
+    ["gateway", ["      SNAPSHOT_FILE: /var/lib/zecreveal/snapshot.json", "    volumes:", "      - publisher-data:/var/lib/zecreveal:ro"]],
+  ]);
+  if (scanSnapshotFilePairing(pairedOk).length > 0) fail("the snapshot pairing flagged a correctly paired stack");
+
+  // THE EXACT SHAPE THE GATE FOUND, and the case the FIRST version of this
+  // detector could not see: the reader sets nothing and mounts nothing, so it
+  // falls back to a path inside its own image. Before the fix this map WAS
+  // docker-compose.yml, and the guard said OK.
+  const readerUnwired = new Map([
+    ["publisher", ["      SNAPSHOT_FILE: /var/lib/zecreveal/snapshot.json", "    volumes:", "      - publisher-data:/var/lib/zecreveal"]],
+    ["gateway", ["      REDIS_URL: redis://redis:6379"]],
+  ]);
+  if (scanSnapshotFilePairing(readerUnwired).length === 0) fail("the snapshot pairing MISSED an unwired reader - the defect it exists for");
+
+  // The reader names the path but mounts nothing: it reads an empty directory.
+  const readerUnmounted = new Map([
+    ["publisher", ["      SNAPSHOT_FILE: /var/lib/zecreveal/snapshot.json", "    volumes:", "      - publisher-data:/var/lib/zecreveal"]],
+    ["gateway", ["      SNAPSHOT_FILE: /var/lib/zecreveal/snapshot.json"]],
+  ]);
+  if (scanSnapshotFilePairing(readerUnmounted).length === 0) fail("the snapshot pairing accepted a reader that mounts no volume under its path");
+
+  // No publisher in the document at all - every compose file before HANDOFF-09.
+  const noWriter = new Map([["gateway", ["      REDIS_URL: redis://redis:6379"]]]);
+  if (scanSnapshotFilePairing(noWriter).length > 0) fail("the snapshot pairing flagged a stack with no publisher service");
+
+  // Two DIFFERENT paths: each service is correct against its own file.
+  const disagreeing = new Map([
+    ["publisher", ["      SNAPSHOT_FILE: /var/lib/zecreveal/snapshot.json", "    volumes:", "      - publisher-data:/var/lib/zecreveal"]],
+    ["gateway", ["      SNAPSHOT_FILE: /var/lib/zecreveal/other.json", "    volumes:", "      - publisher-data:/var/lib/zecreveal:ro"]],
+  ]);
+  if (scanSnapshotFilePairing(disagreeing).length === 0) fail("the snapshot pairing accepted two services naming different paths");
+
+  // Set but not mounted: the file lives in the container and dies with it.
+  const unmounted = new Map([
+    ["publisher", ["      SNAPSHOT_FILE: /var/lib/zecreveal/snapshot.json"]],
+  ]);
+  if (scanSnapshotFilePairing(unmounted).length === 0) fail("the snapshot pairing accepted a writer with no volume under its path");
+
+  // A volume whose target is a PREFIX STRING but not a path ancestor.
+  const prefixTrap = new Map([
+    ["publisher", ["      SNAPSHOT_FILE: /var/lib/zecreveal-other/snapshot.json", "    volumes:", "      - publisher-data:/var/lib/zecreveal"]],
+  ]);
+  if (scanSnapshotFilePairing(prefixTrap).length === 0) fail("the snapshot pairing accepted /var/lib/zecreveal as an ancestor of /var/lib/zecreveal-other");
+
   // The exact fail side the assertion names: add it to the gateway.
   const badMap = new Map([
     ["publisher", ["      SNAPSHOT_REDIS_KV_URL: ${SNAPSHOT_REDIS_KV_URL:-}"]],
@@ -469,6 +636,15 @@ for (const file of COMPOSE_FILES) {
   for (const f of scanSecrets(text)) findings.push({ file, ...f });
   for (const f of scanManagedStore(blocks, names)) {
     findings.push({ file, line: 0, rule: `A8 ${f.rule}`, text: `${f.service}: ${f.text}` });
+  }
+  // The file-sink seam. Production only: the dev override is a partial document
+  // that adds ports to services the base file defines, and requiring it to
+  // restate the pairing would mean maintaining it in two places - the same
+  // reasoning A4 above applies to healthchecks.
+  if (file === "docker-compose.yml") {
+    for (const f of scanSnapshotFilePairing(blocks)) {
+      findings.push({ file, line: 0, rule: `SNAPSHOT_FILE ${f.rule}`, text: `${f.service}: ${f.text}` });
+    }
   }
 
   // A8's OK message reads as confirmation that the publisher HAS the TCP URL, and
