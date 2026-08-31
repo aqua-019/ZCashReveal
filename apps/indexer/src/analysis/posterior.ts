@@ -36,7 +36,7 @@
  */
 
 import type { ClaimLevel, Hex, Zatoshi } from "@zcashreveal/types";
-import { classifyByEffectiveSet } from "./claim-classifier.js";
+import { classifyByEffectiveSet } from "@zcashreveal/instruments";
 
 /* ============================================================================
    Calibrated priors

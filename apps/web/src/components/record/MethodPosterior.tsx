@@ -19,8 +19,8 @@ import { Glass } from "@/components/ui/Glass";
  * a commitment position is not a person, an address or an owner.
  *
  * PROVENANCE: docs/2.0/TRACKING-MATH.md section 4, verbatim in substance. The
- * entropy primitives are apps/indexer/src/analysis/entropy.ts and the claim
- * mapping is analysis/claim-classifier.ts.
+ * entropy primitives are `@zcashreveal/instruments`' entropy.ts and the claim
+ * mapping is its claim-classifier.ts.
  */
 
 /**

@@ -344,7 +344,8 @@ services:
   #
   # THE MONTHLY COUNTER IS A FILE ON A NAMED VOLUME AND IS NEVER IN THE STORE IT
   # COUNTS. docs/2.0/SNAPSHOT.md section 5 gives both halves of why: in the
-  # managed store it would be a FOURTH command per tip and would break the
+  # managed store it would be a FOURTH WRITE - a sixth command on the wire - per
+  # tip and would break the
   # assertion that says there are exactly three, and in memory alone it would
   # reset on every restart and make the ceiling vacuous. `publisher-data` below
   # is that volume, and SNAPSHOT_BUDGET_FILE is what puts the counter in it.
@@ -378,7 +379,7 @@ services:
       # apps/web on Vercel and appears nowhere in this file.
       SNAPSHOT_REDIS_KV_URL: ${SNAPSHOT_REDIS_KV_URL:-}
       SNAPSHOT_REDIS_REDIS_URL: ${SNAPSHOT_REDIS_REDIS_URL:-}
-      SNAPSHOT_REDIS_MONTHLY_BUDGET: ${SNAPSHOT_REDIS_MONTHLY_BUDGET:-150000}
+      SNAPSHOT_REDIS_MONTHLY_BUDGET: ${SNAPSHOT_REDIS_MONTHLY_BUDGET:-200000}
       # BOTH PATHS ARE LITERAL AND NOT `${VAR:-...}`, unlike every other value in
       # this block, because they are not operator preferences: they are the
       # volume mount below. A variable here would let a .env move the counter off

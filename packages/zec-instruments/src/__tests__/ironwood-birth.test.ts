@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import fc from "fast-check";
 import { asHex, type ClaimLevel } from "@zcashreveal/types";
 
-import { NU6_3_ACTIVATION_MAINNET } from "../../decoder/activation-heights.js";
+import { NU6_3_ACTIVATION_MAINNET } from "../activation-heights.js";
 import { classifyByEffectiveSet } from "../claim-classifier.js";
 import { effectiveSetSize, entropyBitsUniform } from "../entropy.js";
 import {

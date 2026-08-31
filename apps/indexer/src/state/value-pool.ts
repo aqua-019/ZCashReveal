@@ -21,7 +21,7 @@
  */
 
 import type { BoundaryDelta, Hex, Pool } from "@zcashreveal/types";
-import { type Network, orchardExitOnlyFrom } from "../decoder/activation-heights.js";
+import { type Network, orchardExitOnlyFrom } from "@zcashreveal/instruments";
 import { ExitOnlyViolation, NegativeBalanceError } from "./errors.js";
 
 export class ValuePool<P extends Pool> {

@@ -96,6 +96,9 @@ importers:
       '@zcashreveal/content':
         specifier: workspace:*
         version: link:../../packages/content
+      '@zcashreveal/instruments':
+        specifier: workspace:*
+        version: link:../../packages/zec-instruments
       '@zcashreveal/types':
         specifier: workspace:*
         version: link:../../packages/zec-types
@@ -145,6 +148,9 @@ importers:
       '@zcashreveal/content':
         specifier: workspace:*
         version: link:../../packages/content
+      '@zcashreveal/instruments':
+        specifier: workspace:*
+        version: link:../../packages/zec-instruments
       '@zcashreveal/types':
         specifier: workspace:*
         version: link:../../packages/zec-types
@@ -327,6 +333,25 @@ importers:
       '@types/node':
         specifier: ^22.9.0
         version: 22.19.19
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.6
+        version: 4.1.6(@opentelemetry/api@1.9.1)(@types/node@22.19.19)(jsdom@30.0.1)(vite@6.4.2(@types/node@22.19.19)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.22.0))
+
+  packages/zec-instruments:
+    dependencies:
+      '@zcashreveal/types':
+        specifier: workspace:*
+        version: link:../zec-types
+    devDependencies:
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.19.19
+      fast-check:
+        specifier: ^4.8.0
+        version: 4.8.0
       typescript:
         specifier: ^5.6.3
         version: 5.9.3

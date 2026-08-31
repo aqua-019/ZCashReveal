@@ -39,7 +39,7 @@ import {
 import { dispatchByVersion, MAX_SUPPORTED_TX_VERSION } from "../v6.js";
 import { analyze, type AnalyzeContext } from "../leak-analyzer.js";
 import type { AnchorRegistry } from "../anchor-depth.js";
-import { NU6_3_ACTIVATION_MAINNET } from "../activation-heights.js";
+import { NU6_3_ACTIVATION_MAINNET } from "@zcashreveal/instruments";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURE = join(

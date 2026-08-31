@@ -34,7 +34,7 @@ import type { RpcBlock } from "@zcashreveal/zebra-rpc";
 import { asHex, type Hex, type RpcTransaction } from "@zcashreveal/types";
 
 import { boundaryDeltasOf, decodeBlock, type DecodedBlock } from "../../decoder/block-decoder.js";
-import { NU6_3_ACTIVATION_MAINNET } from "../../decoder/activation-heights.js";
+import { NU6_3_ACTIVATION_MAINNET } from "@zcashreveal/instruments";
 import { PoolState } from "../pool-state.js";
 import { ExitOnlyViolation } from "../errors.js";
 

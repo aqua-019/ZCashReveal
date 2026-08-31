@@ -9,9 +9,16 @@
  *    the chain did destroys the evidence instead of raising it. A wallet's balance
  *    `B` decomposes canonically, so a migration session (a burst of canonical
  *    denominations within a scheduling window) bounds the number of notes
- *    (`>= ceil(B/10,000)`) and the set of wallets (`<= number of denomination
- *    runs`). Reported as distributions and counts per window - never as 'wallet W
- *    migrated B'."
+ *    (`>= ceil(B/10,000)`) and the set of wallets (`<= Sigma counts`, the number
+ *    of crossings in the window). Reported as distributions and counts per window
+ *    - never as 'wallet W migrated B'."
+ *
+ * That quotation is section 3.9 AS AMENDED on 31 Aug 2026. It read `<= number of
+ * denomination runs` when this module was written, and the paragraph below
+ * beginning "THE TWO SPECS GIVE TWO DIFFERENT WALLET BOUNDS" is the argument that
+ * changed it: this module shipped the sound bound first and the document followed
+ * (LEDGER-09 Q1, fold 1). The paragraph is kept rather than trimmed to match,
+ * because the reason a bound is unsound outlives the sentence that stated it.
  *
  * DISTRIBUTIONS ONLY, AND THE RETURN TYPE IS WHERE THAT RULE IS ENFORCED RATHER
  * THAN PROMISED. There is nowhere in {@link MigrationLens} to put a wallet, an
@@ -162,11 +169,15 @@ export interface MigrationLens {
 /**
  * Measure a window of Orchard -> Ironwood crossings.
  *
- * THE TWO SPECS GIVE TWO DIFFERENT WALLET BOUNDS AND ONLY ONE OF THEM IS SOUND.
- * TRACKING-MATH section 3.9 says a session "bounds [...] the set of wallets
- * (`<= number of denomination runs`)"; plan section 3.4 says "an upper bound on
- * distinct migrating wallets per window `<= Sigma counts` (no lower bound is
- * claimable)". They are not two phrasings of one rule. `Sigma counts` holds by
+ * THE TWO SPECS GAVE TWO DIFFERENT WALLET BOUNDS AND ONLY ONE OF THEM WAS SOUND;
+ * THIS PARAGRAPH IS THE ARGUMENT THAT AMENDED THE LOSING ONE. Until 31 August
+ * 2026 TRACKING-MATH section 3.9 said a session "bounds [...] the set of wallets
+ * (`<= number of denomination runs`)", while plan section 3.4 said "an upper
+ * bound on distinct migrating wallets per window `<= Sigma counts` (no lower
+ * bound is claimable)". They were not two phrasings of one rule, and section 3.9
+ * now states `Sigma counts` as well (LEDGER-09 Q1, fold 1), so the two specs
+ * agree today and the tense below is deliberate rather than stale.
+ * `Sigma counts` holds by
  * construction - a wallet that crossed contributed at least one crossing, so the
  * crossings cannot be fewer than the wallets. The run count does not hold, and
  * the counterexample needs two wallets and no coordination: wallet A crosses one

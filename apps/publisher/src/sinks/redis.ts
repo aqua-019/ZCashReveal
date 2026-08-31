@@ -14,21 +14,24 @@
  *   own connection. A test cannot count what it cannot see.
  *
  *   THE TRANSACTION ENVELOPE IS TWO MORE ROUND TRIPS AND WHETHER THE METER
- *   BILLS THEM IS UNVERIFIED. `MULTI` and `EXEC` are commands the client sends
+ *   BILLS THEM IS EVIDENCE RATHER THAN PROOF - AND FIVE IS WHAT THE COUNTER IS
+ *   CHARGED. `MULTI` and `EXEC` are commands the client sends
  *   over RESP like any other, so one tip puts FIVE commands on the wire and
  *   three of them are writes. Which number the managed store's monthly meter
  *   counts is a fact about Upstash's billing, not about this code, and no
  *   session can reach it: egress to `upstash.com` is refused by the container's
  *   proxy, so it cannot be read from a document either. Both numbers are
  *   therefore MEASURED here and pinned by A10 - `store.calls.length` is 3 per
- *   tip and `store.transactions`/`store.execs` are 1 each - and the difference
- *   is carried into `budget.ts` and SNAPSHOT.md section 8.6 rather than being
- *   quietly resolved in one direction. It matters: at 3 per tip a month costs
- *   about 103,500 commands and clears the 150,000 default ceiling; at 5 it costs
- *   about 172,500 and does not, so the publisher would fall back to file-only
- *   near the end of every month. Resolving it is an operator task - the number
- *   the meter actually charged is on the Upstash console - and it is in
- *   `handoffs/README.md`'s click list.
+ *   tip and `store.transactions`/`store.execs` are 1 each - and BOTH are carried
+ *   into `budget.ts` and SNAPSHOT.md section 8.6 rather than one being dropped.
+ *   THE COUNTER IS CHARGED FIVE, the wire count, since 31 Aug 2026: Upstash's
+ *   published exemption list names AUTH, HELLO, SELECT, COMMAND, CONFIG, INFO,
+ *   PING, RESET and QUIT, and does not name `MULTI` or `EXEC`. That is evidence
+ *   rather than proof, and the tie is broken toward the shared allowance because
+ *   it is the other project's (LEDGER-09 Q2, fold 2). At 5 a month costs about
+ *   172,500 against a 200,000 default ceiling and clears it, and spends a
+ *   minority share of the 500,000 the two projects share. Confirming it against
+ *   a real bill is still an operator task in `handoffs/README.md`'s click list.
  *
  *   EVERY KEY BEGINS `zecreveal:` (rule 1, assertion A11). {@link snapshotWriteKeys}
  *   is the ONE place a key is built, and it builds all three from the constants
@@ -56,6 +59,7 @@ import {
   type SnapshotV1,
 } from "@zcashreveal/types";
 
+import { WIRE_COMMANDS_PER_TIP } from "../budget.js";
 import type { Sink } from "./sink.js";
 
 /**
@@ -176,10 +180,15 @@ export function createRedisSink(options: RedisSinkOptions): Sink {
 
   return {
     name: "redis",
-    // THREE, AND SECTION 8.6's THREE. This is what the publisher charges to the
-    // monthly counter per publish; A10 proves independently, by counting the
-    // spy's calls, that the number here is the number issued.
-    managedStoreCommandsPerWrite: 3,
+    // FIVE - `MULTI` + 3 x `SET` + `EXEC` - and five is what the publisher
+    // charges to the monthly counter per publish. It is NOT the write count:
+    // three of the five write, and A10 still proves that independently by
+    // counting the spy's `set` calls. The envelope is charged because Upstash's
+    // published exemption list does not name `MULTI` or `EXEC`, and because the
+    // allowance being protected belongs to another project (LEDGER-09 Q2, fold
+    // 2). `WIRE_COMMANDS_PER_TIP` in `budget.ts` carries the whole argument and
+    // the verbatim quotation.
+    managedStoreCommandsPerWrite: WIRE_COMMANDS_PER_TIP,
 
     async write(snapshot: SnapshotV1, json: string): Promise<void> {
       store ??= options.connect();

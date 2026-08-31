@@ -1,107 +1,91 @@
 /**
  * The three pool-level instruments, as this app depends on them: by SIGNATURE,
- * injected, never imported.
+ * injected, and now backed by the real functions.
  *
- * WHY THE PUBLISHER DOES NOT DEPEND ON `@zcashreveal/indexer`, WHICH IS WHERE
- * THE THREE MODULES LIVE. `apps/publisher/Dockerfile` already exists and this
- * app's shape is not free to contradict it. Three things in that file settle the
- * question and each one alone would:
+ * WHAT CHANGED IN HANDOFF-09a, because this file's previous header was a
+ * 60-line argument for the opposite and a reader deserves to know which parts
+ * survived. HANDOFF-09 could not import the estimators AT ALL. They lived in
+ * `apps/indexer/src/analysis/`, and `apps/publisher/Dockerfile` settles what this
+ * image may contain: its build stage copies `packages` and `apps/publisher` and
+ * nothing else, its runtime stage copies named workspace dists, and its install
+ * stages carry no compiler on purpose - while `@zcashreveal/indexer` depends on
+ * `zeromq@6`, a native addon, and its package entry imports a ZMQ subscriber. A
+ * worker refused an instruction to import it and was right. So HANDOFF-09
+ * declared the five functions as STRUCTURAL MIRRORS of signatures it could not
+ * reach, passed {@link NO_INSTRUMENTS} at the composition root, and published
+ * `residual`, `drain`, `migrationHist` and `neffSeries` as `null` on every tip.
  *
- *   1. Its build stage copies `packages` and `apps/publisher` and NOTHING ELSE.
- *      `apps/indexer/src` is never in the image, so a `pnpm --filter
- *      @zcashreveal/publisher... build` that had to build the indexer would have
- *      no sources to build.
- *   2. Its runtime stage copies exactly three workspace dists -
- *      `packages/zec-types`, `packages/zebra-rpc`, `packages/content` - and
- *      names them in its header as "three sibling packages". `apps/indexer/dist`
- *      is not among them.
- *   3. Its install stages carry NO COMPILER, on purpose, and the header says why:
- *      "the publisher's dependency tree is pure JavaScript ... adding them here
- *      would enlarge the build for nothing and would quietly let a native
- *      dependency be introduced without anyone noticing it had been."
- *      `@zcashreveal/indexer` depends on `zeromq@6`, which is a native addon -
- *      the indexer's own Dockerfile carries python3/make/g++ for it.
+ * EVERY ONE OF THOSE FOUR REASONS IS STILL TRUE, and none of them is about the
+ * estimators - they are about `apps/indexer`. HANDOFF-09a moved the three modules
+ * into `@zcashreveal/instruments`, a workspace package under `packages/` that
+ * depends on `@zcashreveal/types` and nothing else. That is inside what the
+ * Dockerfile already copies, it carries no native addon, and it opens no socket.
+ * So the mirrors are gone and the types below come FROM the package. The
+ * exposure the old header recorded - "a later edit to one of those three modules
+ * that changes a signature is caught by `tsc` only at the composition root, and
+ * there is no such root" - is closed by construction: there is one type now, not
+ * two, and {@link REAL_INSTRUMENTS} is the root.
  *
- * There is a fourth, independent reason and it is about runtime rather than
- * build: `apps/indexer`'s package entry point imports its ZMQ subscriber, so
- * importing the barrel at all would load a native addon into a process that
- * writes three keys per block.
+ * WHAT KEEPS THE CONSTRAINT FROM BEING RE-BROKEN IS A GUARD, NOT THIS COMMENT.
+ * `scripts/check-instrument-deps.mjs` resolves the package's dependency graph
+ * transitively through the workspace and fails if `zeromq` or
+ * `@zcashreveal/indexer` appears in it. That is the mechanism; this paragraph is
+ * only its explanation.
  *
- * SO THE THREE FUNCTIONS ARE PARAMETERS. `buildSnapshot` takes an
- * {@link Instruments} bundle and calls whatever it is handed. The types below
- * are structural mirrors of the exported signatures in
- * `apps/indexer/src/analysis/turnstile-accounting.ts`, `migration-lens.ts` and
- * `ironwood-birth.ts`; nothing here reimplements an estimator, and a mirror that
- * drifted from its original is a `tsc` error at the composition root that wires
- * the real function in.
- *
- * WHAT THAT COSTS, RECORDED RATHER THAN LEFT TO BE DISCOVERED. With no
- * instruments wired, `residual`, `drain`, `migrationHist` and `neffSeries` are
- * published as `null`, which `SnapshotV1` permits and `docs/2.0/SNAPSHOT.md`
- * section 8.1 defines as "not measured" rather than as a zero. That is the
- * honest state of a publisher whose image cannot contain the estimators, and it
- * is a smaller defect than either alternative: a build that cannot be built, or
- * four panels of numbers this process invented. The repair is a package move -
- * the three modules into a workspace package the publisher may depend on - and
- * it is a change to files this handoff's publisher worker does not own.
- *
- * WHAT KEEPS A MIRROR HONEST, given that no compiler compares it to its
- * original. Every interface below was read field for field out of
- * `apps/indexer/src/analysis/turnstile-accounting.ts`, `migration-lens.ts` and
- * `ironwood-birth.ts` at the commit this app landed on. Two fields are worth
- * naming because they are the ones a reader would guess wrong:
- * `IronwoodSpend.candidateCount` is a `bigint` and not a count, because Cand_0's
- * bound is derived from a note commitment tree POSITION; and
- * `IronwoodBirth.minNEff` is `number | null`, null for an empty series. The
- * remaining exposure is real and is stated rather than hidden: a later edit to
- * one of those three modules that changes a signature is caught by `tsc` only at
- * the composition root that wires the real function in, and there is no such
- * root while the Dockerfile forbids the dependency. A round of the gate that
- * re-reads the three files against this one is the check until the package move
- * below happens.
+ * THE INJECTION SEAM STAYS, and it is not vestigial. {@link Instruments} keeps
+ * every member nullable and {@link NO_INSTRUMENTS} keeps existing, because
+ * `SnapshotV1`'s `null` means "not measured" rather than "zero"
+ * (`docs/2.0/SNAPSHOT.md` section 8.1: "a `null` renders as an absence and a zero
+ * renders as a measurement"). That distinction is the honest way to publish a
+ * panel nothing has measured, and deleting the null implementation would remove
+ * the only way to say so - as well as the fail side of HANDOFF-09a's A1, which
+ * proves the four panels are non-null by watching them go null when the real
+ * functions are withheld. The seam is also what lets `snapshot-builder`'s tests
+ * drive each panel without a fixture chain behind it.
  */
 
-import type { ClaimLevel, FilterApplication, Hex, Pool } from "@zcashreveal/types";
+import type {
+  Crossing,
+  IronwoodSpend,
+  MigrationLens,
+  OrchardDrain,
+  PoolBalanceSample,
+  TurnstileResidual,
+  WindowSelection,
+} from "@zcashreveal/instruments";
+import {
+  ironwoodBirth,
+  migrationLens,
+  orchardDrain,
+  selectWindow,
+  turnstileResidual,
+} from "@zcashreveal/instruments";
+import type { IronwoodBirth } from "@zcashreveal/instruments";
+import type { Pool } from "@zcashreveal/types";
 
-/* ------------------------------------------------- turnstile-accounting.ts */
+/**
+ * The estimator input and output types, re-exported so this app's other modules
+ * keep importing them from the seam rather than reaching past it.
+ *
+ * `snapshot-builder.ts` imports `Crossing`, `IronwoodSpend` and
+ * `PoolBalanceSample` from here, and did so when they were mirrors. They are the
+ * real types now and the import sites did not have to change, which is the
+ * property that made the mirror worth having in the first place.
+ */
+export type {
+  Crossing,
+  DenomBucket,
+  IronwoodBirth,
+  IronwoodSpend,
+  MigrationLens,
+  NeffPoint,
+  OrchardDrain,
+  PoolBalanceSample,
+  TurnstileResidual,
+  WindowSelection,
+} from "@zcashreveal/instruments";
 
-/** Mirror of `PoolBalanceSample`. One pool's balance at one height, with the block's own timestamp. */
-export interface PoolBalanceSample {
-  readonly height: number;
-  /** Block timestamp, milliseconds since epoch. From the chain, never from a clock. */
-  readonly timeMs: number;
-  readonly balanceZat: bigint;
-}
-
-/** Mirror of `TurnstileResidual`. Plan section 3.2's four published figures. */
-export interface TurnstileResidual {
-  readonly unprovableZat: bigint;
-  readonly supplyZat: bigint;
-  readonly unprovableShare: number;
-  readonly verifiedShare: number;
-}
-
-/** Mirror of `WindowSelection`. */
-export interface WindowSelection {
-  readonly samples: ReadonlyArray<PoolBalanceSample>;
-  readonly deltaZat: bigint;
-  readonly elapsedHours: number;
-  readonly zecPerHour: number | null;
-  readonly audit: FilterApplication;
-}
-
-/** Mirror of `OrchardDrain`. Plan section 3.3's drain, with both velocities. */
-export interface OrchardDrain {
-  readonly pool: "orchard";
-  readonly baselineHeight: number;
-  readonly baselineZat: bigint;
-  readonly currentZat: bigint;
-  readonly drained: number;
-  readonly velocity24hZecPerHour: number | null;
-  readonly velocity7dZecPerHour: number | null;
-  readonly sampleCount: number;
-  readonly audits: ReadonlyArray<FilterApplication>;
-}
+/* ------------------------------------------------------- injected signatures */
 
 export type TurnstileResidualFn = (
   balances: Readonly<Partial<Record<Pool, bigint>>>,
@@ -123,95 +107,10 @@ export type OrchardDrainFn = (
   },
 ) => OrchardDrain;
 
-/* ------------------------------------------------------- migration-lens.ts */
-
-/** Mirror of `Crossing`. One Orchard to Ironwood pool crossing. */
-export interface Crossing {
-  readonly txid: Hex;
-  readonly height: number;
-  /** The public net amount that crossed. Positive. */
-  readonly amountZat: bigint;
-}
-
-/** Mirror of `DenomBucket`. Both exponents travel together; see `zip318.ts`. */
-export interface DenomBucket {
-  readonly n: 1 | 2 | 5;
-  readonly kZatoshi: number;
-  readonly kZec: number;
-  readonly count: number;
-  readonly sumZat: bigint;
-}
-
-/** Mirror of `MigrationLens`. Distributions and bounds only - there is nowhere to put a wallet. */
-export interface MigrationLens {
-  readonly lowHeight: number;
-  readonly highHeight: number;
-  readonly buckets: ReadonlyArray<DenomBucket>;
-  readonly canonicalCount: number;
-  readonly nonCanonicalCount: number;
-  readonly sumZat: bigint;
-  readonly strandedDustZat: bigint;
-  readonly minNotes: number;
-  /** `Sigma counts` - plan section 3.4's wallet-count upper bound. */
-  readonly maxWallets: number;
-  /** Maximal denomination runs. A shape observation, never a wallet bound. */
-  readonly denominationRuns: number;
-  /** Crossings over `ZIP318_MAX_CROSSING_ZAT`. A finding, never a rejection. */
-  readonly overCapCount: number;
-  readonly audit: FilterApplication;
-}
-
 export type MigrationLensFn = (
   crossings: ReadonlyArray<Crossing>,
   opts: { readonly lowHeight: number; readonly highHeight: number },
 ) => MigrationLens;
-
-/* ------------------------------------------------------- ironwood-birth.ts */
-
-/**
- * Mirror of one Ironwood spend the N_eff series is computed over.
- *
- * INFERRED, per this file's header: the module was not in the tree when this was
- * written, and the fields are the handoff's stated signature.
- */
-export interface IronwoodSpend {
-  readonly txid: Hex;
-  readonly height: number;
-  readonly pool: Pool;
-  /**
-   * Cand_0 - the anchor bound of TRACKING-MATH section 3.1, before any soft
-   * filter.
-   *
-   * A `bigint` AND NOT A COUNT, which is the one place the estimator's input
-   * leaves CLAUDE.md's "counts are `number`" rule and does so deliberately: the
-   * bound is derived from a note commitment tree POSITION, and positions are
-   * `bigint` everywhere in this codebase. It becomes a `number` one type later,
-   * in {@link NeffPoint}.
-   */
-  readonly candidateCount: bigint;
-}
-
-/** Mirror of `NeffPoint`. Matches `snapshotNeffPointSchema` field for field. */
-export interface NeffPoint {
-  readonly height: number;
-  readonly candidateCount: number;
-  readonly nEff: number;
-  readonly claimLevel: ClaimLevel;
-}
-
-/** Mirror of `IronwoodBirth`. */
-export interface IronwoodBirth {
-  readonly birthHeight: number;
-  readonly lowHeight: number;
-  readonly highHeight: number;
-  /** Ascending by height. */
-  readonly series: ReadonlyArray<NeffPoint>;
-  readonly spendCount: number;
-  readonly shares: Readonly<Record<ClaimLevel, number>>;
-  /** The series' worst case. Null when the series is empty. */
-  readonly minNEff: number | null;
-  readonly audit: FilterApplication;
-}
 
 export type IronwoodBirthFn = (
   spends: ReadonlyArray<IronwoodSpend>,
@@ -229,23 +128,102 @@ export type IronwoodBirthFn = (
  *
  * EVERY MEMBER IS NULLABLE AND THE NULL MEANS "NOT MEASURED", NOT "ZERO". That
  * is `SnapshotV1`'s own rule for the panels these produce (SNAPSHOT.md section
- * 8.1: "a `null` renders as an absence and a zero renders as a measurement"),
- * and it is what lets a publisher whose image cannot carry an estimator publish
- * an honest document rather than a confident one.
+ * 8.1), and it is what lets a publisher that cannot measure something publish an
+ * honest document rather than a confident one. Since HANDOFF-09a the shipping
+ * configuration is {@link REAL_INSTRUMENTS}, where no member is null.
  */
 export interface Instruments {
   readonly turnstileResidual: TurnstileResidualFn | null;
+  /**
+   * WIRED AND NEVER CALLED THROUGH THIS SEAM, which is worth a sentence so a
+   * later reader does not assume the bundle controls window selection.
+   * `snapshot-builder` never reads this member; the real `orchardDrain` calls
+   * the real `selectWindow` internally, so injecting it changes nothing and
+   * `NO_INSTRUMENTS` cannot suppress it. It stays because the bundle mirrors the
+   * package's five exported functions and a gap would read as an omission.
+   */
   readonly selectWindow: SelectWindowFn | null;
   readonly orchardDrain: OrchardDrainFn | null;
   readonly migrationLens: MigrationLensFn | null;
   readonly ironwoodBirth: IronwoodBirthFn | null;
 }
 
+/* ------------------------------------------- the signatures are IDENTICAL */
+
 /**
- * No instruments wired.
+ * `true` only when `A` and `B` are the same type in both directions.
  *
- * The composition root uses this today, for the reason in this file's header.
- * Every panel it governs publishes as `null`, which is a stated absence.
+ * WHY ASSIGNMENT IS NOT ENOUGH, WHICH IS A CORRECTION TO THIS FILE'S OWN
+ * EARLIER CLAIM (gate round 1, M4). This file used to say that assigning each
+ * function into a declared field "makes a signature change in
+ * `@zcashreveal/instruments` a `tsc` error HERE", and the commit that deleted
+ * the structural mirrors did so on the strength of that sentence. It is true
+ * for exactly ONE of the five ways a signature drifts. Measured: a parameter
+ * NARROWING errors under `strictFunctionTypes`; a widened parameter, an added
+ * OPTIONAL parameter, a required option field becoming optional, and an extra
+ * field on the return type all compile clean, because assignability is
+ * one-directional and identity is not. The added-optional-parameter case is the
+ * one with teeth - a future `network?: "mainnet" | "testnet"` on `migrationLens`
+ * would default silently at a call site that never learns it exists.
+ *
+ * So the claim is made true rather than softened - FOR FOUR OF THE FIVE. The
+ * assertions below were measured one shape at a time, rebuilding the package
+ * between each: a widened parameter, a narrowed parameter, an added OPTIONAL
+ * parameter and a required option field becoming optional all raise
+ * `TS2344: Type 'false' does not satisfy the constraint 'true'` here.
+ *
+ * THE FIFTH CANNOT BE CAUGHT AT THIS SEAM, BY CONSTRUCTION, and saying so is the
+ * point of this paragraph. An extra FIELD on a return type - `medianZat` added
+ * to `MigrationLens`, say - moves BOTH sides of the `Equals` at once, because
+ * `MigrationLensFn` returns the very type the package exports. The same holds
+ * for every named type in the five signatures: `Crossing`, `IronwoodSpend`,
+ * `PoolBalanceSample`, `TurnstileResidual`, `OrchardDrain`, `IronwoodBirth`,
+ * `WindowSelection`. `Equals` only sees what THIS file writes out itself.
+ *
+ * What does catch that fifth shape today is `src/__tests__/harness.ts`, whose
+ * stand-in instruments are hand-written object literals - the last surviving
+ * structural mirror, doing by accident the job the mirrors used to do on
+ * purpose. Measured: adding a return field turns the build red at
+ * `harness.ts:161`, not here. That is worth knowing before anyone deletes or
+ * generates that harness, which is why it is written down rather than left to be
+ * discovered when the cover disappears.
+ */
+type Equals<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+
+/** Fails to compile unless its argument is exactly `true`. */
+type Assert<T extends true> = T;
+
+export type _SigTurnstileResidual = Assert<Equals<TurnstileResidualFn, typeof turnstileResidual>>;
+export type _SigSelectWindow = Assert<Equals<SelectWindowFn, typeof selectWindow>>;
+export type _SigOrchardDrain = Assert<Equals<OrchardDrainFn, typeof orchardDrain>>;
+export type _SigMigrationLens = Assert<Equals<MigrationLensFn, typeof migrationLens>>;
+export type _SigIronwoodBirth = Assert<Equals<IronwoodBirthFn, typeof ironwoodBirth>>;
+
+/**
+ * The real estimators. **This is what the composition root passes.**
+ *
+ * Annotated `Instruments` rather than an inferred object literal, because an
+ * inferred literal would widen to whatever the package exports and check
+ * nothing. The identity assertions above are what make a signature change fail
+ * the build in all five drift shapes rather than only in the one.
+ */
+export const REAL_INSTRUMENTS: Instruments = {
+  turnstileResidual,
+  selectWindow,
+  orchardDrain,
+  migrationLens,
+  ironwoodBirth,
+};
+
+/**
+ * No instruments wired. Every panel these govern publishes as a stated absence.
+ *
+ * NOT WHAT SHIPS SINCE HANDOFF-09a, and kept for two live reasons rather than
+ * out of caution. It is the fail side of A1 - the assertion that the four panels
+ * are non-null is only evidence if withholding the functions makes them null -
+ * and it is the honest bundle for any future caller that genuinely has not
+ * measured. A publisher that passed this today would be publishing four
+ * absences, which is why A6 asserts the composition root does not.
  */
 export const NO_INSTRUMENTS: Instruments = {
   turnstileResidual: null,

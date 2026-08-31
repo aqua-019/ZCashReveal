@@ -12,7 +12,7 @@ import { Chip } from "@/components/ui/Chip";
  *
  * The bands are printed as explicit inequalities rather than as ranges because
  * the boundary is lower-inclusive and a range hides which end that is. The rule
- * in apps/indexer/src/analysis/claim-classifier.ts is that the threshold value
+ * in `@zcashreveal/instruments`' claim-classifier.ts is that the threshold value
  * stays in the tighter level: `N_eff = 100` is `small_heuristic_set`, not
  * `broad_candidate_set`. Ten is `requires_disclosure`. Zero is too.
  *

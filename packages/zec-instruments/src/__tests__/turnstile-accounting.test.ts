@@ -11,7 +11,7 @@ import {
 import {
   NU6_3_ACTIVATION_MAINNET,
   orchardExitOnlyFrom,
-} from "../../decoder/activation-heights.js";
+} from "../activation-heights.js";
 
 /**
  * HANDOFF-09 assertions A1 and A2, plus the falsifiable form of plan section

@@ -3,17 +3,17 @@
  *
  * WHY THERE IS A COUNTER AT ALL. The Vercel-managed store's allowance is 500,000
  * commands a month and it is SHARED with an unrelated production project
- * (docs/2.0/SNAPSHOT.md sections 1 and 5). The publisher spends 3 per new tip -
- * about 103,500 a month - so `SNAPSHOT_REDIS_MONTHLY_BUDGET` (default 150,000)
- * is not a performance knob: it is the mechanism by which this project can never
- * be the reason the other one is rate limited.
+ * (docs/2.0/SNAPSHOT.md sections 1 and 5). The publisher puts 5 commands on the
+ * wire per new tip - about 172,500 a month - so `SNAPSHOT_REDIS_MONTHLY_BUDGET`
+ * (default 200,000) is not a performance knob: it is the mechanism by which this
+ * project can never be the reason the other one is rate limited.
  *
  * WHERE IT LIVES, AND THE TWO PLACES IT MUST NOT. SNAPSHOT.md section 5 states
  * both halves and neither is pedantry.
  *
  *   NOT IN THE MANAGED STORE. Reading and writing the counter there would be a
- *   FOURTH command per tip, which breaks assertion A10 - the whole point of
- *   which is that three is provable by counting - and it would spend the
+ *   SIXTH command per tip, which breaks assertion A10 - the whole point of
+ *   which is that the count is provable by counting - and it would spend the
  *   allowance in order to measure the allowance.
  *
  *   NOT IN MEMORY ALONE. A counter that starts at zero on every restart makes
@@ -36,36 +36,63 @@
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 
 /**
- * How many commands one new tip spends against the managed store. SNAPSHOT.md
+ * How many commands one new tip WRITES against the managed store. SNAPSHOT.md
  * section 8.6.
  *
- * THREE IS THE WRITE COUNT, AND IT IS NOT CERTAIN TO BE THE BILLED COUNT. The
- * publish is one `MULTI`, three `SET`s and one `EXEC`, so five commands cross
- * the wire and three of them write. Whether Upstash's meter charges the
- * envelope is a fact about their billing that no session can read - egress to
- * `upstash.com` is refused by the container's proxy - so it is recorded as
- * UNVERIFIED rather than guessed at, here, in `sinks/redis.ts` and in
- * SNAPSHOT.md section 8.6.
- *
- * THE CHARGE STAYS AT THREE UNTIL THE METER IS READ, and the reason is that the
- * conservative-looking change is the damaging one. At three, a month of tips
- * costs about 103,500 and clears the 150,000 default ceiling; at five it costs
- * about 172,500 and trips it around day 26, after which the publisher runs
- * file-only and the public site's managed-store baseline stops updating for the
- * rest of the month. Charging five on a guess buys nothing against the shared
- * allowance - 172,500 of 500,000 is still a third - and pays for it with a
- * predictable outage of this project's own fallback. So: measure first. The
- * operator reads the console's command count for one full month
- * (`handoffs/README.md`'s click list), and whichever number it is, this
- * constant and `Sink.managedStoreCommandsPerWrite` become it.
+ * THREE IS THE WRITE COUNT AND IT IS NOT WHAT IS CHARGED. The publish is one
+ * `MULTI`, three `SET`s and one `EXEC`, so five commands cross the wire and
+ * three of them write. This constant is the write count, kept because A10
+ * asserts it by counting the spy's `set` calls; the counter is charged
+ * {@link WIRE_COMMANDS_PER_TIP}.
  */
 export const COMMANDS_PER_TIP = 3;
 
 /**
  * Commands one publish puts on the wire, envelope included: `MULTI` + 3 x `SET`
- * + `EXEC`. Exported so a reader of the ceiling arithmetic can see both numbers
- * without deriving one of them, and so a test can pin it. Not charged - see
- * {@link COMMANDS_PER_TIP}.
+ * + `EXEC`. **This is what the monthly counter is charged.**
+ *
+ * WHY THE ENVELOPE IS CHARGED THOUGH NOBODY HAS SEEN A BILL (LEDGER-09 Q2, L2's
+ * ruling of 30 Aug 2026, fold 2). Whether Upstash's meter bills `MULTI` and
+ * `EXEC` cannot be read from inside a session - egress to `upstash.com` is
+ * refused by the container's proxy. L2 could reach it and returned a partial
+ * answer, which is recorded here verbatim because a later reader must be able to
+ * weigh it rather than inherit a number:
+ *
+ *   "Operational commands like AUTH, HELLO, SELECT, COMMAND, CONFIG, INFO,
+ *    PING, RESET, and QUIT are not charged."
+ *      - Upstash's pricing page, read by L2 on 30 Aug 2026
+ *
+ * `MULTI` and `EXEC` are NOT on that list. The docs do not state the transaction
+ * case explicitly, so this is EVIDENCE RATHER THAN PROOF - but a published list
+ * of what is free that omits both of our envelope commands is the strongest
+ * signal available short of a bill.
+ *
+ * THE ASYMMETRY, WHICH HANDOFF-09 HAD BACKWARDS AND L2 CORRECTED. That session
+ * argued charging five "buys nothing" and costs "a predictable outage of our own
+ * fallback", and kept the charge at three. The first half is right and it is the
+ * REASON TO CHARGE FIVE: at five a month spends about 172,500 of a 500,000
+ * allowance, still a minority share, so the true cost of over-charging is nil.
+ * The second half misplaces whose resource is at risk. The 200,000 ceiling is
+ * OURS and adjustable; the 500,000 is SHARED with a production project that
+ * never agreed to run alongside us. A budget calibrated on an undercount
+ * protects neither - it does not stop us before their meter matters, and it
+ * trips our own fallback for a reason that is not the real one. When the
+ * uncertainty is about someone else's quota, take the conservative side.
+ *
+ * STILL AN OPERATOR TASK, and raising the charge does not close it: after one
+ * full month of publishing, read the console's actual command count against the
+ * tips published (`handoffs/README.md`'s click list).
+ *
+ * NEITHER CONSTANT BECOMES THAT NUMBER, and the earlier wording of this
+ * paragraph said it did. 3 is the write count and 5 is the wire count; both are
+ * MEASURED facts about what this code does, both are pinned by tests, and a
+ * meter reading is a third quantity that falsifies neither. What the bill
+ * changes is the CHARGE - the `redis` sink's `managedStoreCommandsPerWrite`,
+ * which is currently this constant. If the meter says three, that field becomes
+ * {@link COMMANDS_PER_TIP}; if it says something else again, it becomes a named
+ * constant of its own. Section 8.7's ceiling is re-checked against whichever it
+ * is. Setting a constant called WIRE to a non-wire number would falsify its own
+ * docblock and turn two suites red, which is what the old wording invited.
  */
 export const WIRE_COMMANDS_PER_TIP = 5;
 
@@ -145,7 +172,7 @@ export function addCommands(state: BudgetState, commands: number): BudgetState {
  *
  * AT OR ABOVE, NOT ABOVE. A12 says "at or above", and the difference is one
  * whole publish: `>` would let a run that has already spent exactly the ceiling
- * spend three more.
+ * spend five more.
  *
  * Pure. No I/O, no clock, no mutation of the input.
  */

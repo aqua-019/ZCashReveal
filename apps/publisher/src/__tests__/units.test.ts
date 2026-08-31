@@ -33,7 +33,7 @@ describe("config", () => {
   it("everything is defaulted, so it runs on a laptop with an empty environment", () => {
     const cfg = loadConfig(EMPTY_ENV);
     expect(cfg.SNAPSHOT_FILE).toBe("./snapshot.json");
-    expect(cfg.SNAPSHOT_REDIS_MONTHLY_BUDGET).toBe(150_000);
+    expect(cfg.SNAPSHOT_REDIS_MONTHLY_BUDGET).toBe(200_000);
     expect(cfg.SNAPSHOT_BUDGET_FILE).toBe("./snapshot-budget.json");
     expect(managedStoreUrl(cfg)).toBeNull();
   });

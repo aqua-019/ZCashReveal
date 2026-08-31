@@ -277,13 +277,16 @@ const ESTIMATORS: readonly Estimator[] = [
         <span className="mono">n &times; 10^k, n in {"{"}1, 2, 5{"}"}</span>, capped at 10,000 ZEC, with dust below 0.01 ZEC
         stranded. A balance <span className="mono">B</span> decomposes canonically, so a migration session bounds the number
         of notes at <span className="mono">&gt;= ceil(B / 10,000)</span> and the set of wallets at{" "}
-        <span className="mono">&lt;=</span> the number of denomination runs.
+        <span className="mono">&lt;=</span> the number of crossings in the window.
       </>
     ),
     refuses: (
       <>
         Distributions and counts per window, <b>never</b> &ldquo;wallet W migrated B&rdquo;. The wallet figure is an upper
-        bound and no lower bound is claimable from public data, so it is published as an upper bound and nothing else.
+        bound and no lower bound is claimable from public data, so it is published as an upper bound and nothing else. The
+        bound is the crossing count and <b>not</b> the number of denomination runs: two wallets each crossing one 100 ZEC
+        note in adjacent blocks form a single run, so the run count can fall <i>below</i> the truth, and it tightens as
+        evidence accumulates. The run count is published beside it as a shape observation that is not a bound.
       </>
     ),
     lineage: [{ kind: "source", ref: "S-zcash-improvement-proposals-zip-0318" }],

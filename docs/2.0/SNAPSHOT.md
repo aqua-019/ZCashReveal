@@ -130,33 +130,42 @@ At roughly 1,150 blocks a day (the 75-second target interval gives 1,152):
 | | commands |
 | --- | --- |
 | publisher writes, per tip | 3 |
-| publisher writes, per day | ~3,450 |
-| publisher writes, per month | ~103,500 |
+| publisher commands **on the wire**, per tip | 5 (`MULTI` + 3 x `SET` + `EXEC`) |
+| publisher commands charged, per day | ~5,750 |
+| publisher commands charged, per month | ~172,500 |
 | **`apps/web` reads, per month** | **see below — not yet bounded** |
-| publisher's share of the 500K allowance | ~21%, **before reads and before the other project's usage** |
+| publisher's share of the 500K allowance | ~35%, **before reads and before the other project's usage** |
+
+The counter is charged the **wire** count of five, not the write count of three — see §8.6. The
+write count stays in the table because A10 asserts it by counting `SET` calls, and because the two
+numbers measure different things.
 
 **READS ARE COMMANDS TOO, AND THEY ARE THE UNBOUNDED HALF.** The arithmetic above counts only
 what the publisher writes. Every server-side render in `apps/web` that resolves to the `redis-rest`
 source issues at least one `GET`, and that side scales with traffic, with the number of Vercel
 regions serving the page, and with how often the page revalidates — none of which the publisher
-controls. One `GET` per 60-second revalidation in three regions is already ~4,300/day, which is
-MORE than the publisher's whole budget. Two rules follow, and HANDOFF-11 owns both: the snapshot is
+controls. One `GET` per 60-second revalidation in three regions is already ~4,320/day — about three
+quarters of everything the publisher spends in a day (~5,750), and unlike the publisher's side it is
+bounded by nothing. *(That sentence read "MORE than the publisher's whole budget" until 31 Aug 2026,
+which was true while the publisher was charged 3 commands per tip and became false when it began
+charging the wire count of 5. LEDGER-09 Q2, fold 2.)* Two rules follow, and HANDOFF-11 owns both: the snapshot is
 fetched **once per render at module scope, never once per component or once per request**, and the
 resolution order must prefer a cached value over a fresh `GET` whenever the cached one is inside
 its staleness window. Until HANDOFF-11 states a measured figure here, the combined share is
-**unknown and larger than 21%** — which is the honest answer and the reason this row says so
-rather than carrying a number nobody has measured.
+**unknown and larger than 35%** — the publisher's own charged share, from the table above — which is
+the honest answer and the reason that row says so rather than carrying a number nobody has measured.
 
 Four consequences, none optional:
 
 - **A section 5 assertion, wherever the publisher lands:** one tip produces exactly 3
-  managed-store commands. Fail side: a change that adds a fourth is caught by the count, not by
-  review. Counting commands is the only honest way to assert "exactly three" — the same reason
-  the gateway's Redis connection count is asserted by counting constructions.
+  managed-store WRITES and puts exactly 5 commands on the wire. Fail side: a change that adds a
+  fourth write is caught by the count, not by review. Counting commands is the only honest way to
+  assert an exact number — the same reason the gateway's Redis connection count is asserted by
+  counting constructions.
 - **The publisher logs a monthly running command count and refuses to start** if a configured
-  ceiling (`SNAPSHOT_REDIS_MONTHLY_BUDGET`, default `150000`) would be exceeded. This project can
-  never be the reason the other one gets rate limited. The default leaves the design about 45%
-  headroom over its expected ~103,500 and still stops well short of the shared allowance.
+  ceiling (`SNAPSHOT_REDIS_MONTHLY_BUDGET`, default `200000`) would be exceeded. This project can
+  never be the reason the other one gets rate limited. The default leaves the design about 16%
+  headroom over its expected ~172,500 and still spends a minority share of the shared allowance.
 - **Per-mempool-transaction data never goes to the managed store.** That stays on the VPS Redis.
   The whole reason 3-per-block fits is that it is 3 per block; anything per-transaction is three
   to four orders of magnitude more traffic and would exhaust a shared allowance in days. The same
@@ -164,8 +173,9 @@ Four consequences, none optional:
   wants a Redis for one of those, it wants the VPS Redis or its own database.
 - **The monthly counter lives on the VPS, in a file, and never in the managed store.** Keyed by
   `YYYY-MM` on a named volume, read at startup and flushed after each tip. Stating this is not
-  pedantry: putting the counter in the store it is counting would add a fourth command per tip and
-  break the assertion that says there are exactly three, and holding it only in memory would reset
+  pedantry: putting the counter in the store it is counting would add a fourth WRITE - a sixth
+  command on the wire - per tip and break the assertion that says there are exactly three writes,
+  and holding it only in memory would reset
   it on every restart and make the ceiling vacuous.
 
 ## 6. The exit condition
@@ -271,6 +281,29 @@ renders as a measurement**, which is the same rule `sprout-field.ts` applies to 
 The schema is `packages/zec-types/src/snapshot.ts`. It is a zod schema, so the assertion that a
 published document conforms is a parse and not a review.
 
+**WHICH OF THOSE PANELS THE PUBLISHER ACTUALLY FILLS, as of HANDOFF-09a (31 Aug 2026), because
+"can say not measured" is a property of the type and says nothing about what ships.** HANDOFF-09
+published `residual`, `drain`, `migrationHist` and `neffSeries` as `null` on **every** tip, for a
+reason that was structural: the three estimators lived in `apps/indexer/src/analysis/`, and this
+image cannot contain `apps/indexer` — its dependency tree carries `zeromq`, a native addon this
+image has no compiler for, and its entry point opens a ZMQ subscriber. HANDOFF-09a moved them into
+`packages/zec-instruments`, a workspace package that depends on `@zcashreveal/types` and nothing
+else, and the publisher's composition root now passes the real functions. The state after that move
+is **two of the four**, and the remaining two are the INPUT layer rather than the packaging:
+
+| panel | published | why |
+| --- | --- | --- |
+| `residual` | **measured** | supply and lane balances both come from `getblockchaininfo` |
+| `migrationHist` | **measured** | crossings come from `migrations_zip318`, whose three columns are `Crossing`'s three fields |
+| `drain` | still `null` | `pool_snapshots.ts` is `TIMESTAMPTZ DEFAULT NOW()` — the time the indexer **wrote** the row, not the block's. Plan §3.3's velocity is "from block timestamps", and a write time is right to within seconds at the tip and arbitrarily wrong across a catch-up sync. The repair is a block-time column, i.e. a migration. |
+| `neffSeries` | still `null` | the Ironwood spends and their Cand_0 bounds live in the indexer's candidate analysis, not in any table this process reads |
+
+Both remaining absences are HANDOFF-11's, which **may not ship a null analysis panel** (LEDGER-09
+Q4). They are pinned by an executing assertion rather than by this paragraph:
+`apps/publisher/src/__tests__/instruments-wired.test.ts` asserts the two measured panels are
+non-null and the two absent ones are null on the production input shape, so a session that makes
+either measurable is told to re-read this table.
+
 ### 8.2 Why there is a `schema` field the handoff did not ask for
 
 HANDOFF-09 §3 names ten fields and this document carries eleven. A type called `SnapshotV1` that
@@ -347,41 +380,55 @@ a reader can fetch without parsing the document.
 
 The count is asserted by **counting**, not by reading the code — HANDOFF-09 A10, with a spy on the
 client, across a fake tip stream, asserting `3 x tips`. §5 gives the reason: "counting commands is
-the only honest way to assert 'exactly three'". A10's fail side adds a fourth command and watches the
+the only honest way to assert an exact number". A10's fail side adds a fourth write and watches the
 count assert.
 
-**THREE IS THE WRITE COUNT. FIVE CROSS THE WIRE, AND WHICH ONE THE METER CHARGES IS UNVERIFIED.**
+**THREE IS THE WRITE COUNT. FIVE CROSS THE WIRE, AND FIVE IS WHAT THE COUNTER IS CHARGED.**
 `MULTI` and `EXEC` are commands the client sends over RESP like the three `SET`s, so one tip is five
 commands on the connection. Whether Upstash's monthly meter bills the transaction envelope is a fact
 about their billing, not about this repository, and **no session can read it**: egress to
 `upstash.com` is refused by the container's proxy, so it cannot be resolved from a document either.
 Both numbers are therefore measured and pinned by A10 — `COMMANDS_PER_TIP` is 3 and
-`WIRE_COMMANDS_PER_TIP` is 5, both in `apps/publisher/src/budget.ts` — and the difference is left
-visible rather than resolved in one direction.
+`WIRE_COMMANDS_PER_TIP` is 5, both in `apps/publisher/src/budget.ts` — and both stay visible,
+because they measure different things.
 
-It is not academic. At three, a month of tips costs about **103,500** commands and clears the 150,000
-default ceiling of §8.7. At five it costs about **172,500** and does not, so the publisher would trip
-the ceiling around day 26 and run file-only for the rest of every month — the managed-store baseline
-this whole document exists for stops updating. Against the shared 500,000 allowance both are a
-minority share (21% and 35%), so the risk of under-counting is to **this** project's fallback, not to
-the other tenant's headroom.
+**WHAT IS NEW SINCE 31 AUGUST 2026: the counter is charged the wire count** (LEDGER-09 Q2, fold 2).
+HANDOFF-09 charged three and stated the gap. L2 could reach Upstash and this repository could not,
+and the answer it brought back is partial rather than clean, so it is recorded here verbatim:
 
-**The charge stays at three until it is measured, and measuring it is an operator task** (it is in
-`handoffs/README.md`'s click list): read the command count the Upstash console reports for one full
-month against the number of tips published in it. Whichever number the meter charged,
-`COMMANDS_PER_TIP` and the `redis` sink's `managedStoreCommandsPerWrite` become it, and §8.7's
-default ceiling is re-checked against the new arithmetic. Charging five on a guess would buy nothing
-against the shared allowance and would pay for it with a predictable outage of our own fallback.
+> "Operational commands like AUTH, HELLO, SELECT, COMMAND, CONFIG, INFO, PING, RESET, and QUIT are
+> not charged."
+> — Upstash's pricing page, read by L2 on 30 August 2026
+
+`MULTI` and `EXEC` are **not** on that list. The docs do not state the transaction case explicitly,
+so this is **evidence rather than proof** — but a published list of what is free that omits both of
+our envelope commands is the strongest signal available short of a bill.
+
+**The asymmetry, which HANDOFF-09 had backwards.** That session argued charging five "buys nothing"
+against a 500,000 allowance and costs "a predictable outage of our own fallback". The first half is
+right, and it is the reason to charge five: at five a month spends about **172,500**, still a
+minority share, so the true cost of over-charging is nil. The second half misplaces whose resource
+is at risk. **The ceiling is ours and adjustable; the 500,000 is shared with a production project
+that never agreed to run alongside us.** A budget calibrated on an undercount protects neither — it
+does not stop us before their meter matters, and it trips our own fallback for a reason that is not
+the real one. When the uncertainty is about someone else's quota, take the conservative side. The
+ceiling of §8.7 rose to 200,000 in the same change, which is the round number above 172,500.
+
+**Confirming it against a real bill is still an operator task** (it is in `handoffs/README.md`'s
+click list): read the command count the Upstash console reports for one full month against the
+number of tips published in it. Whichever number the meter charged, `WIRE_COMMANDS_PER_TIP` and the
+`redis` sink's `managedStoreCommandsPerWrite` become it, and §8.7's default ceiling is re-checked
+against the new arithmetic.
 
 ### 8.7 The monthly ceiling
 
-`SNAPSHOT_REDIS_MONTHLY_BUDGET` (default `150000`) is a hard refusal, not a warning: over the
+`SNAPSHOT_REDIS_MONTHLY_BUDGET` (default `200000`) is a hard refusal, not a warning: over the
 ceiling, the publisher **exits non-zero with a message naming it, and writes nothing to the managed
 store**. The file sink is unaffected, so a publisher that has run out of budget still keeps the
 gateway's copy fresh.
 
 The counter is a file on a named VPS volume, keyed `YYYY-MM`, read at startup and flushed after each
-tip. §5 gives both halves of why it is not anywhere else: in the managed store it would be a fourth
+tip. §5 gives both halves of why it is not anywhere else: in the managed store it would be a sixth
 command per tip and would break the assertion in §8.6, and in memory alone it would reset on every
 restart and make the ceiling vacuous.
 

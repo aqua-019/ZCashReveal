@@ -38,7 +38,7 @@
  * measurement".
  */
 
-import { asHex } from "@zcashreveal/types";
+import { asHex, type Pool } from "@zcashreveal/types";
 
 import type { PublisherConfig } from "../config.js";
 import type { Crossing } from "../instruments.js";
@@ -109,6 +109,8 @@ export function readChainValues(info: ChainValueReading, atHeight: number): Chai
   const pools = info.valuePools ?? [];
   let sawAny = false;
   let accounted = 0n;
+  /** The lanes the node NAMED, as against the five `byLane` is seeded with. */
+  const reportedLanes = new Set<LaneBalance["lane"]>();
 
   for (const p of pools) {
     if (p.id === undefined) continue;
@@ -116,6 +118,7 @@ export function readChainValues(info: ChainValueReading, atHeight: number): Chai
     accounted += p.chainValueZat;
     const lane = LANE_BY_POOL_ID[p.id];
     if (lane === undefined) continue; // the lockbox, and anything a later node adds
+    reportedLanes.add(lane);
     byLane.set(lane, (byLane.get(lane) ?? 0n) + p.chainValueZat);
   }
 
@@ -125,22 +128,63 @@ export function readChainValues(info: ChainValueReading, atHeight: number): Chai
   }));
 
   const supplyFromNode = info.chainSupply?.chainValueZat;
-  const supplyZat = supplyFromNode ?? (sawAny ? accounted : null);
+  // A NON-POSITIVE `chainSupply` MUST NOT SUPPRESS THE `valuePools` FALLBACK
+  // (round 3, L3). `supplyFromNode ?? ...` resolves first, so a node reporting
+  // `chainSupply: 0n` alongside a complete five-lane reading dropped the whole
+  // residual panel even though `accounted` was a perfectly good sum. Each
+  // candidate is now tested for positivity in its own right.
+  const fromNode = supplyFromNode !== undefined && supplyFromNode > 0n ? supplyFromNode : null;
+  const fromPools = sawAny && accounted > 0n ? accounted : null;
+  const reported = fromNode ?? fromPools;
+  // A NON-POSITIVE SUPPLY IS NOT A MEASUREMENT, IT IS A NON-ANSWER. `U/Supply`
+  // is undefined at zero and `turnstileResidual` refuses it, and `?? ` does not
+  // catch a `0n` because zero is not nullish. A regtest node, a node at genesis
+  // or any reading that sums to zero produced a `supplyZat: 0n` that reached the
+  // estimator. Routed to the same branch this module already means by "the node
+  // did not answer" (gate round 1, M2).
+  const supplyZat = reported;
+  // "not reported" AND "reported A NON-ANSWER" ARE DIFFERENT FACTS and the
+  // string used to conflate them: a node that answered `chainSupply: 0n` was
+  // described as not having answered. Never published - the residual is null
+  // whenever the supply is - but it is what a diagnostic log would carry.
   const supplySource =
-    supplyFromNode !== undefined
-      ? `getblockchaininfo chainSupply at height ${atHeight}`
-      : sawAny
-        ? `getblockchaininfo valuePools, summed over all six entries including the ZIP 271 lockbox, at height ${atHeight}`
-        : "not reported by the node";
+    supplyZat === null
+      ? supplyFromNode !== undefined || sawAny
+        ? `getblockchaininfo answered at height ${atHeight} with no positive supply, so none is claimed`
+        : "not reported by the node"
+      : fromNode !== null
+        ? `getblockchaininfo chainSupply at height ${atHeight}`
+        : `getblockchaininfo valuePools, summed over all six entries including the ZIP 271 lockbox, at height ${atHeight}`;
 
   return {
     lanes,
-    poolBalances: {
-      sprout: byLane.get("sprout") ?? 0n,
-      sapling: byLane.get("sapling") ?? 0n,
-      orchard: byLane.get("orchard") ?? 0n,
-      ironwood: byLane.get("ironwood") ?? 0n,
-    },
+    // ONLY THE LANES THE NODE ACTUALLY REPORTED, and the `?? 0n` that used to be
+    // here was a live defect (gate round 1, H2). `byLane` is pre-seeded with
+    // zeros so that `lanes` above always carries five entries for the site to
+    // render; reading `poolBalances` out of the same map made every pool key
+    // PRESENT whatever the node said, which defeated `turnstileResidual`'s
+    // deliberate refusal - "an absent balance is not a zero balance, and
+    // treating it as one would overstate the verified share".
+    //
+    // `valuePools` is `.optional()` in `blockchainInfoSchema`. A reading with
+    // `chainSupply` present and `valuePools` absent or partial therefore
+    // published `U = 0`, `unprovableShare = 0` and `verifiedShare = 1` - "100
+    // per cent of supply is verified" - stamped with a `supplySource` naming the
+    // node and the height, as a MEASUREMENT. Dropping only sprout moved the
+    // headline figure from 0.95669 to 0.95803, in the wrong direction. It was
+    // latent until HANDOFF-09a wired the real estimator; before that the panel
+    // was null and nothing was claimed.
+    // The cast restores the key constraint `Object.fromEntries` erases: it
+    // infers `{ [k: string]: bigint }`, which is assignable to the target and no
+    // longer says anything about the key NAMES, so adding "transparent" to the
+    // array above would compile clean and put a non-`Pool` key in (round 3, L4).
+    // The `as const` array plus the annotated entries are what make the cast a
+    // statement rather than a hope.
+    poolBalances: Object.fromEntries(
+      (["sprout", "sapling", "orchard", "ironwood"] as const)
+        .filter((lane) => reportedLanes.has(lane))
+        .map((lane): readonly [Pool, bigint] => [lane, byLane.get(lane) ?? 0n]),
+    ) as ChainValues["poolBalances"],
     supplyZat,
     supplySource,
   };

@@ -72,12 +72,20 @@ const Schema = z.object({
    * The monthly command ceiling, and it is a hard refusal rather than a warning.
    *
    * The allowance is 500,000 commands a month and it is SHARED with the other
-   * project. The design spends 3 per new tip, about 103,500 a month, and the
-   * default of 150,000 leaves roughly 45% headroom over that while stopping well
-   * short of the shared allowance. This project can never be the reason the
+   * project. The design puts 5 commands on the wire per new tip - `MULTI` +
+   * 3 x `SET` + `EXEC` - which is about 172,500 a month, and the default of
+   * 200,000 leaves roughly 16% headroom over that while spending a minority
+   * share of the shared allowance. This project can never be the reason the
    * other one is rate limited (SNAPSHOT.md section 5).
+   *
+   * RAISED FROM 150,000 ON 31 AUG 2026 (LEDGER-09 Q2, fold 2). The old default
+   * was calibrated on the WRITE count of 3, which HANDOFF-09 charged; the
+   * counter now charges the wire count of 5, and 150,000 would have tripped the
+   * refusal around day 26 of every month for a reason that was an accounting
+   * choice rather than a real limit. See `WIRE_COMMANDS_PER_TIP` in
+   * `budget.ts` for why the envelope is charged at all.
    */
-  SNAPSHOT_REDIS_MONTHLY_BUDGET: z.coerce.number().int().positive().default(150_000),
+  SNAPSHOT_REDIS_MONTHLY_BUDGET: z.coerce.number().int().positive().default(200_000),
 
   /**
    * Where the monthly command counter lives.

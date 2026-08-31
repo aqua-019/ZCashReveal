@@ -31,6 +31,7 @@ import { describe, expect, it } from "vitest";
 import {
   addCommands,
   budgetGate,
+  COMMANDS_PER_TIP,
   emptyBudget,
   FileCommandBudget,
   isOverCeiling,
@@ -38,6 +39,7 @@ import {
   parseBudgetState,
   rollToMonth,
   serializeBudgetState,
+  WIRE_COMMANDS_PER_TIP,
 } from "../budget.js";
 import { SnapshotPublisher } from "../publisher.js";
 import { createFileSink } from "../sinks/file.js";
@@ -207,7 +209,7 @@ describe("A12 - the publisher refuses to start over budget", () => {
     expect(log.lines.some((l) => l.msg.includes("ceiling reached"))).toBe(true);
   });
 
-  it("A12 FAIL STATE: one under the ceiling, the same running publisher spends its three", async () => {
+  it("A12 FAIL STATE: one under the ceiling, the same running publisher writes its three and is charged its five", async () => {
     const dir = scratch();
     const counter = join(dir, "budget.json");
     const clock = Date.UTC(2026, 7, 30, 12, 0, 0);
@@ -225,8 +227,18 @@ describe("A12 - the publisher refuses to start over budget", () => {
     });
     await publisher.onTip(fixtureTip(3_800_001));
 
-    expect(store.calls.length).toBe(3);
-    expect(budget.state.commands).toBe(CEILING + 2);
+    // THE TWO NUMBERS ARE DIFFERENT AND BOTH ARE PINNED. `store.calls.length` is
+    // the WRITE count - the spy counts `set` calls - and stays 3. The counter is
+    // charged the WIRE count, five, because `MULTI` and `EXEC` cross the wire and
+    // Upstash's published exemption list does not name either (LEDGER-09 Q2, fold
+    // 2). The expectation is DERIVED from the constant so this arithmetic cannot
+    // drift again the way it did when the charge moved from three to five; the
+    // constant itself is pinned on the next line, so deriving it here does not
+    // make the assertion unfalsifiable.
+    expect(store.calls.length).toBe(COMMANDS_PER_TIP);
+    expect(COMMANDS_PER_TIP).toBe(3);
+    expect(WIRE_COMMANDS_PER_TIP).toBe(5);
+    expect(budget.state.commands).toBe(CEILING - 1 + WIRE_COMMANDS_PER_TIP);
   });
 });
 

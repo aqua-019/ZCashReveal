@@ -74,9 +74,10 @@ export function isZip317Conventional(feeZat: Zatoshi, totalActions: bigint | num
  * and is implemented below. The other four have no expiry delta and no padding
  * rule anywhere in this repository, and inventing a plausible band for them
  * would be indistinguishable, to every later reader, from a sourced one - the
- * same argument `activation-heights.ts` makes for the testnet NU6 height it
- * deliberately did without for a whole handoff. L2 searched for the four and
- * found no public source stating any of their deltas, so HANDOFF-07 §3 is
+ * same argument `@zcashreveal/instruments`'s `activation-heights.ts` makes for
+ * the testnet NU6 height it deliberately did without for a whole handoff. L2
+ * searched for the four and found no public source stating any of their
+ * deltas, so HANDOFF-07 §3 is
  * struck rather than owed: the requirement was satisfied by refusal
  * (LEDGER-07 Q4).
  *

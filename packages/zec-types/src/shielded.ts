@@ -10,7 +10,7 @@ import type { Hex, Zatoshi } from "./transactions.js";
  *
  * The order is chronological, which is also the order the display layer draws
  * them in: Sprout from genesis, Sapling from NU1, Orchard from NU5, Ironwood
- * from NU6.3. See `apps/indexer/src/decoder/activation-heights.ts` for the
+ * from NU6.3. See `@zcashreveal/instruments`' `activation-heights.ts` for the
  * heights and `poolsActiveAt()` for which of them exist at a given height.
  *
  * SPROUT IS NOT DEAD. It holds ~22.6k ZEC and has never emptied in eight

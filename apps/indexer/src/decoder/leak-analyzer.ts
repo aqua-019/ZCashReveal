@@ -27,7 +27,7 @@ import { decodeOrchardBundle, orchardProofSizeViolation } from "./orchard.js";
 import { decodeIronwoodBundle } from "./ironwood.js";
 import { sproutValueBalanceZat } from "./sprout.js";
 import { dispatchByVersion, IRONWOOD_MIN_TX_VERSION, topLevelFieldNames } from "./v6.js";
-import { NU6_2_ACTIVATION_MAINNET, NU6_2_ACTIVATION_TESTNET, type Network } from "./activation-heights.js";
+import { NU6_2_ACTIVATION_MAINNET, NU6_2_ACTIVATION_TESTNET, type Network } from "@zcashreveal/instruments";
 import { AnchorRegistry } from "./anchor-depth.js";
 import { guessWallet, isZip317Conventional } from "./fingerprint.js";
 import {

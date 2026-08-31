@@ -70,7 +70,7 @@
 
 import { ZATOSHI_PER_ZEC, type FilterApplication, type Pool } from "@zcashreveal/types";
 
-import { orchardExitOnlyFrom, type Network } from "../decoder/activation-heights.js";
+import { orchardExitOnlyFrom, type Network } from "./activation-heights.js";
 
 /** Milliseconds in one hour. The only unit conversion the window arithmetic needs. */
 const MS_PER_HOUR = 3_600_000;

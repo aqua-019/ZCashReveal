@@ -49,7 +49,7 @@
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import fc from "fast-check";
 import { asHex, type Hex } from "@zcashreveal/types";
-import { orchardExitOnlyFrom } from "../../../decoder/activation-heights.js";
+import { orchardExitOnlyFrom } from "@zcashreveal/instruments";
 import { PoolState } from "../../../state/pool-state.js";
 import { writePoolBoundaryFlow } from "../../pool-boundary-flows.js";
 import { replayInto, rollbackAllToHeight } from "../../replay.js";

@@ -36,7 +36,7 @@ export interface BlockHeaderResult {
  *
  * `finalsaplingroot` is absent in blocks before Sapling activation, and
  * `finalorchardroot` is absent before NU5 activation (see
- * decoder/activation-heights.ts). Treat their absence as "pool not yet
+ * `@zcashreveal/instruments`' activation-heights.ts). Treat their absence as "pool not yet
  * active at this height", not as "no commitments in this block".
  *
  * TWO ROOTS, THREE POOLS THAT HAVE ONE, AND THAT IS THE NODE'S SHAPE RATHER

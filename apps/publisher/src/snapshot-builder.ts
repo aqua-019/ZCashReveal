@@ -112,7 +112,7 @@ const BLOCK_HASH = /^[0-9a-f]{64}$/;
  * A ratio of two zatoshi amounts as a float in [0, 1].
  *
  * SCALED IN `bigint` BEFORE THE DIVISION, the same way
- * `analysis/turnstile-accounting.ts` does it. Converting both sides with
+ * `@zcashreveal/instruments`' `turnstile-accounting.ts` does it. Converting both sides with
  * `Number()` first is correct for every balance this chain can hold and stops
  * being correct the moment somebody reuses the helper for something larger; the
  * scaled form has no such edge and costs nothing.
@@ -188,7 +188,74 @@ export function newestReports(rows: ReadonlyArray<MempoolRow>): MempoolRow[] {
  *
  * Pure. No I/O, no clock, no mutation of the input arrays.
  */
-export function buildSnapshot(inputs: SnapshotInputs, instruments: Instruments): SnapshotV1 {
+/**
+ * Told when one panel's estimator refused its inputs. The caller logs it.
+ *
+ * @param panel one of `residual`, `drain`, `migrationHist`, `neffSeries`
+ * @param err whatever the estimator threw
+ */
+export type PanelFault = (panel: string, err: unknown) => void;
+
+/*
+ * NOTE ON THE DOCBLOCK ABOVE `buildSnapshot`, WHICH IS BELOW THIS TYPE. Gate
+ * round 2 inserted `PanelFault` and `panelOrNull` between that block and the
+ * function it documents, so for one commit the module's principal export had no
+ * doc comment and the block dangled over a type alias. Restored below, with the
+ * purity claim corrected: `buildSnapshot` is still pure in the sense the header
+ * means - no I/O, no clock, no mutation of its inputs - but it now CALLS a sink
+ * the caller supplies, so it is pure only when `onPanelFault` is.
+ */
+
+/**
+ * One panel, or a stated absence when its estimator refuses its inputs.
+ *
+ * WHY A PANEL'S REFUSAL MUST NOT COST THE DOCUMENT (gate round 1, H1). The
+ * estimators throw on contradictory input, and that is CORRECT - each throw is a
+ * refusal to publish a number the inputs do not support. What was not correct is
+ * that the throw escaped `buildSnapshot`, so `SnapshotPublisher` caught it as a
+ * build failure and published NOTHING for that tip: not a missing panel, no
+ * document at all, so `pools`, `residual` and `lastReports` went with it.
+ *
+ * The worked case is a live one and needs no unusual input. `migrations_zip318`
+ * is `CHECK (amount_zat >= 0)` and `migrationLens` refuses `amountZat <= 0n`, so
+ * a single zero-amount row - which that table permits - poisoned every tip whose
+ * 1,152-block window contained it: about a day of the public site frozen at a
+ * stale height while the log said `build_failed`. `chain-inputs.ts` already
+ * states this exact trade for the same panel - "losing one panel is a smaller
+ * failure than losing the document that carries the other four" - and this is
+ * that sentence applied to the estimator as well as to the query.
+ *
+ * A `null` is `SnapshotV1`'s "not measured" (SNAPSHOT.md section 8.1), which is
+ * precisely the honest thing to say about a panel whose estimator would not
+ * accept its inputs. The fault is not swallowed: `onFault` carries it to the
+ * caller's log, so an absence always has a reason recorded beside it.
+ *
+ * IT CATCHES A PROGRAMMING ERROR TOO, and that is worth saying because the
+ * paragraphs above frame the catch as a refusal. A `TypeError` inside an
+ * estimator becomes a null panel and a logged fault, not a crash. In production
+ * the composition root logs it with the height and the stack, so it is loud; in
+ * a two-argument call it is not, which is what the assertions that pass a spy
+ * are for. The trade is deliberate: a bug in one estimator costing one panel is
+ * better than a bug in one estimator costing every document until someone
+ * notices, and it is the same trade the paragraph above makes for a refusal.
+ */
+function panelOrNull<T>(panel: string, build: () => T, onFault: PanelFault): T | null {
+  try {
+    return build();
+  } catch (err) {
+    onFault(panel, err);
+    return null;
+  }
+}
+
+/** The default fault sink: none. Tests that care pass a spy. */
+const IGNORE_FAULT: PanelFault = () => {};
+
+export function buildSnapshot(
+  inputs: SnapshotInputs,
+  instruments: Instruments,
+  onPanelFault: PanelFault = IGNORE_FAULT,
+): SnapshotV1 {
   if (!BLOCK_HASH.test(inputs.hash)) {
     throw new RangeError(
       `buildSnapshot: ${JSON.stringify(inputs.hash)} is not a block hash. ` +
@@ -203,10 +270,10 @@ export function buildSnapshot(inputs: SnapshotInputs, instruments: Instruments):
     time: isoOf(inputs.timeMs, "timeMs"),
     publishedAt: isoOf(inputs.publishedAtMs, "publishedAtMs"),
     pools: lanesWithShares(inputs.lanes),
-    residual: buildResidual(inputs, instruments),
-    drain: buildDrain(inputs, instruments),
-    migrationHist: buildMigrationHist(inputs, instruments),
-    neffSeries: buildNeffSeries(inputs, instruments),
+    residual: panelOrNull("residual", () => buildResidual(inputs, instruments), onPanelFault),
+    drain: panelOrNull("drain", () => buildDrain(inputs, instruments), onPanelFault),
+    migrationHist: panelOrNull("migrationHist", () => buildMigrationHist(inputs, instruments), onPanelFault),
+    neffSeries: panelOrNull("neffSeries", () => buildNeffSeries(inputs, instruments), onPanelFault),
     lastReports: newestReports(inputs.lastReports),
     labelsVersion: inputs.labelsVersion,
   };
@@ -244,6 +311,23 @@ function buildDrain(inputs: SnapshotInputs, instruments: Instruments): SnapshotD
     baselineZat: baseline.zat,
     atHeight: inputs.height,
   });
+  // `drained` OUTSIDE [0, 1] IS REFUSED RATHER THAN PUBLISHED OR CLAMPED (gate
+  // round 1, M3). `snapshotDrainSchema` bounds it, and a baseline below the
+  // current balance produces a negative one - which does NOT throw, so it would
+  // reach `serializeSnapshot` (a bare `JSON.stringify`, validating nothing), be
+  // written to the file sink AND to the SHARED managed store, and die later in
+  // the gateway's `safeParse` taking every other panel with it, while this
+  // process logged `snapshot published`. Null is the honest outcome: the drain
+  // was not measured. Never a clamp - a clamped 0 is a fabricated measurement,
+  // and SNAPSHOT.md section 8.1's rule is that a zero renders as one.
+  if (!Number.isFinite(d.drained) || d.drained < 0 || d.drained > 1) {
+    throw new RangeError(
+      `buildDrain: drained = ${d.drained} is outside [0, 1], which snapshotDrainSchema forbids. ` +
+        "A baseline below the current balance produces this; publishing it would put an invalid " +
+        "document in a store shared with another project.",
+    );
+  }
+
   return {
     pool: d.pool,
     baselineHeight: d.baselineHeight,

@@ -37,9 +37,12 @@ import {
   type FilterApplication,
 } from "@zcashreveal/types";
 
-import { ironwoodBirth } from "../ironwood-birth.js";
-import { migrationLens } from "../migration-lens.js";
-import { orchardDrain, turnstileResidual } from "../turnstile-accounting.js";
+import {
+  ironwoodBirth,
+  migrationLens,
+  orchardDrain,
+  turnstileResidual,
+} from "@zcashreveal/instruments";
 
 const ZATOSHI_PER_ZEC = 100_000_000n;
 function zec(amount: string): bigint {

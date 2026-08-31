@@ -90,7 +90,7 @@ describe("the builder's own arithmetic", () => {
    * `5e-12` below 1. The observed sum here is `0.999999999997`, a deficit of
    * `3.0e-12`, which is inside that bound and on the side the truncation
    * predicts. A tolerance of `1e-12` would fail on arithmetic that is behaving
-   * exactly as the shared `RATIO_SCALE` in `analysis/turnstile-accounting.ts`
+   * exactly as the shared `RATIO_SCALE` in `@zcashreveal/instruments`' `turnstile-accounting.ts`
    * says it does.
    */
   it("the five lane shares sum to 1 within the 5e-12 the truncation allows", () => {

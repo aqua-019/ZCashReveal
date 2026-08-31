@@ -20,8 +20,7 @@ import type {
   Pool,
 } from "@zcashreveal/types";
 import type { PoolState } from "../state/pool-state.js";
-import { entropyBitsUniform } from "./entropy.js";
-import { classifyByEffectiveSet } from "./claim-classifier.js";
+import { classifyByEffectiveSet, entropyBitsUniform } from "@zcashreveal/instruments";
 import { applyFilters, type Filter } from "./scoring.js";
 
 /**
