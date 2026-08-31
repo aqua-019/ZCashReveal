@@ -718,8 +718,14 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
     // AND THE WINDOW IS NOT INVERTED, which is what the estimator throws on.
     expect(inputs.ironwoodWindow!.lowHeight).toBeLessThanOrEqual(inputs.ironwoodWindow!.highHeight);
     expect(inputs.ironwoodWindow!.spendsInWindow).toBe(0);
-    // The reason is still recorded where it was caused.
-    expect(faults.some((f) => /does not exist yet at this height/.test(f.message))).toBe(true);
+    // AND NOTHING IS REPORTED ON THE FAULT CHANNEL. This assertion used to read
+    // `expect(faults.some(/does not exist yet at this height/)).toBe(true)` -
+    // round 3 pinned its own defect as correct behaviour, which is why F-46-1
+    // survived that round and needed a fourth. The panel is a measurement; the
+    // one production wiring of `onInputFault` says a query failed; nothing
+    // failed. See `chain-inputs.ts` for why the answer is no report rather than
+    // a quieter one.
+    expect(faults, "a measurement must not be reported as a failed query").toEqual([]);
 
     const panelFaults: string[] = [];
     const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, (panel) => panelFaults.push(panel));
@@ -734,6 +740,63 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
     // narrower and is the one that was false.
     expect(panelFaults, "the N_eff estimator must not be blamed for this").not.toContain(
       "neffSeries",
+    );
+  });
+
+  it("F-46-1 a pre-birth tip reports NOTHING on the fault channel, whose message says a query failed", async () => {
+    // ROUND 3'S FIX CORRECTED THE RENDERING LAYER AND LEFT THE LOG LAYER STATING
+    // THE FALSEHOOD IT REMOVED (gate round 4, L2's F-46-1). The panel is a
+    // MEASUREMENT here - `spends: []` over a real window - and the branch still
+    // called `fault("neffSeries", ...)`, whose one production wiring in
+    // `index.ts` logs at ERROR: "an input query failed; publishing that panel as
+    // a stated absence". Both halves false, on every block of an initial sync.
+    //
+    // THE QUERY THROWS IF IT IS CALLED, so "no query failed" is demonstrated
+    // rather than argued: reaching it at all would fail this test by a different
+    // route than the assertion.
+    const explode = () => {
+      throw new Error("queryIronwoodSpends must not be called below the birth height");
+    };
+
+    // THE DATA MUTATION IS THE TIP - two values of one variable, not two
+    // versions of the code (the Q2 rule). One block BELOW the birth height and
+    // one block ABOVE it, through the same fixture and the same code.
+    const below = { height: BASELINE_HEIGHT - 1, hash: hashFor(2), timeMs: BASE_TIME_S * 1000 };
+    const above = { height: BASELINE_HEIGHT + 1, hash: hashFor(3), timeMs: BASE_TIME_S * 1000 };
+
+    const belowFaults: Array<{ panel: string; message: string }> = [];
+    const belowInputs = await readSnapshotInputs(
+      deps({
+        queryIronwoodSpends: explode,
+        onInputFault: (panel, err) => belowFaults.push({ panel, message: String(err) }),
+      }),
+      below,
+    );
+
+    // NOTHING ON THE FAULT CHANNEL. This is the assertion; it is red against the
+    // code as round 3 left it.
+    expect(belowFaults, "a measurement must not be reported as a failed query").toEqual([]);
+    // AND THE PANEL IS STILL THE MEASUREMENT round 3 made it.
+    expect(belowInputs.ironwoodSpends).toEqual([]);
+    expect(belowInputs.ironwoodWindow?.spendsInWindow).toBe(0);
+    // THE CONDITION IS PUBLISHED RATHER THAN LOGGED: a window whose high end is
+    // below the birth height is exactly "the pool does not exist yet", readable
+    // from the document by anyone who has it.
+    expect(belowInputs.ironwoodWindow!.highHeight).toBeLessThan(
+      belowInputs.ironwoodWindow!.birthHeight,
+    );
+
+    // THE OTHER VALUE OF THE SAME VARIABLE. One block above, the query IS called
+    // - so the two tips take different paths and the assertion above is not
+    // green merely because nothing ever runs.
+    const aboveFaults: string[] = [];
+    const aboveInputs = await readSnapshotInputs(
+      deps({ onInputFault: (panel) => aboveFaults.push(panel) }),
+      above,
+    );
+    expect(aboveFaults, "an ordinary tip reports nothing either").toEqual([]);
+    expect(aboveInputs.ironwoodWindow!.highHeight).toBeGreaterThanOrEqual(
+      aboveInputs.ironwoodWindow!.birthHeight,
     );
   });
 

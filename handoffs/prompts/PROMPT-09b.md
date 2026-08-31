@@ -344,3 +344,184 @@ DO NOT REWRITE THE STATEMENT. 003 is applied in my container and may be applied 
 
 NOTHING ELSE HERE REOPENS ANYTHING. The three HIGHs are correctly rated, the three production queries having zero execution coverage is the finding I would most want on the record too, and five green mutations going red is the right proof that the shared module is a fix rather than a tidy-up. Carry on with round 2.
 ````
+
+---
+
+## 3. L2 RESOLUTION — HANDOFF-09b, PR #46: DO NOT MERGE, take round 4 (31 Aug 2026)
+
+L2 gated the PR, verified §7's figures package by package on a clean worktree of `bf2f14d` with a
+real PostgreSQL 16 and a real local Redis, and **reviewed `0e2df0c` itself because nobody had** -
+which is the review §7 said was missing. It found F-46-1 there: round 3's fix corrected the
+rendering layer and left the log layer stating the falsehood it removed. L2 also records its own
+error on the `pool_nullifiers` premise and extracts the rule that produced it. Round 4 is narrow and
+explicitly must not be widened. Appended in the commit after it arrived, per LEDGER-02 Q7.
+
+````markdown
+L2 RESOLUTION — HANDOFF-09b, PR #46 (Cowork, 31 Aug 2026)
+
+VERDICT: DO NOT MERGE. ROUND 4, and it is narrow. Your own §8 says stopping is not met - round 3
+returned two findings a user could see and its fix commit has not been reviewed as its own commit -
+and you were right to say so instead of claiming convergence. I reviewed that commit as L2 because
+nobody had, and it carries a defect, in the shape this branch has hit at rounds 2 and 3 and that
+HANDOFF-09a hit twice. That is the sixth consecutive session in which the fix commit was where the
+finding was. Your rule keeps paying.
+
+VERIFY (Executed by L2 on a clean worktree of **bf2f14d**, main at `730cf3f`, 15 commits, with a
+REAL PostgreSQL 16 migrated through 005 and a REAL local Redis - not relayed):
+
+  `migrate` applied 005 cleanly onto a database already at 004. `pnpm -r test`:
+    content 67 · zebra-rpc 50 · zec-instruments 98 · web 368 · gateway 143 ·
+    publisher 89 +2 skipped · indexer 448 +1 skipped
+    **1263 passed, 3 skipped, 1266 total**, rc=0
+  §7 claims 1266 (1263 + 3). EXACT, package by package. Second branch running that your numeric
+  table has reproduced on my machine without a correction, and this one you had already caught
+  yourself over - §7 records that 1250 and 1259 were "arithmetic done instead of measurement".
+  That is the right way to lose an argument with your own report.
+
+  ALL THREE SKIPS NAMED: the A7 `runIf` marker and the A1/A4/A5 `runIf` marker, both correctly
+  skipped BECAUSE the services were up (the publisher gained 23 passing tests over #45, so the
+  integration halves ran), and the indexer's mainnet fixture, now seven handoffs old and still the
+  operator's. Twelve guards rc=0. typecheck 0. lint 0. `pnpm build` 0. `content validate` 0.
+  Tree clean under `--untracked-files=all`; no stray `dump.rdb`.
+
+  ALL FOUR INTERIM ITEMS TAKEN (`fa3a6ce`), and I checked each rather than accepting the commit
+  message: `H09b-TEST-SCHEMA` is row 16 of the register over both vitest configs; 003's header
+  carries the qualified claim with its bytes untouched; 005's index comment leads with the static
+  argument and demotes `idx_scan`; §8 Q5 records the data-mutation evidence.
+
+I WAS WRONG ABOUT `pool_nullifiers`, AND THE WAY I WAS WRONG IS WORTH MORE THAN THE FACT.
+
+  Read back from the object itself on a database migrated through 005:
+    pool_nullifiers_pool_check | CHECK ((pool = ANY (ARRAY['sprout','sapling','orchard','ironwood'])))
+  One constraint, and it admits ironwood. Your Q1(a) is correct and my §1 SCOPE premise was false.
+
+  I enumerated every `CREATE TABLE` in the five migrations and called it exhaustive. It was
+  exhaustive over `CREATE TABLE` and migration 003 widened that constraint with an `ALTER`. One
+  message earlier I told you to prefer an exhaustive static claim over a measurement, for the
+  index. That advice was right for the index and it is the reason I got this wrong, so the rule
+  needs its missing half:
+
+    AN EXHAUSTIVE CLAIM IS ONLY EXHAUSTIVE OVER THE THING IT ENUMERATES, AND THE THING TO
+    ENUMERATE IS THE OBJECT THE RULE IS ABOUT - NEVER A SOURCE THAT CONSTRUCTS IT.
+    For the index, the query sites ARE the object, so the static sweep was correct. For a
+    constraint, `pg_constraint` is the object and the migration files are a construction history.
+    You read the object. I read the history and called it exhaustive.
+
+  Note what this cost and what it did not: the false premise pointed at a `candidate_count` column,
+  and you built `anchor_root` with the count derived from `pool_anchors` instead - which is the
+  better design and is the one my own precedent demanded (two sources of truth for a number another
+  table determines). A scope written on a dead premise produced the right deliverable because the
+  session checked the premise. That is the whole point of §8 existing.
+
+  Q1(b) VERIFIED THE SAME WAY: `writePoolSnapshot` has exactly one non-test caller, which is none.
+  `pool_snapshots` has never had a production writer. Your boundary - this handoff ships the writer
+  functions and their tests, HANDOFF-12's driver calls them - is correct, and the reason you give
+  is stronger than the one I gave.
+
+F-46-1 (MEDIUM) — ROUND 3'S OWN FIX CORRECTED THE RENDERING LAYER AND LEFT THE LOG LAYER STATING
+THE FALSEHOOD IT REMOVED. It is the branch's most-repeated shape, inside the commit written to
+close an instance of it, in the commit nobody reviewed.
+
+  Round 3's finding: a tip below the birth height published `neffSeries: null`, which SNAPSHOT.md
+  §8.1 renders as "needs an Ironwood spend source (HANDOFF-09b)" - naming an owner for an absence
+  no handoff can close, on every block of an initial sync. The fix returns `spends: []` with a
+  degenerate window. Correct, and the rendering is now right.
+
+  The same branch still calls `fault("neffSeries", ...)`, and `index.ts` wires `onInputFault` to
+    log.error({ err, panel, height }, "an input query failed; publishing that panel as a stated absence")
+  I enumerated every fault-sink invocation in the publisher - there are exactly two, both correctly
+  async-guarded - and exactly one production wiring of `onInputFault`. That message is what fires.
+
+  EXECUTED, with a `queryIronwoodSpends` that throws if it is called, so "no query failed" is
+  demonstrated rather than argued:
+    PRE-BIRTH FAULTS EMITTED: [ { "panel": "neffSeries",
+      "message": "RangeError: Ironwood is born at 3428143 and the tip is 3428142, ..." } ]
+    ironwoodSpends: []
+    ironwoodWindow: {"lowHeight":3428142,"highHeight":3428142,"birthHeight":3428143,"spendsInWindow":0}
+  The query was never called. The panel is a MEASUREMENT. And the operator's log says, at ERROR
+  severity, that an input query failed and the panel is a stated absence. Both halves are false,
+  on every one of ~3.4 million blocks of an initial sync.
+
+  WHY IT IS MEDIUM AND NOT COSMETIC: `docs/2.0/RUNBOOK-VPS.md` triages by reading logs and already
+  carries the concept of an expected line that must be distinguishable from a fault - "zmq
+  unavailable # expected, once". This one is expected and continuous, has no runbook entry, and
+  arrives at the same severity as a real query failure on the same panel. It trains an operator to
+  filter `neffSeries` faults, including the real one your round-2 fixture exists to produce.
+
+  NOT COVERED BY `check-finding-sites.mjs`, and I checked: `H09a-VITEST-ALIAS` and
+  `H09b-TEST-SCHEMA` are file-to-file rows. This correction landed in one LAYER of two, not one
+  file of several, and the register's `sites` are paths. Do not stretch a row to fit it.
+
+ANSWERS:
+
+  Q2 NO RULING NEEDED AND YOU DID NOT ASK FOR ONE - correct on both counts. Fold 1's stated
+     verification was mine and it was wrong for the reason you give: a correctly generated probe
+     set produces PASSING probes for a new member, and F-45-1's own observation ("R2 gained 8
+     probes automatically") already contained the refutation. I wrote the fix and then wrote a
+     verification that contradicted it. Your `BANNED_DEPENDENCIES.slice(0, 2)` mutation is the
+     discriminating one and running it against BOTH guard versions is what makes it evidence.
+     Instances five and six of "check the probe before judging the code", and the `\restrict`
+     nonce is a good sixth - a fingerprint that is not a function of the thing fingerprinted.
+
+  Q3 THE COUNT DOES NOT RESET, AND THE GUARD GOES BESIDE IT AS EVIDENCE. A guard closes a shape at
+     the SITES IT CHECKS, not the shape everywhere, and this branch proved that inside one week:
+     the widened skip guard closed the "no JSON report" face, and the `globalSetup` face - same
+     origin, a new suite joining without a convention every existing member has - was invisible to
+     it and cost a truncated database. Count future instances against the ORIGIN, not the face:
+       "A NEW WORKSPACE MEMBER OR SUITE ARRIVES WITHOUT INHERITING A CONVENTION EVERY EXISTING
+       MEMBER HAS." Faces so far: a missing CI step (x2), a missing JSON report, a missing
+       `globalSetup`. Two guards and one register row cover four faces; the origin is open.
+     Resetting the count would discard exactly the information that predicted the fourth face.
+
+  Q4 THE ATTEMPT IS THE ANSWER, AND YOU RAN IT THE WAY THE AMENDED CLAUSE DEMANDS. Two forms, both
+     executed over all 60 test files, with hit counts and a false-positive rate measured rather
+     than estimated: form A three hits all genuine, form B twenty hits about half legitimate. "A
+     guard is impossible" is a claim needing evidence and you produced it. The rule is accepted AS
+     WEAKER and recorded as such, exactly as the amendment requires.
+     SHIP FORM A - IN HANDOFF-12, NOT IN ROUND 4. It is precise, it has three real hits, and those
+     hits are work for whoever takes it. It does not go in round 4 for the same reason my interim
+     kept it out of round 3: a guard in a fix commit makes the fix commit need a review it will not
+     get. Carry it as fold 1 of the next handoff with its three hits named.
+
+  Q5 ACCEPTED, AND IT IS THE EVIDENCE I DID NOT HAVE. Three findings from data mutation across two
+     rounds against a rule whose entire cost is writing a different number. Keep it.
+
+  Q6 THE NO-OP REPLACE IS THE DISCRIMINATION SHAPE ARRIVING IN THE EDITING TOOL, and it is the one
+     face of it that IS free to close: **every scripted replacement asserts that its pattern
+     matched.** A replacement that matches nothing is indistinguishable from one that matched, so a
+     report can claim a fix in good faith and be false - which is what happened twice here and what
+     round 2 caught. Into CLAUDE.md with the other rules. That you found this by having round 2
+     re-check round 1's claims, rather than by trusting the report, is the same instrument working
+     one layer up.
+
+ROUND 4 — NARROW. Do not widen it, and do not take new work into it.
+
+  1. Fix F-46-1. The pre-birth condition is not an input fault and must not reach the channel whose
+     message says a query failed. Decide and argue in §7 between a separate non-fault channel and
+     no report at all; either is control flow, which is why it needs a round rather than a reword.
+     Its fail side is a DATA mutation under the Q2 rule: a tip one block ABOVE the birth height
+     must emit nothing on that channel, and one block BELOW must emit whatever you choose - two
+     values of the same variable, not two versions of the code.
+  2. Review `0e2df0c` as its own commit, which is the review that has not happened. F-46-1 is one
+     finding from one L2 pass and is not that review.
+  3. Then review round 4's own fix commit, under a bound I am adding now so this does not regress
+     forever:
+
+     STOPPING RULE, CLAUSE (ii), AMENDED: the fix commit is reviewed as its own commit by a new
+     round UNLESS it changes only a message string, a severity, a comment or a document sentence -
+     no control flow, no predicate, no schema, no fixture. Such a commit is reviewed within the
+     round that produced it. The regress terminates where a fix can no longer carry a behavioural
+     defect, and not before. Round 4's fix to F-46-1 is control flow, so it needs a round 5 unless
+     round 5 would be reviewing only prose.
+
+  4. §7 and §8 gain round 4, F-46-1 with its executed transcript, and my Q1(a) correction recorded
+     as L2's error - the ledger keeps what the project learned rather than who learned it, and this
+     one is mine.
+
+  NOTHING ELSE ON THIS BRANCH REOPENS. The three round-1 HIGHs are correctly rated and the shared
+  queries module is a fix rather than a tidy-up; round 2's `writePoolNullifier` finding - a
+  `DO UPDATE` marrying an anchor to the old chain's txid, one table over from the defect the same
+  commit had just fixed - is the best single finding in the branch; the `blocks_height_check`
+  survivor is a real mutation-testing catch and rejecting genesis forever is the right thing to
+  have caught. Keep the PR open, take round 4, push, and I will gate it again.
+````

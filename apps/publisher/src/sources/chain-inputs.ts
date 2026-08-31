@@ -554,13 +554,45 @@ export async function readSnapshotInputs(
       // window before the pool existed, and the empty series is the correct
       // answer to it."
       if (deps.cfg.SNAPSHOT_IRONWOOD_BIRTH_HEIGHT > tip.height) {
-        fault(
-          "neffSeries",
-          new RangeError(
-            `Ironwood is born at ${deps.cfg.SNAPSHOT_IRONWOOD_BIRTH_HEIGHT} and the tip is ` +
-              `${tip.height}, so the pool does not exist yet at this height`,
-          ),
-        );
+        // NOTHING IS REPORTED HERE, AND ROUND 3'S FIX REPORTED A FAULT (gate
+        // round 4, F-46-1). It corrected the RENDERING layer and left the LOG
+        // layer stating the falsehood it had just removed: the branch returned a
+        // measurement and still called `fault("neffSeries", ...)`, whose one
+        // production wiring in `index.ts` logs at ERROR "an input query failed;
+        // publishing that panel as a stated absence". Both halves false, on
+        // every one of ~3.4 million blocks of an initial sync. Demonstrated with
+        // a `queryIronwoodSpends` that throws if it is called: it never is.
+        //
+        // NO REPORT AT ALL, RATHER THAN A SEPARATE NON-FAULT CHANNEL, and the
+        // argument is that there is nothing to say. Four reasons, in order:
+        //
+        //   NOTHING HAPPENED. This is not a failure, not an absence and not an
+        //   anomaly. The pool does not exist at this height, the empty series is
+        //   the correct measurement of it, and `ironwoodBirth` documents that in
+        //   as many words.
+        //
+        //   THE DOCUMENT ALREADY CARRIES IT, at the surface that has readers.
+        //   `ironwoodWindow.highHeight < birthHeight` IS "the pool does not
+        //   exist yet", published on every tip. A log line addressed to an
+        //   operator answers a question the snapshot already answers for
+        //   everyone - including the misconfiguration case, where a
+        //   `SNAPSHOT_IRONWOOD_BIRTH_HEIGHT` set far above the real birth is
+        //   visible as a published `birthHeight` that is simply wrong.
+        //
+        //   A CONTINUOUS EXPECTED LINE IS NOT WHAT THE RUNBOOK'S PRECEDENT
+        //   COVERS. `RUNBOOK-VPS.md` carries "zmq unavailable # expected, once"
+        //   - an expected line that fires ONCE and is triaged once. This one
+        //   fires per block for an entire initial sync, and a continuous
+        //   expected line at any severity trains an operator to filter the
+        //   panel, taking the real `neffSeries` fault with it - the one the
+        //   round-2 unresolvable-anchor fixture exists to produce.
+        //
+        //   AND IT WOULD BE INCONSISTENT. A tip ABOVE the birth height with no
+        //   spends in its window makes the identical claim - "measured, and it
+        //   is zero" - and reports nothing. Reporting one zero and not the other
+        //   would make the log's meaning depend on which of two true zeros
+        //   produced it.
+        //
         // MEASURED AND EMPTY, NOT ABSENT (gate round 3). Returning `null` here
         // published the same `neffSeries: null` as "no Ironwood spend source",
         // and SNAPSHOT.md section 8.1 makes that null render as "needs an
