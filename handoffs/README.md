@@ -29,7 +29,7 @@ Aqua Stack v4.1 session. Read CLAUDE.md, then handoffs/LEDGER.md, then execute t
 | 07 | [Indexer: v6 / Ironwood decoder (module 7A.2) + migration detection](HANDOFF-07-v6-decoder.md) | `claude/new-session-ux5kkt` | Data | 06 (closed) | `closed` |
 | 08 | [Indexer analysis toolkit: echo, clustering, labels, posterior, taint (+ golden cases)](HANDOFF-08-analysis-toolkit.md) | `claude/handoff-08-analysis-toolkit-bjvz3i` | Data | 06, 07 (both closed) | `closed` (4 rounds; PRs #39 `4386e98`, #40 `09b9e9c`, #41 `9393100`, #42 `4ae0796`) |
 | 09 | [Turnstile accounting, migration lens, Ironwood birth, snapshot publisher](HANDOFF-09-instruments-snapshot.md) | `claude/new-session-e2vovd` | Data | 06, 08 (both closed) | `closed` (PR #44 `1f6e6dc`) |
-| 09a | [The estimator package move - three instruments into a dependency-free workspace package](HANDOFF-09a-estimator-package.md) | session-designated | Data | 09 (closed) | `in-progress` |
+| 09a | [The estimator package move - three instruments into a dependency-free workspace package](HANDOFF-09a-estimator-package.md) | `claude/new-session-ovtyx4` | Data | 09 (closed) | `shipped` (PR #45, opened) |
 | 10 | [Infra: Zebra 6.3.x compose, VPS runbook, tunnel, DEPLOY-2.0](HANDOFF-10-infra.md) | `claude/handoff-08-completion-wngbjj` | Infra | 00 | `closed` (PR #43 `8679e03`) |
 | 11 | [Live wiring: snapshot baseline → WS upgrade, smoke tests, cutover checklist](HANDOFF-11-live-wiring.md) | session-designated | Integration | 04, 05, 09, 09a, 10 | `queued` |
 | 12 | [7B / 7C runtime wiring — PoolState replay, confirmed-block driver, assessments on the live path](HANDOFF-12-runtime-poolstate.md) | session-designated | Integration | 06, 07, 08 (all closed) | `open` |

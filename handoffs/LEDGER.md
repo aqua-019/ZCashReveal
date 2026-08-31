@@ -4248,3 +4248,192 @@ RE-READ.
   day: do not build the twelfth guard for this; instance two is the trigger. Written
   into the ledger 31 Aug 2026 by the HANDOFF-09a session, fold 3.
 ```
+
+## HANDOFF-09a — the estimator package move (L3, 31 Aug 2026)
+
+```
+QUESTIONS (for the operator / L2):
+
+  Q1 THE MOVE UN-NULLS TWO OF THE FOUR PANELS, AND SECTION 5 ASKED FOR FOUR. This
+     is the handoff's principal finding and it changes what HANDOFF-11 is blocked
+     on. With the real estimators wired, `residual` and `migrationHist` are
+     measurements on the production input path; `drain` and `neffSeries` are
+     still null, and NOT because of packaging. `readSnapshotInputs` hard-codes
+     `drainBaseline: null` because `pool_snapshots.ts` is TIMESTAMPTZ DEFAULT
+     NOW() - the indexer's WRITE time, not the block's - and plan 3.3's velocity
+     is "from block timestamps"; and `ironwoodSpends: null` because the Ironwood
+     spends live in the indexer's candidate analysis, which no table this process
+     reads carries. Both reasons were already written in `chain-inputs.ts` and
+     neither was connected to LEDGER-09 Q4, so Q4's diagnosis - "it is a
+     PACKAGING problem" - was half the problem. Executed against the real
+     `readSnapshotInputs`, not a literal, and pinned by an assertion so the next
+     session meets it here rather than at the cutover.
+     WHAT THIS MEANS FOR HANDOFF-11, which fold 5 now forbids from shipping a
+     null analysis panel: it needs a MIGRATION (a block-time column on
+     `pool_snapshots`) and an indexer read path, not wiring. That is a different
+     kind of work from a cutover checklist and it is the same argument L2 used to
+     take the package move out of 11. Rule, please: does the block-time migration
+     become HANDOFF-09b, or does 11 carry it? The session did not decide this,
+     because deciding it is choosing what 11 is.
+
+  Q2 CLAUSE (b) AND FOLD 4 POINT IN OPPOSITE DIRECTIONS, AND THIS SESSION DID NOT
+     RESOLVE IT ON ITS OWN AUTHORITY. The shape "an assertion whose predicate is
+     satisfied by every value it was written to exclude" reached instance three
+     before this handoff (LEDGER-09 Q3 records the three: HANDOFF-06 Q4's `0n`
+     fee test, HANDOFF-08's A9, HANDOFF-09's `owner.startsWith`). This branch
+     added three more:
+       - HANDOFF-13's A2, whose pathspec `-- apps packages` cannot see a guard
+         built in `scripts/`, so a session that BUILT the guard deliverable 3
+         specifies would leave A2 green and could cite it as evidence it had not.
+         Measured: 48 files under apps/packages, 1 under scripts, 1 under
+         .github, disjoint.
+       - `expect(hist.maxWallets).toBe(1)` over a one-crossing fixture, where
+         `maxWallets`, `denominationRuns`, `canonicalCount` and `minNotes` are
+         ALL 1 - so a lens publishing the run count as the bound, the exact
+         defect the assertion named, passed it.
+       - a fault-sink assertion satisfied by a comment containing the log
+         message, proven by deleting the callback and leaving the sentence.
+     TWO OF THOSE THREE WERE WRITTEN BY THE SESSION THAT RECORDED THE FOLD
+     AGAINST THEM, which is the same relationship CLAUDE.md records for the
+     HANDOFF-08 round-4 shapes and is the strongest evidence available that
+     review is the wrong instrument here. Clause (b) of the stopping rule says
+     the next instrument is a guard. Fold 4 says HANDOFF-13 SPECIFIES the guard
+     rather than building it, because distinguishing a loose predicate from a
+     deliberately permissive one is judgement. Both are L2's rules and they
+     disagree at exactly six instances. The session obeyed fold 4 - it specified
+     and did not build - and is recording the conflict rather than choosing.
+
+  Q3 THE GUARD THIS HANDOFF DELIVERED WAS THE WORST-REVIEWED ARTEFACT IN THE
+     BRANCH, and the question is whether that is a fact about this session or
+     about guards. Eleven holes in the first draft plus one more in the rewrite,
+     every one found by EXECUTING a probe and none by reading. The most
+     diagnostic: the self-test never exercised `zeromq` at all, because its one
+     case routed through `@zcashreveal/indexer`, itself banned, so the walk
+     stopped at hop one - and deleting `zeromq` from the banned list left the
+     self-test green. That is HANDOFF-08 round 4's shape committed inside the
+     guard written to answer it. The twelfth was found by reviewing the rewrite
+     as its own commit: four spellings sharing one `lastIndex`, so a
+     semicolon-less bare import was swallowed by the next statement's `from`.
+     A pattern worth a ruling: THREE OF THIS PROJECT'S TWELVE GUARDS HAVE NOW
+     SHIPPED WITH A SELF-TEST THAT CERTIFIED A HOLE (HANDOFF-10's zebrad guard
+     asserting against a private copy, HANDOFF-09's compose detector that could
+     not see the defect it was written for, and this one twice). Is a guard's
+     self-test itself now a thing that wants a standard - "every banned value is
+     reached by a path containing no other banned value", "every probe is
+     generated from the rule's own data" - or is executing probes against the
+     real tree, which is what found all twelve, the answer?
+
+INFERRED (non-empty inferences a worker made):
+  - `activation-heights.ts` MOVED INTO THE PACKAGE and is not an instrument. It
+    is a zero-import module of consensus constants that `turnstile-accounting`'s
+    exit-only law needs, and a dependency-free package cannot reach back into the
+    app it came from. Three options: move it (taken), duplicate the constant
+    (rejected - two sources of truth for a consensus height is the defect this
+    project rates highest), or change `violatesExitOnly`'s signature to take the
+    height (rejected - this is a MOVE, and a diff that also changes an
+    estimator's API is one whose gate cannot tell a move defect from an estimator
+    defect). The indexer's decoder and state layers import it from the package
+    now. Stated in the package barrel rather than left to be re-derived.
+  - `claim-classifier.ts` and `entropy.ts` moved for the same reason, as leaves
+    of `ironwood-birth`.
+  - THE BARREL RE-EXPORTS BY NAME RATHER THAN `export *`. The package also holds
+    `activation-heights`, which `analysis/index.ts` has never exported, so
+    `export * from "@zcashreveal/instruments"` would have compiled, passed every
+    other test, and widened that barrel by about twenty consensus constants. A7
+    asserts the surface as a SET, and the widening probe named all seven leaked
+    names it was given.
+  - THE STRUCTURAL MIRRORS IN `instruments.ts` ARE DELETED. They existed because
+    HANDOFF-09 could not import the real types; it can now, and keeping two
+    declarations of one shape when a package exports it is worse than the drift
+    exposure the mirrors were carrying. What replaces them is five `Equals<>`
+    identity assertions - and see NOT-MATCHED for what they do and do not catch.
+  - THE PACKAGE COMPILES ITS TESTS, matching `zebra-rpc` and `content`. Excluding
+    them would have been tidier and would have silently dropped them from
+    `typecheck`, which is a regression that looks identical to a clean move.
+
+NOT-MATCHED (patterns handed over that did not apply):
+  - FOLD 5's THIRD CLAUSE WAS ALREADY SATISFIED. It asks HANDOFF-11 section 5 to
+    gain the `subversion` floor assertion "from LEDGER-10 Q1, still unbuilt". The
+    assertion is already there as A11 and `packages/zebra-rpc/src/version-floor.ts`
+    already exports the floor and `checkZebraVersionFloor` with pass, below-floor
+    and unparsed tests. A second A11 would have been the first DELIBERATELY
+    duplicated assertion ID in a section that already documents two accidental
+    ones. What is genuinely unbuilt is the smoke test against a live node, which
+    is what A11 specifies. Reported, not acted on twice.
+  - FOLD 2's "docs/2.0/SNAPSHOT.md section 4 gets the same numbers" names the
+    wrong section: section 4 is the rules list and carries no numbers. Applied to
+    sections 5 and 8.7, which is the right reading, and recorded rather than
+    quietly redone.
+  - THE `Equals<>` ASSERTIONS CATCH FOUR OF FIVE DRIFT SHAPES, NOT FIVE, and the
+    docblock claiming five was itself a finding. An extra FIELD on a return type
+    moves both sides of the comparison at once, by construction, because
+    `MigrationLensFn` returns the very type the package exports. What catches
+    that fifth shape today is `harness.ts`'s hand-written stand-ins - the last
+    surviving structural mirror, doing by accident the job the mirrors did on
+    purpose. Written down because someone will delete that harness.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+  - "The four panels are non-null on a published snapshot." Ambiguous between the
+    INSTRUMENT side (given inputs, all four compute and publish - true) and the
+    PRODUCTION path (two of four - see Q1). Both are asserted separately and the
+    section 5 line is annotated rather than quietly reinterpreted.
+
+GATE ROUND COUNTS: 3 rounds, 5 workers. Round 1: four workers, budgets stated in
+  each first line (22 / 27 / 34 / 24 candidates examined; 14 / 14 / 30 / 11
+  verified by execution), plus one HIGH found by the lead outside the fan-out.
+  Round 2 fixed 3 HIGH + ~10. Round 3 reviewed round 2's fix commit as its own
+  commit: 2 HIGH, 4 MEDIUM, 6 LOW. No finding was logged unread.
+
+  THE FIX COMMIT REVIEWED AS ITS OWN COMMIT PAID FOR ITSELF AGAIN, for the fourth
+  session running: BOTH of round 3's HIGHs were round 2's own fixes - the vitest
+  alias applied to one of its two sites, and the rewritten guard recommitting the
+  class of hole it was rewritten to close.
+
+  TWO MALFORMED PROBES, reported rather than silently redone. The Dockerfile
+  coverage probe matched `@zcashreveal/indexer` in preserved docblock PROSE and
+  reported a dependency that does not exist. And round 3's reviewer established
+  its H1 with a mutation that the test it measured never reads - the conclusion
+  was right and the evidence did not support it; making the source barrel throw
+  is what turned a right answer into a demonstrated one.
+
+  STOPPING, all three parts. (a) The last round returned no finding a user could
+  see - the reach fell from "the publisher publishes nothing for a day" and "the
+  site claims 100 per cent of supply is verified" to a regex sharing a lastIndex
+  and a docblock claiming five where four hold. (b) Two recurring shapes are
+  covered by guards RUN and shown to fail on them (a correction landing at one
+  site of several, and a suite resolving a workspace package to `dist`, both now
+  rows in check-finding-sites.mjs); one is NOT, and that is Q2. (c) The
+  extrapolation rather than a convergence claim: a fourth round probably finds
+  one or two more of round 3's reach - a docblock whose claim outran its
+  measurement, or a spelling the guard's regexes miss. It is unlikely to find
+  another live publisher defect, because the three input-layer preconditions have
+  each now been exercised and the fourth, which never threw, is now refused.
+
+DEFERRED ASSUMPTIONS:
+  - `docker build` has still never run anywhere. No daemon in this container. The
+    three Dockerfiles' manifest and dist lines are verified by reading plus a
+    resolution check over the publisher dist's real import specifiers. The
+    operator's first `docker compose build` is their first execution.
+  - The block-time migration and the Ironwood spend source. Q1. Owner unassigned.
+  - Whether the loose-predicate guard is built at instance six. Q2. L2's ruling.
+  - Whether a guard's self-test now wants a standard of its own. Q3.
+  - The mainnet block fixture, now six handoffs old, remains the operator's.
+  - `docs/2.0/CLAUDE-CODE-PROMPTS.md` still names the pre-move estimator paths.
+    Left alone deliberately: it is a dated verbatim archive of the prompts that
+    shaped handoffs 00-13, superseded by `handoffs/`, and rewriting a quotation
+    inside its fenced blocks would falsify the record rather than correct it.
+
+ONE THING THIS SESSION GOT WRONG AND CORRECTED, recorded because the ledger is
+where this project keeps what it learned rather than who learned it.
+  The session wrote the loose-predicate shape TWICE while holding the fold that
+  names it. `expect(name in barrel || true).toBe(true)` is true for every input
+  including an empty barrel, and it was written into the A7 suite in the same
+  commit that recorded fold 4. It was caught by re-reading, and the second -
+  `expect(hist.maxWallets).toBe(1)` over a fixture where four different
+  quantities all equal 1 - was caught by a reviewer, not by the lead. Both are
+  left visible in the tests' docblocks rather than quietly replaced, because the
+  fold asks HANDOFF-13 to specify a detector and the instances are the only
+  material it has to specify against. The lesson is not "be more careful": it is
+  that a rule the author has now violated three times more often than honoured is
+  evidence about the instrument, which is precisely what Q2 asks L2 to rule on.
+```
