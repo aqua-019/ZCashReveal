@@ -117,14 +117,15 @@ describe("A10 - one tip produces exactly three managed-store commands", () => {
     expect(store.transactions).toBe(tips.length);
     expect(store.execs).toBe(tips.length);
 
-    // THREE WRITES, FIVE COMMANDS ON THE WIRE, AND BOTH ARE PINNED because only
-    // the first is certain to be the number the meter charges. `MULTI` and
-    // `EXEC` cross the wire like any other command; whether Upstash bills them
-    // is a fact about their meter that no session can read (egress to
-    // upstash.com is refused by the container's proxy), so `budget.ts` charges
-    // three and states the uncertainty rather than guessing at five. The
-    // difference is a month of publishing: about 103,500 commands against the
-    // 150,000 default ceiling, or about 172,500 against it.
+    // THREE WRITES, FIVE COMMANDS ON THE WIRE, AND BOTH ARE PINNED because they
+    // measure different things and the meter charges only one of them. `MULTI`
+    // and `EXEC` cross the wire like any other command; whether Upstash bills
+    // them is a fact about their meter that no session can read (egress to
+    // upstash.com is refused by the container's proxy). Since 31 Aug 2026 the
+    // counter is charged the WIRE count of five, because Upstash's published
+    // exemption list does not name either envelope command and because the
+    // allowance at risk is another project's (LEDGER-09 Q2, fold 2). A month of
+    // publishing is then about 172,500 commands against a 200,000 ceiling.
     const onTheWire = store.transactions + store.calls.length + store.execs;
     expect(onTheWire).toBe(WIRE_COMMANDS_PER_TIP * tips.length);
     expect(COMMANDS_PER_TIP).toBe(3);

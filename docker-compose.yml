@@ -378,7 +378,7 @@ services:
       # apps/web on Vercel and appears nowhere in this file.
       SNAPSHOT_REDIS_KV_URL: ${SNAPSHOT_REDIS_KV_URL:-}
       SNAPSHOT_REDIS_REDIS_URL: ${SNAPSHOT_REDIS_REDIS_URL:-}
-      SNAPSHOT_REDIS_MONTHLY_BUDGET: ${SNAPSHOT_REDIS_MONTHLY_BUDGET:-150000}
+      SNAPSHOT_REDIS_MONTHLY_BUDGET: ${SNAPSHOT_REDIS_MONTHLY_BUDGET:-200000}
       # BOTH PATHS ARE LITERAL AND NOT `${VAR:-...}`, unlike every other value in
       # this block, because they are not operator preferences: they are the
       # volume mount below. A variable here would let a .env move the counter off

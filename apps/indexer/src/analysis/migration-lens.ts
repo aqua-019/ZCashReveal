@@ -9,9 +9,16 @@
  *    the chain did destroys the evidence instead of raising it. A wallet's balance
  *    `B` decomposes canonically, so a migration session (a burst of canonical
  *    denominations within a scheduling window) bounds the number of notes
- *    (`>= ceil(B/10,000)`) and the set of wallets (`<= number of denomination
- *    runs`). Reported as distributions and counts per window - never as 'wallet W
- *    migrated B'."
+ *    (`>= ceil(B/10,000)`) and the set of wallets (`<= Sigma counts`, the number
+ *    of crossings in the window). Reported as distributions and counts per window
+ *    - never as 'wallet W migrated B'."
+ *
+ * That quotation is section 3.9 AS AMENDED on 31 Aug 2026. It read `<= number of
+ * denomination runs` when this module was written, and the paragraph below
+ * beginning "THE TWO SPECS GIVE TWO DIFFERENT WALLET BOUNDS" is the argument that
+ * changed it: this module shipped the sound bound first and the document followed
+ * (LEDGER-09 Q1, fold 1). The paragraph is kept rather than trimmed to match,
+ * because the reason a bound is unsound outlives the sentence that stated it.
  *
  * DISTRIBUTIONS ONLY, AND THE RETURN TYPE IS WHERE THAT RULE IS ENFORCED RATHER
  * THAN PROMISED. There is nowhere in {@link MigrationLens} to put a wallet, an

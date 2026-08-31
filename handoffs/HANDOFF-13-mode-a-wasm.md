@@ -58,10 +58,29 @@ Produce a design and risk assessment for client-side viewing-key decryption (`pa
    - a check that every finding fingerprint named in a §7 GATE ROUNDS line with more than one site has a registry entry, which moves the manual step from "remember to register" to "the write-back does not pass without it";
    - accepting the bound explicitly and stating it in the guard's output line, so a reader is never misled by a green run - **the header of `scripts/check-finding-sites.mjs` now states the boundary, which is the cheap half already taken.**
 
+3. *(added by LEDGER-09 fold 4, 31 Aug 2026 - PLAN-ONLY, and unrelated to Mode A except that this is the plan-only handoff.)* **A specification for a guard against assertions whose predicate is satisfied by every value they were written to exclude.**
+
+   **THE SHAPE HAS REACHED THREE INSTANCES ACROSS THREE HANDOFFS**, which is what `CLAUDE.md`'s recurrence rule requires before the next instrument is a guard rather than another review. The three, oldest first:
+
+   - **HANDOFF-06 Q4** - a test whose title said "cannot fire on an unknown fee" and which passed `0n`, a KNOWN fee of zero. The predicate pinned the conflation instead of the behaviour, so the one input the assertion existed to cover was the one it never tried.
+   - **HANDOFF-08's A9** - `if (m.depositAmountZat > balance) return false;` run 300 times by fast-check, where `balance` was the sum of every deposit the match could have been drawn from. The assertion said sigma and the test never summed: a property quantified over an AGGREGATE, checked per ELEMENT, which no input fast-check can generate could falsify. Invisible in a green run by construction.
+   - **HANDOFF-09's `owner.startsWith("HANDOFF-")`** - satisfied by every wrong answer the field could hold, and it made `UNASSIGNED`, the honest value, the only failing one. Recorded in full in the LEDGER-09 Q3 block.
+
+   Three instances, three handoffs, three different subsystems, severities from LOW to HIGH. The common defect is not weakness: **each is a different assertion that happens to be true**, standing where a reader believes the intended one stands.
+
+   **THE HARD PART, NAMED HERE BECAUSE IT IS WHY THIS IS SPECIFIED RATHER THAN BUILT.** A detector must distinguish a LOOSE predicate from a DELIBERATELY PERMISSIVE one, and that is judgement rather than syntax. `expect(x).toBeDefined()` is exactly right when the test's subject is that a value exists at all, and exactly wrong when the test's title claims something about the value. The signal is the relationship between what the assertion CHECKS and what its NAME CLAIMS, and neither half is mechanically available: the name is prose and the check is an expression. A guard that flagged every weak matcher would fire on hundreds of correct tests, and by CLAUDE.md's own standard a rule that looks like coverage and is not is worse than an absent rule. **Specify before building, and cost at least these directions without endorsing any:**
+
+   - **Mutation as the instrument rather than pattern-matching.** The property that actually distinguishes the three instances is that a mutation of the code under test leaves them green. That is what `CLAUDE.md` already requires by hand for every §5 assertion, and the guard would be its automation - expensive, but it measures the real thing rather than a proxy for it.
+   - **A narrow syntactic rule aimed only at the third instance's form:** a string assertion whose expected value is a PREFIX or a substring of the field's domain, where the field has an enumerable set of legal values. That catches `startsWith("HANDOFF-")` and nothing else, which may be the honest scope.
+   - **A rule about quantifiers, aimed at the second instance:** a property test whose stated property names an aggregate (sum, total, count over a set) while its body indexes a single element. Detectable in principle from the test title plus the body's shape, and the most likely to produce false positives.
+   - **Accepting that the check cannot be automated and moving the cost to the write-back instead** - the §5 evidence block already demands a named worked case beside every property assertion (LEDGER-08 fold 3), and the cheap half may be a guard that every §5 assertion in a handoff has one, rather than a guard that judges the assertion.
+
+   **Deliverable: a section in `docs/2.0/MODE-A-PLAN.md`, or its own short document, that costs those four and recommends one.** Building it is a later handoff's, and this one stops at the recommendation.
+
 ## §5 ASSERTIONS — binary, machine-checkable, each needs a pass-state and a fail-state transcript
 
 - **A1.** `docs/2.0/MODE-A-PLAN.md` exists, cites ≥ 5 upstream sources with versions, and contains sections Architecture / Threat model / Build pipeline / Gateway needs / Open questions / Proposed §5.
-- **A2.** `git diff --stat main..HEAD -- apps packages` is empty (plan only). Deliverable 2 is inside `docs/2.0/MODE-A-PLAN.md` and this file, both outside `apps` and `packages`, so it does not weaken this assertion.
+- **A2.** `git diff --stat main..HEAD -- apps packages` is empty (plan only). Deliverables 2 and 3 are inside `docs/2.0/MODE-A-PLAN.md` and this file, both outside `apps` and `packages`, so neither weakens this assertion. Deliverable 3 in particular specifies a guard and does **not** add one to `scripts/`; a diff that builds it has broken this assertion and the handoff's plan-only contract with it.
 - **A3.** The §7 report lists every assumption with a disposition.
 
 ## §6 DISPATCH HINTS (director-build decides; these are L2's routing suggestions)
