@@ -227,6 +227,11 @@ a code mutation proves the assertion is WIRED, never that it DISCRIMINATES.
 - **A8.** **The twelve guards, `typecheck`, `lint`, `content validate` and `pnpm build` are green**
   — `pnpm build` in particular, the only one that runs `next build` and so the only one that
   resolves an `apps/web` import the way webpack does.
+  *Exclusion set:* any of the six exiting non-zero; a guard that passes because it scanned nothing.
+  *Fail side names:* the vacuous pass rather than a broken build, because it is the member of the
+  set a green run cannot distinguish — `check-ledger-structure.mjs`'s new R4 driven over a handoff
+  that opted into the amended format and carries no assertion bullet, which must be reported as a
+  finding rather than counted as a clean scan.
 
 ## §6 DISPATCH HINTS
 

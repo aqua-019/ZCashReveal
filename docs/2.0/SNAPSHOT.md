@@ -298,11 +298,58 @@ is **two of the four**, and the remaining two are the INPUT layer rather than th
 | `drain` | still `null` | `pool_snapshots.ts` is `TIMESTAMPTZ DEFAULT NOW()` — the time the indexer **wrote** the row, not the block's. Plan §3.3's velocity is "from block timestamps", and a write time is right to within seconds at the tip and arbitrarily wrong across a catch-up sync. The repair is a block-time column, i.e. a migration. |
 | `neffSeries` | still `null` | the Ironwood spends and their Cand_0 bounds live in the indexer's candidate analysis, not in any table this process reads |
 
-Both remaining absences are HANDOFF-11's, which **may not ship a null analysis panel** (LEDGER-09
-Q4). They are pinned by an executing assertion rather than by this paragraph:
+Both remaining absences are **HANDOFF-09b's** (LEDGER-09a Q1), not HANDOFF-11's, and both are the
+INPUT layer: `drain` needs a block-time source and `neffSeries` needs an Ironwood spend source.
+They are pinned by an executing assertion rather than by this paragraph:
 `apps/publisher/src/__tests__/instruments-wired.test.ts` asserts the two measured panels are
 non-null and the two absent ones are null on the production input shape, so a session that makes
 either measurable is told to re-read this table.
+
+#### The rendering contract for an unmeasured panel
+
+**A `null` renders as an absence and a zero renders as a measurement** is the rule this file has
+carried since HANDOFF-09, and it is a rule about the DOCUMENT. This section states the other half,
+which is a rule about the PAGE, because the two came apart and nobody noticed until LEDGER-09a Q1.
+
+HANDOFF-11's contract line used to read "the cutover may not ship a null analysis panel". L2
+restated it on the right quantity: **the cutover may not RENDER AN UNMEASURED PANEL AS A
+MEASUREMENT.** As first written the rule turned on the COUNT — four panels of four — which is why
+un-nulling two of them felt like it changed the answer, and it should not have. The dishonesty in
+an empty panel is not that it is empty. It is that **an empty chart renders as a measurement of
+zero**: a flat drain line reads to every visitor as "the pool is not draining", which is a claim
+this site has not made and cannot support, and a zero-height `neffSeries` reads as "no Ironwood
+spend has ever been anonymous enough to measure".
+
+So a renderer receiving `null` for a panel MUST NOT draw the panel's chrome around no data — no
+empty axes, no zero-height bars, no flat line at the baseline, no "0" in a figure slot. It renders
+a **named absence carrying its owner**:
+
+| panel | what the site displays while unmeasured |
+| --- | --- |
+| `drain` | `drain: not measured — needs a block-time source (HANDOFF-09b)` |
+| `neffSeries` | `N_eff series: not measured — needs an Ironwood spend source (HANDOFF-09b)` |
+| `residual` | `unprovable residual: not measured — the node reported no supply` |
+| `migrationHist` | `migration histogram: not measured — no migration window was read` |
+
+The first two name a HANDOFF because the absence is a gap in this project's pipeline that a
+numbered handoff owns and closes. The second two name a CONDITION instead, because their inputs
+exist and the absence is a node or a database that did not answer on this tip — naming a handoff
+there would promise a fix for something that is not broken.
+
+**This is the LEDGER-05 Q2 precedent applied exactly**: `/api/pools` answers 503 naming the four
+blocks it cannot serve rather than serving four empty ones, because a page that serves four empty
+blocks is claiming to have looked and found nothing. A named absence is that same answer in a
+panel's shape.
+
+**And note what the correction costs, because that is what shows it is not a convenience.** The
+corrected rule is count-independent, so it **no longer blocks the cutover**: if the operator wants
+HANDOFF-11 before 09b, the honesty rule permits it provided both panels render as named absences
+with their owner. 09b is still ordered first, on a cost argument that has nothing to do with panel
+honesty — migrations 003 and 004 have never been applied to the VPS, so that database is COLD, and
+a 005 landing before the cutover is one free run where a 005 landing after it is a maintenance
+window on a live public site. That is a cost ruling the operator may overrule. The honesty ruling
+is not one L2 will trade, and it is a floor rather than a ceiling: no later handoff may weaken it,
+under the same rule as §4.
 
 ### 8.2 Why there is a `schema` field the handoff did not ask for
 
