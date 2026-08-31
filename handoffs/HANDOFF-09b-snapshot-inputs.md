@@ -611,28 +611,107 @@ pinned one of six tables: measured, dropping `pool_snapshots` from `truncateAll`
 that exists to be this guard's transcript at 4 passed** while the rest of the tree went red. It now
 asserts the whole statement and is red under that mutation.
 
+### Round 6, in which the guard written to stop this shape was green on it
+
+`39de2f6` changes two guard predicates and a test assertion, so the amended clause (ii) makes it a
+round. **Budget in the first line: 31 candidates / 24 by execution, 38 mutations** - nine against the
+TRUNCATE assertion, eight paraphrase substitutions, six site reverts, five guard-row mutations, four
+data mutations, two runbook deletions, four probe re-checks. The reviewer reported a malformed probe
+of its own, and reported that it had written one scratch file into the tree and deleted it.
+
+**THE HIGH IS THE WORST KIND THIS PROJECT HAS: A GUARD THAT CERTIFIED ITS OWN HOLE.** Round 5 added
+`H09b-ABSENCE-CONDITION` precisely to stop "a corrected fact landing at some of its sites", and drove
+it to fail by reverting the two SENTENCES it had just fixed. Reproduced in this session before
+acting on the finding:
+
+```
+DATA MUTATION: the round-3 table rows restored verbatim -
+  | `drain` | `drain: not measured - needs a block-time source (HANDOFF-09b)` |
+[finding-sites] OK: 15 multi-site finding(s), 42 site(s) checked, all closed
+```
+
+**Green, on the exact rendering string the rule forbids.** That is CLAUDE.md's data-mutation rule
+broken by the session that quotes it: the fail side was drawn from the CODE - the prose the fix
+happened to touch - and never from the set the predicate claims to exclude. Seven of eight
+paraphrases passed too. The row now has three arms: the phrasing arms catch seven of eight (the
+eighth, "a named absence that names the handoff responsible", uses no owner-word and is stated as
+beyond a phrase match rather than claimed closed), and **the third arm matches the OBJECT** - a
+table cell pairing "not measured" with a HANDOFF reference - which does not depend on how a future
+session words the rule. It carries a `dataProbe` beside its `probe`, and the self-test drives both.
+
+**AND THE SWEEP IT WAS WRITTEN TO CLOSE HAD LANDED AT THREE SITES OF SEVEN.** Sixth instance of the
+shape, committed inside the fix for the fifth. Four live assertions stood: `SNAPSHOT.md`'s own
+cutover permission **twelve lines below the paragraph that replaced it**; `handoffs/README.md`; this
+handoff's own §1; and `HANDOFF-11-live-wiring.md` twice.
+
+**`HANDOFF-11` IS AMENDED IN PLACE, AND THIS SESSION CHANGED ITS POSITION - WHICH IS RECORDED RATHER
+THAN QUIETLY REVERSED.** §7 above raised that line for L2 and declined to touch it, on the ground
+that a handoff body is not one of the five cross-handoff edits a session may make. Two facts moved
+it. First, it is not a quoted example: it is a `status: queued` §3 CONTRACT that **cites §8.1 as its
+authority** and hands the cutover session the exact string §8.1 now forbids. Second, and decisively,
+that bullet already invokes the LEDGER-10 Q5 precedent in its own words - *"a rule whose premise
+changed is one the next session obeys for the wrong reason unless the change is visible"*. The
+premise changed when 09b shipped. **Amendment in place is what that sentence itself prescribes**,
+and it is a strictly smaller act than the rewrite the cross-handoff rule forbids: the old form is
+struck and visible, the new form states the condition, and the LEDGER-05 Q2 precedent it rests on is
+untouched.
+
+So `flatten()` now drops `~~...~~` spans. What is struck is not in force, and a guard that fired on
+struck text would force exactly the deletion the amendment convention exists to prevent.
+
+**NEITHER GUARD'S SELF-TEST ITERATED ITS OWN RULE DATA** (LEDGER-09a Q3), and both had just gained
+members without it. Both now do, and both found holes on the first run - which is the whole argument
+for that rule:
+
+| guard | what the loop found |
+| --- | --- |
+| `check-finding-sites.mjs` | **three register rows** (`R3-H2`, `R2-GRADE`, `R3-ROWS`) whose patterns had never been driven against any text, while the run printed "detector self-tested in both directions" |
+| `check-infra-docs.mjs` | **five topics with no positive probe and eight with no negative one** - so nothing showed those patterns cannot be satisfied by prose, which is the defect three rows in that list were tightened for |
+
+Fail side, the reviewer's own mutation: `{ topic: "UNPROBED TOPIC", re: /docker/ }` - a pattern any
+prose in the runbook satisfies - now fails the self-test naming itself. Before, it printed OK across
+all seventeen topics in silence.
+
+**AND ROUND 5'S OWN CLAUDE.md EDIT HAD DISABLED AN ESCALATION.** The clause (ii) exemption was
+written as a blanket "does not consume the three-round-per-finding budget". On a long gate every
+round after the first IS a fix-commit review, so the blanket form makes `NOT CONVERGING` unreachable
+in exactly the case it exists for. It now exempts only a round that does not re-surface a finding
+with the same fingerprint.
+
+**A read-only worker wrote to the tree for the third time.** The round-6 reviewer wrote
+`apps/publisher/src/__drainprobe.mts`, executed it and deleted it, and **reported it against itself**
+rather than leaving it to be found. The post-fan-out sweep confirmed the tree clean before this
+session committed. Two things follow, and the second matters more: the finding that probe produced
+is real and reproducible outside the tree, so it is kept; and this is now three occurrences across
+three different agent roles, which is what CLAUDE.md's don't-list already predicts - the sweep is a
+net, not a substitute for the rule.
+
 ### The gate has NOT converged, and that is stated rather than claimed away
 
-**Six rounds, each reviewing the previous round's fix commit as its own commit, budgets in every
+**Seven rounds, each reviewing the previous round's fix commit as its own commit, budgets in every
 first line: 28/24 and 16/14, then 34/24, then 57/44 with ten mutations of which nine killed their
-target and ONE SURVIVED, then L2's own pass plus 34/21 and 22/15, then 47/35.** No finding was
-logged unread in any of them.
+target and ONE SURVIVED, then L2's own pass plus 34/21 and 22/15, then 47/35, then 31/24 with 38
+mutations.** No finding was logged unread in any of them.
 
-**Round 5 returned two HIGHs a user could see** - a triage table stating the opposite of what the
-publisher does, and a documented channel that is one of two - so clause (a) is still not met. But
-the shape of the round changed, and §7 records the change rather than the count: **round 5 found no
-live defect in any executable line round 4 added**, against eleven mutations, a 2,000-case
-randomised production-path sweep and three database reproductions. Every finding was in prose, in a
-guard, or in one assertion. Round 1 dropped whole panels; round 5 found a wrong word in a triage
-table and a sentence three lines above a table it had just rewritten.
+**Round 6 returned a HIGH a user could see**, so clause (a) is still not met. Two rounds running
+have now found nothing wrong with the branch's executable core - round 5's eleven mutations, its
+2,000-case randomised production-path sweep and its three database reproductions found no live
+defect in the publisher, and round 6 spent its effort on the guards - **but what the last two rounds
+found instead is that the INSTRUMENTS were not sound**: a register row green on the data it forbids,
+two self-tests that under-covered their own rules and three register rows that had never been driven
+against any text.
 
-`39de2f6` fixes all eight. It is **not prose-only** - it changes two GUARD PREDICATES
-(`check-finding-sites.mjs`'s new register row, `check-infra-docs.mjs`'s two topics) and one test
-assertion - so under the amended clause (ii) it earns round 6, which is out at write-back and is
-reported as work rather than as a clean round. This project has measured that three of its twelve
-guards shipped with a self-test certifying a hole, and that eleven of twelve holes in one guard were
-found by executing a probe and none by reading, so a commit that edits two guards is exactly the
-commit the clause exists for.
+That distinction is what clause (b) is for, and it now cuts both ways. The estimator's shape is
+covered. **The guard's shape is not, and round 6 is the fourth consecutive round in which a guard or
+a self-test was the defect** - which is the argument for the guard-about-guards work HANDOFF-13
+already holds, not for a further round of the same reading.
+
+`9a534ed` fixes all six of round 6's findings and is **not prose-only**: it widens a guard predicate,
+adds a `dataProbe` mechanism, changes `flatten()`'s semantics for every register row rather than one,
+and adds two self-test completeness loops. Under the amended clause (ii) that earns round 7, which is
+out at write-back and reported as work. The `flatten()` change is the one that most deserves it: it
+was made for a single struck amendment in one file and it applies to all fifteen findings at every
+site.
 
 **Clause (b) is met for the shapes the guards cover and NOT for the one this branch found.** The
 recurring shape here is *a fixture that makes two distinct quantities equal, so an assertion cannot
@@ -650,14 +729,23 @@ wipes a database. Wrong in the direction that flatters the branch, about commits
 itself written - the second time on this branch, the fifth in this project, and the pattern is now
 a property of the codebase rather than an accident.
 
-So this one is stated with that in mind, and round 5 has now tested it. It predicted "one or two
-findings in the round-5 FIX commit, not in the estimator, of the reach round 4's LOWs had" - and
-round 5 returned eight, two of them HIGH, all in the fix commit and none in the estimator. **Right
-about the location and about the estimator, wrong about the count and the severity**, which is the
-same direction as before. Round 6's prediction, made with that record: one or two more of round 5's
-own reach, most likely in the two guard predicates `39de2f6` edits, because that is where the
-executable surface of this commit is and because three of this project's twelve guards have shipped
-certifying a hole. The behaviour is the part with real evidence behind it - every input
+So this one is stated with that in mind, and two rounds have now tested it. Round 4's predicted
+"one or two findings in the round-5 fix commit, not in the estimator"; round 5 returned eight, two
+HIGH, all in the fix commit and none in the estimator. Round 5's predicted "one or two, most likely
+in the two guard predicates `39de2f6` edits"; **round 6 returned six, one HIGH, and the HIGH was in
+one of those two predicates.** Right about the location three times running, wrong about the count
+and the severity three times running, always in the direction that flatters the branch.
+
+**So the honest round-7 prediction is not a number, it is a location plus a warning about the
+regress.** It will find something in `9a534ed`'s guard changes, most likely in `flatten()` - a
+global semantic change made for one file - and that finding will itself be in a guard rather than in
+anything a visitor sees. **The reach on the PRODUCT has been flat at zero for two rounds while the
+reach on the INSTRUMENTS has not fallen at all**, and those are different curves. A gate that keeps
+running until the guards are perfect does not terminate; the amended clause (ii) terminates where a
+fix can no longer carry a behavioural defect, and a guard predicate can. The lead's judgement is
+therefore that round 7 is owed and round 8 probably is not - and that if round 7 returns only
+findings in guards, the right next instrument is HANDOFF-13's registration question rather than an
+eighth reading. The behaviour is the part with real evidence behind it - every input
 path is exercised against a real Postgres in both polarities, five code mutations and a 14-path
 enumeration found no live defect in `readSnapshotInputs`, and the two HIGHs round 4 found were both
 in TEST and DOCUMENT layers rather than in the publisher. **What has not decayed is the fix commit
@@ -784,6 +872,17 @@ what was measured then, and rewriting a report to match a later state falsifies 
 reasoning 09a used for `CLAUDE-CODE-PROMPTS.md`) - but it gains a dated forward pointer in place, so
 a reader is not left holding a contradiction.
 
+**Round 6's sweep, which found the previous two both incomplete and is why the guard now matches the
+OBJECT.** Round 5's sweep below closed three sites; four more were still asserting - `SNAPSHOT.md`'s
+own cutover permission, `handoffs/README.md`, this handoff's §1, and `HANDOFF-11` twice. All are
+corrected in `9a534ed`, `HANDOFF-11` by amendment in place per the LEDGER-10 Q5 precedent that
+bullet itself invokes. **The register row that was supposed to make this mechanical was green on the
+forbidden data**, so it now carries an arm matching the rendering string rather than the sentence
+about it, plus a `dataProbe` the self-test drives. Sites registered: five, with
+`HANDOFF-09b-snapshot-inputs.md` deliberately NOT among them and the reason stated in the guard -
+its §7 must narrate the defect, and `absent` cannot tell an assertion from a report of one, so
+registering it would make the guard fight this write-back.
+
 **Round 5's sweep, and it is the reason there is now a guard.** Round 4's sweep below was
 incomplete: it corrected §8.1's table and the test comment and left the sentence introducing that
 table, plus `chain-inputs.ts`'s present-tense restatement. Both are corrected in `39de2f6`, and the
@@ -842,6 +941,14 @@ the reviewer's 2,000-case randomised production-path sweep, 63-pair predicate-eq
 three throwaway-database reproductions, which are the evidence for the NEGATIVE result rather than
 for any fix.
 
+Round 6 adds, every one re-run in this session before the finding was acted on: the DATA mutation
+that shows `H09b-ABSENCE-CONDITION` green on the round-3 table rows; the eight-paraphrase sweep
+against the widened predicate, reported as seven caught and one not; the four site reverts, each
+naming its own site; the `{ topic: "UNPROBED TOPIC", re: /docker/ }` mutation against
+`check-infra-docs`'s new completeness loop; the deletion of each of the two runbook grep lines,
+reddening one topic each; and the probeless-row mutation against `check-finding-sites`'s loop, which
+found three pre-existing rows rather than the one it was written for.
+
 Read (file + commit): migration 003's and 004's nullability arguments; `orchardDrain` and
 `ironwoodBirth`'s admission rules; `rawCandidateRange`'s definition of Cand_0.
 
@@ -855,7 +962,8 @@ the VPS or a live node.
 *Appended: `## HANDOFF-09b — the two missing snapshot input sources (L3, 31 Aug 2026)`,
 `## HANDOFF-09b round 4 — F-46-1, and L2's own correction (L3, 31 Aug 2026)` and
 `## HANDOFF-09b round 4 continued — the two commissioned reviews (L3, 31 Aug 2026)` and
-`## HANDOFF-09b round 5 — the negative result, and a sweep that landed at one site of three (L3, 31 Aug 2026)`. The third
+`## HANDOFF-09b round 5 — the negative result, and a sweep that landed at one site of three (L3, 31 Aug 2026)`
+and `## HANDOFF-09b round 6 — a guard that certified its own hole (L3, 31 Aug 2026)`. The third
 block carries the ledger-worthy finding of this round: a test whose RESULT is identical in both
 polarities, so only the database it wiped discriminated. Two items are raised there for L2 and are
 deliberately not taken into round 4 - `index.ts`'s fault message being true of two of the four

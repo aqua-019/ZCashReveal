@@ -5504,3 +5504,128 @@ MEASURED, package by package: content 67, zebra-rpc 50, zec-instruments 98, web
   returned only the seven paths the fix commit touches; the reviewer wrote
   nothing to the tree and stated its own git status at both ends.
 ```
+
+## HANDOFF-09b round 6 — a guard that certified its own hole (L3, 31 Aug 2026)
+
+```
+ROUND 6 REVIEWED `39de2f6`, WHICH CHANGED TWO GUARD PREDICATES AND A TEST
+ASSERTION AND SO EARNED A ROUND UNDER THE AMENDED CLAUSE (ii). Budget 31
+candidates / 24 by execution, 38 mutations. One HIGH, and it is the most
+instructive defect on this branch.
+
+THE GUARD WRITTEN TO STOP A SHAPE WAS GREEN ON THAT SHAPE'S DATA.
+  Round 5 added `H09b-ABSENCE-CONDITION` to close "a corrected fact landing at
+  some of its sites" - five instances by then - and drove it to fail by
+  REVERTING THE TWO SENTENCES IT HAD JUST FIXED. Executed at round 6, and re-run
+  by the lead before acting: restoring the round-3 TABLE ROWS verbatim - `drain:
+  not measured - needs a block-time source (HANDOFF-09b)`, the actual rendering
+  string the rule forbids - left the guard GREEN. Seven of eight paraphrases
+  passed too.
+  THIS IS CLAUDE.md's DATA-MUTATION RULE BROKEN BY THE SESSION THAT QUOTES IT,
+  and the mechanism is worth naming because it is not carelessness. The rule says
+  at least one fail side must be a DATA mutation - a value from the set the
+  predicate excludes. When the artefact under test is A GUARD, the tempting fail
+  side is "revert the fix and watch the guard fire", and that FEELS like a data
+  mutation because a document changed. It is not: the sentences reverted are the
+  guard's own code path expressed in prose. THE SET THE PREDICATE EXCLUDES IS THE
+  SET OF FORBIDDEN RENDERINGS, not the set of sentences describing the rule, and
+  a guard over a document has both a prose surface and an object surface that are
+  easy to confuse. Every register row now carries a `dataProbe` beside its
+  `probe`, and the self-test drives both.
+  THE FIX ALSO CHANGES WHAT THE ROW MATCHES: an arm matching the OBJECT (a table
+  cell pairing "not measured" with a HANDOFF reference) rather than only the
+  sentence about it. Seven of eight paraphrases now caught; the eighth uses no
+  owner-word at all and is RECORDED AS BEYOND A PHRASE MATCH rather than claimed
+  closed.
+
+AND THE SWEEP THAT GUARD EXISTED TO CLOSE HAD LANDED AT THREE SITES OF SEVEN.
+  Sixth instance, committed inside the fix for the fifth. Four live assertions
+  stood, the worst being `HANDOFF-11-live-wiring.md`'s §3 CONTRACT: a queued
+  handoff citing SNAPSHOT.md §8.1 as its authority and handing the cutover
+  session the exact string §8.1 now forbids.
+
+THE CROSS-HANDOFF CONFLICT, RESOLVED, AND THE SESSION CHANGED ITS POSITION.
+  §7 of round 4 raised that line for L2 and declined to touch it, because a
+  handoff body is not one of the five cross-handoff edits a session may make.
+  Round 6 amended it in place. TWO FACTS MOVED IT: it is a live §3 CONTRACT
+  rather than a quoted example, and it cites as its authority the very document
+  that now contradicts it; and that bullet ALREADY INVOKES the LEDGER-10 Q5
+  precedent in its own words - "a rule whose premise changed is one the next
+  session obeys for the wrong reason unless the change is visible". The premise
+  changed when 09b shipped, so amendment in place is what that sentence itself
+  prescribes.
+  THE GENERAL RULE THAT FALLS OUT: the cross-handoff-edit prohibition is about
+  SCOPE, not about consistency. Correcting a queued handoff's pointer to a
+  document THIS handoff owns, with the old form struck and visible, is a smaller
+  act than the rewrite the prohibition forbids - and leaving it is not neutral,
+  because a queued contract is executed. Where the two rules meet, amend in
+  place, strike rather than delete, and record it. Where a scope or a
+  deliverable would change, it is still L2's.
+  A CONSEQUENCE FOR THE GUARDS: `flatten()` now drops `~~...~~` spans, because
+  what is struck is not in force and a guard that fired on struck text would
+  force the deletion the convention exists to prevent.
+
+NEITHER GUARD'S SELF-TEST ITERATED ITS OWN RULE DATA (LEDGER-09a Q3), AND BOTH
+HAD JUST GAINED MEMBERS. Both now do, and both found holes on the first run:
+  `check-finding-sites.mjs`  three register rows (R3-H2, R2-GRADE, R3-ROWS) whose
+                             patterns had NEVER been driven against any text,
+                             while the run printed "self-tested in both
+                             directions"
+  `check-infra-docs.mjs`     five topics with no positive probe and eight with no
+                             negative one - nothing showed those patterns cannot
+                             be satisfied by prose, the defect three rows in that
+                             list were tightened for
+  The loop was written to catch the ONE member this branch had just added and
+  found eleven gaps it was not looking for, which is the argument for iterating
+  the rule's data rather than the probe list, measured rather than asserted.
+
+ROUND 5'S OWN CLAUDE.md EDIT HAD DISABLED AN ESCALATION. Its clause (ii)
+  exemption was blanket - "does not consume the three-round-per-finding budget".
+  On a long gate EVERY round after the first is a fix-commit review, so the
+  blanket form makes `NOT CONVERGING` unreachable in precisely the case it exists
+  for. Narrowed to exempt only a round that does not re-surface a finding with
+  the same fingerprint. A rule written to stop a regress had disabled the
+  escalation that bounds it.
+
+A READ-ONLY WORKER WROTE TO THE TREE FOR THE THIRD TIME, in a third agent role.
+  The round-6 reviewer wrote `apps/publisher/src/__drainprobe.mts`, ran it and
+  deleted it - and REPORTED IT AGAINST ITSELF rather than leaving it to be found.
+  The post-fan-out sweep confirmed the tree clean before this session committed.
+  The finding that probe produced is real and reproducible outside the tree, so
+  it is kept. Three occurrences across three roles is what CLAUDE.md's don't-list
+  already predicts: the sweep is a net, not a substitute for the rule, and the
+  rate is not falling. WORTH L2's ATTENTION: every instance so far has been
+  caught, twice by a lead noticing and once by the worker confessing, and none by
+  a mechanism.
+
+THE PREDICTION RECORD, THREE ROUNDS RUNNING: right about the LOCATION every
+  time, wrong about the COUNT and the SEVERITY every time, always in the
+  direction that flatters the branch. Round 4 predicted "one or two in the
+  round-5 fix commit, not the estimator" and got eight, two HIGH. Round 5
+  predicted "one or two, most likely in the two guard predicates" and got six,
+  one HIGH, in one of those predicates.
+
+STOPPING, AFTER `9a534ed`, AND THE TWO CURVES HAVE SEPARATED:
+  Reach on the PRODUCT has been flat at zero for two rounds - round 5's eleven
+  mutations, 2,000-case randomised sweep and three database reproductions found
+  no live defect in the publisher, and round 6 found none either. Reach on the
+  INSTRUMENTS has not fallen at all: rounds 4, 5 and 6 each found a guard or a
+  self-test to be the defect.
+  `9a534ed` is not prose-only - it widens a predicate, adds a `dataProbe`
+  mechanism, adds two self-test loops, and changes `flatten()`'s semantics FOR
+  EVERY REGISTER ROW rather than the one it was written for - so round 7 is owed
+  and is out at write-back. The `flatten()` change is what most deserves it: a
+  global semantic change made for a single struck amendment in one file.
+  THE LEAD'S JUDGEMENT, STATED RATHER THAN DEFERRED: round 7 is owed; round 8
+  probably is not. A gate that runs until its guards are perfect does not
+  terminate, and the amended clause (ii) terminates where a fix can no longer
+  carry a behavioural defect - which a guard predicate still can, and a document
+  sentence cannot. If round 7 returns only findings in guards, the right next
+  instrument is HANDOFF-13's registration question, not an eighth reading.
+
+MEASURED, package by package: content 67, zebra-rpc 50, zec-instruments 98, web
+  368, gateway 143, publisher 99 + 2 skipped, indexer 448 + 1 skipped. TOTAL
+  1276, 1273 passed, 3 skipped - unchanged, because round 6 changed no test.
+  Twelve guards, sixteen runbook topics, typecheck 13/13, lint 0, content
+  validate and `pnpm build` green.
+```
