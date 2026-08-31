@@ -9,11 +9,16 @@
  * whose failure mode here is wiping a developer's database. So: the transcript,
  * as a test.
  *
- * IT NEVER TRUNCATES ANYTHING. Every case below either expects a rejection, or
- * runs against this suite's own schema where a TRUNCATE is what every other file
- * in this directory does in `beforeEach`.
+ * IT NEVER TRUNCATES ANYTHING OUTSIDE THIS RUN'S OWN SCHEMA, and gate round 4
+ * found that the first draft of this file did. Every case below expects a
+ * rejection, runs against this suite's own schema (where a TRUNCATE is what
+ * every other file in this directory does in `beforeEach`), or drives a
+ * recording stub. The one that has to delete `ZR_TEST_SCHEMA` to test the
+ * escape hatch takes the stub, because deleting `ZR_TEST_SCHEMA` is precisely
+ * the state in which the live connection points at `public`.
  */
 
+import type { Sql } from "postgres";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { getSql, isPostgresReachable, truncateAll } from "./_setup.js";
@@ -81,8 +86,32 @@ describe.skipIf(!reachable)("truncateAll's schema guard", () => {
     // The hatch is why the refusal is a guard rather than a rule nobody can
     // satisfy: CI and a developer with a throwaway database both have a
     // legitimate reason to opt out, and both must say so explicitly.
+    //
+    // ON A RECORDING STUB, NEVER ON THE LIVE CONNECTION, and that is the whole
+    // point (gate round 4). This case DELETES `ZR_TEST_SCHEMA` and sets the
+    // hatch, so it IS the state the guard exists for; `getSql()` fixes
+    // `search_path` at CREATION time, so on a run whose `globalSetup` line is
+    // missing - the door `_setup.ts` names in as many words - `sql` resolves to
+    // `public` and a real `truncateAll` here wipes the developer's six chain
+    // tables. The case above throws in that state, and a thrown test does not
+    // stop the file. Reproduced against a throwaway database by the round-4
+    // reviewer: one `blocks` row in, zero out, from the file whose header says
+    // it never truncates anything.
+    //
+    // The stub is not a weaker test. What the hatch has to be shown to do is
+    // let the TRUNCATE THROUGH, and a statement recorded is that, exactly - the
+    // pass side above already proves the same statement empties real tables.
+    const statements: string[] = [];
+    const stub = {
+      unsafe: (q: string) => {
+        statements.push(q);
+        return Promise.resolve([]);
+      },
+    };
     await withEnv(undefined, "1", async () => {
-      await expect(truncateAll(sql)).resolves.toBeUndefined();
+      await expect(truncateAll(stub as unknown as Sql)).resolves.toBeUndefined();
     });
+    expect(statements, "the hatch must let exactly one statement through").toHaveLength(1);
+    expect(statements[0]).toMatch(/^TRUNCATE .*\bblocks\b.*RESTART IDENTITY$/);
   });
 });

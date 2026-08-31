@@ -327,17 +327,39 @@ a **named absence carrying its owner**:
 
 | panel | what the site displays while unmeasured |
 | --- | --- |
-| `drain` | `drain: not measured — needs a block-time source (HANDOFF-09b)` |
-| `neffSeries` | `N_eff series: not measured — needs an Ironwood spend source (HANDOFF-09b)` |
 | `residual` | `unprovable residual: not measured — the node reported no supply` |
 | `migrationHist` | `migration histogram: not measured — no migration window was read` |
+| `drain` | `drain: not measured — no block time for this height` |
+| `neffSeries` | `N_eff series: not measured — the Ironwood spend query did not answer` |
 
 **And a rule for `neffSeries` when it IS measured, because a panel can be present and still make a claim it cannot support.** Its `shares` are computed over `spendCount` — the spends whose anchor resolved — and `windowSpendCount` is how many Ironwood spends there were in the window. **A renderer must show the pair, never a share alone.** Four of five spends unbounded publishes `requires_disclosure: 1` over a single spend, and rendered as "100% require disclosure" that is a measurement of the window it was not taken over. `N_eff over 2 of 4 spends in the window` is the honest form; a bare percentage is not.
 
-The first two name a HANDOFF because the absence is a gap in this project's pipeline that a
-numbered handoff owns and closes. The second two name a CONDITION instead, because their inputs
-exist and the absence is a node or a database that did not answer on this tip — naming a handoff
-there would promise a fix for something that is not broken.
+**And a SECOND rule for `neffSeries`, because the pool has a birth height and a zero below it is not the same zero as above it.** `birthHeight` is a required field of the panel and `height` is a required field of the snapshot, so `height < birthHeight` is fully determined by the document. On such a tip the series is empty and that emptiness is a correct MEASUREMENT - the pool does not exist yet - but it is also exactly the shape the paragraph above calls dishonest, because an unqualified empty chart reads as "no Ironwood spend has ever been anonymous enough to measure". So `neffSeries` has four renderings, not two:
+
+| `neffSeries` condition | what the site displays |
+| --- | --- |
+| `null` | the named absence from the table above |
+| non-null, `height < birthHeight` | `N_eff series: the Ironwood pool does not exist at this height (born at <birthHeight>)` |
+| non-null, `height >= birthHeight`, `windowSpendCount === 0` | a measured zero, rendered as one: `N_eff over 0 of 0 spends in the window` |
+| non-null, `height >= birthHeight`, `windowSpendCount > 0` | the pair rule above |
+
+**The publisher reports nothing on the fault channel for the second row, deliberately** (gate round 4, F-46-1): the pre-birth condition is not an input failure, and an ERROR line saying one occurred fires on every block of an initial sync. This table is where a renderer is told about the condition instead, and `apps/publisher/src/sources/chain-inputs.ts` points here from the branch that produces it. That pointer is load-bearing in both directions: the branch's own comment first argued the deletion on the grounds that "the document already carries it, at the surface that has readers", which was true of the FIELDS and false of the CONTRACT - `neffSeries` has no reader in `apps/web`, the gateway has no snapshot read path, and this section distinguished only null from non-null. The row is what makes that argument true rather than aspirational.
+
+**All four name a CONDITION, and the first two did not until gate round 4.** Until HANDOFF-09b
+`drain` and `neffSeries` named a HANDOFF, correctly: the absence really was a gap in this project's
+pipeline that a numbered handoff owned. 09b closed both, and the commit that recorded it above
+rewrote the paragraph and left this table twenty-five lines below still naming 09b as the owner of
+an absence 09b had closed — the same defect, in the same file, in the same commit, and the
+publisher change in that commit was made FOR this reason ("naming a handoff for an absence no
+handoff can close"). `drain` is still reachable as `null` on the production path: no
+`queryOrchardSeries`, no baseline row at `SNAPSHOT_DRAIN_BASELINE_HEIGHT`, or a non-positive
+baseline. So a renderer following the old table would have told a visitor that a database which did
+not answer on this tip "needs a block-time source (HANDOFF-09b)".
+
+That is verbatim the failure `apps/gateway/src/views/pools.ts` already records and fixed with
+`UNASSIGNED`: **an `owner` is a live statement on the wire and decays silently — a prediction that
+outlives its subject reads as a fact.** A condition does not decay, which is why all four now name
+one.
 
 **This is the LEDGER-05 Q2 precedent applied exactly**: `/api/pools` answers 503 naming the four
 blocks it cannot serve rather than serving four empty ones, because a page that serves four empty

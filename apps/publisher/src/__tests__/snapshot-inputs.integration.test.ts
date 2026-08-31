@@ -25,12 +25,14 @@ import { REAL_INSTRUMENTS } from "../instruments.js";
 import { buildSnapshot } from "../snapshot-builder.js";
 import { readSnapshotInputs } from "../sources/chain-inputs.js";
 import { makeChainQueries } from "../sources/queries.js";
+import { mayTruncate } from "./harness.js";
 
 const DEFAULT_URL = "postgres://zcashreveal:zcashreveal@localhost:5432/zcashreveal";
 const url = process.env["DATABASE_URL"] ?? DEFAULT_URL;
 
 /** The schema this RUN owns, matching the indexer's integration setup. */
 const testSchema = process.env["ZR_TEST_SCHEMA"];
+
 const connectionOptions =
   testSchema === undefined || testSchema === ""
     ? {}
@@ -126,10 +128,7 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
     // truncate `public` in the first place. A config that loses the line again,
     // a package move or a rename all reproduce it silently; this turns every one
     // of them into a loud failure on the first `beforeEach`.
-    if (
-      (testSchema === undefined || testSchema === "") &&
-      process.env["ZR_ALLOW_PUBLIC_TRUNCATE"] !== "1"
-    ) {
+    if (!mayTruncate(testSchema, process.env["ZR_ALLOW_PUBLIC_TRUNCATE"])) {
       throw new Error(
         "refused to TRUNCATE: ZR_TEST_SCHEMA is unset, so `search_path` is `public` and this " +
           "would wipe the shared tables. This package's vitest config must declare " +
@@ -698,9 +697,11 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
     //
     // Round 3: the guard that fixed it returned `null`, which publishes the same
     // `neffSeries: null` as "no Ironwood spend source" - and SNAPSHOT.md 8.1
-    // makes that null render as "needs an Ironwood spend source (HANDOFF-09b)",
-    // naming a handoff for an absence no handoff can close. The same document
-    // draws that distinction against itself one line later.
+    // THEN made that null render as "needs an Ironwood spend source
+    // (HANDOFF-09b)", naming a handoff for an absence no handoff can close. The
+    // same document drew that distinction against itself one line later. Round 4
+    // swept 8.1 so all four rows name a CONDITION and none names a handoff, so
+    // this paragraph is history: do not read the quoted string as current.
     //
     // The honest answer is the one `ironwoodBirth` documents: "a `highHeight`
     // below `birthHeight` is NOT an error: it is a window before the pool
@@ -791,14 +792,30 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
     expect(belowSnapshot.neffSeries).not.toBeNull();
     expect(belowSnapshot.height).toBeLessThan(belowSnapshot.neffSeries!.birthHeight);
 
-    // THE OTHER VALUE OF THE SAME VARIABLE. One block above, the query IS called
-    // - so the two tips take different paths and the assertion above is not
-    // green merely because nothing ever runs.
+    // THE OTHER VALUE OF THE SAME VARIABLE. One block above, the query IS
+    // called - so the two tips take different paths and the assertion above is
+    // not green merely because nothing ever runs.
+    //
+    // AND THAT IS COUNTED RATHER THAN ASSERTED IN A COMMENT. An earlier draft
+    // of this half passed the real query and asserted only on its outputs,
+    // which made the sentence above a claim the test did not check: mutating
+    // the pre-birth guard to `if (true)` left BOTH halves of this test green
+    // (eight other tests in this file caught it, so the suite was safe and the
+    // test's statement about itself was false). The counter is what makes the
+    // DATA mutation discriminate - which is the half the Q2 rule exists for.
     const aboveFaults: string[] = [];
+    let aboveCalls = 0;
     const aboveInputs = await readSnapshotInputs(
-      deps({ onInputFault: (panel) => aboveFaults.push(panel) }),
+      deps({
+        queryIronwoodSpends: (lo: number, hi: number) => {
+          aboveCalls += 1;
+          return queryIronwoodSpends(lo, hi);
+        },
+        onInputFault: (panel) => aboveFaults.push(panel),
+      }),
       above,
     );
+    expect(aboveCalls, "above the birth height the query IS called").toBe(1);
     expect(aboveFaults, "an ordinary tip reports nothing either").toEqual([]);
     expect(aboveInputs.ironwoodWindow!.highHeight).toBeGreaterThanOrEqual(
       aboveInputs.ironwoodWindow!.birthHeight,

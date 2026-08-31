@@ -108,8 +108,11 @@ export async function readBlockTimes(
 }
 
 /**
- * Delete blocks above H. Rows at height H are retained, matching the four pool
- * rollbacks exactly so a driver can call all five with the same argument.
+ * Delete blocks above H. Rows at height H are retained, matching the other five
+ * per-table rollbacks exactly - the four pool ones and
+ * {@link rollbackPoolSnapshotsToHeight} - so a driver can call all six with the
+ * same argument. (The count was "four pool rollbacks ... all five" when written,
+ * in the same commit that added the fifth; gate round 4.)
  * Returns the number of rows deleted.
  */
 export async function rollbackBlocksToHeight(height: number, conn: Sql): Promise<number> {

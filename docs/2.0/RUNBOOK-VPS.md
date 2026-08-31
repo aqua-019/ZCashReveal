@@ -237,13 +237,16 @@ DATABASE_URL="postgres://zcashreveal:<password>@127.0.0.1:5433/zcashreveal" \
 **005 adds `blocks` and `pool_nullifiers.anchor_root`, and it is ordinary.**
 Every statement is `IF NOT EXISTS`, it rewrites no rows, and it was proven
 re-runnable by applying it twice against a real Postgres 16 and diffing the full
-schema. **Apply it from the merged tree, not from a branch checkout.** A no-op
-includes not applying later corrections, and `schema_migrations` keys on the
-filename, so a database that ran an earlier draft cannot receive them by
-re-running the file - it needs those objects corrected by hand. It is what makes the `drain` and `neffSeries` panels measurements rather
-than stated absences: `blocks` carries the block header's own timestamp, because
-`pool_snapshots.ts` is the time the indexer WROTE the row and a velocity measured
-against that is arbitrarily wrong across a catch-up sync.
+schema. Migration 005 is what makes the `drain` and `neffSeries` panels
+measurements rather than stated absences: `blocks` carries the block header's own
+timestamp, because `pool_snapshots.ts` is the time the indexer WROTE the row and
+a velocity measured against that is arbitrarily wrong across a catch-up sync.
+
+**Apply it from the merged tree, not from a branch checkout.** Re-runnability is
+not delivery: a no-op includes not applying later corrections, and
+`schema_migrations` keys on the filename, so a database that ran an earlier draft
+cannot receive them by re-running the file - it needs those objects corrected by
+hand.
 
 **003 is the first migration in this project that ALTERs objects it did not
 create and REWRITES rows that already exist.** It widens five CHECK constraints,
@@ -498,6 +501,45 @@ with peers", not "synced". `indexer` and `publisher` healthy mean "can open a
 socket to everything they are configured to dial", not "keeping up". `gateway`
 healthy means `/healthz` answers with its own JSON shape. None of them measures
 freshness - that is what snapshot age is for.
+
+### 7.1 Publisher input faults
+
+A panel is a second silent failure: the site keeps rendering, one chart says
+"not measured", and nothing pages. The publisher logs each one:
+
+```bash
+docker compose logs publisher | grep "an input query failed"   # NOT expected
+```
+
+**No line on this channel is an expected one** - there is nothing here to
+filter, which is what makes the `grep` a triage step rather than a habit. But
+READ THE MESSAGE, because its CONSTANT half ("publishing that panel as a stated
+absence") is true of two of the four cases and false of the other two. The line carries
+a `panel` (`migrationHist`, `drain` or `neffSeries`) and a `height`, and the
+panel is absent for two of the four and present for the other two:
+
+| what the message means | panel | published? |
+| --- | --- | --- |
+| the query threw or the connection dropped | any of the three | absent - the stated absence the message names |
+| `... Ironwood spend(s) ... and none carries a resolvable anchor` | `neffSeries` | absent - the state of any database that applied 005 without a backfill |
+| `drain baseline at height N is Z, not positive` | `drain` | the series publishes with NO baseline; a ZIP 209 violation, escalate |
+| `N of M Ironwood spend(s) carry no resolvable anchor` | `neffSeries` | **PUBLISHES**, over fewer spends than the window holds |
+
+The last row is the one that clause does not fit at all: the panel is not a
+stated absence, it is a measurement over FEWER spends than the window holds, and
+this log line is the only place that gap is stated - `buildNeffSeries` drops the
+audit record, so no reader of the document can see it.
+
+For the first row the fix follows from the panel: all three read the database
+(section 4 - check the migrations are applied).
+
+Contrast the one expected line this stack does have, in section 3: `zmq
+unavailable` fires ONCE, at boot, and is triaged once. A line that fired per
+block would train an operator to filter the panel and take the real fault with
+it, which is why the publisher does not emit one for the Ironwood pool below its
+birth height - that condition is a measurement, it is carried by the DOCUMENT
+under `SNAPSHOT.md` section 8.1's rendering contract, and it reaches no log at
+all (gate round 4, F-46-1).
 
 ---
 

@@ -418,6 +418,29 @@ function buildNeffSeries(
     lowHeight: window.lowHeight,
     highHeight: window.highHeight,
   });
+  // REFUSED AT THE PRODUCER, NOT ONLY AT THE SCHEMA - the trade `buildDrain`
+  // makes for `drained`, applied to the invariant gate round 3 added here and
+  // missed by the commit that added it (gate round 4). `snapshotNeffSeriesSchema`
+  // refines `windowSpendCount >= spendCount`, `serializeSnapshot` is a bare
+  // `JSON.stringify` that validates nothing, and the gateway's `safeParse`
+  // rejects the WHOLE document - so an inverted pair costs `pools`, `residual`
+  // and `lastReports` as well, while this process logs `snapshot published`.
+  // Reproduced by the round-4 reviewer: `spendsInWindow: 1` against two admitted
+  // spends published cleanly and came back from `readSnapshotFile` as
+  // `{ ok: false, reason: "invalid" }`.
+  //
+  // Structurally the production path maintains it - `spendsInWindow` is
+  // `rows.length` and both `ironwoodSpendsFromRows` and `ironwoodBirth` only
+  // narrow - and that is exactly the argument a schema-only constraint rests on.
+  // A producer bug is the case the refine was added for, so it is the case the
+  // producer must refuse.
+  if (window.spendsInWindow < b.spendCount) {
+    throw new RangeError(
+      `buildNeffSeries: windowSpendCount = ${window.spendsInWindow} is smaller than spendCount = ` +
+        `${b.spendCount}, which snapshotNeffSeriesSchema forbids. Publishing it would put an ` +
+        "invalid document in a store shared with another project.",
+    );
+  }
   return {
     birthHeight: b.birthHeight,
     series: b.series.map((p) => ({

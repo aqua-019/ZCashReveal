@@ -571,15 +571,26 @@ export async function readSnapshotInputs(
         //   the correct measurement of it, and `ironwoodBirth` documents that in
         //   as many words.
         //
-        //   THE DOCUMENT ALREADY CARRIES IT, at the surface that has readers.
-        //   The snapshot's top-level `height` and the panel's `birthHeight` are
-        //   both REQUIRED fields, and `height < birthHeight` IS "the pool does
-        //   not exist yet" - measured on a pre-birth tip as 3,428,142 against
-        //   3,428,143. A log line addressed to one operator answers a question
-        //   the document already answers for everyone, including the
-        //   misconfiguration case: a `SNAPSHOT_IRONWOOD_BIRTH_HEIGHT` set far
-        //   above the real birth is visible as a published `birthHeight` that is
-        //   simply wrong.
+        //   THE DOCUMENT CARRIES IT, AND SO DOES THE RENDERING CONTRACT -
+        //   which is the half this comment claimed before it was true. The
+        //   snapshot's top-level `height` and the panel's `birthHeight` are both
+        //   REQUIRED fields, and `height < birthHeight` IS "the pool does not
+        //   exist yet" - measured on a pre-birth tip as 3,428,142 against
+        //   3,428,143. But FIELDS ARE NOT A CONTRACT. As first written this
+        //   reason said the document carries it "at the surface that has
+        //   readers", and there were no readers: `neffSeries` appears zero times
+        //   in `apps/web`, the gateway has no snapshot read path, and
+        //   `SNAPSHOT.md` section 8.1 distinguished only null from non-null, so
+        //   nothing instructed anyone to make the comparison the argument rests
+        //   on. Section 8.1 now carries the row - "the Ironwood pool does not
+        //   exist at this height" - and THAT is what a log line would duplicate.
+        //
+        //   A birth height set ABOVE THE TIP is visible in those same two
+        //   fields, as a published `birthHeight` that is simply wrong. The limit
+        //   is worth stating: `config.ts` names the OTHER misconfiguration - a
+        //   birth height raised but still BELOW the tip, which silently shortens
+        //   the series - and no published field discriminates that one. This
+        //   reason covers a birth above the tip and claims nothing about it.
         //
         //   NOT the WINDOW, which an earlier draft of this comment named and
         //   which is NOT published: `snapshotNeffSeriesSchema` carries

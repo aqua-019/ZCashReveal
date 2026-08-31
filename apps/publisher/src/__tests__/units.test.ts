@@ -11,6 +11,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   ironwoodSpendsFromRows,
+  readSnapshotInputs,
+  type ChainInputsDeps,
+  type InputFault,
   type IronwoodSpendRow,
 } from "../sources/chain-inputs.js";
 
@@ -31,10 +34,10 @@ import { labelsVersionOf } from "../labels-version.js";
 import { redactUrlCredentials } from "../logger.js";
 import { crossingsFromRows, readChainValues } from "../sources/chain-inputs.js";
 import { parseTipMessage } from "../sources/tip-source.js";
-import { snapshotNeffSeriesSchema } from "@zcashreveal/types";
+import { asHex, snapshotNeffSeriesSchema } from "@zcashreveal/types";
 import { REAL_INSTRUMENTS } from "../instruments.js";
 import { buildSnapshot } from "../snapshot-builder.js";
-import { fixtureInputs } from "./harness.js";
+import { fixtureInputs, mayTruncate, ZAT_PER_ZEC } from "./harness.js";
 
 const EMPTY_ENV: NodeJS.ProcessEnv = {};
 
@@ -340,6 +343,84 @@ describe("the two fault sinks - a broken logger costs nothing", () => {
       process.off("unhandledRejection", onUnhandled);
     }
   });
+
+  // THE FIRST OF THE TWO SITES, RESTORED - AND IT HAD LOST ITS ONLY TEST IN THE
+  // COMMIT THAT SAID BOTH WERE COVERED (gate round 4). Round 2 added the wrapper
+  // in `readSnapshotInputs` with a two-polarity transcript, `F11`, in the
+  // integration file. Round 3 added the two cases above for `panelOrNull` and
+  // DELETED `F11` - so the commit whose message reads "both sites now guard"
+  // left this one with no test in either polarity, in a repository whose §5 rule
+  // is a transcript per assertion. Measured at that commit: replacing the
+  // wrapper with a bare `sink(panel, err);` left the whole publisher suite at 90
+  // passed / 2 skipped, unchanged.
+  //
+  // THEY LIVE HERE RATHER THAN BACK IN THE INTEGRATION FILE because nothing
+  // about a broken logger needs a database: `F11` was skipped on any machine
+  // without Postgres, which is a second way for a guard to have no transcript.
+  const faultingDeps = (over: Partial<ChainInputsDeps> = {}): ChainInputsDeps => ({
+    readChainInfo: () =>
+      Promise.resolve({
+        valuePools: [
+          { id: "transparent", chainValueZat: 4_000_000n * ZAT_PER_ZEC },
+          { id: "sprout", chainValueZat: 22_621n * ZAT_PER_ZEC },
+          { id: "sapling", chainValueZat: 1_200_000n * ZAT_PER_ZEC },
+          { id: "orchard", chainValueZat: 708_841n * ZAT_PER_ZEC },
+          { id: "ironwood", chainValueZat: 300_000n * ZAT_PER_ZEC },
+        ],
+        chainSupply: { chainValueZat: 16_889_987n * ZAT_PER_ZEC },
+      }),
+    // THE FIXTURE MUST MAKE A PANEL ACTUALLY FAULT, the same requirement the two
+    // cases above carry: a rejecting query is what drives `panelInputs` into its
+    // `catch`, and the `catch` is the only caller of `fault`.
+    queryMigrations: () => Promise.reject(new Error("connection terminated unexpectedly")),
+    queryOrchardSeries: null,
+    queryDrainBaseline: null,
+    queryIronwoodSpends: null,
+    cfg: loadConfig({}),
+    labelsVersion: "labels-9-2026-08-22",
+    now: () => 1_780_000_010_000,
+    ...over,
+  });
+
+  const FAULT_TIP = { height: 3_500_000, hash: "aa".repeat(32), timeMs: 1_780_000_000_000 };
+
+  it("readSnapshotInputs survives a THROWING input sink", async () => {
+    const inputs = await readSnapshotInputs(
+      faultingDeps({
+        onInputFault: () => {
+          throw new Error("the logger itself is broken");
+        },
+      }),
+      FAULT_TIP,
+    );
+    // It resolved rather than rejecting, and the panel it lost is the one whose
+    // query failed.
+    expect(inputs.migrationWindow).toBeNull();
+    expect(inputs.height).toBe(FAULT_TIP.height);
+  });
+
+  it("readSnapshotInputs survives an ASYNC input sink that rejects", async () => {
+    // `void` in `InputFault` does not forbid an async sink, and a rejected
+    // promise escapes a `catch` entirely - on Node 22 that is a process exit,
+    // which is worse than the document loss the wrapper was added to prevent.
+    const rejections: unknown[] = [];
+    const onUnhandled = (err: unknown) => rejections.push(err);
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      const inputs = await readSnapshotInputs(
+        faultingDeps({
+          onInputFault: (() =>
+            Promise.reject(new Error("the async logger is broken"))) as unknown as InputFault,
+        }),
+        FAULT_TIP,
+      );
+      expect(inputs.migrationWindow).toBeNull();
+      await new Promise((r) => setImmediate(r));
+      expect(rejections, "a rejected sink must not reach the process").toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+  });
 });
 
 describe("snapshotNeffSeriesSchema's windowSpendCount invariant", () => {
@@ -367,5 +448,114 @@ describe("snapshotNeffSeriesSchema's windowSpendCount invariant", () => {
   it("ADMITS equal counts, which is the fully-measured window", () => {
     expect(snapshotNeffSeriesSchema.safeParse(panel(2, 2)).success).toBe(true);
     expect(snapshotNeffSeriesSchema.safeParse(panel(2, 4)).success).toBe(true);
+  });
+
+  it("AND THE PRODUCER REFUSES IT TOO, so the whole document does not die downstream", () => {
+    // THE SCHEMA ALONE IS THE WRONG PLACE FOR IT TO FAIL (gate round 4). Round 3
+    // added the refine and no matching producer refusal, which is the trade
+    // `buildDrain` had already made for `drained` six lines away in the same
+    // file: `serializeSnapshot` validates nothing, so an inverted pair is
+    // written to the file sink AND the shared managed store, and the gateway's
+    // `safeParse` then rejects `pools`, `residual` and `lastReports` along with
+    // it - while this process logs `snapshot published`.
+    //
+    // TWO ADMITTED SPENDS AGAINST A WINDOW POPULATION OF ONE. `spendsInWindow`
+    // is the DATA mutation; the code is unmutated, and the harness's own value
+    // is the pass side below.
+    const height = 3_500_000;
+    const inputs = fixtureInputs(height, {
+      ironwoodSpends: [
+        { txid: asHex("bb".repeat(32)), height, pool: "ironwood", candidateCount: 5n },
+        { txid: asHex("cc".repeat(32)), height, pool: "ironwood", candidateCount: 7n },
+      ],
+      ironwoodWindow: {
+        birthHeight: 3_428_143,
+        lowHeight: height - 1151,
+        highHeight: height,
+        spendsInWindow: 1,
+      },
+    });
+    const faults: string[] = [];
+    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, (p) => faults.push(p));
+
+    // The panel is refused, and refused as a NULL rather than as a throw that
+    // costs the tip - `panelOrNull` is what makes the two different.
+    //
+    // ON MEMBERSHIP, NOT ON THE WHOLE LIST, because the harness faults `drain`
+    // BY CONSTRUCTION and that is not this test's subject: `orchardSeries`
+    // defaults to `[]` with a baseline PRESENT, which is the combination
+    // `orchardDrain` refuses and which the two `panelOrNull` cases above rely
+    // on. The pass case below is what makes this assertion two-sided.
+    expect(snapshot.neffSeries).toBeNull();
+    expect(faults).toContain("neffSeries");
+    // AND EVERY OTHER PANEL SURVIVES, which is the whole reason to refuse here
+    // rather than let the gateway reject the document.
+    expect(snapshot.residual).not.toBeNull();
+    expect(snapshot.pools.length).toBeGreaterThan(0);
+    // What the gateway would have been handed instead: an invalid document.
+    expect(snapshotNeffSeriesSchema.safeParse(panel(2, 1)).success).toBe(false);
+  });
+
+  it("PUBLISHES the harness's own fully-measured window, so the refusal is not blanket", () => {
+    // The SAME fixture with the SAME code, one field different - the harness's
+    // own `spendsInWindow: 1` against its own single spend.
+    const inputs = fixtureInputs(3_500_000);
+    const faults: string[] = [];
+    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, (p) => faults.push(p));
+    expect(faults, "the refusal must not fire on a well-formed window").not.toContain("neffSeries");
+    expect(snapshot.neffSeries).not.toBeNull();
+    expect(snapshot.neffSeries!.windowSpendCount).toBe(1);
+    expect(snapshot.neffSeries!.spendCount).toBeLessThanOrEqual(
+      snapshot.neffSeries!.windowSpendCount,
+    );
+  });
+});
+
+describe("mayTruncate - the publisher's own copy of the schema refusal", () => {
+  // THE SECOND COPY OF THE GUARD, DRIVEN AT LAST (gate round 4). The integration
+  // file truncates directly rather than through `_setup.ts`'s `truncateAll`, so
+  // it carries a hand-written duplicate of the same predicate; `truncateAll`'s
+  // copy has `truncate-guard.test.ts` and this one had nothing in either
+  // polarity. Two copies of a rule with one test is how they come apart, and the
+  // failure mode is truncating a developer's `public` schema on every run.
+  //
+  // The cases are stated as the four inputs that matter rather than as a table,
+  // because the empty string is the one a reader gets wrong: `search_path` set
+  // to `""` is `public` as surely as unset is, and a `?? ""` upstream is how it
+  // arrives.
+  it("REFUSES with no schema and no hatch", () => {
+    expect(mayTruncate(undefined, undefined)).toBe(false);
+  });
+
+  it("REFUSES on an EMPTY schema, not only an absent one", () => {
+    expect(mayTruncate("", undefined)).toBe(false);
+    expect(mayTruncate("", "")).toBe(false);
+  });
+
+  it("ALLOWS when this run owns a schema", () => {
+    expect(mayTruncate("zr_test_1234_abc", undefined)).toBe(true);
+  });
+
+  it("ALLOWS on the named hatch alone, and ONLY on the exact string", () => {
+    expect(mayTruncate(undefined, "1")).toBe(true);
+    // Not "true", not "yes", not any truthy string - an opt-out has to be said
+    // in the one form the message names.
+    expect(mayTruncate(undefined, "true")).toBe(false);
+    expect(mayTruncate(undefined, "0")).toBe(false);
+  });
+
+  it("AGREES WITH `_setup.ts`'s copy on all four inputs, which is the point of testing it", () => {
+    // The two copies read the environment differently - `_setup.ts` reads it
+    // dynamically through `testSchema()`, this file reads it once at module
+    // scope - so they can only be compared as PREDICATES, on the values.
+    const setupCopy = (schema: string | undefined, hatch: string | undefined) =>
+      !((schema === undefined || schema === "") && hatch !== "1");
+    for (const schema of [undefined, "", "zr_test_1234_abc"]) {
+      for (const hatch of [undefined, "", "1", "true"]) {
+        expect(mayTruncate(schema, hatch), `schema=${String(schema)} hatch=${String(hatch)}`).toBe(
+          setupCopy(schema, hatch),
+        );
+      }
+    }
   });
 });
