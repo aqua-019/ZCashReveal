@@ -124,6 +124,45 @@ const FINDINGS = [
     ],
   },
   {
+    id: "H09b-TEST-SCHEMA",
+    what: "a package whose integration suite TRUNCATEs shared tables must run the schema-per-run globalSetup, or `search_path` stays at `public` and the suite truncates the developer's real database",
+    // A ROW RATHER THAN A THIRTEENTH GUARD, and L2 ruled it that way for the
+    // reason this register exists: the two sites below are ALREADY the sites of
+    // `H09a-VITEST-ALIAS`, this file already self-tests in both directions, and
+    // the shape is verbatim the one it is for - a convention holding at one site
+    // of two.
+    //
+    // IT IS NOT THE SHAPE `assert-no-skipped-integration.mjs` WAS WIDENED FOR,
+    // and the distinction is the whole reason this needs its own row. That guard
+    // covers "a green CI is not evidence a package RAN" - silence. Here the
+    // suite RAN, against `public`: `apps/publisher`'s integration suite read
+    // `ZR_TEST_SCHEMA` to scope itself while its vitest config declared no
+    // `globalSetup`, so the variable was never set and `beforeEach` truncated
+    // four real tables. The failure is not silence, it is a truncated developer
+    // database plus five fabricated snapshots left behind for a local publisher
+    // to publish a drain from. Same origin as the alias row - a new suite joins
+    // the workspace without inheriting a convention every existing member has -
+    // and a different failure mode.
+    //
+    // Verified before writing this: no other guard reads a vitest config for
+    // `globalSetup`, so deleting the line that fixed it could not have failed
+    // anything.
+    //
+    // ONE RESIDUAL, WRITTEN DOWN RATHER THAN DESIGNED AGAINST. The publisher's
+    // entry points across apps at `../indexer/test/global-setup.ts`. A MOVED
+    // file fails loudly, which is fine; a change to the indexer's schema
+    // convention that silently does not apply to the publisher is what this row
+    // cannot see.
+    present: /globalSetup:/,
+    // A config with the alias map and no globalSetup - the real pre-fix state of
+    // `apps/publisher/vitest.config.ts`.
+    probe: 'test: { include: ["src/**/__tests__/**/*.test.ts"], environment: "node", globals: false },',
+    sites: [
+      "apps/publisher/vitest.config.ts",
+      "apps/indexer/vitest.config.ts",
+    ],
+  },
+  {
     id: "H09-WALLET-BOUND",
     what: "the published wallet upper bound is `<= Sigma counts` (the crossing count), never the denomination-run count - two wallets crossing one denomination in adjacent blocks form ONE run, so the run count can fall BELOW the truth and tightens as evidence accumulates",
     // `present` AND NOT `absent`, which is the one judgement in this row and is
@@ -175,6 +214,14 @@ const FINDINGS = [
     what: "the same ratio stated against the k-scaled allowance: 6.25, not 12",
     absent: /(twelve|(?<!\d)12(?!\.)) times the absolute allowance/i,
     present: /6\.25/,
+    // PROBED AT GATE ROUND 6, HAVING SHIPPED WITHOUT ONE. The self-test's old
+    // form skipped a row with no `probe` in silence and still printed "detector
+    // self-tested in both directions", so this row's `absent` had never been
+    // driven against any text at all - a self-test that under-covers its own
+    // rule, which is the shape LEDGER-09a Q3 names. The loop now fails on a
+    // probeless member, and this is the value it demanded.
+    probe: "the fee band is twelve times the absolute allowance at k = 1",
+    antiProbe: "the fee band is 6.25 times the absolute allowance at k = 2",
     sites: [
       "apps/indexer/src/analysis/echo.ts",
       "apps/indexer/src/analysis/__tests__/GOLDEN.md",
@@ -201,6 +248,9 @@ const FINDINGS = [
     id: "R2-GRADE",
     what: "an exact match with a rival grades LOW, not MEDIUM (TRACKING-MATH section 3.4 puts multiple candidates in the LOW clause by itself)",
     absent: /two grade MEDIUM|two of them MEDIUM/i,
+    // Probed at gate round 6, having shipped without one - see the loop below.
+    probe: "with two candidates in range, two grade MEDIUM and the rest LOW",
+    antiProbe: "with two candidates in range, a rival puts the match in the LOW clause by itself",
     sites: [
       "apps/indexer/src/analysis/echo.ts",
       "legacy/dashboard/src/components/CandidatesPanel.tsx",
@@ -210,6 +260,9 @@ const FINDINGS = [
     id: "R3-ROWS",
     what: "the /track fixture row count, stated as a literal where it went stale three times",
     absent: /twelve (real|committed) rows/i,
+    // Probed at gate round 6, having shipped without one - see the loop below.
+    probe: "the fixture holds twelve committed rows and the panel renders them all",
+    antiProbe: "the fixture's length is the count, so no literal can go stale here",
     sites: [
       "apps/web/src/components/track/MempoolPanel.tsx",
       "apps/web/src/app/track/page.tsx",
@@ -328,6 +381,81 @@ const FINDINGS = [
     antiProbe: "pnpm -r test 1058 passed, 1 skipped",
     sites: ["handoffs/HANDOFF-08-analysis-toolkit.md"],
   },
+  {
+    // FIFTH INSTANCE OF "A CORRECTED FACT LANDING AT SOME OF ITS SITES", AND THE
+    // FIFTH WAS COMMITTED INSIDE THE FIX FOR THE FOURTH (gate round 5). Round 4
+    // rewrote section 8.1's four rows so none names a handoff, wrote twenty-two
+    // lines of prose ending "a condition does not decay, which is why all four
+    // now name one", swept the integration test's comment to past tense - and
+    // left the sentence INTRODUCING the table three lines above it still
+    // mandating an owner, plus `chain-inputs.ts`'s restatement still in the
+    // present tense, in a file that same commit edited fifty lines higher.
+    // Its section 7 said "Swept:". The register row is what makes the next
+    // sweep's completeness a check rather than a claim.
+    id: "H09b-ABSENCE-CONDITION",
+    what: "a null panel renders as a named absence stating a CONDITION, never an owner - gate round 4 rewrote SNAPSHOT.md section 8.1's rows and left two sites still naming an owner",
+    // THE THIRD ALTERNATIVE IS THE DATA HALF, AND ROUND 5 SHIPPED WITHOUT IT
+    // (gate round 6). The first two alternatives match the SENTENCES round 5
+    // happened to fix, so reverting those sentences turned the guard red and it
+    // was called two-polarity evidence. It was not. Executed by round 6:
+    // restoring the round-3 TABLE ROWS verbatim - `drain: not measured - needs a
+    // block-time source (HANDOFF-09b)`, the actual rendering string the rule
+    // forbids - left the guard GREEN. That is the exact failure CLAUDE.md's
+    // data-mutation rule names: a fail side chosen from the code rather than
+    // from the set the predicate claims to exclude. Seven of eight paraphrases
+    // ("naming its owner", "carrying the handoff that owns it") also passed.
+    //
+    // So alternative one is widened over the phrasing, and alternative three
+    // matches the OBJECT: a table cell pairing "not measured" with a HANDOFF
+    // reference. It is anchored on the cell pipe so that section 8.1's own
+    // HISTORICAL quotation of that string in running prose - "would have told a
+    // visitor ... 'needs a block-time source (HANDOFF-09b)'" - is not a hit,
+    // which is the distinction `H09-WALLET-BOUND`'s comment says a bare phrase
+    // match cannot draw.
+    //
+    // AND THE RESIDUAL IS STATED RATHER THAN CLAIMED AWAY. Driven over eight
+    // paraphrases, the phrasing arm now catches seven; the eighth - "a named
+    // absence that names the handoff responsible" - uses no owner-word at all
+    // and is beyond any phrase match that does not also fire on ordinary prose
+    // about handoffs. THE DATA ARM IS THE ONE THAT DOES NOT DEPEND ON PHRASING:
+    // whatever sentence a future session writes about the rule, the thing that
+    // reaches a visitor is the rendering string, and the third alternative
+    // matches that. A reader should trust this row for the object and treat the
+    // phrasing arms as a convenience.
+    absent:
+      /named absences?(?:(?!\b(?:never|not|no|nor|rather than|instead of|forbids|forbidden|without)\b)[^.,;]){0,48}\b(owner|owns it|owning)\b|8\.1 makes that null render as|\|\s*`[^|`]{0,60}not measured[^|`]{0,90}\(?HANDOFF-\d/i,
+    probe: "It renders a **named absence carrying its owner**:",
+    // A SECOND PROBE, DRAWN FROM THE EXCLUSION SET RATHER THAN FROM THE PROSE.
+    // This is the value the guard was green on when it shipped.
+    // BYTE-VERBATIM FROM `docs/2.0/SNAPSHOT.md` AT `73ea340`, line 329, which is
+    // where this defect actually stood until `923372e` removed it - recovered
+    // with `git show` rather than retyped. The first version of this key used an
+    // ASCII hyphen where the file used an em dash, which is exactly the gap
+    // between "a sentence resembling the defect" and "the defect".
+    dataProbe: "| `drain` | `drain: not measured \u2014 needs a block-time source (HANDOFF-09b)` |",
+    antiProbe: "It renders a **named absence stating the CONDITION that produced it**:",
+    sites: [
+      "docs/2.0/SNAPSHOT.md",
+      "apps/publisher/src/sources/chain-inputs.ts",
+      "apps/publisher/src/__tests__/snapshot-inputs.integration.test.ts",
+      "handoffs/README.md",
+      "handoffs/HANDOFF-11-live-wiring.md",
+      // THE SEVENTH SITE, FOUND BY GATE ROUND 7 INSIDE THE FIX FOR THE SIXTH.
+      // A supersession blockquote in 09a stating what is operative NOW -
+      // "permits a named absence carrying its owner", present tense - which the
+      // guard's own self-test settles as an ASSERTION rather than a record,
+      // because the RECORD exclusion is pinned so it cannot widen to handoffs.
+      "handoffs/HANDOFF-09a-estimator-package.md",
+      // HANDOFF-09b IS DELIBERATELY NOT A SITE, AND THAT IS A STATED LIMIT
+      // RATHER THAN AN OVERSIGHT. Its §1 carried the assertion and is fixed;
+      // its §7 must NARRATE the defect, quoting the forbidden phrase, and
+      // `absent` cannot tell an assertion from a report of one - which is the
+      // limit `H09-WALLET-BOUND`'s comment states about this whole mechanism.
+      // Registering the file would make the guard fight its own write-back.
+      // So §1 is corrected and unguarded, and the next session is told so here
+      // rather than left to infer it from a green run.
+    ],
+  },
 ];
 
 /**
@@ -342,7 +470,33 @@ const FINDINGS = [
  * the register is therefore written against flattened text.
  */
 function flatten(src) {
-  return src.replace(/^\s*(\/\/|\*)\s?/gm, " ").replace(/\s+/g, " ");
+  return (
+    src
+      // STRUCK TEXT IS NOT AN ASSERTION, AND THIS PROJECT'S AMENDMENT CONVENTION
+      // DEPENDS ON THAT (gate round 6). LEDGER-10 Q5 says a rule whose premise
+      // changed is amended IN PLACE rather than deleted, "because a rule whose
+      // premise changed is one the next session obeys for the wrong reason
+      // unless the change is visible" - so `~~the old rule~~` beside the new one
+      // is the correct shape, and a guard that fires on it would force the
+      // deletion the convention exists to prevent. `~~` is markdown's own marker
+      // for superseded, which makes this a rule about the document rather than a
+      // special case: what is struck is not in force, so it is not a site
+      // stating the old answer.
+      //
+      // LINE-SCOPED AND TILDE-FREE, BECAUSE THE FIRST FORM WAS `~~[\s\S]*?~~`
+      // AND AN ODD NUMBER OF MARKERS INVERTS IT (gate round 7). Pairing runs
+      // 1-2, 3-4, so one stray marker re-pairs every span and the guard then
+      // eats the COMPLEMENTS - the prose BETWEEN the strikes. Measured on
+      // `handoffs/README.md`: 229 characters stripped clean, 16,269 with one
+      // stray marker added, 80.3% of the file invisible to every register row.
+      // Not hypothetical: THIS FILE carries five `~~` markers, an odd count,
+      // produced by the act of explaining the convention. GFM strikethrough
+      // does not span a blank line, so scoping to one line with no interior
+      // tilde costs nothing real and removes the inversion.
+      .replace(/~~[^~\n]*~~/g, " ")
+      .replace(/^\s*(\/\/|\*)\s?/gm, " ")
+      .replace(/\s+/g, " ")
+  );
 }
 
 function read(rel) {
@@ -452,10 +606,135 @@ function selfTest() {
   // entries shipped matching the docblocks that explain their own fix. A
   // pattern nobody has run against the defect is a pattern nobody has tested.
   for (const f of FINDINGS) {
-    if (f.probe !== undefined) {
-      if (openSites({ ...f, sites: ["probe"] }, () => f.probe).length === 0) {
-        console.error(`[finding-sites] self-test: ${f.id}'s pattern does not match the defect it names.`);
+    // EVERY MEMBER MUST CARRY AT LEAST ONE PROBE, AND THE LOOP FAILS NAMING THE
+    // ONE THAT DOES NOT (LEDGER-09a Q3, enforced here at gate round 6). The
+    // guard on the next line used to be `if (f.probe !== undefined)`, so a row
+    // added WITHOUT a probe was skipped in silence and the run still printed
+    // "detector self-tested in both directions" - a self-test that under-covers
+    // its own rule, which is the exact shape the ledger rule names. Measured: a
+    // row with `absent` and no `probe` printed OK at 16 findings while one row
+    // had never been driven against any text.
+    if (f.probe === undefined && f.dataProbe === undefined) {
+      console.error(
+        `[finding-sites] self-test: ${f.id} carries no probe, so its pattern has never been ` +
+          "driven against the defect it names. Every register entry needs one.",
+      );
+      return false;
+    }
+    // BOTH PROBES, AND `dataProbe` IS THE ONE THAT MATTERS. `probe` is drawn
+    // from the PROSE a fix happened to touch; `dataProbe` is drawn from the set
+    // the predicate claims to exclude - an actual forbidden value. Round 5
+    // shipped this register's newest row with only the first kind, and
+    // reverting the two sentences it was written from turned the guard red,
+    // which was mistaken for two-polarity evidence. It was not: restoring the
+    // real forbidden TABLE ROWS left the same guard green.
+    //
+    // DRIVEN DIRECTLY, NOT THROUGH `openSites` (gate round 7). Routed through
+    // `openSites` a probe counted as "matched" if `absent` fired OR `present`
+    // was merely MISSING - so for the seven rows carrying a `present` check the
+    // pattern was never driven at all, and the literal string "banana" passed
+    // every one of them while the run printed "self-tested in both directions".
+    // The loop written to close an under-covering self-test was itself under-
+    // covering, for 7 of 15 rows. Each pattern the row carries is now asserted
+    // on its own terms.
+    for (const [kind, text] of [["probe", f.probe], ["dataProbe", f.dataProbe]]) {
+      if (text === undefined) continue;
+      const flat = flatten(text);
+      if (f.absent !== undefined && !f.absent.test(flat)) {
+        console.error(
+          `[finding-sites] self-test: ${f.id}'s ABSENT pattern does not match the ${kind} - the defect it names.`,
+        );
         return false;
+      }
+      if (f.present !== undefined && f.present.test(flat)) {
+        console.error(
+          `[finding-sites] self-test: ${f.id}'s ${kind} satisfies its PRESENT check, so it is not the defect.`,
+        );
+        return false;
+      }
+    }
+    // WHAT THIS DOES NOT DO, STATED SO A GREEN RUN IS NOT READ AS WIDER THAN IT
+    // IS: for a row carrying ONLY a `present` check, the `probe` field is not
+    // load-bearing and cannot be. The defect such a row describes is text that
+    // is MISSING, so any string lacking that text is a valid probe - the literal
+    // "banana" is - and no held string can discriminate the pattern. The real
+    // evidence for those rows is the site drive below, which deletes the
+    // corrected text from the actual file. The probe is kept as documentation of
+    // the defect's shape, and it is documentation rather than a test.
+    //
+    // AND AN `antiProbe` IS REQUIRED WHERE AN `absent` PATTERN EXISTS, which is
+    // the asymmetry `check-infra-docs.mjs` closed in the same commit that left
+    // this open: a row with no antiProbe has nothing showing its pattern does
+    // not also match the CORRECTION, which is how three structural entries once
+    // shipped matching the docblocks explaining their own fix.
+    if (f.absent !== undefined && f.antiProbe === undefined) {
+      console.error(
+        `[finding-sites] self-test: ${f.id} has an absent pattern and no antiProbe, so nothing ` +
+          "shows it does not also match the correction.",
+      );
+      return false;
+    }
+    // AND EACH ROW IS DRIVEN AGAINST ITS OWN REAL SITES, NOT ONLY AGAINST A
+    // STRING THIS FILE HOLDS (L2's ruling on PR #46, gate round 7). A probe
+    // checked in isolation proves the pattern matches a sentence somebody wrote
+    // into the self-test; it does not prove the pattern fires on that defect
+    // sitting in the file it is supposed to police, which is the only claim a
+    // green run makes. The two kinds of row need opposite perturbations:
+    //
+    //   `absent`  the defect is text that must not be there, so the probe is
+    //             SPLICED INTO the real file and the row must report that site.
+    //   `present` the defect is text that is MISSING, so the corrected text is
+    //             DELETED from the real file and the row must report that site.
+    //
+    // The second half is why this matters beyond tidiness. A `present` row
+    // cannot be driven by a held string at all: any string that merely lacks
+    // the required text satisfies the old check, and the literal "banana"
+    // passed all seven `present`-bearing rows. Only the real file can carry the
+    // difference between "this text is missing" and "this is not the file".
+    for (const site of f.sites) {
+      if (RECORD_FILES.some((r) => r.test(site))) continue;
+      const real = read(site);
+      if (real === null) {
+        console.error(`[finding-sites] self-test: ${f.id}'s site ${site} does not exist.`);
+        return false;
+      }
+      if (f.absent !== undefined) {
+        const defect = f.dataProbe ?? f.probe;
+        const perturbed = `${real}\n${defect}\n`;
+        if (openSites({ ...f, sites: [site] }, () => perturbed).length === 0) {
+          console.error(
+            `[finding-sites] self-test: ${f.id} does not fire on ${site} with its own defect ` +
+              "text spliced in - the pattern matches the probe in isolation and not the real file.",
+          );
+          return false;
+        }
+      }
+      if (f.present !== undefined) {
+        // STRIPPED IN THE SPACE THE MATCH HAPPENS IN, AND WITH THE ROW'S OWN
+        // FLAGS. Two malformed drafts of this loop, both reported rather than
+        // quietly redone, because each read as a defect in the row it was
+        // testing: the first rebuilt the regex as `new RegExp(source, "g")` and
+        // dropped the `i`, so a capitalised match survived; the second stripped
+        // the RAW file while `openSites` matches the FLATTENED one, so a phrase
+        // that only forms after comment-prefix stripping - "number of\n *
+        // crossings" in `migration-lens.ts` - could not be removed and the row
+        // looked inert. Strip where the guard looks.
+        const all = f.present.flags.includes("g") ? f.present.flags : `${f.present.flags}g`;
+        const stripped = flatten(real).replace(new RegExp(f.present.source, all), "");
+        if (stripped === real) {
+          console.error(
+            `[finding-sites] self-test: ${f.id}'s present pattern does not match ${site} at all, ` +
+              "so deleting it changes nothing and the row proves nothing about that site.",
+          );
+          return false;
+        }
+        if (openSites({ ...f, sites: [site] }, () => stripped).length === 0) {
+          console.error(
+            `[finding-sites] self-test: ${f.id} does not fire on ${site} with its corrected text ` +
+              "deleted, so nothing shows the row would notice that site regressing.",
+          );
+          return false;
+        }
       }
     }
     if (f.antiProbe !== undefined && f.absent !== undefined && f.absent.test(flatten(f.antiProbe))) {

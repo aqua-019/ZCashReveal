@@ -289,20 +289,101 @@ image cannot contain `apps/indexer` — its dependency tree carries `zeromq`, a 
 image has no compiler for, and its entry point opens a ZMQ subscriber. HANDOFF-09a moved them into
 `packages/zec-instruments`, a workspace package that depends on `@zcashreveal/types` and nothing
 else, and the publisher's composition root now passes the real functions. The state after that move
-is **two of the four**, and the remaining two are the INPUT layer rather than the packaging:
+was **two of the four**, and the remaining two were the INPUT layer rather than the packaging. HANDOFF-09b supplied both sources, so the production path now publishes all four; the table records what each one reads and what closed it:
 
 | panel | published | why |
 | --- | --- | --- |
 | `residual` | **measured** | supply and lane balances both come from `getblockchaininfo` |
 | `migrationHist` | **measured** | crossings come from `migrations_zip318`, whose three columns are `Crossing`'s three fields |
-| `drain` | still `null` | `pool_snapshots.ts` is `TIMESTAMPTZ DEFAULT NOW()` — the time the indexer **wrote** the row, not the block's. Plan §3.3's velocity is "from block timestamps", and a write time is right to within seconds at the tip and arbitrarily wrong across a catch-up sync. The repair is a block-time column, i.e. a migration. |
-| `neffSeries` | still `null` | the Ironwood spends and their Cand_0 bounds live in the indexer's candidate analysis, not in any table this process reads |
+| `drain` | **measured** since HANDOFF-09b | it was `null` because `pool_snapshots.ts` is `TIMESTAMPTZ DEFAULT NOW()` — the time the indexer **wrote** the row, not the block's — and §3.3's velocity is "from block timestamps". Migration 005 adds a `blocks` table (`height`, `time_s`, `hash`), one row per height rather than a column stored four times per height, and the series joins it. A snapshot whose height has no block row is dropped rather than timestamped from a fallback. |
+| `neffSeries` | **measured** since HANDOFF-09b | it was `null` because no table carried the (nullifier → anchor) edge. `pool_anchors.max_position` already held the Cand_0 bound; migration 005 adds `pool_nullifiers.anchor_root` so a spend can name the anchor that bounds it, and `candidateCount` is derived as `max_position + 1` rather than stored. |
 
-Both remaining absences are HANDOFF-11's, which **may not ship a null analysis panel** (LEDGER-09
-Q4). They are pinned by an executing assertion rather than by this paragraph:
-`apps/publisher/src/__tests__/instruments-wired.test.ts` asserts the two measured panels are
-non-null and the two absent ones are null on the production input shape, so a session that makes
-either measurable is told to re-read this table.
+Both of those absences were **HANDOFF-09b's** (LEDGER-09a Q1), not HANDOFF-11's, and both were the
+INPUT layer: `drain` needed a block-time source and `neffSeries` needed an Ironwood spend source.
+**09b supplied both, so all four panels are measurements on the production path** and the table
+above records what closed each one. They are pinned by an executing assertion rather than by this
+paragraph: `apps/publisher/src/__tests__/instruments-wired.test.ts` asserts all four are non-null on
+the production input shape, and by VALUE rather than by presence, because a panel of zeros satisfies
+`.not.toBeNull()` and is the exact reading section 8.1 forbids the site to render.
+
+#### The rendering contract for an unmeasured panel
+
+**A `null` renders as an absence and a zero renders as a measurement** is the rule this file has
+carried since HANDOFF-09, and it is a rule about the DOCUMENT. This section states the other half,
+which is a rule about the PAGE, because the two came apart and nobody noticed until LEDGER-09a Q1.
+
+HANDOFF-11's contract line used to read "the cutover may not ship a null analysis panel". L2
+restated it on the right quantity: **the cutover may not RENDER AN UNMEASURED PANEL AS A
+MEASUREMENT.** As first written the rule turned on the COUNT — four panels of four — which is why
+un-nulling two of them felt like it changed the answer, and it should not have. The dishonesty in
+an empty panel is not that it is empty. It is that **an empty chart renders as a measurement of
+zero**: a flat drain line reads to every visitor as "the pool is not draining", which is a claim
+this site has not made and cannot support, and a zero-height `neffSeries` reads as "no Ironwood
+spend has ever been anonymous enough to measure".
+
+So a renderer receiving `null` for a panel MUST NOT draw the panel's chrome around no data — no
+empty axes, no zero-height bars, no flat line at the baseline, no "0" in a figure slot. It renders
+a **named absence stating the CONDITION that produced it** - never an owner, for the reason given below the table:
+
+| panel | what the site displays while unmeasured |
+| --- | --- |
+| `residual` | `unprovable residual: not measured — the node reported no supply` |
+| `migrationHist` | `migration histogram: not measured — no migration window was read` |
+| `drain` | `drain: not measured — no block time or no baseline for this height` |
+| `neffSeries` | `N_eff series: not measured — no Ironwood spend in the window could be bounded` |
+
+**And a rule for `neffSeries` when it IS measured, because a panel can be present and still make a claim it cannot support.** Its `shares` are computed over `spendCount` — the spends whose anchor resolved — and `windowSpendCount` is how many Ironwood spends there were in the window. **A renderer must show the pair, never a share alone.** Four of five spends unbounded publishes `requires_disclosure: 1` over a single spend, and rendered as "100% require disclosure" that is a measurement of the window it was not taken over. `N_eff over 2 of 4 spends in the window` is the honest form; a bare percentage is not.
+
+**And a SECOND rule for `neffSeries`, because the pool has a birth height and a zero below it is not the same zero as above it.** `birthHeight` is a required field of the panel and `height` is a required field of the snapshot, so `height < birthHeight` is fully determined by the document. On such a tip the series is empty and that emptiness is a correct MEASUREMENT - the pool does not exist yet - but it is also exactly the shape the paragraph above calls dishonest, because an unqualified empty chart reads as "no Ironwood spend has ever been anonymous enough to measure". So `neffSeries` has four renderings, not two:
+
+| `neffSeries` condition | what the site displays |
+| --- | --- |
+| `null` | the named absence from the table above |
+| non-null, `height < birthHeight` | `N_eff series: the Ironwood pool does not exist at this height (born at <birthHeight>)` - attributed to the published `birthHeight`, never asserted of the chain, because that number is `SNAPSHOT_IRONWOOD_BIRTH_HEIGHT` and a misconfigured one is visible here and nowhere else |
+| non-null, `height >= birthHeight`, `windowSpendCount === 0` | a measured zero, rendered as one: `N_eff over 0 of 0 spends in the window` |
+| non-null, `height >= birthHeight`, `windowSpendCount > 0` | the pair rule above |
+
+**The publisher reports nothing on the fault channel for the second row, deliberately** (gate round 4, F-46-1): the pre-birth condition is not an input failure, and an ERROR line saying one occurred fires on every block of an initial sync. This table is where a renderer is told about the condition instead, and `apps/publisher/src/sources/chain-inputs.ts` points here from the branch that produces it. That pointer is load-bearing in both directions: the branch's own comment first argued the deletion on the grounds that "the document already carries it, at the surface that has readers", which was true of the FIELDS and false of the CONTRACT - `neffSeries` has no reader in `apps/web`, the gateway has no snapshot read path, and this section distinguished only null from non-null. The row is what makes that argument true rather than aspirational.
+
+**Each string names the DOMINANT cause, and gate round 5 corrected two that named a rarer one.**
+`neffSeries` is null on five paths and the query ANSWERED on three of them - the dominant one being
+rows returned with no resolvable anchor, which is the state of any database that applied 005 without
+a backfill. "The Ironwood spend query did not answer" would have told a visitor the query failed
+when it succeeded and nothing in it could be bounded, which is the same defect one layer down from
+the one this section had just fixed. `drain` gains "or no baseline" for the same reason.
+
+**All four name a CONDITION, and the first two did not until gate round 4.** Until HANDOFF-09b
+`drain` and `neffSeries` named a HANDOFF, correctly: the absence really was a gap in this project's
+pipeline that a numbered handoff owned. 09b closed both, and the commit that recorded it above
+rewrote the paragraph and left this table twenty-five lines below still naming 09b as the owner of
+an absence 09b had closed — the same defect, in the same file, in the same commit, and the
+publisher change in that commit was made FOR this reason ("naming a handoff for an absence no
+handoff can close"). `drain` is still reachable as `null` on the production path: no
+`queryOrchardSeries`, no baseline row at `SNAPSHOT_DRAIN_BASELINE_HEIGHT`, or a non-positive
+baseline. So a renderer following the old table would have told a visitor that a database which did
+not answer on this tip "needs a block-time source (HANDOFF-09b)".
+
+That is verbatim the failure `apps/gateway/src/views/pools.ts` already records and fixed with
+`UNASSIGNED`: **an `owner` is a live statement on the wire and decays silently — a prediction that
+outlives its subject reads as a fact.** A condition does not decay, which is why all four now name
+one.
+
+**This is the LEDGER-05 Q2 precedent applied exactly**: `/api/pools` answers 503 naming the four
+blocks it cannot serve rather than serving four empty ones, because a page that serves four empty
+blocks is claiming to have looked and found nothing. A named absence is that same answer in a
+panel's shape.
+
+**And note what the correction costs, because that is what shows it is not a convenience.** The
+corrected rule is count-independent, so it **no longer blocks the cutover**: if the operator wants
+HANDOFF-11 before 09b, the honesty rule permits it provided both panels render as named absences
+stating the condition that produced them. (L2 wrote that permission as "carrying their owner", which
+was the form the table used then; gate round 6 found this sentence twelve lines below the paragraph
+that replaced it, still stating the superseded half of the same rule.) 09b is still ordered first, on a cost argument that has nothing to do with panel
+honesty — migrations 003 and 004 have never been applied to the VPS, so that database is COLD, and
+a 005 landing before the cutover is one free run where a 005 landing after it is a maintenance
+window on a live public site. That is a cost ruling the operator may overrule. The honesty ruling
+is not one L2 will trade, and it is a floor rather than a ceiling: no later handoff may weaken it,
+under the same rule as §4.
 
 ### 8.2 Why there is a `schema` field the handoff did not ask for
 

@@ -139,6 +139,69 @@ const Schema = z.object({
    * page renders.
    */
   SNAPSHOT_MIGRATION_WINDOW_BLOCKS: z.coerce.number().int().positive().default(BLOCKS_PER_DAY),
+
+  /**
+   * How many blocks back the DRAIN reads its Orchard balance series from the tip.
+   *
+   * SEVEN DAYS PLUS A MARGIN, BECAUSE THE INSTRUMENT ASKS FOR SEVEN. `orchardDrain`
+   * computes two velocities, over 24 hours and over 168, and `selectWindow` admits
+   * a sample by its BLOCK TIME rather than by its height. A window sized to exactly
+   * seven days of blocks at the target interval would therefore come up short
+   * whenever blocks ran slow, and the 7d velocity would quietly narrow to whatever
+   * the query happened to return. Eight days of blocks is the cheapest way to make
+   * the time rule the binding one, which is what `selectWindow`'s audit record
+   * reports as `countIn` against `countOut`.
+   */
+  SNAPSHOT_DRAIN_WINDOW_BLOCKS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(BLOCKS_PER_DAY * 8),
+
+  /**
+   * How many blocks back the N_eff series reads Ironwood spends from the tip.
+   *
+   * The same one-day window the migration lens uses, and for the same reason
+   * (plan section 3.5 reports the series over a window, not over all of history).
+   * It is a SEPARATE knob rather than a reuse of `SNAPSHOT_MIGRATION_WINDOW_BLOCKS`
+   * because the two answer different questions and an operator widening one to
+   * investigate a migration burst should not silently rescale the other.
+   */
+  SNAPSHOT_IRONWOOD_WINDOW_BLOCKS: z.coerce.number().int().positive().default(BLOCKS_PER_DAY),
+
+  /**
+   * The height Ironwood was born at - NU6.3 on the network this publisher reads.
+   *
+   * A SEPARATE KNOB FROM `SNAPSHOT_DRAIN_BASELINE_HEIGHT` EVEN THOUGH BOTH
+   * DEFAULT TO THE SAME NUMBER, and the reason is that they are different KINDS
+   * of quantity that happen to coincide on mainnet.
+   *
+   * `SNAPSHOT_DRAIN_BASELINE_HEIGHT` is a CHART ORIGIN. `orchardDrain`'s own
+   * docblock says so - "the baseline is the caller's, not this module's ... the
+   * drain is well defined against any baseline a caller can justify, testnet's
+   * NU6.3, or A CHART RE-BASED TO A LATER HEIGHT" - so an operator moving it to
+   * re-base the drain is using it exactly as intended.
+   *
+   * A BIRTH HEIGHT IS A CONSENSUS FACT and cannot be re-based at all. The first
+   * draft of HANDOFF-09b read `birthHeight` from the drain baseline, on the
+   * argument that "one configured height is one thing to get right instead of
+   * two". That argument was wrong, and the failure it produces is silent: an
+   * operator re-basing the drain chart to a later height would move Ironwood's
+   * birth with it, `ironwoodBirth` would exclude every spend below the new
+   * value, and `neffSeries` would shorten - a real measurement, of a window
+   * nobody asked for, with nothing on the page saying so.
+   *
+   * The two-knobs-can-drift objection is real and is answered by which drift
+   * matters: setting this wrong shortens or over-extends a series, and
+   * `violatesBirthBound` is the falsifiable check a caller runs for exactly
+   * that. Setting the drain baseline wrong changes a denominator that is
+   * PUBLISHED beside its result, where a reader can see it.
+   */
+  SNAPSHOT_IRONWOOD_BIRTH_HEIGHT: z.coerce
+    .number()
+    .int()
+    .nonnegative()
+    .default(NU6_3_MAINNET_HEIGHT),
 });
 
 export type PublisherConfig = z.infer<typeof Schema>;

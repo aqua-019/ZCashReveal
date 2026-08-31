@@ -2,7 +2,8 @@
  * Vitest globalSetup: give this RUN its own Postgres schema.
  *
  * THE PROBLEM, from LEDGER-06 Q6 and HANDOFF-10 deliverable 5. Every integration
- * suite TRUNCATEs the same four state-machine tables in `beforeEach`. Two vitest
+ * suite TRUNCATEs the same chain-derived tables - four when this was written,
+ * six since HANDOFF-09b gave `pool_snapshots` and `blocks` a writer in `beforeEach`. Two vitest
  * processes against one Postgres therefore corrupt each other, and HANDOFF-06's
  * round 2 reproduced it in BOTH directions: one worker's TRUNCATE wiping the
  * other's rows mid-test, and foreign rows landing in a count - including a

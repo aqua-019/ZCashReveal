@@ -4,6 +4,7 @@ import { getSql, isPostgresReachable, truncateAll } from "./_setup.js";
 import {
   writePoolNullifier,
   readAllPoolNullifiers,
+  readPoolNullifierAnchor,
   rollbackPoolNullifiersToHeight,
 } from "../../pool-nullifiers.js";
 
@@ -81,5 +82,65 @@ describe.skipIf(!reachable)("pool_nullifiers persistence", () => {
     const remaining = await readAllPoolNullifiers("sapling", sql);
     expect(remaining).toHaveLength(1);
     expect(remaining[0]?.spentHeight).toBe(100);
+  });
+  it("an anchor arriving AFTER the spend is recorded, and never overwrites one", async () => {
+    // MIGRATION 005 EXPLICITLY DESIGNS FOR THIS ORDERING - "the anchor may also
+    // arrive after the spend; an Ironwood root comes from `z_gettreestate`, a
+    // separate call" - and the first draft's `ON CONFLICT DO NOTHING` made it
+    // permanently unrecordable: the second write was refused, nothing else in
+    // the tree UPDATEs `anchor_root`, and the spend was dropped from
+    // `neffSeries` forever. On the page that is indistinguishable from an anchor
+    // that genuinely cannot be resolved (gate round 1, MEDIUM).
+    const rec = {
+      pool: "ironwood" as const,
+      nfId: h(0x11),
+      spentTxid: h(0xaa),
+      spentHeight: 500,
+    };
+    await writePoolNullifier(rec, sql);
+    expect(await readPoolNullifierAnchor("ironwood", h(0x11), sql)).toBeNull();
+
+    await writePoolNullifier(rec, sql, h(0xee));
+    expect(await readPoolNullifierAnchor("ironwood", h(0x11), sql)).toBe(h(0xee));
+
+    // AND A RECORDED ANCHOR STILL WINS. COALESCE fills a NULL in; it never
+    // overwrites an observation, which is the property the three pool writers that still use DO NOTHING
+    // share and which a bare DO UPDATE would have broken.
+    await writePoolNullifier(rec, sql, h(0xff));
+    expect(await readPoolNullifierAnchor("ironwood", h(0x11), sql)).toBe(h(0xee));
+  });
+
+  it("a DIFFERENT spend for the same nullifier is refused, not merged into a mixed row", async () => {
+    // THE CONFLICT CLAUSE'S `WHERE`, AND THE DEFECT IT CLOSES (gate round 2,
+    // MEDIUM). `DO UPDATE SET anchor_root = ...` touches one column, so
+    // `spent_txid` and `spent_height` keep the FIRST write's values. Without the
+    // `WHERE`, a competing chain's write filled in ITS anchor beside the old
+    // chain's txid and height - a row that never existed on either chain, which
+    // the publisher then bounded and published a claim level for. The two
+    // writers this branch made agree on refreshing every column cannot produce
+    // that; this one, refreshing exactly one, could.
+    const rec = {
+      pool: "ironwood" as const,
+      nfId: h(0x22),
+      spentTxid: h(0xbb),
+      spentHeight: 501,
+    };
+    await writePoolNullifier(rec, sql);
+    // A different txid and height for the same nullifier, carrying an anchor.
+    await writePoolNullifier(
+      { ...rec, spentTxid: h(0xcc), spentHeight: 999 },
+      sql,
+      h(0xee),
+    );
+
+    const rows = await readAllPoolNullifiers("ironwood", sql);
+    const found = rows.find((r) => r.nfId === h(0x22));
+    // The identity is the first write's, as before...
+    expect(found?.spentTxid).toBe(h(0xbb));
+    expect(found?.spentHeight).toBe(501);
+    // ...AND THE ANCHOR DID NOT COME ACROSS. This is the assertion the previous
+    // version lacked: it checked only that the identity held, which was true
+    // while the mixed row was being built.
+    expect(await readPoolNullifierAnchor("ironwood", h(0x22), sql)).toBeNull();
   });
 });

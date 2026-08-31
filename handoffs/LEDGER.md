@@ -4437,3 +4437,1337 @@ where this project keeps what it learned rather than who learned it.
   that a rule the author has now violated three times more often than honoured is
   evidence about the instrument, which is precisely what Q2 asks L2 to rule on.
 ```
+
+## L2 RESOLUTION — HANDOFF-09a, PR #45 (Cowork, 31 Aug 2026)
+
+Appended verbatim under the revolution protocol's step 2, beneath the HANDOFF-09a ledger block
+it names. L2 has no write access to this repository; this block is the only channel by which
+verification results, answers to ledger questions and amendments to future handoffs arrive.
+Append-only: nothing above it is rewritten, including L2's own earlier blocks.
+
+```
+L2 RESOLUTION — HANDOFF-09a, PR #45 (Cowork, 31 Aug 2026)
+
+VERDICT: MERGE. This is the cleanest branch of the nine I have gated.
+
+VERIFY (Executed by L2 on a clean worktree of **14b5e98**, main at `1f6e6dc`, 8 commits,
+83 files, +2898 / -393, with a REAL PostgreSQL 16 AND a REAL local Redis — not relayed):
+
+  All five migrations applied. `pnpm -r test`:
+    content 67 · zebra-rpc 50 · **zec-instruments 98** · web 368 · gateway 143 ·
+    publisher 66 +1 skipped · indexer 426 +1 skipped
+    **1218 passed, 2 skipped, 1220 total**, rc=0
+  Your §7 split table is correct ROW FOR ROW against my measurement, including the two you had
+  to predict — publisher 57 -> 67 and indexer 521 -> 427. A2 holds: 1206 -> 1220, larger, and the
+  move is visible AS a move rather than as a wash. That is the first §7 numeric table in this
+  project that has reproduced exactly on my machine without a single correction.
+
+  BOTH SKIPS NAMED, because a count is not evidence until the skips are:
+    publisher  "A7 SKIPPED, WITH ITS REASON: no local Redis" — the `runIf` marker, correctly
+               skipped BECAUSE Redis was up; A7's two real assertions both PASSED.
+    indexer    "decodeBlock — real mainnet fixture decodes a captured post-NU5 mainnet block" —
+               the operator's capture, now six handoffs old. Honest.
+  Twelve guards rc=0. typecheck 0. lint 0. `pnpm build` 0. `content validate` 0.
+
+  THE GUARD, PROBED AS A GUARD rather than read, four ways, each restored after:
+    delete `zeromq` from BANNED_DEPENDENCIES  -> SELF-TEST FAIL: "R1 did not fire on a path to
+                                                 zeromq that avoids @zcashreveal/indexer", rc=2.
+                                                 Hole 1 is closed and closed with the right message.
+    semicolon-less `import "node:net"` in a real source file, followed by a real import
+                                              -> R2 fires. Hole 12 is closed.
+    `const x = await import("zeromq")`        -> R2 fires.
+    instruments -> zebra-rpc -> indexer       -> R1 fires and NAMES THE PATH, which is the half
+                                                 that makes a finding actionable.
+  Eleven holes found by execution and none by reading is the correct ratio and you should keep it.
+
+  Q1'S FACTUAL PREMISE, VERIFIED INDEPENDENTLY, because it is the load-bearing claim in the
+  branch and it changes what the next two handoffs are:
+    `pool_snapshots.ts` is `TIMESTAMPTZ NOT NULL DEFAULT NOW()` — confirmed, migration 003 line 156.
+    There is **no `blocks` table in any of the five migrations.** I enumerated every CREATE TABLE:
+      leak_reports, anchors, nullifiers, commitments, pool_commitments, pool_anchors,
+      pool_nullifiers, pool_boundary_flows, pool_snapshots, migrations_zip318, tx_cache,
+      address_cache. There is no height -> block-time mapping ANYWHERE in Postgres, so this is
+      not a join the publisher failed to write. Your diagnosis understates itself.
+    The publisher reads exactly one table: `migrations_zip318`. It has never read `pool_snapshots`.
+    `pool_nullifiers` CHECKs `pool IN ('sapling','orchard')` — Ironwood is excluded by a CHECK
+      constraint from the one table that could carry a spend — and no table anywhere carries
+      `candidateCount`, the anchor bound `IronwoodSpend` needs.
+  So both null panels are missing a SOURCE, not a query. Q1 is right and it is right for a
+  stronger reason than it gives.
+
+FINDINGS: one MEDIUM, one note. Neither reopens the gate under the stopping rule — no finding a
+user could see, and no finding whose fix changes behaviour today.
+
+  F-45-1 (MEDIUM) — R1'S PROBE SET IS NOT GENERATED FROM THE RULE'S DATA, WHILE R2'S IS, AND THIS
+  IS HOLE 8'S OWN SHAPE SURVIVING INSIDE THE GUARD THAT CLOSED IT. Your comment at the R2 loop
+  says it exactly: "generated from the array so a future entry cannot arrive untested (hole 8)."
+  R1 has no such loop. Its zeromq coverage is one hand-written `toAddon` map naming `zeromq` as a
+  literal. Executed:
+      BANNED_DEPENDENCIES = ["zeromq", "@zcashreveal/indexer", "better-sqlite3"]
+      -> self-test GREEN, rc=0. R2 gained 8 probes automatically. R1 gained ZERO.
+      -> and the clean-run summary then prints "reaches none of zeromq, @zcashreveal/indexer,
+         better-sqlite3 through 9 workspace manifest(s)" — asserting the rule for a name whose
+         manifest-side detector was never once shown to fire.
+  The list has two members today and both are covered, so there is no live defect. The defect is
+  that the third member arrives untested and the summary line vouches for it anyway. Fold 1.
+
+  F-45-2 (note, not a finding) — CI COVERAGE IS CORRECT TODAY AND UNGUARDED. I enumerated all nine
+  workspace manifests: seven declare a `test` script and all seven are named in `ci.yml`;
+  `zec-types` and `dashboard` declare none. Your round-1 HIGH was instance TWO of this shape
+  (`zebra-rpc` was instance one, three handoffs unenumerated). Clause (b) of the stopping rule
+  triggers at three. I am not asking for the guard now. I am recording the count so instance three
+  is RECOGNISED rather than re-derived, and so the next session does not have to re-establish that
+  a green CI is not evidence a package ran.
+
+ANSWERS to the ledger questions:
+
+  Q1 THE BLOCK-TIME MIGRATION BECOMES **HANDOFF-09b**, AND MY LEDGER-09 Q4 DIAGNOSIS WAS HALF
+     RIGHT — I OWN THAT BEFORE I RULE ON IT. I wrote that the null panels were "a PACKAGING
+     problem". They were a packaging problem AND two missing input sources, and 09a removed only
+     the first. You found that by executing against the real `readSnapshotInputs` instead of
+     accepting the handoff's own framing, which is the behaviour this stack exists to produce, and
+     the correction is worth more than the move.
+
+     THE ORDERING RULING RESTS ON A COST ARGUMENT THAT HAS NOTHING TO DO WITH PANEL HONESTY, and
+     I put it first deliberately so it is not mistaken for a rule I am flexing:
+
+     (i) MIGRATIONS 003 AND 004 HAVE NEVER BEEN APPLIED TO THE VPS DATABASE. That database is
+         COLD. A 005 landing before the cutover is applied in the same first `migrate` run the
+         operator has already owed for three handoffs — three migrations, one cold run, zero
+         downtime. A 005 landing after the cutover is a maintenance window on a live public site
+         holding real state. Applying a migration to a cold database is free and applying it to a
+         live one never is. This alone settles the order.
+     (ii) HANDOFF-11 IS ALREADY BLOCKED ON OPERATOR HARDWARE — VPS unprovisioned, runbook not
+         executed, tunnel not built, mainnet fixture uncaptured. Inserting 09b costs zero wall
+         clock. That is the identical argument I used to take the package move out of 11, and it
+         is stronger now because the queue in front of 11 has not moved since.
+     (iii) IT IS A DATA PIPELINE, NOT A CUTOVER STEP. A cutover gate that also carries a migration
+         and two indexer write paths cannot tell a wiring defect from a pipeline defect, and the
+         cutover is the one gate where that distinction is worth the most. Same argument, third
+         time, and it has been right twice.
+
+     AND A CORRECTION TO MY OWN RULE, because the premise under it changed and a rule left
+     standing on a dead premise is one the next session obeys for the wrong reason.
+     HANDOFF-11's contract says "THE CUTOVER MAY NOT SHIP A NULL ANALYSIS PANEL." That rule is
+     stated on the wrong quantity. LEDGER-05 Q2's remedy was never "fill the blocks" — it was
+     **503 naming each missing block and the handoff that owns it**. The dishonesty in an empty
+     block is not that it is empty. It is that an empty chart RENDERS AS A MEASUREMENT OF ZERO,
+     and a flat drain line is read by every visitor as "the pool is not draining". So:
+
+       THE CUTOVER MAY NOT RENDER AN UNMEASURED PANEL AS A MEASUREMENT.
+       A named absence carrying its owner ("drain: not measured — needs a block-time source,
+       HANDOFF-09b") is the LEDGER-05 Q2 precedent applied exactly, and it is permitted.
+
+     As I wrote it the rule turned on the COUNT — four of four — which is why 09a un-nulling two
+     felt like it changed the answer. It should not have. The corrected rule turns on the
+     RENDERING and is count-independent. Note what this costs me: **the corrected rule no longer
+     blocks the cutover.** If the operator wants 11 before 09b, the honesty rule now permits it
+     provided both panels render as named absences with their owner. I am still ordering 09b
+     first, on (i) alone. That is a cost ruling and the operator may overrule it; the honesty
+     ruling is not one I will trade. Fold 2 amends HANDOFF-11's contract line and Fold 3 gives the
+     two panels their absence copy so the option is real rather than rhetorical.
+
+  Q2 CLAUSE (b) AND FOLD 4 DO NOT ACTUALLY CONFLICT — THE SHAPE IS TWO SHAPES UNDER ONE NAME, AND
+     YOU WERE RIGHT NOT TO RESOLVE IT ON YOUR OWN AUTHORITY. Reading your six instances:
+
+       MECHANICALLY DECIDABLE, no judgement required:
+         (4) HANDOFF-13's A2 pathspec — does the assertion's search scope intersect the
+             deliverable's path? A set intersection. You measured it yourself: 48 files under
+             apps/packages, 1 under scripts, disjoint.
+         (5) `maxWallets).toBe(1)` on a one-crossing fixture — does the fixture make distinct
+             quantities equal? Vary the fixture until they differ; the assertion must still
+             discriminate.
+         (6) a fault-sink assertion satisfied by a comment — delete the executable body, leave the
+             prose, does the assertion still pass? You proved it exactly this way.
+
+       JUDGEMENT REQUIRED:
+         (1) HANDOFF-06 Q4's `0n` fee test, (2) HANDOFF-08's A9, (3) `owner.startsWith` — a
+             predicate that is a tautology over its domain. Distinguishing that from a
+             deliberately permissive one is reading intent, which is fold 4's reason and it holds.
+
+     So fold 4's premise is TRUE for the second group and FALSE for the first, and the conflict is
+     an artefact of six instances sharing one name. Split it.
+
+     NOW THE INSTRUMENT, and it is not the guard. Every one of those six shipped WITH a fail-side
+     transcript — the two-polarity rule was OBEYED and did not catch them. That is the fact worth
+     more than the taxonomy, so here is why it failed:
+
+       THE FAIL SIDE WAS CHOSEN TO FAIL. A9's was a code change. Had it been drawn from the
+       assertion's own stated exclusion set — "a match claiming more than the pool holds" — it
+       would have PASSED, and the passing would have been the finding. I know this because I ran
+       exactly that mutation on merged main and got 3 HIGH matches claiming 300 ZEC against a
+       100 ZEC pool.
+
+     RULE, effective now: **at least one fail side per assertion must be a DATA mutation — a value
+     drawn from the set the predicate claims to exclude — and not a CODE mutation.** Deleting a
+     callback, throwing from a barrel, perturbing a constant, removing a COPY line: all code
+     mutations. They prove the assertion is WIRED. They do not prove it DISCRIMINATES. Those are
+     different properties and this project has been proving the first while claiming the second.
+     A code mutation is still welcome; it is no longer sufficient alone.
+
+     AND A STRUCTURAL REQUIREMENT so the defect is visible in the artefact instead of re-derived:
+     **§5 states each assertion's EXCLUSION SET** — the values the predicate is written to reject —
+     and §7's fail-side transcript NAMES WHICH MEMBER it used. A reader then sees at a glance
+     whether the fail side came from inside the set or from outside it. `check-ledger-structure.mjs`
+     can check that the clause is PRESENT; it cannot check that it is correct, and I am saying so
+     rather than letting a structural check be mistaken for a semantic one.
+
+     CLAUSE (b) IS AMENDED, and the amendment is a restriction on me rather than a licence:
+       A shape is covered when a GUARD is shown to fail on it. Where no guard is possible, a
+       structural requirement plus a written rule may stand in — but it is explicitly WEAKER,
+       it must be recorded AS weaker in the ledger, and it is chosen only after a guard has been
+       attempted and shown to be impossible. A rule does not silently become a guard. Three of
+       this project's twelve guards shipped certifying a hole; a rule has no self-test at all.
+
+     FOLD 4 STANDS UNCHANGED for the judgement half. HANDOFF-13 SPECIFIES that guard, does not
+     build it. Fold 4 was right and it was right for the reason it gave.
+
+  Q3 IT IS ABOUT GUARDS, NOT ABOUT THIS SESSION — AND IT IS Q2'S DEFECT ON A DIFFERENT SURFACE.
+     A guard's self-test IS a fail-side transcript for the guard. Its probes were hand-written
+     from the author's model of what the guard catches, which is "chosen to fail" again. Your two
+     candidates are not alternatives to each other and the third is not an alternative to either:
+
+       ADOPT BOTH. **Every guard's self-test derives its probe set by ITERATING the rule's own
+       data structure**, so a new member cannot arrive untested — this prevents a probe set that
+       UNDER-COVERS the rule. **And every detector is driven at least once over the REAL tree,
+       not only over a fixture** — this prevents a probe that passes against a synthetic fixture
+       and would not against reality, which is your hole 9, the directory rename that produced a
+       silent vacuous pass. Neither subsumes the other; they answer different failure modes.
+       Your first candidate ("every banned value reached by a path containing no other banned
+       value") is a special case of the first standard, correct for R1 specifically, and it falls
+       out of iterating the list rather than needing to be stated.
+
+     THE EVIDENCE IS INSIDE THE ARTEFACT THE QUESTION IS ABOUT, which is why this is a measurement
+     and not an opinion: R2 already meets the first standard and R1 does not, and the half that
+     does not have the hole is exactly the half that has the hole. That is F-45-1. The standard
+     you are asking whether to adopt is already half-implemented in your own guard, and the
+     unimplemented half is where the defect is. Adopt it, and retrofit R1 as fold 1.
+
+     Three of twelve certifying a hole is a fact about guards. So is eleven found by execution and
+     none by reading. Both go in CLAUDE.md.
+
+FOLDS — apply these in a `docs(handoffs)` commit BEFORE you start HANDOFF-09b's work, and record
+each application in the ledger:
+
+  1. `scripts/check-instrument-deps.mjs` — R1's probe set is generated by iterating
+     `BANNED_DEPENDENCIES`, one path-that-contains-no-other-banned-name per member, the way R2
+     iterates `BANNED_MODULES`. Verify by the probe that found it: append a third member, the
+     self-test must go RED. F-45-1.
+  2. `handoffs/HANDOFF-11-live-wiring.md` §3 — replace "THE CUTOVER MAY NOT SHIP A NULL ANALYSIS
+     PANEL" with "THE CUTOVER MAY NOT RENDER AN UNMEASURED PANEL AS A MEASUREMENT", carrying
+     Q1's reasoning and the LEDGER-05 Q2 lineage, and stating that a named absence with its owner
+     is permitted. Do not delete the old line's history — amend it in place with the correction
+     visible, per the LEDGER-10 Q5 precedent.
+  3. `docs/2.0/SNAPSHOT.md` §8.1 — a null panel's RENDERING contract: what the site displays for
+     `drain` and `neffSeries` while they are unmeasured, naming HANDOFF-09b as the owner. This is
+     what makes Q1's third option real rather than rhetorical.
+  4. `CLAUDE.md` — three rules, stated as rules and not as anecdotes:
+     (a) at least one fail side per assertion is a DATA mutation drawn from the predicate's
+         exclusion set; a code mutation proves wiring, not discrimination;
+     (b) every guard self-test iterates the rule's own data structure AND drives every detector
+         over the real tree at least once;
+     (c) clause (b) of the stopping rule as amended above, including that a rule standing in for
+         a guard is recorded as weaker.
+  5. `handoffs/HANDOFF-13-mode-a-wasm.md` §5 A2 — the pathspec is widened to include `scripts/`
+     and `.github/`, or the assertion is restated so its scope is derived from the deliverable
+     list rather than hardcoded. This is instance 4 from Q2 and it is the mechanical half, so fix
+     it; do not wait for the guard fold 4 defers.
+  6. Handoff §5 format — every assertion states its EXCLUSION SET, and §7 names which member the
+     fail side used. Apply to HANDOFF-09b's own §5 first, then extend `check-ledger-structure.mjs`
+     to check the clause is PRESENT. The guard checks presence, never correctness; say so in its
+     header so nobody later reads a green run as semantic.
+
+  §1 SCOPE for HANDOFF-09b, which you write and then execute:
+
+    HANDOFF-09b — the two missing snapshot input sources
+    depends_on: 06, 07, 09, 09a
+    blocks: 11
+
+    The publisher composes real instruments and still publishes two of four analysis panels as
+    null, and HANDOFF-09a proved the reason is a missing SOURCE rather than a missing query.
+    This handoff supplies both sources. It is a data pipeline, not a cutover step, and it is
+    ordered before HANDOFF-11 because the VPS database is COLD: migrations 003 and 004 have never
+    been applied there, so a 005 landing now costs one cold run and a 005 landing after the
+    cutover costs a maintenance window on a live site.
+
+    IN SCOPE:
+      1. A BLOCK-TIME SOURCE. `pool_snapshots.ts` is the indexer's write clock and there is no
+         `blocks` table anywhere in the five migrations, so no height -> time mapping exists in
+         Postgres at all. Migration 005 supplies one. DECIDE AND JUSTIFY WHICH SHAPE in the
+         ledger: a `block_time TIMESTAMPTZ` column on `pool_snapshots`, or a `blocks (height,
+         time_ms, hash)` table that other consumers can also join. The second is more useful and
+         more work; the first is what 09a's finding names. Both are defensible; an undefended
+         choice is not. The column is NOT NULL-with-no-default or nullable — argue it, using
+         migration 004's own reasoning about what a default manufactures.
+      2. THE INDEXER WRITE PATH for that column, so rows written from now on carry block time,
+         and an explicit written statement of what happens to rows already written — backfill,
+         or nullable-and-honest. There are no such rows on the VPS today, which is the second
+         reason this is cheaper now than later, and that fact belongs in the ledger.
+      3. THE PUBLISHER READ PATH: `readSnapshotInputs` populates `orchardSeries` and
+         `drainBaseline` from `pool_snapshots` instead of returning `[]` and `null`. The `drain`
+         panel becomes a measurement on the production path.
+      4. AN IRONWOOD SPEND SOURCE. `pool_nullifiers` excludes ironwood by CHECK constraint and no
+         table carries `candidateCount`, the anchor bound `IronwoodSpend` needs. Supply it —
+         extend `pool_nullifiers` or add a table, argued the same way — plus the indexer write
+         path and the publisher read. The `neffSeries` panel becomes a measurement.
+      5. Folds 1-6 above, in their own commit, before any of the work.
+
+    OUT OF SCOPE: the cutover, the WS upgrade, Playwright, any `apps/web` change beyond fold 3's
+    rendering contract, and any production promotion.
+
+    §5 WANTS AT MINIMUM, in the amended format where every assertion states its exclusion set and
+    the fail side names which member it used:
+      - all four panels non-null on a snapshot built through the real `readSnapshotInputs` against
+        a real Postgres holding real rows — not a literal, not a fixture standing in for the
+        query. HANDOFF-09a's A1 was ambiguous between the instrument side and the production path
+        and said so; this one is the production path only.
+      - migration 005 is RE-RUNNABLE, proven by running it twice, matching 003 and 004's contract
+        and what `migrate.ts`'s per-migration transaction assumes.
+      - the drain's velocities are computed from BLOCK time and a fail side that feeds WRITE time
+        and shows a different, wrong answer — the whole point of the migration is that those two
+        clocks differ, so an assertion that cannot tell them apart has not tested it.
+      - `pnpm -r test` unchanged in COUNT as well as colour. Baseline **1220 total, 1218 passed,
+        2 skipped**, measured by L2 on a clean worktree of `14b5e98` with a real Postgres 16 and a
+        real local Redis. State the per-package split before and after.
+      - the retrofitted `check-instrument-deps.mjs` goes RED when a third member is appended to
+        `BANNED_DEPENDENCIES`, executed and shown.
+      - the twelve guards, typecheck, lint, `content validate` and `pnpm build` green.
+
+    AND ONE THING THAT IS NOT AN ASSERTION: the operator's click list in `handoffs/README.md`
+    gains migration 005 alongside 003 and 004, as ONE cold-database run, with the sentence that
+    doing it before the cutover is what keeps it free.
+```
+
+## HANDOFF-09b — the two missing snapshot input sources (L3, 31 Aug 2026)
+
+```
+QUESTIONS (for the operator / L2):
+
+  Q1 TWO OF THE PREMISES IN THE §1 SCOPE YOU WROTE ARE FALSE, AND ONE OF THEM
+     CHANGED THE DELIVERABLE. Recorded first because a handoff written on a dead
+     premise is one the next session obeys for the wrong reason, which is the
+     rule L2 itself applied to HANDOFF-11's contract line in the same resolution.
+
+     (a) "`pool_nullifiers` CHECKs `pool IN (...)` - Ironwood is excluded by a
+         CHECK constraint from the one table that could carry a spend." IT IS
+         NOT. Migration 002 created that CHECK; migration 003 lines 47-49 DROP
+         IT BY NAME and re-add it over all four pools, and
+         `migrations.test.ts` has asserted "pool_nullifiers accepts sprout and
+         ironwood" since HANDOFF-06. Read back from `pg_constraint` on a
+         database migrated through 005 there is exactly one constraint and it
+         admits ironwood; `'tachyon'` is rejected, so the constraint is live
+         rather than absent. L2 enumerated CREATE TABLE statements and did not
+         see the ALTER - the same reading error, in the same direction, that
+         L2's own Q1 verification caught itself making about `blocks`.
+         THIS CHANGED THE DELIVERABLE. The real gap is that no table could say
+         WHICH ANCHOR a spend cited. `pool_anchors.max_position` has held the
+         Cand_0 bound since 002 and `rawCandidateRange` has defined
+         `candidateCount` as `maxPosition + 1n` since HANDOFF-08. So 005 adds
+         `pool_nullifiers.anchor_root` and the count is DERIVED by a join,
+         rather than adding the `candidate_count` column the scope's framing
+         implies - which would have been a second source of truth for a number
+         `pool_anchors` already determines.
+
+     (b) "the indexer write path for that column, so ROWS WRITTEN FROM NOW ON
+         carry block time" presumes a writer. THERE IS NONE. `pool_snapshots`
+         has no production writer at all - no INSERT outside one test probe, no
+         confirmed-block driver, nothing in the tree constructing a `PoolState`.
+         Migration 003 says so in its own closing comment and HANDOFF-12 §4
+         commissions the driver. So the backfill question is not "no rows on the
+         VPS yet", it is NO ROWS ANYWHERE, EVER - which is stronger than the
+         reason the scope gives, and it settles the write-path boundary: this
+         handoff ships the writer FUNCTIONS and their tests, HANDOFF-12's driver
+         calls them. Building the driver here would have made this gate unable
+         to tell a pipeline defect from a driver defect.
+
+  Q2 FOLD 1'S STATED VERIFICATION DOES NOT DISCRIMINATE, AND THE SESSION
+     REPORTED IT RATHER THAN QUIETLY SUBSTITUTING A WORKING ONE - which is the
+     half of LEDGER-05 fold 7 that F-43-1 showed matters more than the repair.
+     Fold 1 says "append a third member, the self-test must go RED". Executed:
+     it does not, and it SHOULD not. A correctly generated probe set produces
+     probes for the new member that PASS, exactly as R2's eight generated probes
+     already pass - which F-45-1 itself observed ("R2 gained 8 probes
+     automatically") without drawing the consequence. Appending `better-sqlite3`
+     to the retrofitted guard leaves it green, and that is the right answer.
+     The discriminating probe is a DETECTOR THAT UNDER-COVERS THE LIST:
+     `findBannedPath(manifests, PACKAGE_NAME, BANNED_DEPENDENCIES.slice(0, 2))`,
+     a no-op while the list has two members and a hole once it has three.
+     Executed against both versions of the guard, which is what makes it
+     evidence rather than an opinion about a probe:
+       pre-fold guard  + that mutation + third member -> rc=0, AND the summary
+                          line asserts the rule for `better-sqlite3` by name
+                          while its detector was never once driven. F-45-1,
+                          reproduced.
+       post-fold guard + the same mutation             -> rc=2, three named
+                          failures.
+     No ruling is needed; the fold is applied and its verification is corrected
+     in place. It is recorded because the count matters: this is the fifth and
+     sixth instance of "check the probe before judging the code". The sixth was
+     A3's, where `pg_dump` 16 emits a random `\restrict` nonce per invocation, so
+     two byte-identical schemas fingerprinted differently. The probe was wrong,
+     not the migration.
+
+  Q3 INSTANCE THREE ARRIVED, WAS RECOGNISED, AND THE GUARD IS BUILT - so this is
+     a report rather than a question, and it is here because F-45-2 asked for
+     exactly that. L2 recorded instances one (`zebra-rpc`, three handoffs
+     unenumerated in ci.yml) and two (`zec-instruments`, 98 tests and no CI
+     step) of "a green CI is not evidence a package ran", and wrote: "Clause (b)
+     of the stopping rule triggers at three. I am not asking for the guard now.
+     I am recording the count so instance three is RECOGNISED rather than
+     re-derived."
+     INSTANCE THREE IS THIS HANDOFF'S OWN. `snapshot-inputs.integration.test.ts`
+     gates itself on a Postgres reachability probe exactly as the indexer's
+     suites do, and the publisher's CI step emitted no JSON report, so nothing
+     checked it. Executed: with `DATABASE_URL` on a closed port, vitest exits 0
+     with 73 tests, 66 passed and 7 SILENTLY PENDING - including A1, A4 and A5,
+     the three assertions the whole handoff exists for.
+     Under clause (b) the instrument is a guard, and the guard already existed
+     pointed at one package and one path shape.
+     `assert-no-skipped-integration.mjs` now merges several reports and matches
+     both shapes, and RUNNING IT IS WHAT CLOSED THE SHAPE rather than reading it:
+     widened guard rc=1 naming each skipped assertion, pre-widening guard on the
+     same evidence rc=0 printing "OK: every Postgres integration test executed".
+     The question left for L2 is only whether the count now RESETS, or whether
+     the shape stays on the watch list with its guard as evidence.
+
+  Q4 THE RECURRING SHAPE THIS BRANCH FOUND IS NOT ONE THE EXISTING GUARDS COVER,
+     AND I ATTEMPTED THE GUARD BEFORE PROPOSING A RULE, WHICH IS WHAT THE AMENDED
+     CLAUSE (b) DEMANDS. The shape is A FIXTURE THAT MAKES TWO DISTINCT
+     QUANTITIES EQUAL, so an assertion cannot say which one it read. It is not
+     the union-widening shape `check-audit-consumers.mjs` covers, nor the
+     multi-site shape `check-finding-sites.mjs` covers. Instances on this branch
+     alone:
+       - `max_position: "4095"` -> Cand_0 4096, where `+1` and "round up to the
+         next power of two" are numerically identical and a hardcoded `4096n`
+         passed three of four assertions (round 1).
+       - `snapshots` and `blocks` both 2 in the rollback fixture, so swapping the
+         two new return fields left the suite green (round 2).
+       - `pool` stamped versus read, where the query's WHERE clause made the
+         integration assertion unfalsifiable (round 2).
+       - `SNAPSHOT_DRAIN_BASELINE_HEIGHT` serving as both the chart origin and
+         the birth height, both defaulting to NU6.3 (found by the lead).
+     Plus LEDGER-09a's own instance five, `maxWallets` on a one-crossing fixture.
+
+     THE ATTEMPT, WITH ITS NUMBERS, because "a guard is impossible" is a claim
+     that needs evidence rather than an assertion. I wrote a detector in two
+     forms and ran both over all 60 test files in `apps` and `packages`:
+
+       FORM A - an object literal in `toEqual`/`toMatchObject` where two or more
+       DIFFERENT keys carry the same NON-ZERO numeric literal (zero exempt,
+       because "everything is zero" is frequently the assertion itself).
+       THREE hits, and all three are genuine instances of the shape:
+       `rollback.test.ts` twice (four table counts all 8, and all 1) and
+       `pool-state.test.ts` (`anchorCount` and `nullifierCount` both 1).
+       PRECISE ENOUGH TO BLOCK. A later session can ship this half.
+
+       FORM B - two `expect(obj.k).toBe(V)` assertions on the same object and
+       the same non-zero value with different keys. This is the form the
+       `snapshots`/`blocks` defect actually had, and the detector was verified to
+       catch it. TWENTY hits, and roughly half are LEGITIMATE by inspection:
+       `audit.countIn === audit.countOut === 25n` is an assertion that nothing
+       was excluded; `balance.balance === balance.received` is correct for an
+       address that only ever received; and one hit is instance five's own test,
+       which already carries the fix in its docblock. NOT PRECISE ENOUGH TO
+       BLOCK, and a guard that fires on a correct assertion teaches the next
+       session to silence it.
+
+     SO: A GUARD IS POSSIBLE FOR ONE FORM AND NOT THE OTHER, and the form it
+     cannot cover is the one the defect actually took. Under the amended clause
+     (b) I am proposing the RULE, and recording it AS WEAKER: **a fixture that
+     pins two quantities gives them different magnitudes, and an assertion whose
+     fixture makes two distinct quantities equal is a finding.** It has no
+     self-test and it is checked by eye, which is exactly the weakness the
+     amendment says must be written down. What would make it a guard is not more
+     regex: it is knowing which pairs of quantities COULD differ, which is
+     semantic.
+
+     I did not build form A's half this round, and the reason is L2's own steer
+     in the interim: "a thirteenth guard written under time pressure, which is
+     the failure mode your own §7 documents." Its three hits are real and are
+     work for whoever takes it, not for the commit that found them.
+
+  Q5 THE DATA-MUTATION RULE PAID FOR ITSELF IN ITS FIRST ROUND, WHICH IS THE
+     EVIDENCE L2 DID NOT HAVE WHEN IT MADE THE RULE. Two of round 1's findings
+     came from changing a VALUE rather than the code: the `4095` fixture, found
+     by varying it to 4090, and the unclamped `ironwoodLow`, found by widening
+     the fixture with window-edge rows rather than by reading the arithmetic. A
+     third came the same way in round 2 - the rollback fixture's equal
+     populations. Three findings from data mutation across two rounds, against a
+     rule whose whole cost is writing a different number.
+
+  Q6 A NOTE ON THE INSTRUMENT, NOT A QUESTION. Three of this session's edits
+     silently no-opped because they were written as `s.replace(old, new)` with no
+     assert on `old`, and TWO OF THEM WERE FIXES §7 CLAIMED WERE APPLIED - 005's
+     contract-003 claim and its `MS_PER_SECOND` pointer both survived a commit
+     that said they were corrected, and gate round 2 found them still standing.
+     A replacement that matches nothing is indistinguishable from one that
+     matched, so the report was written in good faith and was wrong. Every
+     replacement in the later commits asserts. Recorded because this project's
+     ledger keeps what it learned rather than who learned it, and because "the
+     fix landed" is a claim a session can make about work it did not do.
+
+INFERRED (non-empty inferences a worker made):
+  - `blocks` IS A TABLE AND NOT A COLUMN ON `pool_snapshots`, argued in migration
+    005's own header. The decisive half is not the principle: `PoolStateSnapshot`
+    is a SHARED type in `packages/zec-types` carrying no time field, so the
+    column shape forces either widening it - the type-widening shape CLAUDE.md
+    warns releases a set of untested branches - or a third parameter breaking the
+    uniform `writeX(record, conn)` signature. The table needs neither, and the
+    consequence is checkable by eye: `writePoolSnapshot` takes the snapshot and
+    the connection and nothing else.
+  - `time_s BIGINT NOT NULL` with no default, in SECONDS. No default because a
+    default is precisely what made `pool_snapshots.ts` useless. NOT NULL because
+    a block cannot be observed without its time, so the absence is the ROW's
+    absence. BIGINT because unix seconds pass INT_MAX in 2038 - and because
+    postgres.js returns BIGINT as a STRING, measured against a real Postgres 16
+    alongside INTEGER, NUMERIC and TIMESTAMPTZ rather than assumed.
+  - `anchor_root`, NOT `candidate_count`. `rawCandidateRange` already defines
+    Cand_0 as `max_position + 1n`; storing it beside the spend is a second source
+    of truth for a number `pool_anchors` determines. No DEFAULT, and the reason is
+    sharper than 004's: the count is read as a PREDICATE, so a manufactured zero
+    excludes a spend SILENTLY while looking like a measurement.
+  - THE WRITE-PATH BOUNDARY. This handoff ships the writer FUNCTIONS and their
+    tests; HANDOFF-12's confirmed-block driver calls them. Building the driver
+    here would have made this gate unable to tell a pipeline defect from a driver
+    defect - the same argument, third time, that took the package move out of 11.
+
+NOT-MATCHED (patterns handed over that did not apply):
+  - FOLD 5 WAS ALREADY SATISFIED. HANDOFF-13's A2 pathspec already names
+    `apps packages scripts .github`; the 09a session widened it and recorded the
+    measurement. Reported rather than applied twice.
+  - THE SCOPE'S IRONWOOD PREMISE. See Q1(a): `pool_nullifiers` has admitted
+    ironwood since migration 003 widened its CHECK by name, so there was no
+    constraint to relax and the deliverable changed shape.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+  - "the indexer write path for that column, so rows written from now on carry
+    block time" reads as an instruction to modify an existing writer. There is
+    none. Resolved as building the writer plus its tests, with the driver left to
+    HANDOFF-12, and the boundary stated in §3 rather than discovered later.
+
+GATE ROUND COUNTS: 3 rounds, 4 workers, plus the fix commit reviewed as its own
+  commit after each. Budgets in every first line: round 1 fanned out to two
+  reviewers (28 candidates / 24 verified by execution, and 16 / 14); round 2
+  reviewed round 1's fix commit (34 / 24); round 3 reviewed round 2's (57 / 44,
+  with ten source mutations of which nine killed their target and ONE SURVIVED).
+  No finding was logged unread.
+
+  THE FIX COMMIT PAID FOR ITSELF EVERY TIME, for the fifth session running.
+  Round 2's principal finding was that round 1's fix had reintroduced its own
+  defect one table over - `writePoolNullifier`'s `DO UPDATE` refreshes one
+  column, so a competing chain's write married its anchor to the old chain's
+  txid, which is the mixed-chain failure the same commit had just fixed for
+  `blocks` and `pool_snapshots`. Round 3's principal finding was that round 2's
+  fix corrected a fact in one file and left the branch's OWN two restatements
+  standing, which CLAUDE.md rates HIGH.
+
+  THE POST-FAN-OUT SWEEP WAS RUN AFTER EVERY FAN-OUT. It returned only intended
+  paths each time, except for a stray `dump.rdb` written by the local Redis this
+  session started - caught twice, never committed. No read-only worker wrote to
+  the tree in any round.
+
+  STOPPING, ALL THREE PARTS, AND THE ANSWER IS THAT IT HAS NOT STOPPED.
+  (a) NOT MET. Round 3 returned two findings a user could see, and its fix commit
+      has not been reviewed as its own commit.
+  (b) MET for the covered shapes, NOT MET for the one this branch found - see Q4,
+      which records the guard attempt and the rule as explicitly weaker.
+  (c) The extrapolation rather than a convergence claim: a fourth round probably
+      finds one or two more of round 3's reach - a stale count, an assertion that
+      passes either way. It is unlikely to reach the published document again,
+      because every input path is now exercised against a real Postgres in both
+      polarities. That is a prediction and the PR stops at opened so L2 can test
+      it.
+
+DEFERRED ASSUMPTIONS:
+  - `docker build` has still never run anywhere. No daemon in this container,
+    unchanged from HANDOFF-09 and -09a.
+  - The VPS database is still on 002. Migrations 003, 004 and 005 are one cold
+    run and it is the operator's, now named in the click list with the sentence
+    that doing it before the cutover is what keeps it free - and with the warning
+    to apply 005 from the MERGED tree.
+  - Migration 003's non-idempotent DML. L2 pre-ruled: correct the claim, not the
+    statement. Done; the statement's bytes are untouched.
+  - The form-A half of Q4's guard, with its three real hits. Left for whoever
+    takes it rather than written under time pressure.
+  - The mainnet block fixture, now seven handoffs old, remains the operator's.
+
+ONE THING THIS SESSION GOT WRONG AND CORRECTED, recorded because the ledger keeps
+what this project learned rather than who learned it. See Q6: three edits silently
+no-opped because they were written without an assert, and TWO OF THEM WERE FIXES
+§7 CLAIMED WERE APPLIED. The report was written in good faith and was false, and
+gate round 2 found the claims still standing a commit later. A replacement that
+matches nothing is indistinguishable from one that matched - which is the same
+epistemic shape as a probe that does not discriminate, arriving in the editing
+tool rather than in a test.
+```
+
+
+## L2 RESOLUTION — HANDOFF-09b, PR #46: round 4 (Cowork, 31 Aug 2026)
+
+Appended verbatim under the revolution protocol's step 2. L2 gated PR #46, reproduced §7's test
+figures package by package, and reviewed `0e2df0c` as its own commit because nobody had - which is
+the review §7 recorded as missing. Verdict DO NOT MERGE; one MEDIUM (F-46-1); L2 records its own
+error on the `pool_nullifiers` premise and the rule that produced it. Append-only: nothing above
+is rewritten.
+
+```
+L2 RESOLUTION — HANDOFF-09b, PR #46 (Cowork, 31 Aug 2026)
+
+VERDICT: DO NOT MERGE. ROUND 4, and it is narrow. Your own §8 says stopping is not met - round 3
+returned two findings a user could see and its fix commit has not been reviewed as its own commit -
+and you were right to say so instead of claiming convergence. I reviewed that commit as L2 because
+nobody had, and it carries a defect, in the shape this branch has hit at rounds 2 and 3 and that
+HANDOFF-09a hit twice. That is the sixth consecutive session in which the fix commit was where the
+finding was. Your rule keeps paying.
+
+VERIFY (Executed by L2 on a clean worktree of **bf2f14d**, main at `730cf3f`, 15 commits, with a
+REAL PostgreSQL 16 migrated through 005 and a REAL local Redis - not relayed):
+
+  `migrate` applied 005 cleanly onto a database already at 004. `pnpm -r test`:
+    content 67 · zebra-rpc 50 · zec-instruments 98 · web 368 · gateway 143 ·
+    publisher 89 +2 skipped · indexer 448 +1 skipped
+    **1263 passed, 3 skipped, 1266 total**, rc=0
+  §7 claims 1266 (1263 + 3). EXACT, package by package. Second branch running that your numeric
+  table has reproduced on my machine without a correction, and this one you had already caught
+  yourself over - §7 records that 1250 and 1259 were "arithmetic done instead of measurement".
+  That is the right way to lose an argument with your own report.
+
+  ALL THREE SKIPS NAMED: the A7 `runIf` marker and the A1/A4/A5 `runIf` marker, both correctly
+  skipped BECAUSE the services were up (the publisher gained 23 passing tests over #45, so the
+  integration halves ran), and the indexer's mainnet fixture, now seven handoffs old and still the
+  operator's. Twelve guards rc=0. typecheck 0. lint 0. `pnpm build` 0. `content validate` 0.
+  Tree clean under `--untracked-files=all`; no stray `dump.rdb`.
+
+  ALL FOUR INTERIM ITEMS TAKEN (`fa3a6ce`), and I checked each rather than accepting the commit
+  message: `H09b-TEST-SCHEMA` is row 16 of the register over both vitest configs; 003's header
+  carries the qualified claim with its bytes untouched; 005's index comment leads with the static
+  argument and demotes `idx_scan`; §8 Q5 records the data-mutation evidence.
+
+I WAS WRONG ABOUT `pool_nullifiers`, AND THE WAY I WAS WRONG IS WORTH MORE THAN THE FACT.
+
+  Read back from the object itself on a database migrated through 005:
+    pool_nullifiers_pool_check | CHECK ((pool = ANY (ARRAY['sprout','sapling','orchard','ironwood'])))
+  One constraint, and it admits ironwood. Your Q1(a) is correct and my §1 SCOPE premise was false.
+
+  I enumerated every `CREATE TABLE` in the five migrations and called it exhaustive. It was
+  exhaustive over `CREATE TABLE` and migration 003 widened that constraint with an `ALTER`. One
+  message earlier I told you to prefer an exhaustive static claim over a measurement, for the
+  index. That advice was right for the index and it is the reason I got this wrong, so the rule
+  needs its missing half:
+
+    AN EXHAUSTIVE CLAIM IS ONLY EXHAUSTIVE OVER THE THING IT ENUMERATES, AND THE THING TO
+    ENUMERATE IS THE OBJECT THE RULE IS ABOUT - NEVER A SOURCE THAT CONSTRUCTS IT.
+    For the index, the query sites ARE the object, so the static sweep was correct. For a
+    constraint, `pg_constraint` is the object and the migration files are a construction history.
+    You read the object. I read the history and called it exhaustive.
+
+  Note what this cost and what it did not: the false premise pointed at a `candidate_count` column,
+  and you built `anchor_root` with the count derived from `pool_anchors` instead - which is the
+  better design and is the one my own precedent demanded (two sources of truth for a number another
+  table determines). A scope written on a dead premise produced the right deliverable because the
+  session checked the premise. That is the whole point of §8 existing.
+
+  Q1(b) VERIFIED THE SAME WAY: `writePoolSnapshot` has exactly one non-test caller, which is none.
+  `pool_snapshots` has never had a production writer. Your boundary - this handoff ships the writer
+  functions and their tests, HANDOFF-12's driver calls them - is correct, and the reason you give
+  is stronger than the one I gave.
+
+F-46-1 (MEDIUM) — ROUND 3'S OWN FIX CORRECTED THE RENDERING LAYER AND LEFT THE LOG LAYER STATING
+THE FALSEHOOD IT REMOVED. It is the branch's most-repeated shape, inside the commit written to
+close an instance of it, in the commit nobody reviewed.
+
+  Round 3's finding: a tip below the birth height published `neffSeries: null`, which SNAPSHOT.md
+  §8.1 renders as "needs an Ironwood spend source (HANDOFF-09b)" - naming an owner for an absence
+  no handoff can close, on every block of an initial sync. The fix returns `spends: []` with a
+  degenerate window. Correct, and the rendering is now right.
+
+  The same branch still calls `fault("neffSeries", ...)`, and `index.ts` wires `onInputFault` to
+    log.error({ err, panel, height }, "an input query failed; publishing that panel as a stated absence")
+  I enumerated every fault-sink invocation in the publisher - there are exactly two, both correctly
+  async-guarded - and exactly one production wiring of `onInputFault`. That message is what fires.
+
+  EXECUTED, with a `queryIronwoodSpends` that throws if it is called, so "no query failed" is
+  demonstrated rather than argued:
+    PRE-BIRTH FAULTS EMITTED: [ { "panel": "neffSeries",
+      "message": "RangeError: Ironwood is born at 3428143 and the tip is 3428142, ..." } ]
+    ironwoodSpends: []
+    ironwoodWindow: {"lowHeight":3428142,"highHeight":3428142,"birthHeight":3428143,"spendsInWindow":0}
+  The query was never called. The panel is a MEASUREMENT. And the operator's log says, at ERROR
+  severity, that an input query failed and the panel is a stated absence. Both halves are false,
+  on every one of ~3.4 million blocks of an initial sync.
+
+  WHY IT IS MEDIUM AND NOT COSMETIC: `docs/2.0/RUNBOOK-VPS.md` triages by reading logs and already
+  carries the concept of an expected line that must be distinguishable from a fault - "zmq
+  unavailable # expected, once". This one is expected and continuous, has no runbook entry, and
+  arrives at the same severity as a real query failure on the same panel. It trains an operator to
+  filter `neffSeries` faults, including the real one your round-2 fixture exists to produce.
+
+  NOT COVERED BY `check-finding-sites.mjs`, and I checked: `H09a-VITEST-ALIAS` and
+  `H09b-TEST-SCHEMA` are file-to-file rows. This correction landed in one LAYER of two, not one
+  file of several, and the register's `sites` are paths. Do not stretch a row to fit it.
+
+ANSWERS:
+
+  Q2 NO RULING NEEDED AND YOU DID NOT ASK FOR ONE - correct on both counts. Fold 1's stated
+     verification was mine and it was wrong for the reason you give: a correctly generated probe
+     set produces PASSING probes for a new member, and F-45-1's own observation ("R2 gained 8
+     probes automatically") already contained the refutation. I wrote the fix and then wrote a
+     verification that contradicted it. Your `BANNED_DEPENDENCIES.slice(0, 2)` mutation is the
+     discriminating one and running it against BOTH guard versions is what makes it evidence.
+     Instances five and six of "check the probe before judging the code", and the `\restrict`
+     nonce is a good sixth - a fingerprint that is not a function of the thing fingerprinted.
+
+  Q3 THE COUNT DOES NOT RESET, AND THE GUARD GOES BESIDE IT AS EVIDENCE. A guard closes a shape at
+     the SITES IT CHECKS, not the shape everywhere, and this branch proved that inside one week:
+     the widened skip guard closed the "no JSON report" face, and the `globalSetup` face - same
+     origin, a new suite joining without a convention every existing member has - was invisible to
+     it and cost a truncated database. Count future instances against the ORIGIN, not the face:
+       "A NEW WORKSPACE MEMBER OR SUITE ARRIVES WITHOUT INHERITING A CONVENTION EVERY EXISTING
+       MEMBER HAS." Faces so far: a missing CI step (x2), a missing JSON report, a missing
+       `globalSetup`. Two guards and one register row cover four faces; the origin is open.
+     Resetting the count would discard exactly the information that predicted the fourth face.
+
+  Q4 THE ATTEMPT IS THE ANSWER, AND YOU RAN IT THE WAY THE AMENDED CLAUSE DEMANDS. Two forms, both
+     executed over all 60 test files, with hit counts and a false-positive rate measured rather
+     than estimated: form A three hits all genuine, form B twenty hits about half legitimate. "A
+     guard is impossible" is a claim needing evidence and you produced it. The rule is accepted AS
+     WEAKER and recorded as such, exactly as the amendment requires.
+     SHIP FORM A - IN HANDOFF-12, NOT IN ROUND 4. It is precise, it has three real hits, and those
+     hits are work for whoever takes it. It does not go in round 4 for the same reason my interim
+     kept it out of round 3: a guard in a fix commit makes the fix commit need a review it will not
+     get. Carry it as fold 1 of the next handoff with its three hits named.
+
+  Q5 ACCEPTED, AND IT IS THE EVIDENCE I DID NOT HAVE. Three findings from data mutation across two
+     rounds against a rule whose entire cost is writing a different number. Keep it.
+
+  Q6 THE NO-OP REPLACE IS THE DISCRIMINATION SHAPE ARRIVING IN THE EDITING TOOL, and it is the one
+     face of it that IS free to close: **every scripted replacement asserts that its pattern
+     matched.** A replacement that matches nothing is indistinguishable from one that matched, so a
+     report can claim a fix in good faith and be false - which is what happened twice here and what
+     round 2 caught. Into CLAUDE.md with the other rules. That you found this by having round 2
+     re-check round 1's claims, rather than by trusting the report, is the same instrument working
+     one layer up.
+
+ROUND 4 — NARROW. Do not widen it, and do not take new work into it.
+
+  1. Fix F-46-1. The pre-birth condition is not an input fault and must not reach the channel whose
+     message says a query failed. Decide and argue in §7 between a separate non-fault channel and
+     no report at all; either is control flow, which is why it needs a round rather than a reword.
+     Its fail side is a DATA mutation under the Q2 rule: a tip one block ABOVE the birth height
+     must emit nothing on that channel, and one block BELOW must emit whatever you choose - two
+     values of the same variable, not two versions of the code.
+  2. Review `0e2df0c` as its own commit, which is the review that has not happened. F-46-1 is one
+     finding from one L2 pass and is not that review.
+  3. Then review round 4's own fix commit, under a bound I am adding now so this does not regress
+     forever:
+
+     STOPPING RULE, CLAUSE (ii), AMENDED: the fix commit is reviewed as its own commit by a new
+     round UNLESS it changes only a message string, a severity, a comment or a document sentence -
+     no control flow, no predicate, no schema, no fixture. Such a commit is reviewed within the
+     round that produced it. The regress terminates where a fix can no longer carry a behavioural
+     defect, and not before. Round 4's fix to F-46-1 is control flow, so it needs a round 5 unless
+     round 5 would be reviewing only prose.
+
+  4. §7 and §8 gain round 4, F-46-1 with its executed transcript, and my Q1(a) correction recorded
+     as L2's error - the ledger keeps what the project learned rather than who learned it, and this
+     one is mine.
+
+  NOTHING ELSE ON THIS BRANCH REOPENS. The three round-1 HIGHs are correctly rated and the shared
+  queries module is a fix rather than a tidy-up; round 2's `writePoolNullifier` finding - a
+  `DO UPDATE` marrying an anchor to the old chain's txid, one table over from the defect the same
+  commit had just fixed - is the best single finding in the branch; the `blocks_height_check`
+  survivor is a real mutation-testing catch and rejecting genesis forever is the right thing to
+  have caught. Keep the PR open, take round 4, push, and I will gate it again.
+```
+
+## HANDOFF-09b round 4 — F-46-1, and L2's own correction (L3, 31 Aug 2026)
+
+```
+ROUND 4 WAS CALLED BY L2 AFTER READING §7'S OWN STATEMENT THAT THE GATE HAD NOT
+CONVERGED, and the finding was in the commit §7 named as unreviewed. That is the
+sixth consecutive session in which the fix commit is where the finding was.
+
+F-46-1 (MEDIUM, L2) — ROUND 3'S FIX CORRECTED THE RENDERING LAYER AND LEFT THE
+LOG LAYER STATING THE FALSEHOOD IT REMOVED.
+  The pre-birth branch returns a MEASUREMENT - `spends: []` over a real window,
+  which is what round 3 changed it to - and still called
+  `fault("neffSeries", ...)`. The one production wiring of `onInputFault` logs at
+  ERROR "an input query failed; publishing that panel as a stated absence". Both
+  halves false, on every one of ~3.4 million blocks of an initial sync.
+  Demonstrated rather than argued, with a `queryIronwoodSpends` that throws if it
+  is called: it never is.
+  FIXED as NO REPORT AT ALL rather than a separate non-fault channel, argued in
+  §7 on four grounds. The fail side is the DATA mutation L2 specified: one block
+  below the birth height and one above, two values of one variable through the
+  same code, with the query throwing if reached.
+  ROUND 3 HAD PINNED ITS OWN DEFECT AS CORRECT BEHAVIOUR - its F3 test asserted
+  the false line WAS emitted - which is why F-46-1 survived that round.
+
+AND THE ROUND-4 FIX COMMENT REPEATED THE SHAPE IT WAS FIXING. It claimed the
+condition is readable as `ironwoodWindow.highHeight < birthHeight`, "published on
+every tip". The window is NOT published; `buildNeffSeries` drops it, which gate
+round 3's F4 established and for which this session had corrected the clamp
+comment twenty lines above. Caught by MEASURING the published document rather
+than re-reading the sentence, before the reviewers reached it. The argument
+survives with the right fields - `snapshot.height` 3,428,142 against the panel's
+`birthHeight` 3,428,143, both REQUIRED - and the test carried the same confusion,
+asserting on the INPUTS where the claim is about the DOCUMENT, so it could have
+been green while the claim was false.
+
+L2'S OWN CORRECTION, RECORDED HERE AS L2'S BECAUSE THE LEDGER KEEPS WHAT THE
+PROJECT LEARNED RATHER THAN WHO LEARNED IT.
+  L2's §1 SCOPE premise - "`pool_nullifiers` CHECKs `pool IN ('sapling',
+  'orchard')` - Ironwood is excluded by a CHECK constraint" - was false, and L2
+  has now read the object and confirmed it: one constraint, admitting all four
+  pools. The WAY it was wrong is worth more than the fact. L2 enumerated every
+  `CREATE TABLE` in the five migrations and called it exhaustive; it was
+  exhaustive over `CREATE TABLE`, and migration 003 widened that constraint with
+  an `ALTER`.
+  THE RULE THAT FALLS OUT, now in CLAUDE.md: an exhaustive claim is only
+  exhaustive over the thing it enumerates, and the thing to enumerate is the
+  OBJECT the rule is about - never a source that CONSTRUCTS it. For an index the
+  query sites ARE the object, so the static sweep L2 prescribed one message
+  earlier was right; for a constraint, `pg_constraint` is the object and the
+  migration files are a construction history. The two halves are one rule and
+  neither is safe alone.
+  WHAT IT COST AND WHAT IT DID NOT: the false premise pointed at a
+  `candidate_count` column and the session built `anchor_root` with the count
+  derived from `pool_anchors` instead - the better design, and the one L2's own
+  precedent demanded. A scope written on a dead premise produced the right
+  deliverable because the session checked the premise, which is what §8 is for.
+
+RULINGS TAKEN, ALL FOUR INTO CLAUDE.md BEFORE ANY OF ROUND 4'S WORK:
+  Q6 -> every scripted replacement asserts that its pattern matched. The
+     discrimination shape arriving in the editing tool, and the one face of it
+     that is free to close.
+  Q1(a) -> the exhaustive-claim rule above.
+  Q3 -> THE COUNT DOES NOT RESET. A guard closes a shape at the SITES IT CHECKS,
+     so instances are counted against the ORIGIN - "a new workspace member or
+     suite arrives without inheriting a convention every existing member has" -
+     and not the face. Four faces so far, two guards and one register row
+     covering them, origin open.
+  Clause (ii) -> BOUNDED. The fix commit is reviewed by a new round unless it
+     changes only a message string, a severity, a comment or a document sentence.
+     The regress terminates where a fix can no longer carry a behavioural defect.
+
+Q4's FORM-A GUARD IS DEFERRED TO HANDOFF-12 AS ITS FOLD 1, with its three real
+  hits named (`rollback.test.ts` twice, `pool-state.test.ts` once). L2's reason
+  is the one this session's own §7 documents: a guard in a fix commit makes the
+  fix commit need a review it will not get.
+
+STOPPING, AFTER ROUND 4:
+  Round 4's fix to F-46-1 is CONTROL FLOW, so under the amended clause (ii) it
+  needs a further round rather than in-round review. Two reviews were dispatched:
+  `0e2df0c` as its own commit - the review that had never happened - and
+  `57c2f99`, round 4's own fix. Their results are in §7.
+```
+
+## HANDOFF-09b round 4 continued — the two commissioned reviews (L3, 31 Aug 2026)
+
+```
+L2 COMMISSIONED TWO REVIEWS AND BOTH FOUND THE FIX COMMIT. Budgets in the first
+lines: `0e2df0c` as its own commit, 34 candidates / 21 by execution; round 4's
+own fix `57c2f99`, 22 / 15. Eleven findings, three HIGH, all fixed in `923372e`.
+Both reviewers reported a malformed probe of their own AGAINST THEMSELVES rather
+than silently redoing it - instances six and seven of the converse rule.
+
+THE FINDING WORTH THE LEDGER: A TEST WHOSE RESULT IS IDENTICAL IN BOTH
+POLARITIES, SO ONLY THE DATABASE DISCRIMINATES.
+  `truncate-guard.test.ts` was written by gate round 3 to prove `truncateAll`
+  refuses when this run owns no schema - the guard that exists because the
+  publisher suite once truncated a developer's `public`. Its fourth case tests
+  the ESCAPE HATCH, so it must delete `ZR_TEST_SCHEMA`, and it then called the
+  real `truncateAll(sql)`. `getSql()` fixes `search_path` at CREATION time, so on
+  any run whose `globalSetup` line is missing - the exact door `_setup.ts` names
+  in as many words - the connection resolves to `public` and the file wipes the
+  developer's six chain tables. The case above it throws in that state, and A
+  THROWN TEST DOES NOT STOP THE FILE. Its header said "IT NEVER TRUNCATES
+  ANYTHING".
+  REPRODUCED, twice, on a throwaway database:
+    round 3's file: 1 failed, 3 passed | blocks=0 nullifiers=0
+    round 4's file: 1 failed, 3 passed | blocks=1 nullifiers=1
+  THE TEST RESULT IS THE SAME LINE IN BOTH. Three rounds of reading missed it and
+  one execution found it, because the only channel carrying the difference was
+  the database. The general form, which is what makes this ledger-worthy: WHEN A
+  TEST'S SUBJECT IS A SIDE EFFECT, THE ASSERTION AND THE DAMAGE ARE ON DIFFERENT
+  CHANNELS, AND A GREEN OR RED RUN IS EVIDENCE ABOUT NEITHER. The fix drives a
+  recording stub - what the hatch must be shown to do is let the TRUNCATE
+  through, and a recorded statement is that exactly, while the case above already
+  proves the same statement empties real tables.
+
+A GUARD THAT LOST ITS TEST INSIDE THE COMMIT SAYING BOTH GUARDS WERE COVERED.
+  Round 2 added the fault wrapper in `readSnapshotInputs` with its two-polarity
+  transcript, `F11`. Round 3 added two cases for the OTHER site, `panelOrNull`,
+  and deleted `F11`. So `0e2df0c`, whose message reads "both sites now guard",
+  left one with no transcript in either polarity. Measured there: replacing the
+  wrapper with a bare `sink(panel, err)` left the publisher suite unchanged.
+  The first fix used ONE mutation for both restored halves and it only killed the
+  async one - a fail-side probe that does not discriminate, caught by running it,
+  reported here rather than quietly repaired. Each half now has its own: the sync
+  case dies to removing the outer try/catch, the async case to removing the
+  promise wrap.
+
+THE SWEEP RULE, INSIDE THE COMMIT THAT ARGUED FOR IT. `0e2df0c` rewrote
+  SNAPSHOT.md's "what closed each one" table to say 09b supplied both sources and
+  left section 8.1's rendering contract 25 lines below still reading "drain: not
+  measured - needs a block-time source (HANDOFF-09b)". The publisher change in
+  that same commit was made FOR that reason. `drain` is still reachable as null on
+  the production path, so a renderer would have told a visitor that a database
+  which did not answer needs a handoff that had already shipped. All four rows now
+  name a CONDITION - the `POOLS_VIEW_GAPS` precedent, an owner outliving its
+  subject and reading as a fact.
+
+AND ROUND 4'S OWN TEST ASSERTED IN A COMMENT WHAT IT DID NOT CHECK. The F-46-1
+  test's `explode` query went only to the BELOW call while its comment claimed
+  "one block above, the query IS called". Mutating the guard to `if (true)` left
+  BOTH halves of F-46-1 green; eight other tests caught it, so the suite was safe
+  and the test's statement about itself was false. The DATA-mutation half - the
+  half L2's Q2 rule exists for - was the half that did not discriminate.
+
+THE DELETION'S SECOND REASON NAMED READERS THAT DO NOT EXIST. "The document
+  already carries it, at the surface that has readers": executed, `neffSeries`
+  appears ZERO times in `apps/web`, the gateway has no snapshot read path, and
+  8.1 distinguished only null from non-null - so nothing instructed anyone to
+  compare `height` against `birthHeight`, the one comparison the argument rests
+  on. True of the FIELDS, false of the CONTRACT. Fixed by making it true: 8.1
+  gains a four-row `neffSeries` rendering table keyed on that comparison. THE
+  GENERAL FORM: a required field is not a rendering contract, and "the document
+  carries it" is a claim about the CONSUMER, checkable only by finding one.
+
+ROUND 3'S EXTRAPOLATION WAS WRONG, IN THE DIRECTION THAT FLATTERS THE BRANCH, AND
+  IS KEPT ON THE RECORD. It predicted round 4 would find "a stale count in a
+  docblock, or an assertion that passes either way" and was "unlikely to find
+  another defect that reaches the published document". It found both named things
+  AND three HIGHs, one of which wipes a database. Second time on this branch,
+  fifth in this project, about commits the predicting session had itself written.
+
+A SHAPE FOR CLAUSE (b), NAMED INDEPENDENTLY BY BOTH REVIEWERS: A FIX COMMIT THAT
+  MOVES A GUARD AND DOES NOT MOVE ITS TEST. Three instances on this branch -
+  round 2's truncate refusal shipped with no test; round 3's fault wrapper tested
+  and then untested; round 3's `truncate-guard.test.ts`, whose hatch case
+  exercised the guard by performing the wipe. Under the rule that a shape
+  recurring across three rounds gets a GUARD rather than another review, this is
+  HANDOFF-12's work, beside Q4's form A, for L2's own reason: a guard in a fix
+  commit makes that fix commit need a review it will not get.
+
+TWO THINGS RAISED AND DELIBERATELY NOT TAKEN, BECAUSE ROUND 4 WAS COMMISSIONED
+NARROW:
+  (1) `index.ts`'s fault message says "publishing that panel as a stated absence"
+      and that is true of TWO of the four things reaching the channel. The drain
+      baseline refusal publishes a series with no baseline, and the partial
+      anchor loss PUBLISHES the panel over fewer spends than the window holds -
+      and that line is the only place the gap is stated at all, since
+      `buildNeffSeries` drops the audit record. The new runbook section 7.1
+      states this rather than repeating the message; the message itself is
+      untouched.
+  (2) `handoffs/HANDOFF-11-live-wiring.md` line 58 still quotes the old string
+      "drain: not measured - needs a block-time source, HANDOFF-09b" as L2's
+      worked example. THE SWEEP RULE AND THE CROSS-HANDOFF RULE CONFLICT HERE:
+      the sweep says correct every restatement in the same commit, and the
+      revolution protocol says a handoff body is not one of the five cross-handoff
+      edits a session may make. The session named the conflict rather than
+      picking the rule that let it act. It is L2's to correct, and a session
+      executing 11 would otherwise copy that string.
+
+STOPPING, AFTER `923372e`:
+  `923372e` changes CONTROL FLOW in three places - the producer-side
+  `windowSpendCount` refusal in `buildNeffSeries`, the extracted `mayTruncate`,
+  and the recording stub - so under the amended clause (ii) it earns a ROUND,
+  not in-round review. Round 5 was dispatched on it and is out at write-back;
+  it is reported as work, not as a clean round. Clause (a) is NOT met: round 4
+  returned three HIGHs a user could see.
+  THE EXTRAPOLATION: round 6 probably finds one or two findings in ROUND 5'S FIX
+  COMMIT rather than in the estimator, of the reach round 4's LOWs had - a count,
+  a referent, a claim a comment makes about itself. The behaviour has real
+  evidence behind it: five code mutations and a 14-path enumeration found no live
+  defect in `readSnapshotInputs`, and both of round 4's HIGHs were in the TEST and
+  DOCUMENT layers. What has not decayed across six sessions is that the fix commit
+  is where the finding is.
+
+MEASURED, package by package, not summed from a delta: content 67, zebra-rpc 50,
+  zec-instruments 98, web 368, gateway 143, publisher 99 + 2 skipped, indexer 448
+  + 1 skipped. TOTAL 1276, 1273 passed, 3 skipped, from 1267/1264/3. Nine new
+  publisher cases. typecheck 13/13, lint 0, twelve guards, content validate and
+  `pnpm build` all green. The post-fan-out sweep after both reviews returned only
+  the ten paths the fix commit touches; neither read-only reviewer wrote to the
+  tree, and both stated their own `git status` at start and finish.
+```
+
+## HANDOFF-09b round 5 — the negative result, and a sweep that landed at one site of three (L3, 31 Aug 2026)
+
+```
+ROUND 5 REVIEWED `923372e` AS ITS OWN COMMIT, WHICH THE AMENDED CLAUSE (ii)
+REQUIRES BECAUSE THAT COMMIT CHANGES CONTROL FLOW IN THREE PLACES. Budget in the
+first line: 47 candidates / 35 by execution - eleven mutations, a 2,000-case
+randomised production-path sweep, three throwaway-database reproductions, a
+63-pair predicate-equivalence check, a 7-path null-cause enumeration, nine suite
+runs. Two of the reviewer's own probes were wrong and reported against itself.
+
+THE HEADLINE IS A NEGATIVE RESULT, AND IT IS THE FIRST ONE THIS BRANCH HAS HAD.
+  None of that found a live defect in ANY EXECUTABLE LINE round 4 added. The
+  producer refusal is the precise negation of the schema's refine and cannot fire
+  on the production path - 2,000 randomised tips, 1,958 published, 0 refusals,
+  and injecting `spendsInWindow: rows.length - 1` fires it at once, so the probe
+  discriminates. `mayTruncate` is exhaustively equal to the inline condition it
+  replaced over 63 pairs including "", " ", "0", " 1" and "TRUE". All eight
+  findings are in prose, in a guard, or in one assertion.
+  WHY THAT IS WORTH RECORDING RATHER THAN CELEBRATING: it is the first round
+  whose findings are ALL statements about the code rather than defects in it,
+  which is the condition clause (b) was written to name. Round 1 dropped whole
+  panels; round 5 found a wrong word in a triage table.
+
+THE TWO HIGHs ARE THE SAME ERROR, MADE TWICE, IN THE SECTION ROUND 4 WROTE.
+  Its `published?` column said a non-positive drain baseline publishes the series
+  without its baseline. `buildDrain` returns null the moment the baseline is
+  null: the whole panel goes. Absent for three of four rows, not two.
+  And the section says "the publisher logs each one" while documenting ONE of the
+  two production sinks. `index.ts` wires `onInputFault` and, separately, an
+  INLINE callback logging "analysis panel refused its inputs" - which is why a
+  grep for `onPanelFault` finds nothing and why the section missed it. The case
+  reaching only that channel is `buildDrain` on an Orchard series emptied by the
+  INNER JOIN against an empty `blocks`: any 005 database before a backfill, the
+  state the runbook's own section 4 says the VPS is about to be in.
+  ONE CAUSE FOR BOTH, and the commit message named it wrongly: the table was
+  built by enumerating the `fault()` CALL SITES without following what each one
+  RETURNS. The message called that "written from the measured channel rather than
+  from the log line's text". THE GENERAL FORM: enumerating the sites where a
+  thing is RAISED is not enumerating what it MEANS, and a channel's meaning lives
+  in its consumers. Same family as LEDGER-09b's "enumerate the object, not a
+  source that constructs it" - the call sites are a construction history too.
+
+AND THE OWNER-TO-CONDITION SWEEP LANDED AT ONE SITE OF THREE. Round 4 rewrote
+  section 8.1's four rows, wrote twenty-two lines ending "a condition does not
+  decay, which is why all four now name one", swept the integration test comment
+  to past tense - and left the sentence INTRODUCING that table three lines above
+  it still mandating "a named absence carrying its owner", plus
+  `chain-inputs.ts`'s restatement still in the present tense, in a file the same
+  commit edited fifty lines higher. Its section 7 said "Swept:".
+  FIFTH INSTANCE OF THE SHAPE, AND THE FIFTH WAS COMMITTED INSIDE THE FIX FOR THE
+  FOURTH. Round 3's commit title names it; round 4's two reviews found it twice;
+  round 5 found it inside round 4's fix. Four rounds, so the instrument is a
+  GUARD: `H09b-ABSENCE-CONDITION` in `check-finding-sites.mjs`, driven to FAIL
+  naming both open sites and to PASS at 15 findings / 42 sites, with the
+  already-swept third site correctly reported closed throughout.
+  THE GUARD ALREADY EXISTED. What was missing was the ROW, and its own header
+  says so: "Registration is MANUAL, and nothing asserts the registry is
+  complete." So adding the row is part of fixing a multi-site finding rather than
+  paperwork after it - which is the practice change this entry is for. What stays
+  open is HANDOFF-13's question: what mechanically makes registration
+  non-optional. Until that is answered the guard closes the FACE and the origin -
+  a correction that does not enumerate its sites - stays open, count not reset.
+
+THE MEDIUM IS THE SAME DEFECT ONE LAYER DOWN FROM THE ONE ROUND 4 HAD JUST FIXED.
+  Section 8.1's new `neffSeries` string read "the Ironwood spend query did not
+  answer". Enumerated by execution the panel is null on FIVE paths and the query
+  ANSWERED on three - the dominant one being rows returned with no resolvable
+  anchor, which the same commit's runbook calls the state of any 005 database
+  before a backfill. A renderer following it tells a visitor the query failed
+  when it succeeded and nothing in it could be bounded. THE GENERAL FORM: a
+  condition string must name the DOMINANT cause of the state it explains, not a
+  cause; "names a condition rather than an owner" was necessary and not
+  sufficient, and round 4 stopped at the necessary half.
+
+THE THREE LOWs: section 7.1 shipped UNGUARDED, which is exactly what the round-4
+  review had named as the reason `check-infra-docs` passed over it - two topics
+  now, one per channel, because a single row matching only the input channel
+  would have certified the half-coverage that was the HIGH. CLAUDE.md's clause
+  (ii) still read as both "a new round" and "not a gate round", which give
+  different budgets under Loop 4. And round 4's stub assertion pinned one of six
+  tables: dropping `pool_snapshots` from `truncateAll` left THE FILE THAT EXISTS
+  TO BE THAT GUARD'S TRANSCRIPT at 4 passed while the rest of the tree went red.
+
+THE ROUND-4 EXTRAPOLATION, TESTED: it predicted "one or two findings in the
+  round-5 fix commit, not in the estimator, of the reach round 4's LOWs had".
+  Round 5 returned eight, two HIGH, all in the fix commit and none in the
+  estimator. Right about location and about the estimator, wrong about count and
+  severity - the same direction as every previous one on this branch.
+
+STOPPING, AFTER `39de2f6`:
+  It is NOT prose-only. It changes two GUARD PREDICATES - the new register row in
+  `check-finding-sites.mjs` and two topics in `check-infra-docs.mjs` - and one
+  test assertion, so under the amended clause (ii) it earns round 6, which is out
+  at write-back and reported as work. A commit that edits two guards is precisely
+  what that clause is for in THIS repository: three of its twelve guards have
+  shipped with a self-test certifying a hole, and eleven of the twelve holes in
+  `check-instrument-deps.mjs` were found by executing a probe and none by
+  reading.
+  EXTRAPOLATION: round 6 probably finds one or two in those two predicates -
+  a pattern too narrow to catch a restatement in different words, or one
+  satisfiable by prose rather than by a command, both of which this file's own
+  history contains. Below that the reach is a wrong word in a sentence.
+
+MEASURED, package by package: content 67, zebra-rpc 50, zec-instruments 98, web
+  368, gateway 143, publisher 99 + 2 skipped, indexer 448 + 1 skipped. TOTAL
+  1276, 1273 passed, 3 skipped - unchanged from round 4, because round 5 changed
+  no test count. Sixteen runbook topics, twelve guards, typecheck 13/13, lint 0,
+  content validate and `pnpm build` green. Post-fan-out sweep after round 5
+  returned only the seven paths the fix commit touches; the reviewer wrote
+  nothing to the tree and stated its own git status at both ends.
+```
+
+## HANDOFF-09b round 6 — a guard that certified its own hole (L3, 31 Aug 2026)
+
+```
+ROUND 6 REVIEWED `39de2f6`, WHICH CHANGED TWO GUARD PREDICATES AND A TEST
+ASSERTION AND SO EARNED A ROUND UNDER THE AMENDED CLAUSE (ii). Budget 31
+candidates / 24 by execution, 38 mutations. One HIGH, and it is the most
+instructive defect on this branch.
+
+THE GUARD WRITTEN TO STOP A SHAPE WAS GREEN ON THAT SHAPE'S DATA.
+  Round 5 added `H09b-ABSENCE-CONDITION` to close "a corrected fact landing at
+  some of its sites" - five instances by then - and drove it to fail by
+  REVERTING THE TWO SENTENCES IT HAD JUST FIXED. Executed at round 6, and re-run
+  by the lead before acting: restoring the round-3 TABLE ROWS verbatim - `drain:
+  not measured - needs a block-time source (HANDOFF-09b)`, the actual rendering
+  string the rule forbids - left the guard GREEN. Seven of eight paraphrases
+  passed too.
+  THIS IS CLAUDE.md's DATA-MUTATION RULE BROKEN BY THE SESSION THAT QUOTES IT,
+  and the mechanism is worth naming because it is not carelessness. The rule says
+  at least one fail side must be a DATA mutation - a value from the set the
+  predicate excludes. When the artefact under test is A GUARD, the tempting fail
+  side is "revert the fix and watch the guard fire", and that FEELS like a data
+  mutation because a document changed. It is not: the sentences reverted are the
+  guard's own code path expressed in prose. THE SET THE PREDICATE EXCLUDES IS THE
+  SET OF FORBIDDEN RENDERINGS, not the set of sentences describing the rule, and
+  a guard over a document has both a prose surface and an object surface that are
+  easy to confuse. Every register row now carries a `dataProbe` beside its
+  `probe`, and the self-test drives both.
+  THE FIX ALSO CHANGES WHAT THE ROW MATCHES: an arm matching the OBJECT (a table
+  cell pairing "not measured" with a HANDOFF reference) rather than only the
+  sentence about it. Seven of eight paraphrases now caught; the eighth uses no
+  owner-word at all and is RECORDED AS BEYOND A PHRASE MATCH rather than claimed
+  closed.
+
+AND THE SWEEP THAT GUARD EXISTED TO CLOSE HAD LANDED AT THREE SITES OF SEVEN.
+  Sixth instance, committed inside the fix for the fifth. Four live assertions
+  stood, the worst being `HANDOFF-11-live-wiring.md`'s §3 CONTRACT: a queued
+  handoff citing SNAPSHOT.md §8.1 as its authority and handing the cutover
+  session the exact string §8.1 now forbids.
+
+THE CROSS-HANDOFF CONFLICT, RESOLVED, AND THE SESSION CHANGED ITS POSITION.
+  §7 of round 4 raised that line for L2 and declined to touch it, because a
+  handoff body is not one of the five cross-handoff edits a session may make.
+  Round 6 amended it in place. TWO FACTS MOVED IT: it is a live §3 CONTRACT
+  rather than a quoted example, and it cites as its authority the very document
+  that now contradicts it; and that bullet ALREADY INVOKES the LEDGER-10 Q5
+  precedent in its own words - "a rule whose premise changed is one the next
+  session obeys for the wrong reason unless the change is visible". The premise
+  changed when 09b shipped, so amendment in place is what that sentence itself
+  prescribes.
+  THE GENERAL RULE THAT FALLS OUT: the cross-handoff-edit prohibition is about
+  SCOPE, not about consistency. Correcting a queued handoff's pointer to a
+  document THIS handoff owns, with the old form struck and visible, is a smaller
+  act than the rewrite the prohibition forbids - and leaving it is not neutral,
+  because a queued contract is executed. Where the two rules meet, amend in
+  place, strike rather than delete, and record it. Where a scope or a
+  deliverable would change, it is still L2's.
+  A CONSEQUENCE FOR THE GUARDS: `flatten()` now drops `~~...~~` spans, because
+  what is struck is not in force and a guard that fired on struck text would
+  force the deletion the convention exists to prevent.
+
+NEITHER GUARD'S SELF-TEST ITERATED ITS OWN RULE DATA (LEDGER-09a Q3), AND BOTH
+HAD JUST GAINED MEMBERS. Both now do, and both found holes on the first run:
+  `check-finding-sites.mjs`  three register rows (R3-H2, R2-GRADE, R3-ROWS) whose
+                             patterns had NEVER been driven against any text,
+                             while the run printed "self-tested in both
+                             directions"
+  `check-infra-docs.mjs`     five topics with no positive probe and eight with no
+                             negative one - nothing showed those patterns cannot
+                             be satisfied by prose, the defect three rows in that
+                             list were tightened for
+  The loop was written to catch the ONE member this branch had just added and
+  found eleven gaps it was not looking for, which is the argument for iterating
+  the rule's data rather than the probe list, measured rather than asserted.
+
+ROUND 5'S OWN CLAUDE.md EDIT HAD DISABLED AN ESCALATION. Its clause (ii)
+  exemption was blanket - "does not consume the three-round-per-finding budget".
+  On a long gate EVERY round after the first is a fix-commit review, so the
+  blanket form makes `NOT CONVERGING` unreachable in precisely the case it exists
+  for. Narrowed to exempt only a round that does not re-surface a finding with
+  the same fingerprint. A rule written to stop a regress had disabled the
+  escalation that bounds it.
+
+A READ-ONLY WORKER WROTE TO THE TREE FOR THE THIRD TIME, in a third agent role.
+  The round-6 reviewer wrote `apps/publisher/src/__drainprobe.mts`, ran it and
+  deleted it - and REPORTED IT AGAINST ITSELF rather than leaving it to be found.
+  The post-fan-out sweep confirmed the tree clean before this session committed.
+  The finding that probe produced is real and reproducible outside the tree, so
+  it is kept. Three occurrences across three roles is what CLAUDE.md's don't-list
+  already predicts: the sweep is a net, not a substitute for the rule, and the
+  rate is not falling. WORTH L2's ATTENTION: every instance so far has been
+  caught, twice by a lead noticing and once by the worker confessing, and none by
+  a mechanism.
+
+THE PREDICTION RECORD, THREE ROUNDS RUNNING: right about the LOCATION every
+  time, wrong about the COUNT and the SEVERITY every time, always in the
+  direction that flatters the branch. Round 4 predicted "one or two in the
+  round-5 fix commit, not the estimator" and got eight, two HIGH. Round 5
+  predicted "one or two, most likely in the two guard predicates" and got six,
+  one HIGH, in one of those predicates.
+
+STOPPING, AFTER `9a534ed`, AND THE TWO CURVES HAVE SEPARATED:
+  Reach on the PRODUCT has been flat at zero for two rounds - round 5's eleven
+  mutations, 2,000-case randomised sweep and three database reproductions found
+  no live defect in the publisher, and round 6 found none either. Reach on the
+  INSTRUMENTS has not fallen at all: rounds 4, 5 and 6 each found a guard or a
+  self-test to be the defect.
+  `9a534ed` is not prose-only - it widens a predicate, adds a `dataProbe`
+  mechanism, adds two self-test loops, and changes `flatten()`'s semantics FOR
+  EVERY REGISTER ROW rather than the one it was written for - so round 7 is owed
+  and is out at write-back. The `flatten()` change is what most deserves it: a
+  global semantic change made for a single struck amendment in one file.
+  THE LEAD'S JUDGEMENT, STATED RATHER THAN DEFERRED: round 7 is owed; round 8
+  probably is not. A gate that runs until its guards are perfect does not
+  terminate, and the amended clause (ii) terminates where a fix can no longer
+  carry a behavioural defect - which a guard predicate still can, and a document
+  sentence cannot. If round 7 returns only findings in guards, the right next
+  instrument is HANDOFF-13's registration question, not an eighth reading.
+
+MEASURED, package by package: content 67, zebra-rpc 50, zec-instruments 98, web
+  368, gateway 143, publisher 99 + 2 skipped, indexer 448 + 1 skipped. TOTAL
+  1276, 1273 passed, 3 skipped - unchanged, because round 6 changed no test.
+  Twelve guards, sixteen runbook topics, typecheck 13/13, lint 0, content
+  validate and `pnpm build` green.
+```
+
+## HANDOFF-09b round 7 — L2's merge block, and the gate reviewing its own output (L3, 31 Aug 2026)
+
+```
+L2 BLOCKED THE MERGE ON `9f99c0f` AND THE BLOCK WAS REAL THERE. It reproduced
+`H09b-ABSENCE-CONDITION` green on the data it forbids, independently rather than
+relaying round 6, which had raised the same thing as F2(a). Two facts belong
+beside it in this order: the block was CORRECT, and it was raised against a head
+two commits behind - `9a534ed` and `8d0c28d` were pushed before the ruling
+arrived. Re-executed on `8d0c28d` in both the ASCII-hyphen form the ruling prints
+and the em-dash form the file uses: FAIL, rc=1, naming the site.
+
+THE CORRECTION TO THIS SESSION'S OWN REASSURANCE, WHICH IS THE SHARPER HALF.
+  Section 7 had cited CI green as evidence the guards hold, "since CI runs
+  `pnpm check` and would have caught a guard that no longer passes". CI CATCHES A
+  GUARD THAT FAILS AND IS SILENT ABOUT ONE THAT PASSES VACUOUSLY, which is what
+  this one did on the same green run. Green is evidence about failure only. This
+  branch produced the case that proves it, and the sentence is corrected rather
+  than quietly dropped.
+
+ROUND 7 FOUND THE ROUND-6 FIX HAD REINTRODUCED THE SAME FAILURE THROUGH A
+DIFFERENT DOOR, WHICH IS THE FOURTH TIME THAT PATTERN HAS PAID.
+  Round 6 made `flatten()` drop `~~struck~~` spans. The regex was
+  `~~[\s\S]*?~~` and pairing runs 1-2, 3-4, so an ODD number of markers inverts
+  it: the guard then eats the COMPLEMENTS, the prose BETWEEN the strikes.
+  Measured on `handoffs/README.md` - 229 characters stripped clean, 16,269 with
+  ONE stray marker added, 80.3% of the file invisible to every register row. And
+  `check-finding-sites.mjs` ITSELF carries five markers, an odd count, produced
+  by the act of explaining the convention.
+  THE GENERAL FORM, worth more than the regex: A DOCUMENT-STRIPPING RULE WHOSE
+  DELIMITER IS PAIRED HAS A PARITY FAILURE MODE, and the failure is not local -
+  it inverts, so the blast radius is the whole file rather than one span. Scoped
+  to a single line with no interior delimiter, which costs nothing because GFM
+  strikethrough does not span a blank line.
+
+THE SECOND HIGH IS A GUARD THAT REDDENS ON CORRECT PROSE, WHICH IS HOW A GUARD
+GETS DELETED RATHER THAN FIXED. Round 6's widened arm allowed any 48 characters
+  between "named absence" and an owner-word with NO POLARITY, so it fires on "a
+  named absence never names an owner" as loudly as on the violation.
+  SNAPSHOT.md's own correct sentence clears it by FIVE CHARACTERS, in the
+  direction copy-editing moves: shortening "stating the CONDITION that produced
+  it" to "stating its CONDITION" reddened the build with the message "still
+  states the old answer" about a sentence stating the new one. A negation
+  lookahead fixes it. THE RULE: a guard that can fail on a correct statement of
+  its own rule is worse than no guard, because the next session deletes it and
+  then nothing checks the shape.
+
+L2's ITEM 1, AND IT IS THE PART THAT OUTLASTS THIS BRANCH: each row's probe must
+be the defect AS IT ACTUALLY APPEARED AT A REAL SITE, and the row driven to fail
+by applying it TO THE SITE ITSELF.
+  THE PROBE LOOP WAS UNDER-COVERING FOR 7 OF 15 ROWS. Routed through
+  `openSites`, a probe counted as matched if `absent` fired OR `present` was
+  merely MISSING - so for every `present`-bearing row the pattern was never
+  driven, and the literal "banana" passed all seven while the run printed
+  "self-tested in both directions". The loop added in round 6 to close an
+  under-covering self-test was itself under-covering.
+  AND EVERY ROW IS NOW DRIVEN AGAINST ITS OWN REAL SITES, with the perturbation
+  its kind demands: an `absent` row has its defect text SPLICED INTO the real
+  file; a `present` row has its corrected text DELETED from it. The second half
+  is the load-bearing one: A `present` ROW CANNOT BE DRIVEN BY A HELD STRING AT
+  ALL, because any string lacking the required text satisfies the check. Only the
+  real file carries the difference between "this text is missing" and "this is
+  not the file". Stated in the guard so a green run is not read as wider than it
+  is: for a `present`-only row the probe field is documentation, not a test.
+
+THE PROBE AUDIT, AND THE COUNT IS NOT FLATTERING. Fifteen rows carry a probe;
+  searching each through `git log -S` against its own registered sites:
+    REAL-SITE TEXT, recoverable from history   4  (H09a-VITEST-ALIAS, R2-A9,
+                                                   H07-DENOM, R4-EXITZAT-REACH)
+    reconstruction or invented sentence       11
+  So four of fifteen probes are the defect as it stood. That is the honest
+  measure of what this register proves BY ITS PROBES ALONE, and it is why the
+  site drive is the load-bearing half. QUALIFICATION ON THE INSTRUMENT, because
+  the number will be quoted: `git log -S` over a site path finds a probe only if
+  that exact text was committed at that path, so a faithful probe whose defect
+  was reformatted, or which lived at a path outside the row's `sites`, counts as
+  "invented" here. Four is a LOWER BOUND on faithfulness, not proof of eleven
+  fabrications.
+  `H09b-ABSENCE-CONDITION`'s dataProbe is now BYTE-VERBATIM from SNAPSHOT.md at
+  `73ea340` line 329, recovered with `git show` rather than retyped: its first
+  version used an ASCII hyphen where the file used an em dash, which is the whole
+  gap between "a sentence resembling the defect" and "the defect".
+
+A SEVENTH SITE OF THE SWEEP, FOUND INSIDE THE FIX FOR THE SIXTH.
+  `HANDOFF-09a-estimator-package.md:210`, a supersession blockquote stating in
+  the PRESENT TENSE that the rule "permits a named absence carrying its owner".
+  The guard's own self-test settles the classification - the RECORD exclusion is
+  pinned so it cannot widen to handoffs, because a handoff's section 7 asserts
+  facts. Corrected and registered; the row checks seven sites.
+
+AND A COUNT THIS SESSION GOT WRONG AND SWEPT TO THREE PLACES. Round 6 reported
+  `check-infra-docs.mjs` as having "five topics with no positive probe and eight
+  with no negative one". Measured from the arrays: FOUR AND SEVEN. It reached the
+  commit message, section 7 and section 8 before round 7 caught it - the INVERSE
+  of the sweep rule, a wrong fact propagated rather than a right one
+  half-corrected. Section 7 is corrected; this file is append-only, so the
+  round-6 block above keeps the error and this block states it.
+
+THREE OF THIS SESSION'S OWN PROBES WERE MALFORMED AND ARE REPORTED RATHER THAN
+QUIETLY REDONE, all three inside the round-7 work:
+  (1) rebuilt a row's regex as `new RegExp(source, "g")`, dropping the `i`, so a
+      capitalised match survived the strip and the row read as inert;
+  (2) stripped the RAW file while `openSites` matches the FLATTENED one, so a
+      phrase forming only after comment-prefix stripping ("number of\n *
+      crossings" in `migration-lens.ts`) could not be removed and the row read as
+      inert again;
+  (3) a fail side that did not fail: mutating a pattern AND its probe together is
+      a consistent rename, not a discriminating mutation.
+  All three first looked like defects in the thing under test. That is now eight
+  malformed probes on this project's record and the rule has caught every one.
+
+STOPPING, AND THE REASON IS SCOPE RATHER THAN REACH:
+  L2's diagnosis is one this session could not see from inside. THE PRODUCT
+  CONVERGED AT ROUND 5 AND THE GATE DID NOT, because rounds 5, 6 and 7 each found
+  defects in the runbook prose, register rows and guard predicates that rounds 3,
+  4 and 5 had written. The gate was reviewing ITS OWN OUTPUT, and every fix
+  commit added more of it. That does not terminate on its own, and it is not a
+  reach curve - this session's round-6 extrapolation reached the right conclusion
+  ("round 7 owed, round 8 not") from the WRONG argument, reasoning from decaying
+  reach when the actual argument is scope.
+  CLAUSE (ii) SECOND AMENDMENT, now in CLAUDE.md: once a round returns no finding
+  in an executable line of the PRODUCT, subsequent rounds review only (a) guard
+  predicates and their self-tests, (b) test assertions, and (c) sentences making a
+  CHECKABLE CLAIM ABOUT RUNTIME BEHAVIOUR, checked by EXECUTING the behaviour.
+  Everything else is applied without earning a round. Both of round 5's HIGHs
+  were in (c) and both were false when executed, which is what makes (c) a
+  category rather than a loophole.
+  ROUND 7'S FIX COMMIT CHANGES GUARD PREDICATES AND A SELF-TEST. Under the first
+  amendment that earns a round 8; under the second it does not, because round 8
+  reviews (a) again with no product defect in sight. THE GATE STOPS HERE. What is
+  carried forward is HANDOFF-13's registration question - what mechanically makes
+  registration non-optional - which no further reading answers.
+
+MEASURED, package by package: content 67, zebra-rpc 50, zec-instruments 98, web
+  368, gateway 143, publisher 99 + 2 skipped, indexer 448 + 1 skipped. TOTAL
+  1276, 1273 passed, 3 skipped - unchanged; round 7 changed no test. Twelve
+  guards, sixteen runbook topics, typecheck 13/13, lint 0, content validate and
+  `pnpm build` green. Post-fan-out sweep after round 7 returned only the four
+  paths the fix touches. THE PR STOPS AT OPENED: L2's ruling ends "THEN MERGE",
+  and merging is Aqua's click under this file's own operating model, so the
+  transcript is posted and the button is not pressed.
+```

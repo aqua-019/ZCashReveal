@@ -5,12 +5,37 @@
 -- post-NU6.3 lenses will read - pool_snapshots and migrations_zip318 - are
 -- created empty here.
 --
--- RE-RUNNABLE BY CONSTRUCTION. HANDOFF-06 A2 asserts that re-running the
--- migrations is a no-op, and this is the first migration that ALTERs objects it
--- did not create, so "IF NOT EXISTS on every CREATE" no longer covers the file
--- on its own. Postgres has no ADD CONSTRAINT IF NOT EXISTS, so each pool CHECK
--- is dropped by name and re-added; every ALTER TABLE below is written in a form
+-- RE-RUNNABLE IN ITS DDL. HANDOFF-06 A2 asserts that re-running the migrations
+-- is a no-op, and this is the first migration that ALTERs objects it did not
+-- create, so "IF NOT EXISTS on every CREATE" no longer covers the file on its
+-- own. Postgres has no ADD CONSTRAINT IF NOT EXISTS, so each pool CHECK is
+-- dropped by name and re-added; every ALTER TABLE below is written in a form
 -- that is a no-op the second time it runs.
+--
+-- AND NOT IN ITS ONE DML STATEMENT, WHICH THIS HEADER USED TO CLAIM (found by
+-- HANDOFF-09b's gate round 1, corrected here rather than rewritten). The header
+-- said "RE-RUNNABLE BY CONSTRUCTION" without qualification, and 004 and 005 both
+-- cite this file's re-runnability as the contract they follow. The
+-- `UPDATE leak_reports SET fee_zat = NULL WHERE fee_zat = 0` below is NOT a
+-- no-op on a second application: after the first run a `0` in that column is a
+-- coinbase's MEASURED zero - `fee.ts` returns `0n` there and calls it "a fact
+-- rather than an absence" - so re-applying would reclassify a fact as an
+-- absence, which is the error this file spends two paragraphs condemning, in
+-- reverse.
+--
+-- WHAT MAKES IT SAFE IS THE RUNNER, NOT THE STATEMENT'S SHAPE. `migrate.ts`
+-- wraps each migration's body and its `schema_migrations` row in ONE
+-- transaction, so a file that has been applied is never executed again and a
+-- file that failed left no row. The statement's own comment says "this runs
+-- once, inside the transaction that applies this file"; it just never said what
+-- enforces that. Now it does.
+--
+-- THE STATEMENT IS DELIBERATELY NOT REWRITTEN. Its bytes are already applied on
+-- CI, on development databases and in L2's container, and a migration whose
+-- bytes change after application is a divergence `schema_migrations` cannot
+-- detect - a worse defect than the one being fixed. There is also no correct
+-- rewrite available: the statement is right for pre-003 rows, and after it runs
+-- there is no column that distinguishes those rows from later ones.
 --
 -- THE CONSTRAINT NAMES ARE POSTGRES'S, NOT OURS. 002 wrote the pool checks as
 -- inline unnamed column constraints, so the server named them

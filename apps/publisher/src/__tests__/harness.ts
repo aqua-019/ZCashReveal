@@ -253,7 +253,14 @@ export function fixtureInputs(height: number, overrides: Partial<SnapshotInputs>
     ironwoodSpends: [
       { txid: asHex("bb".repeat(32)), height, pool: "ironwood", candidateCount: 5n },
     ],
-    ironwoodWindow: { birthHeight: 3_428_143, lowHeight: height - 1151, highHeight: height },
+    ironwoodWindow: {
+      birthHeight: 3_428_143,
+      lowHeight: height - 1151,
+      highHeight: height,
+      // One spend in `ironwoodSpends` above, and one seen in the window: this
+      // harness is the fully-measured case.
+      spendsInWindow: 1,
+    },
     lastReports: [mempoolRow(1, 30), mempoolRow(2, 5)],
     labelsVersion: "labels-9-2026-08-22",
     ...overrides,
@@ -283,4 +290,26 @@ export class RecordingLog {
   error(obj: Record<string, unknown>, msg: string): void {
     this.lines.push({ level: "error", obj, msg });
   }
+}
+
+/**
+ * Whether a direct TRUNCATE in the integration suite is permitted.
+ *
+ * A NAMED FUNCTION RATHER THAN AN INLINE CONDITION, so it can be driven in both
+ * polarities (gate round 4). It was four lines inside that file's `beforeEach`,
+ * where nothing reached either branch: an inverted comparison there truncates
+ * `public` on every publisher run and no test would have said so - which is the
+ * failure gate round 1 already found once in that exact file.
+ *
+ * IT LIVES IN THE HARNESS RATHER THAN IN THE TEST FILE because importing a test
+ * file to reach a helper re-collects every `describe` in it - measured: the unit
+ * file went from 33 cases to 55, running the integration suite a second time.
+ *
+ * `_setup.ts` in `apps/indexer` carries the other copy, tested by
+ * `truncate-guard.test.ts`. Two copies of one rule is the arrangement this
+ * project has, because the publisher suite truncates directly rather than
+ * through `truncateAll`; `units.test.ts` pins that they agree as predicates.
+ */
+export function mayTruncate(schema: string | undefined, hatch: string | undefined): boolean {
+  return (schema !== undefined && schema !== "") || hatch === "1";
 }

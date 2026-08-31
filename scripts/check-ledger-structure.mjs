@@ -68,7 +68,7 @@
 // time inside its own selfTest, so breaking the real check left every probe
 // green. One function, two callers.
 
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync } from "node:fs";
 
 const LEDGER = "handoffs/LEDGER.md";
 
@@ -139,6 +139,101 @@ export function ledgerFindings(text) {
   return findings;
 }
 
+
+/* ============================================================================
+   R4 - the amended section 5 format (fold 6 of the L2 RESOLUTION for HANDOFF-09a)
+   ============================================================================
+
+   WHAT THIS CHECKS AND WHAT IT CANNOT. It checks that the EXCLUSION SET clause
+   is PRESENT on every assertion in an opted-in section 5, and that the fail
+   side names which member it used. **It cannot check that either is correct.**
+   That limit is stated here, in the guard's own header, because L2 stated it
+   when it asked for the guard: "`check-ledger-structure.mjs` can check that the
+   clause is PRESENT; it cannot check that it is correct, and I am saying so
+   rather than letting a structural check be mistaken for a semantic one."
+   A green run of R4 is evidence the format was followed. It is NOT evidence the
+   fail side came from inside the exclusion set, which is the property the format
+   exists to make visible to a READER.
+
+   WHY IT IS OPT-IN RATHER THAN RETROACTIVE. Handoffs 00 to 13 were written
+   before the amended format existed, so a rule applied to all of them would fire
+   on thirteen files on the commit that introduced it - a guard that must fail on
+   arrival is one whose first act is to teach the next session to ignore it. A
+   handoff opts in by writing the marker in its section 5 heading paragraph, and
+   from that point every assertion in it is checked. HANDOFF-11, 12 and 13 will
+   opt in when they are next rewritten.
+
+   The rule exists because the two-polarity rule was OBEYED by all six instances
+   of "an assertion satisfied by every value it was written to exclude" and did
+   not catch any of them: the fail side was chosen to fail. Naming the exclusion
+   set in section 5 and the member used in section 7 is what makes the gap
+   between them visible by eye, which is the half a guard cannot do. */
+
+/** The marker a handoff writes to opt its section 5 into R4. */
+export const AMENDED_FORMAT_MARKER = "EXCLUSION SET";
+
+/** An assertion bullet: `- **A1.**`, `- **A12.**`. */
+const ASSERTION_RE = /^- \*\*(A\d+[a-z]?)\.\*\*/;
+
+/**
+ * R4 over one handoff's text. Returns findings; empty for a file that has not
+ * opted in, which is a SKIP and is reported as one by the caller rather than
+ * counted as a pass.
+ */
+export function assertionFormatFindings(file, text) {
+  const findings = [];
+  const lines = text.split("\n");
+
+  let start = -1;
+  let end = lines.length;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (start === -1 && /^## .*\u00a75/.test(lines[i])) { start = i; continue; }
+    if (start === -1 && /^## \u00a75/.test(lines[i])) { start = i; continue; }
+    if (start !== -1 && lines[i].startsWith("## ")) { end = i; break; }
+  }
+  if (start === -1) return { findings, optedIn: false, count: 0 };
+
+  const section = lines.slice(start, end);
+  if (!section.join("\n").includes(AMENDED_FORMAT_MARKER)) {
+    return { findings, optedIn: false, count: 0 };
+  }
+
+  // Each assertion runs from its bullet to the next bullet (or the section end).
+  const starts = [];
+  for (let i = 0; i < section.length; i += 1) {
+    if (ASSERTION_RE.test(section[i])) starts.push(i);
+  }
+  if (starts.length === 0) {
+    findings.push(
+      `${file}  R4: section 5 declares the amended format and contains no assertion bullet. ` +
+        "An opted-in section with nothing to check is a green run that means nothing.",
+    );
+    return { findings, optedIn: true, count: 0 };
+  }
+
+  for (let k = 0; k < starts.length; k += 1) {
+    const from = starts[k];
+    const to = k + 1 < starts.length ? starts[k + 1] : section.length;
+    const body = section.slice(from, to).join("\n");
+    const id = ASSERTION_RE.exec(section[from])[1];
+    if (!/\*Exclusion set:\*/.test(body)) {
+      findings.push(
+        `${file}:${start + from + 1}  R4: ${id} states no exclusion set. The amended format ` +
+          "requires every assertion to name the values its predicate is written to reject, so a " +
+          "reader can see whether the fail side came from inside that set or from outside it.",
+      );
+    }
+    if (!/\*Fail side names:\*/.test(body)) {
+      findings.push(
+        `${file}:${start + from + 1}  R4: ${id} does not name which member of its exclusion set ` +
+          "the fail side used. A fail side that is only a code mutation proves the assertion is " +
+          "WIRED, never that it DISCRIMINATES (CLAUDE.md, LEDGER-09a Q2).",
+      );
+    }
+  }
+  return { findings, optedIn: true, count: starts.length };
+}
+
 function selfTest() {
   let ok = true;
   const fail = (m) => {
@@ -190,6 +285,48 @@ function selfTest() {
     fail(`a heading quoted inside a fence was treated as real: ${JSON.stringify(ledgerFindings(QUOTED))}`);
   }
 
+  // R4, GENERATED OVER THE TWO REQUIRED CLAUSES rather than hand-written, so a
+  // third clause added to the format cannot arrive untested (CLAUDE.md's guard
+  // self-test standard, LEDGER-09a Q3).
+  const R4_CLAUSES = ["*Exclusion set:*", "*Fail side names:*"];
+  const r4Doc = (clauses) =>
+    [
+      "## \u00a75 ASSERTIONS",
+      "",
+      "Amended format: every assertion states its EXCLUSION SET.",
+      "",
+      "- **A1.** a thing is true.",
+      ...clauses.map((c) => `  ${c} something.`),
+      "",
+      "## \u00a76 NEXT",
+      "",
+    ].join("\n");
+
+  if (assertionFormatFindings("x.md", r4Doc(R4_CLAUSES)).findings.length !== 0) {
+    fail("R4 fired on a well-formed amended assertion");
+  }
+  for (const missing of R4_CLAUSES) {
+    const kept = R4_CLAUSES.filter((c) => c !== missing);
+    const out = assertionFormatFindings("x.md", r4Doc(kept));
+    if (!out.findings.some((f) => f.includes("R4"))) {
+      fail(`R4 did not fire on an assertion missing ${missing}`);
+    }
+  }
+
+  // R4 does NOT fire on a handoff that has not opted in - the retroactive case.
+  const notOptedIn = ["## \u00a75 ASSERTIONS", "", "- **A1.** a thing is true.", "", "## \u00a76 NEXT", ""].join("\n");
+  const skipped = assertionFormatFindings("old.md", notOptedIn);
+  if (skipped.optedIn || skipped.findings.length !== 0) {
+    fail("R4 fired on a handoff written before the amended format existed");
+  }
+
+  // An opted-in section with NO assertions is a finding, not a pass - the
+  // vacuous-pass shape that hole 6 of check-instrument-deps.mjs was.
+  const empty = ["## \u00a75 ASSERTIONS", "", "EXCLUSION SET format.", "", "## \u00a76 NEXT", ""].join("\n");
+  if (!assertionFormatFindings("e.md", empty).findings.some((f) => f.includes("R4"))) {
+    fail("R4 did not fire on an opted-in section 5 with no assertion bullet");
+  }
+
   return ok;
 }
 
@@ -212,11 +349,41 @@ if (findings.length > 0) {
   process.exit(1);
 }
 
+// R4 OVER THE REAL HANDOFF FILES, not only over the self-test's fixtures. The
+// second of CLAUDE.md's two guard-self-test standards: a probe that passes
+// against a synthetic document and would not against reality is the shape that
+// produced a silent vacuous pass in `check-instrument-deps.mjs` (hole 9).
+const HANDOFF_DIR = "handoffs";
+const handoffFiles = readdirSync(HANDOFF_DIR)
+  .filter((f) => /^HANDOFF-\d+[a-z]?-.*\.md$/.test(f))
+  .sort();
+
+const formatFindings = [];
+let optedInCount = 0;
+let checkedAssertions = 0;
+for (const f of handoffFiles) {
+  const out = assertionFormatFindings(`${HANDOFF_DIR}/${f}`, readFileSync(`${HANDOFF_DIR}/${f}`, "utf8"));
+  formatFindings.push(...out.findings);
+  if (out.optedIn) {
+    optedInCount += 1;
+    checkedAssertions += out.count;
+  }
+}
+
+if (formatFindings.length > 0) {
+  console.error(`[ledger-structure] FAIL: ${formatFindings.length} finding(s).`);
+  for (const f of formatFindings) console.error(`  ${f}`);
+  process.exit(1);
+}
+
 // The SAME scanner the rules use. A second implementation here would be the
 // exact defect this file's header warns about one paragraph above.
 const headingCount = scanHeadings(text.split("\n")).headings.length;
 
 console.log(
   `[ledger-structure] OK: ${headingCount} heading(s) in ${LEDGER}, each preceded by a blank line ` +
-    "and each governing a fenced block (detectors self-tested in both directions).",
+    `and each governing a fenced block; ${checkedAssertions} assertion(s) across ${optedInCount} of ` +
+    `${handoffFiles.length} handoff(s) carry an exclusion set and a named fail-side member ` +
+    "(R4 checks the clause is PRESENT, never that it is CORRECT - see this file's R4 header). " +
+    "Detectors self-tested in both directions and driven over the real tree.",
 );

@@ -247,20 +247,48 @@ export type SnapshotNeffPoint = z.infer<typeof snapshotNeffPointSchema>;
  * a page that recomputes them from `series` would get a different answer once
  * `series` is truncated for size, and a reader has no way to notice.
  */
-export const snapshotNeffSeriesSchema = z.object({
-  birthHeight: heightSchema,
-  /** Points, oldest first. May be sampled; `spendCount` is the population it came from. */
-  series: z.array(snapshotNeffPointSchema),
-  /** Spends in the series, which is not `series.length` when the series is sampled. */
-  spendCount: countSchema,
-  /** Shares by claim level, over `spendCount`. Sum to 1 when `spendCount > 0`. */
-  shares: z.object({
-    aggregate_only: z.number().min(0).max(1),
-    broad_candidate_set: z.number().min(0).max(1),
-    small_heuristic_set: z.number().min(0).max(1),
-    requires_disclosure: z.number().min(0).max(1),
-  }),
-});
+export const snapshotNeffSeriesSchema = z
+  .object({
+    birthHeight: heightSchema,
+    /** Points, oldest first. May be sampled; `spendCount` is the population it came from. */
+    series: z.array(snapshotNeffPointSchema),
+    /** Spends in the series, which is not `series.length` when the series is sampled. */
+    spendCount: countSchema,
+    /**
+     * Ironwood spends SEEN in the window, before any could be bounded.
+     *
+     * `spendCount` counts the spends the series could measure; this counts the
+     * spends there were. They differ whenever a spend's anchor cannot be resolved,
+     * and without both numbers the shares below are uninterpretable: four of five
+     * spends unbounded published "100 per cent require disclosure", computed over
+     * the one spend whose anchor happened to resolve, with no field that could say
+     * so (HANDOFF-09b gate round 2). A renderer must show the pair, never the
+     * share alone - `docs/2.0/SNAPSHOT.md` section 8.1 states the contract.
+     *
+     * Always `>= spendCount`.
+     */
+    windowSpendCount: countSchema,
+    /**
+     * Shares by claim level, over `spendCount` - NOT over `windowSpendCount`. Sum
+     * to 1 when `spendCount > 0`.
+     */
+    shares: z.object({
+      aggregate_only: z.number().min(0).max(1),
+      broad_candidate_set: z.number().min(0).max(1),
+      small_heuristic_set: z.number().min(0).max(1),
+      requires_disclosure: z.number().min(0).max(1),
+    }),
+  })
+  // THE INVARIANT ABOVE IS ENFORCED, NOT MERELY STATED (gate round 3). Both the
+  // gateway and apps/web re-validate with this schema, so it is the thing that
+  // fails closed - and "always >= spendCount" written only in a docstring let a
+  // publisher bug inverting the pair sail through, after which section 8.1's
+  // mandated form renders "N_eff over 5 of 2 spends in the window".
+  .refine((n) => n.windowSpendCount >= n.spendCount, {
+    message:
+      "windowSpendCount is the population spendCount was drawn from and cannot be smaller than it",
+    path: ["windowSpendCount"],
+  });
 export type SnapshotNeffSeries = z.infer<typeof snapshotNeffSeriesSchema>;
 
 /**

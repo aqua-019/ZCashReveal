@@ -41,13 +41,10 @@ import { createRedisSink } from "./sinks/redis.js";
 import type { Sink } from "./sinks/sink.js";
 import {
   readSnapshotInputs,
-  type MigrationQuery,
-  type MigrationRow,
+  MS_PER_SECOND,
 } from "./sources/chain-inputs.js";
+import { makeChainQueries } from "./sources/queries.js";
 import { createRedisTipSource } from "./sources/tip-source.js";
-
-/** Milliseconds in a second - block times arrive from the node in seconds. */
-const MS_PER_SECOND = 1_000;
 
 /**
  * The sinks a configuration asks for.
@@ -106,13 +103,13 @@ async function main(): Promise<void> {
     retries: cfg.ZEBRAD_RPC_RETRIES,
   });
 
-  const queryMigrations: MigrationQuery = (lowHeight, highHeight) =>
-    sql<MigrationRow[]>`
-      SELECT txid, height, amount_zat
-      FROM migrations_zip318
-      WHERE height >= ${lowHeight} AND height <= ${highHeight}
-      ORDER BY height ASC
-    `;
+  // ONE COPY OF THE SQL, IN `sources/queries.ts`, IMPORTED BY THE ASSERTIONS TOO.
+  // Until HANDOFF-09b's gate these queries were written here and again by hand in
+  // the integration suite, and the gate measured what that cost: breaking all
+  // three at once left the whole publisher suite green, because nothing in the
+  // repository executed the queries the publisher actually runs.
+  const { queryMigrations, queryOrchardSeries, queryDrainBaseline, queryIronwoodSpends } =
+    makeChainQueries(sql);
 
   const labelsVersion = currentLabelsVersion();
 
@@ -125,6 +122,18 @@ async function main(): Promise<void> {
         {
           readChainInfo: () => rpc.getBlockchainInfoFull(),
           queryMigrations,
+          queryOrchardSeries,
+          queryDrainBaseline,
+          queryIronwoodSpends,
+          // A LOST PANEL IS NEVER A SILENT ABSENCE. `readSnapshotInputs`
+          // promises in capitals that a failing query costs one panel and not
+          // the document; this is where the reason for that panel's absence is
+          // recorded, and without it the promise would be kept silently.
+          onInputFault: (panel, err) =>
+            log.error(
+              { err, panel, height: tip.height },
+              "an input query failed; publishing that panel as a stated absence",
+            ),
           cfg,
           labelsVersion,
           now: () => Date.now(),

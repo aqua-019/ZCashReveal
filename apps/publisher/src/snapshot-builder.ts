@@ -96,8 +96,16 @@ export interface SnapshotInputs {
 
   /** Ironwood spends the N_eff series is computed over. Null suppresses the panel. */
   readonly ironwoodSpends: ReadonlyArray<IronwoodSpend> | null;
-  /** The birth height and the window. Null suppresses the panel. */
-  readonly ironwoodWindow: (HeightWindow & { readonly birthHeight: number }) | null;
+  /**
+   * The birth height, the window, and how many spends were SEEN in it.
+   *
+   * `spendsInWindow` is the population before anchor resolution, so the panel
+   * can publish it beside the count it actually measured. Null suppresses the
+   * panel.
+   */
+  readonly ironwoodWindow:
+    | (HeightWindow & { readonly birthHeight: number; readonly spendsInWindow: number })
+    | null;
 
   /** Mempool rows, any order. Trimmed to `SNAPSHOT_MAX_REPORTS`, newest first. */
   readonly lastReports: ReadonlyArray<MempoolRow>;
@@ -243,7 +251,22 @@ function panelOrNull<T>(panel: string, build: () => T, onFault: PanelFault): T |
   try {
     return build();
   } catch (err) {
-    onFault(panel, err);
+    // A BROKEN SINK IS NOT WORTH THE DOCUMENT IT WOULD COST (gate round 3).
+    // Identical shape and identical reason to `readSnapshotInputs`' `fault`
+    // wrapper, which gained this guard one round earlier and at one of the TWO
+    // sites that needed it: this call is INSIDE a `catch`, so a throw here
+    // escapes `buildSnapshot` entirely and the tip publishes nothing - the exact
+    // whole-document loss `panelOrNull` exists to prevent. In production both
+    // sinks are the same pino `log.error`, so one broken logger reached both.
+    //
+    // `void` does not forbid an async sink - TypeScript's void-return
+    // assignability admits `Promise<void>` - and a rejected promise escapes a
+    // `catch`, so both halves are caught.
+    try {
+      void Promise.resolve(onFault(panel, err)).catch(() => undefined);
+    } catch {
+      /* intentionally empty */
+    }
     return null;
   }
 }
@@ -395,6 +418,29 @@ function buildNeffSeries(
     lowHeight: window.lowHeight,
     highHeight: window.highHeight,
   });
+  // REFUSED AT THE PRODUCER, NOT ONLY AT THE SCHEMA - the trade `buildDrain`
+  // makes for `drained`, applied to the invariant gate round 3 added here and
+  // missed by the commit that added it (gate round 4). `snapshotNeffSeriesSchema`
+  // refines `windowSpendCount >= spendCount`, `serializeSnapshot` is a bare
+  // `JSON.stringify` that validates nothing, and the gateway's `safeParse`
+  // rejects the WHOLE document - so an inverted pair costs `pools`, `residual`
+  // and `lastReports` as well, while this process logs `snapshot published`.
+  // Reproduced by the round-4 reviewer: `spendsInWindow: 1` against two admitted
+  // spends published cleanly and came back from `readSnapshotFile` as
+  // `{ ok: false, reason: "invalid" }`.
+  //
+  // Structurally the production path maintains it - `spendsInWindow` is
+  // `rows.length` and both `ironwoodSpendsFromRows` and `ironwoodBirth` only
+  // narrow - and that is exactly the argument a schema-only constraint rests on.
+  // A producer bug is the case the refine was added for, so it is the case the
+  // producer must refuse.
+  if (window.spendsInWindow < b.spendCount) {
+    throw new RangeError(
+      `buildNeffSeries: windowSpendCount = ${window.spendsInWindow} is smaller than spendCount = ` +
+        `${b.spendCount}, which snapshotNeffSeriesSchema forbids. Publishing it would put an ` +
+        "invalid document in a store shared with another project.",
+    );
+  }
   return {
     birthHeight: b.birthHeight,
     series: b.series.map((p) => ({
@@ -404,6 +450,11 @@ function buildNeffSeries(
       claimLevel: p.claimLevel,
     })),
     spendCount: b.spendCount,
+    // THE POPULATION THE SHARES ARE NOT OVER. `ironwoodBirth` measures the
+    // spends it could bound; this is how many there were. Publishing only the
+    // first made a window where four of five anchors did not resolve read as
+    // "100 per cent require disclosure" (gate round 2).
+    windowSpendCount: window.spendsInWindow,
     shares: {
       aggregate_only: b.shares.aggregate_only,
       broad_candidate_set: b.shares.broad_candidate_set,

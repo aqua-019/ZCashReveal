@@ -101,11 +101,42 @@ export async function isPostgresReachable(): Promise<boolean> {
 }
 
 /**
- * Truncate all four state-machine tables and reset BIGSERIAL counters.
+ * Truncate the state-machine tables and reset BIGSERIAL counters.
  * Run in beforeEach for per-test isolation.
+ *
+ * SIX TABLES, NOT FOUR. `pool_snapshots` (migration 003) and `blocks`
+ * (migration 005) were outside this list for as long as neither had a writer -
+ * LEDGER-06 recorded that as correct at the time and flagged that "it will need
+ * changing by whichever handoff writes to them first". HANDOFF-09b is that
+ * handoff. `migrations.test.ts` carried a second `TRUNCATE pool_snapshots` of
+ * its own as a workaround; leaving that in place while adding a real writer
+ * would give two test files two different ideas of what a clean database is.
  */
 export async function truncateAll(sql: Sql): Promise<void> {
+  // REFUSES TO RUN WITHOUT A SCHEMA OF THIS RUN'S OWN (gate round 2, F16). The
+  // isolation was a PATH - `globalSetup: ["../indexer/test/global-setup.ts"]` in
+  // each vitest config - and a path is exactly what the publisher's config was
+  // missing when its suite truncated `public`. A config that loses the line
+  // again, a package move, or a rename all reproduce that silently, because a
+  // `globalSetup` that fails to load leaves `ZR_TEST_SCHEMA` unset and this
+  // function then truncates the developer's real tables.
+  //
+  // So the guarantee moves from the config to here: no schema, no TRUNCATE. The
+  // escape hatch is deliberate and named, because CI and a developer running
+  // against a throwaway database both have a legitimate reason to opt out, and
+  // an unconditional refusal would be a rule nobody could satisfy.
+  if (testSchema() === null && process.env["ZR_ALLOW_PUBLIC_TRUNCATE"] !== "1") {
+    throw new Error(
+      "truncateAll refused: ZR_TEST_SCHEMA is unset, so `search_path` is `public` and this " +
+        "would TRUNCATE the shared tables rather than this run's own. Add " +
+        "a `globalSetup` pointing at `apps/indexer/test/global-setup.ts` to this package's " +
+        "vitest config - `./test/global-setup.ts` from apps/indexer, " +
+        '`../indexer/test/global-setup.ts` from anywhere else (see ' +
+        "`apps/publisher/vitest.config.ts`) - or set ZR_ALLOW_PUBLIC_TRUNCATE=1 if the database " +
+        "really is disposable.",
+    );
+  }
   await sql.unsafe(
-    "TRUNCATE pool_commitments, pool_anchors, pool_nullifiers, pool_boundary_flows RESTART IDENTITY",
+    "TRUNCATE pool_commitments, pool_anchors, pool_nullifiers, pool_boundary_flows, pool_snapshots, blocks RESTART IDENTITY",
   );
 }

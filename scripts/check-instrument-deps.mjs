@@ -350,38 +350,57 @@ function selfTest() {
     fail(`the correct arrangement was reported: ${JSON.stringify(instrumentFindings(clean, oneSource))}`);
   }
 
-  // R1, DIRECT edge.
-  const direct = new Map(clean);
-  direct.set(PACKAGE_NAME, { dir: PACKAGE_DIR, deps: ["@zcashreveal/types", "@zcashreveal/indexer"] });
-  if (!instrumentFindings(direct, oneSource).some((f) => f.includes("R1"))) {
-    fail("R1 did not fire on a direct banned edge");
-  }
+  // R1, EVERY banned dependency, GENERATED FROM `BANNED_DEPENDENCIES` rather
+  // than hand-written - fold 1 of the L2 RESOLUTION for HANDOFF-09a, F-45-1.
+  //
+  // WHY THIS LOOP EXISTS AND WHAT IT REPLACES. The previous version had three
+  // hand-written R1 cases: a direct edge and a transitive edge, both naming
+  // `@zcashreveal/indexer` as a literal, and one `toAddon` map naming `zeromq`
+  // as a literal. That covered the two members the list happened to have, and a
+  // THIRD member would have arrived with zero R1 probes while the clean-run
+  // summary went on asserting the rule for it by name. L2 measured exactly
+  // that: appending `better-sqlite3` left the self-test GREEN, R2 gained eight
+  // probes automatically and R1 gained none.
+  //
+  // That is hole 8's own shape - "a future entry cannot arrive untested" -
+  // surviving inside the guard that closed it, in the half of the file that did
+  // not have the loop. The comment at R2's loop said it; R1 did not do it.
+  //
+  // EVERY PROBE PATH CONTAINS NO BANNED NAME BUT ITS TARGET, which is hole 1's
+  // rule generalised. The old zeromq case routed through `@zcashreveal/indexer`,
+  // itself banned, so the walk stopped at hop one and `zeromq` was never
+  // actually reached - deleting it from the banned list left the self-test
+  // green. Building each probe graph from scratch here, rather than from
+  // `clean`, is what keeps that true for every member the list ever gains:
+  // `clean` contains `@zcashreveal/indexer`, so extending it would reintroduce
+  // the shortcut for every member except that one.
+  for (const banned of BANNED_DEPENDENCIES) {
+    // DIRECT edge.
+    const direct = new Map([
+      [PACKAGE_NAME, { dir: PACKAGE_DIR, deps: ["@zcashreveal/types", banned] }],
+      ["@zcashreveal/types", { dir: "packages/zec-types", deps: ["zod"] }],
+    ]);
+    const directFindings = instrumentFindings(direct, oneSource);
+    if (!directFindings.some((f) => f.includes("R1") && f.includes(banned))) {
+      fail(`R1 did not fire on a direct edge to ${banned}`);
+    }
 
-  // R1, TRANSITIVE edge - the case a direct-only check would pass, and the
-  // reason this walks the graph at all.
-  const transitive = new Map(clean);
-  transitive.set(PACKAGE_NAME, { dir: PACKAGE_DIR, deps: ["@zcashreveal/chain-io"] });
-  transitive.set("@zcashreveal/chain-io", { dir: "packages/chain-io", deps: ["@zcashreveal/indexer"] });
-  const transFindings = instrumentFindings(transitive, oneSource);
-  if (!transFindings.some((f) => f.includes("R1"))) {
-    fail("R1 did not fire on a TRANSITIVE banned edge - a direct-only check would pass this");
-  }
-  if (!transFindings.some((f) => f.includes("chain-io"))) {
-    fail("R1 fired but did not name the intermediate package, so the path is not actionable");
-  }
-
-  // R1 REACHING `zeromq` SPECIFICALLY, BY A PATH THAT DOES NOT PASS THROUGH THE
-  // INDEXER. Hole 1: the old version's only zeromq case went through
-  // `@zcashreveal/indexer`, which is ITSELF banned, so the walk stopped at hop
-  // one and `zeromq` was never reached by any probe. Deleting it from the banned
-  // list left the self-test green. This path has no banned name but the target.
-  const toAddon = new Map([
-    [PACKAGE_NAME, { dir: PACKAGE_DIR, deps: ["@zcashreveal/chain-io"] }],
-    ["@zcashreveal/chain-io", { dir: "packages/chain-io", deps: ["zeromq"] }],
-  ]);
-  const addonFindings = instrumentFindings(toAddon, oneSource);
-  if (!addonFindings.some((f) => f.includes("R1") && f.includes("zeromq"))) {
-    fail("R1 did not fire on a path to zeromq that avoids @zcashreveal/indexer");
+    // TRANSITIVE edge, through a hop that is not itself banned - the case a
+    // direct-only check would pass, and the reason this walks the graph at all.
+    const transitive = new Map([
+      [PACKAGE_NAME, { dir: PACKAGE_DIR, deps: ["@zcashreveal/chain-io"] }],
+      ["@zcashreveal/chain-io", { dir: "packages/chain-io", deps: [banned] }],
+    ]);
+    const transFindings = instrumentFindings(transitive, oneSource);
+    if (!transFindings.some((f) => f.includes("R1") && f.includes(banned))) {
+      fail(
+        `R1 did not fire on a TRANSITIVE edge to ${banned} through a hop that is not itself ` +
+          "banned - a direct-only check, or a walk that stops at the first banned name, would pass this",
+      );
+    }
+    if (!transFindings.some((f) => f.includes("chain-io"))) {
+      fail(`R1 fired for ${banned} but did not name the intermediate package, so the path is not actionable`);
+    }
   }
 
   // R2, EVERY banned specifier, generated from the array so a future entry

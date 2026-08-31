@@ -6,8 +6,12 @@ import { writePoolAnchor } from "../../pool-anchors.js";
 import { writePoolNullifier } from "../../pool-nullifiers.js";
 import { writePoolBoundaryFlow } from "../../pool-boundary-flows.js";
 import { rollbackAllToHeight } from "../../replay.js";
+import { writeBlock, readBlockTimes } from "../../blocks.js";
+import { writePoolSnapshot, readPoolSnapshots } from "../../pool-snapshots.js";
 
 const h = (n: number) => asHex(n.toString(16).padStart(64, "0"));
+/** Same helper under the name the new test uses, so `h` keeps its local meaning. */
+const hx = h;
 
 const reachable = await isPostgresReachable();
 
@@ -72,15 +76,19 @@ describe.skipIf(!reachable)("rollbackAllToHeight (chain-level reorg primitive)",
     }
   }
 
-  it("deletes rows with height > H across all four tables and all four pools", async () => {
+  it("deletes rows with height > H across all six tables and all four pools", async () => {
     await seed();
     const counts = await rollbackAllToHeight(150, sql);
     // Per table: 2 rows above 150 (at 200 and 300) in each of four pools = 8.
+    // `snapshots` and `blocks` are 0 here because `seed()` writes neither; the
+    // dedicated test below is what exercises them.
     expect(counts).toEqual({
       commitments: 8,
       anchors: 8,
       nullifiers: 8,
       boundaryFlows: 8,
+      snapshots: 0,
+      blocks: 0,
     });
   });
 
@@ -102,6 +110,8 @@ describe.skipIf(!reachable)("rollbackAllToHeight (chain-level reorg primitive)",
       anchors: 0,
       nullifiers: 0,
       boundaryFlows: 0,
+      snapshots: 0,
+      blocks: 0,
     });
   });
 
@@ -151,6 +161,68 @@ describe.skipIf(!reachable)("rollbackAllToHeight (chain-level reorg primitive)",
       anchors: 1,
       nullifiers: 1,
       boundaryFlows: 1,
+      snapshots: 0,
+      blocks: 0,
     });
+  });
+
+  it("rolls back pool_snapshots and blocks, which it did not until HANDOFF-09b's gate", async () => {
+    // THE DEFECT THIS PINS WAS INVISIBLE IN A GREEN RUN. Both tables gained
+    // writers in HANDOFF-09b and neither was added to the tree's only reorg
+    // primitive, so a reorg left orphaned balances and orphaned block times
+    // standing - and the publisher then joined them into a drain series where
+    // three of four samples carried the old chain's balance against the new
+    // chain's clock, published as a measurement.
+    // THE TWO POPULATIONS ARE DIFFERENT SIZES ON PURPOSE (gate round 2, F10).
+    // With three blocks and three snapshots at the same three heights, both
+    // counts were 2 and swapping the two fields in the return left this suite
+    // green - the two names were interchangeable in every assertion in the tree.
+    // That is the same "fixture makes distinct quantities equal" shape as the
+    // 4095 candidateCount, reproduced inside the test written to close it.
+    for (const h of [100, 200, 300]) {
+      await writeBlock({ height: h, timeS: 1_780_000_000 + h, hash: hx(h) }, sql);
+    }
+    for (const h of [100, 200]) {
+      await writePoolSnapshot(
+        {
+          pool: "orchard",
+          height: h,
+          balanceZat: BigInt(h),
+          commitmentCount: 0n,
+          nullifierCount: 0,
+          anchorCount: 0,
+        },
+        sql,
+      );
+    }
+
+    const counts = await rollbackAllToHeight(100, sql);
+    // Two blocks above 100 (200, 300) and ONE snapshot (200). Different numbers,
+    // so the fields cannot be swapped without this failing.
+    expect(counts).toMatchObject({ snapshots: 1, blocks: 2 });
+
+    // AND THE ROW AT EXACTLY H SURVIVES, matching the other five tables so a
+    // driver can call one function with one height.
+    expect((await readBlockTimes(0, 1000, sql)).map((b) => b.height)).toEqual([100]);
+    expect((await readPoolSnapshots("orchard", 0, 1000, sql)).map((r) => r.height)).toEqual([100]);
+  });
+
+  it("blocks_height_check refuses a negative height", async () => {
+    // The constraint shipped in 005 with no assertion anywhere (gate round 2,
+    // F14). Its argument is `time_s`'s: a negative height could only be a decode
+    // fault on our side, never a chain observation.
+    await expect(
+      writeBlock({ height: -1, timeS: 1_780_000_000, hash: hx(1) }, sql),
+    ).rejects.toThrow(/blocks_height_check/);
+
+    // AND ADMITS ZERO, WHICH IS THE HALF THAT MAKES THE PREDICATE `>= 0` RATHER
+    // THAN `> 0`. This is the one mutation gate round 3 ran that SURVIVED: the
+    // constraint's own comment says its argument is `time_s`'s, `time_s` is
+    // `> 0`, and a one-character copy of that predicate passed all 444 indexer
+    // tests while rejecting the genesis block forever. Height 0 is a legitimate
+    // chain observation - regtest, a replay from genesis, any devnet - so the
+    // negative case alone was never the assertion.
+    await writeBlock({ height: 0, timeS: 1_780_000_000, hash: hx(2) }, sql);
+    expect((await readBlockTimes(0, 0, sql)).map((b) => b.height)).toEqual([0]);
   });
 });

@@ -12,34 +12,36 @@
  * while all four of these panels published as `null`, which is precisely the
  * failure a stand-in cannot see.
  *
- * THE FINDING THIS SUITE EXISTS TO PIN, AND IT IS THE REASON THE PRODUCTION-PATH
- * TEST BELOW IS SEPARATE FROM THE OTHERS. HANDOFF-09a's scope asks for "the four
- * panels are non-null on a published snapshot". Wiring the real estimators
- * achieves that for the INSTRUMENT side - given inputs, all four are computed and
- * all four are published. It does NOT achieve it on the path the publisher
- * actually runs, and the gap is not packaging. `readSnapshotInputs` hard-codes
- * `drainBaseline: null` and `ironwoodSpends: null`, for two documented reasons
- * that have nothing to do with where the estimators live:
+ * THE FINDING THIS SUITE EXISTED TO PIN, AND WHAT CLOSED IT. The history is kept
+ * rather than overwritten, because the shape of the finding is what makes the
+ * production-path test below worth keeping separate from the others.
  *
- *   drain       `pool_snapshots.ts` is a TIMESTAMPTZ DEFAULT NOW() - the time the
- *               indexer WROTE the row, not the block's time. Plan section 3.3's
- *               velocity is "from block timestamps", and substituting a write
- *               time would publish a rate measured against the indexer's own
- *               scheduling: right to within seconds at the tip, arbitrarily wrong
- *               across a catch-up sync, and indistinguishable from the real thing
- *               on the page. The repair is a block-time column, i.e. a migration.
+ * HANDOFF-09a's scope asked for "the four panels are non-null on a published
+ * snapshot". Wiring the real estimators achieved that for the INSTRUMENT side -
+ * given inputs, all four compute and all four publish - and NOT on the path the
+ * publisher actually runs, where `readSnapshotInputs` hard-coded
+ * `drainBaseline: null` and `ironwoodSpends: null`. The gap was never packaging.
+ * It was two missing INPUT SOURCES, and this suite is where 09a wrote them down:
  *
- *   neffSeries  the Ironwood spends and their Cand_0 bounds live in the indexer's
- *               candidate analysis, not in any table this process reads.
+ *   drain       `pool_snapshots.ts` was the only time column near the series and
+ *               it is `TIMESTAMPTZ DEFAULT NOW()` - when the indexer WROTE the
+ *               row. Plan section 3.3's velocity is "from block timestamps", and
+ *               substituting a write time publishes a rate measured against the
+ *               indexer's own scheduling: right to within seconds at the tip,
+ *               arbitrarily wrong across a catch-up sync, and indistinguishable
+ *               from the real thing on the page.
  *
- * So after this handoff the production snapshot carries `residual` and
- * `migrationHist` as measurements and `drain` and `neffSeries` as stated
- * absences. That is a real improvement on four absences and it is NOT what
- * "the four panels are non-null" claims, so the third test below asserts the
- * true state by name. It is written as an assertion rather than a comment
- * because HANDOFF-11 may not ship a null analysis panel (LEDGER-09 Q4), and a
- * session that reads only the first test would discover these two at the
- * cutover.
+ *   neffSeries  no table carried the (nullifier -> anchor) edge, so Cand_0 could
+ *               not be attached to a spend even though `pool_anchors.max_position`
+ *               already held the bound.
+ *
+ * HANDOFF-09b supplied both. Migration 005 adds a `blocks` table - one row per
+ * height, carrying the header's own integer seconds, with no default, because a
+ * default is exactly what made `pool_snapshots.ts` useless - and
+ * `pool_nullifiers.anchor_root`. The production path now publishes all four as
+ * measurements, and the third test below asserts that with VALUES rather than
+ * with `.not.toBeNull()`, because a panel of zeros satisfies a presence check
+ * and is the precise reading SNAPSHOT.md section 8.1 forbids the site to render.
  *
  * THE FAIL SIDE IS THE EVIDENCE, not a formality. "The panels are non-null" is
  * worth nothing on its own - a builder that ignored its instruments and returned
@@ -156,7 +158,7 @@ describe("A1 - the analysis panels are non-null on a published snapshot", () => 
     expect(hist.denominationRuns).toBe(1);
   });
 
-  it("A1 THE PRODUCTION PATH PUBLISHES TWO OF THE FOUR, and the two absences are the INPUT layer rather than the package move", async () => {
+  it("A1 THE PRODUCTION PATH PUBLISHES ALL FOUR, the two former absences supplied by migration 005's two sources", async () => {
     // DRIVEN THROUGH THE REAL `readSnapshotInputs`, NOT A HAND-WRITTEN COPY OF
     // ITS OUTPUT (gate round 1, M5). The first draft wrote the three shapes out
     // as a literal and justified it by claiming the copy would "fail when that
@@ -180,6 +182,41 @@ describe("A1 - the analysis panels are non-null on a published snapshot", () => 
           }),
         queryMigrations: () =>
           Promise.resolve([{ txid: "bb".repeat(32), height: HEIGHT - 100, amount_zat: "100000000" }]),
+        // THE TWO SOURCES HANDOFF-09b ADDED. The series is two samples an hour
+        // apart in BLOCK time, which is what makes a velocity computable at all:
+        // `selectWindow` admits by time, so a single sample yields a null
+        // velocity and a panel that is present but says nothing.
+        queryOrchardSeries: () =>
+          Promise.resolve([
+            {
+              height: HEIGHT - 48,
+              balance_zat: (709_841n * ZAT_PER_ZEC).toString(),
+              time_s: String(Math.floor(fixtureTimeMs(HEIGHT) / 1000) - 3600),
+            },
+            {
+              height: HEIGHT,
+              balance_zat: (708_841n * ZAT_PER_ZEC).toString(),
+              time_s: String(Math.floor(fixtureTimeMs(HEIGHT) / 1000)),
+            },
+          ]),
+        queryDrainBaseline: () =>
+          Promise.resolve({ height: 3_428_143, balance_zat: (900_000n * ZAT_PER_ZEC).toString() }),
+        queryIronwoodSpends: () =>
+          Promise.resolve([
+            {
+              spent_txid: "cc".repeat(32),
+              spent_height: HEIGHT - 10,
+              pool: "ironwood",
+              // 4090, NOT 4095, AND THE VALUE IS THE ASSERTION (gate round 1).
+              // 4095 is 2^12 - 1, the one number where `max_position + 1` is
+              // numerically indistinguishable from "round up to the next power
+              // of two" - and 4096 is exactly the constant a hardcoded
+              // implementation picks. Measured: with the fixture at 4095, a
+              // hardcoded `4096n` passed three of the four candidateCount
+              // assertions. At 4090 all three catch it.
+              max_position: "4090",
+            },
+          ]),
         cfg: loadConfig({}),
         labelsVersion: "labels-9-2026-08-22",
         now: () => fixtureTimeMs(HEIGHT) + 4_000,
@@ -197,17 +234,38 @@ describe("A1 - the analysis panels are non-null on a published snapshot", () => 
     // propagated and this test would have errored loudly.
     expect(faults, "a panel was REFUSED rather than absent - re-read this test").toEqual([]);
 
-    // Un-nulled by this handoff.
+    // Un-nulled by HANDOFF-09a, which moved the estimators into a package the
+    // publisher may depend on.
     expect(snapshot.residual, "residual should be measured on the production path").not.toBeNull();
     expect(snapshot.migrationHist, "migrationHist should be measured on the production path").not.toBeNull();
 
-    // STILL ABSENT, and not because of where the estimators live. `drain` needs a
-    // block-time column on `pool_snapshots` (a migration); `neffSeries` needs the
-    // indexer's candidate analysis, which no table this process reads carries.
-    // HANDOFF-11 may not ship a null analysis panel (LEDGER-09 Q4), so these two
-    // are its work and this assertion is where it will meet them.
-    expect(snapshot.drain, "drain became measurable without a block-time column - re-read this test").toBeNull();
-    expect(snapshot.neffSeries, "neffSeries became measurable without an Ironwood spend source").toBeNull();
+    // UN-NULLED BY HANDOFF-09b, AND THIS IS THE ASSERTION 09a ARMED FOR IT. It
+    // used to read `.toBeNull()` with the comment "this assertion is where it
+    // will meet them", and it is left visible in the history rather than quietly
+    // inverted: `drain` needed a block-time source and `neffSeries` needed an
+    // Ironwood spend source, both of which migration 005 supplies.
+    expect(snapshot.drain, "drain should be measured now that blocks carries a block time").not.toBeNull();
+    expect(snapshot.neffSeries, "neffSeries should be measured now that a spend can name its anchor").not.toBeNull();
+
+    // THE PANELS ARE NOT MERELY PRESENT, THEY CARRY THE NUMBERS THE SOURCES
+    // IMPLY. A `.not.toBeNull()` pair is satisfied by a panel of zeros, which is
+    // the exact reading SNAPSHOT.md section 8.1 forbids the site from rendering,
+    // so the values are checked rather than the presence.
+    const drain = snapshot.drain;
+    if (drain === null) throw new Error("drain is null; the assertion above should have caught this");
+    // 1 - 708841/900000. The baseline is the caller's, and it is published.
+    expect(drain.drained).toBeCloseTo(1 - 708_841 / 900_000, 6);
+    expect(drain.sampleCount).toBe(2);
+    // 1000 ZEC left the pool over exactly one hour of BLOCK time.
+    expect(drain.velocity24hZecPerHour).toBeCloseTo(-1000, 6);
+
+    const neff = snapshot.neffSeries;
+    if (neff === null) throw new Error("neffSeries is null; the assertion above should have caught this");
+    expect(neff.spendCount).toBe(1);
+    // Cand_0 = max_position + 1 = 4091, NOT 4090. Positions are 0-indexed
+    // inclusive, and an off-by-one here would publish a claim level computed
+    // over the wrong set size.
+    expect(neff.series[0]?.candidateCount).toBe(4091);
   });
 
   it("A1 A PANEL WHOSE ESTIMATOR REFUSES ITS INPUTS IS AN ABSENCE, NOT A LOST DOCUMENT", () => {
