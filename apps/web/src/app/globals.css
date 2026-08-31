@@ -31,7 +31,7 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--f-sans);
-  font-size: 15px;
+  font-size: var(--t-body);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
@@ -102,7 +102,7 @@ p {
   background: var(--gold);
   color: var(--gold-ink);
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   padding: 10px 16px;
@@ -155,7 +155,7 @@ p {
 }
 
 .note {
-  font-size: 13px;
+  font-size: var(--t-data);
   color: var(--ink-dim);
   line-height: 1.6;
 }
@@ -164,12 +164,12 @@ p {
   font-family: var(--f-display);
   font-style: italic;
   color: var(--ink);
-  font-size: 15px;
+  font-size: var(--t-body);
 }
 
 .src {
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   color: var(--ink-mute);
   letter-spacing: 0.04em;
 }
@@ -216,7 +216,7 @@ p {
 /* ---------- eyebrow ---------- */
 .eyebrow {
   font-family: var(--f-mono);
-  font-size: 10.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -245,19 +245,115 @@ p {
   z-index: 1;
 }
 
-/* ---------- system bar ---------- */
+/* ---------- system bar ----------
+   ONE LINE AT REST, THE WHOLE INDEX ON APPROACH (HANDOFF-04a deliverable 1).
+   Eleven entries each carrying a dek is more than a permanent bar can hold
+   without becoming the page, so the bar carries where-you-are and the index
+   arrives when a reader goes for it. Three ways in, because hover alone
+   excludes touch and the keyboard entirely - see ScreenDisclosure.tsx, which
+   owns the argument and the button. */
 .sysbar {
   position: sticky;
   top: 0;
   z-index: 50;
-  display: flex;
-  align-items: center;
-  gap: 22px;
-  padding: 10px 28px;
   background: rgba(18, 17, 16, 0.82);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line);
+}
+
+/* THE APPROACH ZONE. A transparent strip below the bar, so the index opens as
+   the cursor ARRIVES rather than on contact. `top: 100%` is what makes it ride
+   with the bar as the bar grows: anchored to the bar's own bottom edge, it
+   travels with it instead of being left behind at the collapsed height. It
+   takes no pointer events away from the page because it sits in the head-room
+   above the first beat, where there is nothing to intercept. */
+.sysbar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 22px;
+}
+
+.sysbar-in {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 10px 28px;
+  flex-wrap: wrap;
+}
+
+/* Collapsed by default: `0fr` with an `overflow: hidden` child is the one
+   grid-row idiom that animates to intrinsic height without a measured pixel
+   value, so nothing has to be computed in JS and there is no animation object
+   to construct. Under prefers-reduced-motion the global block at the end of
+   this file removes the transition, which leaves the state change and no
+   motion - the disclosure is not constructed rather than cancelled. */
+.navwrap {
+  width: 100%;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--t2) var(--ease);
+}
+
+.navwrap > .navinner {
+  overflow: hidden;
+  min-height: 0;
+}
+
+.sysbar:hover .navwrap,
+.sysbar:focus-within .navwrap,
+.sysbar[data-open] .navwrap {
+  grid-template-rows: 1fr;
+}
+
+/* The collapsed line still names the current screen. Hiding the index must not
+   cost orientation - that was the complaint in the first place. */
+.here {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: none;
+  border: 0;
+  padding: 4px 8px;
+  margin: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: opacity var(--t1) var(--ease);
+}
+
+.here:hover {
+  opacity: 0.66;
+}
+
+.here-idx {
+  font-family: var(--f-mono);
+  font-size: var(--t-label);
+  color: var(--gold);
+}
+
+.here-label {
+  font-family: var(--f-sans);
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.here-chev {
+  width: 10px;
+  height: 10px;
+  color: var(--ink-mute);
+  transition: transform var(--t2) var(--ease);
+}
+
+.sysbar:hover .here-chev,
+.sysbar:focus-within .here-chev,
+.sysbar[data-open] .here-chev {
+  transform: rotate(180deg);
 }
 
 .wordmark {
@@ -292,7 +388,7 @@ p {
 
 .wordmark .tag {
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.22em;
   color: var(--ink-mute);
   text-transform: uppercase;
@@ -301,20 +397,57 @@ p {
 /* ---------- screen nav ----------
    The hover verb, in one rule: hovering the group dims every sibling that is
    neither hovered nor active. Colour only - no transform is declared anywhere
-   in this block, which is what assertion A6 verifies. */
+   in this block, which is what assertion A6 verifies.
+
+   TWO GROUPS AND A DEK PER ROW (HANDOFF-04a). `half` and `dek` were both on
+   every screen since HANDOFF-01 and neither was rendered. Nine undifferentiated
+   uppercase words read as a mission select; two named groups, each row saying
+   what its page is, read as two purposes. The label is sentence case sans now
+   rather than tracked uppercase mono - uppercase mono IS the label register on
+   this site, and a nav row is not a label, it is a destination with a
+   description. The two-digit index keeps the mono register, because that is the
+   part that is an index. */
 .screens {
   display: flex;
-  gap: 2px;
-  margin-left: 10px;
+  gap: 34px;
   flex-wrap: wrap;
+  width: 100%;
+  padding: 14px 28px 6px;
+  border-top: 1px solid var(--line-faint);
+  margin-top: 9px;
+}
+
+.screengroup {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.screengroup-h {
+  display: block;
+  font-family: var(--f-mono);
+  font-size: var(--t-label);
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-mute);
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line-faint);
+}
+
+.screenlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
 }
 
 .screens a {
-  font-family: var(--f-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  padding: 8px 12px;
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 11px;
+  padding: 6px 8px;
+  margin: 0 -8px;
   color: var(--ink-dim);
   border-radius: var(--radius);
   text-decoration: none;
@@ -328,23 +461,46 @@ p {
 }
 
 .screens a .i {
+  font-family: var(--f-mono);
+  font-size: var(--t-label);
+  color: var(--gold);
+  padding-top: 2px;
+}
+
+.screentext {
+  min-width: 0;
+}
+
+.screenlabel {
+  display: block;
+  font-family: var(--f-sans);
+  font-size: var(--t-body);
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.3;
+}
+
+.screendek {
+  display: block;
+  font-family: var(--f-sans);
+  font-size: var(--t-dek);
+  line-height: 1.45;
   color: var(--ink-mute);
-  margin-right: 6px;
+  margin-top: 2px;
 }
 
 .screens a[aria-current="page"] {
-  color: var(--gold-ink);
-  background-color: var(--gold);
+  background-color: var(--gold-wash);
 }
 
-.screens a[aria-current="page"] .i {
-  color: var(--gold-ink);
+.screens a[aria-current="page"] .screenlabel {
+  color: var(--ink);
 }
 
 /* The dim verb. --ink-mute, not --ink-faint: receding must not mean becoming
    unreadable, and hovering the bar used to drop the whole rest of the nav to
    2.09:1. A recessed label is still a label. */
-.screens:hover a:not(:hover):not([aria-current="page"]) {
+.screens:hover a:not(:hover):not([aria-current="page"]) .screenlabel {
   color: var(--ink-mute);
 }
 
@@ -355,7 +511,7 @@ p {
   align-items: center;
   gap: 18px;
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   color: var(--ink-dim);
   letter-spacing: 0.06em;
 }
@@ -422,7 +578,7 @@ p {
 
 .block-head .idx {
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   letter-spacing: 0.22em;
   color: var(--gold);
 }
@@ -436,7 +592,7 @@ p {
 
 .block-head .right {
   font-family: var(--f-mono);
-  font-size: 10.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.14em;
   color: var(--ink-mute);
   font-style: italic;
@@ -500,9 +656,13 @@ p {
     padding: 0 16px 40px;
   }
 
-  .sysbar {
+  .sysbar-in {
     padding: 10px 16px;
-    flex-wrap: wrap;
+  }
+
+  .screens {
+    padding: 14px 16px 6px;
+    gap: 18px;
   }
 
   .clock {
@@ -517,7 +677,7 @@ p {
   align-items: center;
   gap: 6px;
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   padding: 3px 8px;
@@ -557,7 +717,7 @@ p {
 
 .conf {
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -577,7 +737,7 @@ p {
 .pill {
   display: inline-block;
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   padding: 2px 6px;
@@ -686,7 +846,7 @@ p {
 
 .metric .l {
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -717,7 +877,7 @@ p {
 
 .metric .s {
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   color: var(--ink-dim);
   letter-spacing: 0.08em;
   margin-top: 6px;
@@ -750,7 +910,7 @@ p {
 .cp {
   display: block;
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   line-height: 1.55;
   color: var(--ink-dim);
 }
@@ -770,7 +930,7 @@ p {
   grid-template-columns: 1fr auto;
   gap: 6px 14px;
   font-family: var(--f-mono);
-  font-size: 11.5px;
+  font-size: var(--t-data);
 }
 
 .kv .k {
@@ -811,7 +971,7 @@ p {
   display: block;
   margin-top: 10px;
   font-family: var(--f-mono);
-  font-size: 10.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -829,7 +989,7 @@ p {
 
 .tbl-wrap th {
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -843,21 +1003,21 @@ p {
   padding: 10px;
   border-bottom: 1px solid var(--line-faint);
   vertical-align: top;
-  font-size: 13px;
+  font-size: var(--t-data);
 }
 
 .tbl-wrap td.mono,
 .tbl-wrap th.mono {
   font-family: var(--f-mono);
   font-variant-numeric: tabular-nums;
-  font-size: 12px;
+  font-size: var(--t-label);
 }
 
 .tbl-wrap caption {
   caption-side: top;
   text-align: left;
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -909,7 +1069,7 @@ p {
 
 .lrow .id {
   font-family: var(--f-mono);
-  font-size: 12px;
+  font-size: var(--t-label);
   color: var(--gold);
   letter-spacing: 0.1em;
 }
@@ -924,14 +1084,14 @@ p {
 .lrow .name small {
   display: block;
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.1em;
   color: var(--ink-mute);
   margin-top: 5px;
 }
 
 .lrow .cell {
-  font-size: 12.5px;
+  font-size: var(--t-micro);
   color: var(--ink-dim);
   line-height: 1.5;
 }
@@ -946,7 +1106,7 @@ p {
    partial is warn. */
 .lrow .det {
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   letter-spacing: 0.08em;
 }
 
@@ -989,14 +1149,14 @@ p {
   display: grid;
   grid-template-columns: 26px 1fr;
   gap: 10px;
-  font-size: 12.5px;
+  font-size: var(--t-micro);
   color: var(--ink-dim);
   line-height: 1.5;
 }
 
 .reason .r .n {
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   color: var(--gold);
   padding-top: 3px;
 }
@@ -1007,7 +1167,7 @@ p {
 }
 
 .reason .r .mono {
-  font-size: 11px;
+  font-size: var(--t-data);
 }
 
 /* ---------- inference chain ---------- */
@@ -1040,7 +1200,7 @@ p {
 
 .chain .st .w {
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -1054,14 +1214,14 @@ p {
 
 .chain .st .cost {
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   color: var(--danger);
 }
 
 .assume {
   font-family: var(--f-display);
   font-style: italic;
-  font-size: 13.5px;
+  font-size: var(--t-dek);
   color: var(--ink-dim);
   margin-top: 8px;
 }
@@ -1080,7 +1240,7 @@ p {
 .subnav a,
 .subnav button {
   font-family: var(--f-mono);
-  font-size: 10.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   padding: 7px 11px;
@@ -1111,7 +1271,7 @@ p {
 .subnav .path {
   margin-left: auto;
   font-family: var(--f-mono);
-  font-size: 10.5px;
+  font-size: var(--t-label);
   color: var(--ink-mute);
   letter-spacing: 0.06em;
 }
@@ -1151,7 +1311,7 @@ p {
   border: 0;
   color: var(--ink);
   font-family: var(--f-mono);
-  font-size: 15px;
+  font-size: var(--t-body);
   padding: 16px 0;
   letter-spacing: 0.02em;
   min-width: 0;
@@ -1167,7 +1327,7 @@ p {
 
 .search .go {
   font-family: var(--f-mono);
-  font-size: 10.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.2em;
   text-transform: uppercase;
   padding: 0 20px;
@@ -1182,7 +1342,7 @@ p {
   padding: 0 14px;
   border-left: 1px solid var(--line);
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ink-dim);
@@ -1199,146 +1359,27 @@ p {
   border-radius: 3px;
   padding: 7px 10px;
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   color: var(--ink);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   max-width: 300px;
 }
 
-/* ---------- hero ---------- */
-.hero {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  margin-top: 26px;
-  min-height: 620px;
-  background: var(--bg-deep);
-}
+/* ---------- the fog canvas ----------
+   THE HERO IS GONE (HANDOFF-04a). It was a 620px full-bleed band carrying the
+   wordmark at up to 132px, a four-idea paragraph, and the floating PUBLISHED
+   boxes - the opening a reader described as "vibes -> cryptographic terminology
+   -> vibes". The claim beat replaced it and owns its own box; what survives
+   here is the canvas sizing rule, which is not the hero's and never was.
 
-/* The component owns its box. FogCanvas sets only the width/height ATTRIBUTES
+   The component owns its box. FogCanvas sets only the width/height ATTRIBUTES
    (the backing store, rect times dpr), so without a CSS size the element lays
    out at the attribute value in CSS pixels and renders at 2x on a HiDPI
-   display anywhere outside the hero. */
+   display anywhere outside a positioned parent. */
 canvas[data-ui="fog"] {
   display: block;
   width: 100%;
   height: 100%;
-}
-
-.hero canvas {
-  position: absolute;
-  inset: 0;
-}
-
-.hero .veil {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(18, 17, 16, 0.15), rgba(18, 17, 16, 0.78) 88%);
-}
-
-.hero .over {
-  position: relative;
-  z-index: 2;
-  padding: 46px 48px 36px;
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  min-height: 620px;
-  justify-content: flex-end;
-}
-
-.hero h1 {
-  font-family: var(--f-display);
-  font-style: italic;
-  font-size: clamp(64px, 9vw, 132px);
-  line-height: 0.9;
-  letter-spacing: -0.025em;
-  color: var(--ink);
-}
-
-.hero h1 em {
-  color: var(--gold);
-  font-style: italic;
-}
-
-.hero .sub {
-  max-width: 880px;
-  font-family: var(--f-sans);
-  font-size: 16.5px;
-  line-height: 1.6;
-  color: var(--ink-dim);
-}
-
-.hero .sub b {
-  color: var(--ink);
-  font-weight: 500;
-}
-
-.hero .over > .eyebrow,
-.hero .over > h1,
-.hero .over > .sub {
-  max-width: calc(100% - 460px);
-}
-
-.leaks {
-  position: absolute;
-  z-index: 2;
-  right: 48px;
-  top: 44px;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  align-items: flex-end;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.leak {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--f-mono);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink);
-  background: rgba(18, 17, 16, 0.55);
-  border: 1px solid var(--line);
-  padding: 6px 10px;
-  border-radius: 2px;
-  width: max-content;
-  transition: opacity var(--t2) var(--ease);
-}
-
-.leak .k {
-  color: var(--gold);
-  font-weight: 500;
-}
-
-.leak .off {
-  color: var(--ink-mute);
-  text-decoration: line-through;
-  text-decoration-thickness: 1px;
-}
-
-.leaks:hover .leak:not(:hover) {
-  opacity: 0.55;
-}
-
-@media (max-width: 1100px) {
-  .hero .over > .eyebrow,
-  .hero .over > h1,
-  .hero .over > .sub {
-    max-width: none;
-  }
-
-  .leaks {
-    position: static;
-    padding: 28px 48px 0;
-    align-items: flex-start;
-  }
 }
 
 /* ---------- fairness panel ----------
@@ -1410,7 +1451,7 @@ canvas[data-ui="fog"] {
 
 .entry .lbl {
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--gold);
@@ -1429,7 +1470,7 @@ canvas[data-ui="fog"] {
 }
 
 .entry .d {
-  font-size: 13px;
+  font-size: var(--t-data);
   color: var(--ink-dim);
   line-height: 1.55;
 }
@@ -1438,7 +1479,7 @@ canvas[data-ui="fog"] {
   display: flex;
   justify-content: space-between;
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -1517,7 +1558,7 @@ canvas[data-ui="fog"] {
 }
 
 .pending p {
-  font-size: 13.5px;
+  font-size: var(--t-dek);
   color: var(--ink-dim);
   line-height: 1.6;
   max-width: var(--measure);
@@ -1539,7 +1580,7 @@ canvas[data-ui="fog"] {
   flex-direction: column;
   gap: 4px;
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   color: var(--ink-dim);
   margin: 0;
 }
@@ -1559,7 +1600,7 @@ canvas[data-ui="fog"] {
 .ledgerfoot .meta {
   display: flex;
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   color: var(--ink-mute);
   letter-spacing: 0.2em;
   justify-content: space-between;
@@ -1573,7 +1614,7 @@ canvas[data-ui="fog"] {
   flex-wrap: wrap;
   gap: 14px;
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-dim);
@@ -1620,7 +1661,7 @@ canvas[data-ui="fog"] {
 }
 
 .cango .c p {
-  font-size: 12.5px;
+  font-size: var(--t-micro);
   color: var(--ink-dim);
   line-height: 1.55;
 }
@@ -1694,7 +1735,7 @@ canvas[data-ui="fog"] {
    only the hit area grows. */
 .claim > .anchor {
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -1736,7 +1777,7 @@ canvas[data-ui="fog"] {
    construction rather than by exclusion. */
 .cite {
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
 }
 
 .cite > summary {
@@ -1803,7 +1844,7 @@ canvas[data-ui="fog"] {
   padding-left: 18px;
   display: grid;
   gap: 8px;
-  font-size: 11px;
+  font-size: var(--t-data);
   line-height: 1.5;
   color: var(--ink-dim);
 }
@@ -1823,7 +1864,7 @@ canvas[data-ui="fog"] {
 
 .chart-cap {
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -1843,7 +1884,7 @@ canvas[data-ui="fog"] {
 
 .chart-note {
   margin-top: 10px;
-  font-size: 12px;
+  font-size: var(--t-label);
   color: var(--ink-mute);
   max-width: var(--measure);
 }
@@ -1863,7 +1904,7 @@ canvas[data-ui="fog"] {
 /* Text in ink tokens, never in a series colour. */
 .plot .tick {
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   fill: var(--ink-mute);
 }
 
@@ -1878,7 +1919,7 @@ canvas[data-ui="fog"] {
 
 .plot .axis-label {
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   fill: var(--ink-mute);
@@ -1908,7 +1949,7 @@ canvas[data-ui="fog"] {
    crosses a mark stays readable without a box around it. */
 .plot .mark-label {
   font-family: var(--f-mono);
-  font-size: 10.5px;
+  font-size: var(--t-label);
   fill: var(--ink-dim);
   paint-order: stroke;
   stroke: var(--bg);
@@ -1965,7 +2006,7 @@ canvas[data-ui="fog"] {
 
 .plot .node-label {
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   fill: var(--ink);
   text-anchor: middle;
   dominant-baseline: middle;
@@ -1983,7 +2024,7 @@ canvas[data-ui="fog"] {
 
 .plot .edge-label {
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   fill: var(--ink-mute);
   text-anchor: middle;
   paint-order: stroke;
@@ -2091,7 +2132,7 @@ canvas[data-ui="fog"] {
 
 .tl .d {
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   color: var(--ink-mute);
   letter-spacing: 0.04em;
   padding-top: 3px;
@@ -2109,7 +2150,7 @@ canvas[data-ui="fog"] {
 
 .tl .cat {
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   padding-top: 4px;
@@ -2157,7 +2198,7 @@ canvas[data-ui="fog"] {
 }
 
 .tl .t {
-  font-size: 13.5px;
+  font-size: var(--t-dek);
   color: var(--ink-dim);
   line-height: 1.5;
 }
@@ -2212,7 +2253,7 @@ canvas[data-ui="fog"] {
   padding: var(--inset-1);
   border-radius: var(--radius);
   border: 1px solid var(--line);
-  font-size: 13px;
+  font-size: var(--t-data);
   line-height: 1.55;
 }
 
@@ -2220,7 +2261,7 @@ canvas[data-ui="fog"] {
   border-left: 2px solid var(--line-strong);
   color: var(--ink-dim);
   font-family: var(--f-display);
-  font-size: 15px;
+  font-size: var(--t-body);
 }
 
 /* The chain's answer is the one that is allowed to be loud, and only here. */
@@ -2232,7 +2273,7 @@ canvas[data-ui="fog"] {
 
 .contra .lbl {
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   /* --ink-dim, not --ink-mute. This label renders on both halves of the pair,
@@ -2279,7 +2320,7 @@ canvas[data-ui="fog"] {
 }
 
 .srclist .t {
-  font-size: 14px;
+  font-size: var(--t-sm);
   color: var(--ink);
 }
 
@@ -2296,7 +2337,7 @@ canvas[data-ui="fog"] {
 
 .srclist .meta {
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.1em;
   color: var(--ink-mute);
   text-align: right;
@@ -2306,7 +2347,7 @@ canvas[data-ui="fog"] {
 .srclist .u {
   grid-column: 1 / -1;
   font-family: var(--f-mono);
-  font-size: 10.5px;
+  font-size: var(--t-label);
   color: var(--ink-mute);
   word-break: break-all;
 }
@@ -2323,7 +2364,7 @@ canvas[data-ui="fog"] {
 
 .srclist .by a {
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.12em;
   color: var(--ink-mute);
   text-decoration: none;
@@ -2361,7 +2402,7 @@ canvas[data-ui="fog"] {
 
 .quarantine .st {
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--warn);
@@ -2369,13 +2410,13 @@ canvas[data-ui="fog"] {
 
 .quarantine .cl {
   margin: 6px 0 0;
-  font-size: 14px;
+  font-size: var(--t-sm);
   color: var(--ink-dim);
 }
 
 .quarantine .why {
   margin: 8px 0 0;
-  font-size: 12.5px;
+  font-size: var(--t-micro);
   color: var(--ink-mute);
 }
 
@@ -2393,7 +2434,7 @@ canvas[data-ui="fog"] {
 
 .ent .kind {
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -2401,14 +2442,14 @@ canvas[data-ui="fog"] {
 
 .ent .exposure {
   font-family: var(--f-mono);
-  font-size: 12px;
+  font-size: var(--t-label);
   color: var(--gold);
   font-variant-numeric: tabular-nums;
 }
 
 .ent .none {
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   color: var(--ink-mute);
   font-style: italic;
 }
@@ -2446,7 +2487,7 @@ canvas[data-ui="fog"] {
   border-radius: var(--radius);
   overflow-x: auto;
   font-family: var(--f-mono);
-  font-size: 12px;
+  font-size: var(--t-label);
   line-height: 1.6;
   color: var(--ink-dim);
 }
@@ -2454,14 +2495,14 @@ canvas[data-ui="fog"] {
 /* ---------- estimator and method tables ---------- */
 
 .refuses {
-  font-size: 12.5px;
+  font-size: var(--t-micro);
   color: var(--danger);
   margin-top: 8px;
 }
 
 .refuses b {
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--danger);
@@ -2544,7 +2585,7 @@ canvas[data-ui="fog"] {
 }
 
 .bw-legend div {
-  font-size: 12.5px;
+  font-size: var(--t-micro);
   color: var(--ink-dim);
   line-height: 1.5;
 }
@@ -2554,7 +2595,7 @@ canvas[data-ui="fog"] {
    globals.css, which another surface is editing in parallel. */
 .bw-legend .det {
   font-family: var(--f-mono);
-  font-size: 10.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.08em;
 }
 
@@ -2606,7 +2647,7 @@ canvas[data-ui="fog"] {
   gap: 14px;
   padding: 9px 0;
   border-bottom: 1px solid var(--line-faint);
-  font-size: 13px;
+  font-size: var(--t-data);
   line-height: 1.55;
   color: var(--ink-dim);
 }
@@ -2617,7 +2658,7 @@ canvas[data-ui="fog"] {
 
 .bw-step .bw-w {
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   color: var(--ink-mute);
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
@@ -2718,7 +2759,7 @@ canvas[data-ui="fog"] {
    one label rather than as two differently-mounted ones. */
 .plot .nw-sub {
   font-family: var(--f-mono);
-  font-size: 9px;
+  font-size: var(--t-label);
   letter-spacing: 0.06em;
   fill: var(--ink-mute);
   text-anchor: middle;
@@ -2760,7 +2801,7 @@ canvas[data-ui="fog"] {
 
 .plot .nw-mark-label {
   font-family: var(--f-mono);
-  font-size: 10.5px;
+  font-size: var(--t-label);
   fill: var(--ink-dim);
   paint-order: stroke;
   stroke: var(--bg);
@@ -2810,7 +2851,7 @@ canvas[data-ui="fog"] {
   display: block;
   margin-top: 7px;
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   line-height: 1.6;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2823,7 +2864,7 @@ canvas[data-ui="fog"] {
 .nw-ph .nw-tension {
   display: block;
   margin-top: 8px;
-  font-size: 12.5px;
+  font-size: var(--t-micro);
   line-height: 1.5;
   color: var(--ink-dim);
 }
@@ -2842,7 +2883,7 @@ canvas[data-ui="fog"] {
 }
 
 .nw-ent-card .ent .nw-role {
-  font-size: 12.5px;
+  font-size: var(--t-micro);
   line-height: 1.5;
   color: var(--ink-dim);
   margin-top: 4px;
@@ -2868,7 +2909,7 @@ canvas[data-ui="fog"] {
 }
 
 .nw-fair-list li {
-  font-size: 12.5px;
+  font-size: var(--t-micro);
   line-height: 1.55;
   color: var(--ink-mute);
 }
@@ -3020,7 +3061,7 @@ canvas[data-ui="fog"] {
 
 .mt-precedence-chain .mt-rank {
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.18em;
   color: var(--gold);
 }
@@ -3106,7 +3147,7 @@ canvas[data-ui="fog"] {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
-  font-size: 12.5px;
+  font-size: var(--t-micro);
   color: var(--ink-dim);
   line-height: 1.55;
 }
@@ -3114,7 +3155,7 @@ canvas[data-ui="fog"] {
 .mt-cell b {
   display: block;
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   margin-bottom: 6px;
@@ -3180,7 +3221,7 @@ canvas[data-ui="fog"] {
 .fl-attrib {
   display: block;
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.04em;
   line-height: 1.5;
   color: var(--ink-mute);
@@ -3191,7 +3232,7 @@ canvas[data-ui="fog"] {
 .fl-addr {
   display: block;
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   color: var(--ink);
   word-break: break-all;
 }
@@ -3248,7 +3289,7 @@ canvas[data-ui="fog"] {
   align-items: baseline;
   gap: 8px;
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   line-height: 1.5;
   color: var(--ink-mute);
 }
@@ -3268,14 +3309,14 @@ canvas[data-ui="fog"] {
 .fl-gaps li {
   break-inside: avoid;
   margin: 0 0 12px;
-  font-size: 12.5px;
+  font-size: var(--t-micro);
   line-height: 1.55;
   color: var(--ink-dim);
 }
 
 .fl-gaps .n {
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.16em;
   color: var(--ink-mute);
   margin-right: 6px;
@@ -3302,7 +3343,7 @@ canvas[data-ui="fog"] {
 .fl-kv-prose .v {
   text-align: left;
   font-family: var(--f-sans);
-  font-size: 12.5px;
+  font-size: var(--t-micro);
   line-height: 1.55;
   color: var(--ink-dim);
 }
@@ -3381,12 +3422,12 @@ canvas[data-ui="fog"] {
 
 .tk-examples .a {
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
 }
 
 .tk-examples .b {
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   color: var(--ink-mute);
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -3400,7 +3441,7 @@ canvas[data-ui="fog"] {
    MED are not warnings and do not get it. */
 .tk-sev {
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.14em;
   padding: 2px 6px;
   border-radius: 2px;
@@ -3473,7 +3514,7 @@ canvas[data-ui="fog"] {
   border: 1px solid var(--line-strong);
   border-radius: 2px;
   font-family: var(--f-mono);
-  font-size: 10.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.08em;
   color: var(--ink-dim);
 }
@@ -3487,7 +3528,7 @@ canvas[data-ui="fog"] {
   color: var(--ink-mute);
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  font-size: 9.5px;
+  font-size: var(--t-label);
 }
 
 /* The balance row: metrics on a rule, wrapping to the width they get. */
@@ -3510,14 +3551,14 @@ canvas[data-ui="fog"] {
 }
 
 .tk-txt td {
-  font-size: 12px;
+  font-size: var(--t-label);
   padding: var(--inset-1);
   vertical-align: top;
 }
 
 .tk-dir {
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   padding: 2px 6px;
@@ -3562,7 +3603,7 @@ canvas[data-ui="fog"] {
 .tk-amt small {
   color: var(--ink-mute);
   display: block;
-  font-size: 10px;
+  font-size: var(--t-label);
   white-space: normal;
 }
 
@@ -3602,7 +3643,7 @@ canvas[data-ui="fog"] {
    column set the row height for the whole table. */
 .tk-mp td.cp {
   max-width: 16ch;
-  font-size: 10.5px;
+  font-size: var(--t-label);
 }
 
 .tk-mp th {
@@ -3613,7 +3654,7 @@ canvas[data-ui="fog"] {
 }
 
 .tk-mp td {
-  font-size: 12px;
+  font-size: var(--t-label);
   /* Top, not the default middle. Two of the ten columns carry wrapping prose
      and eight carry one line, so middle-aligning left a row's short cells
      floating in the space the long ones needed and the eye lost the row. */
@@ -3650,7 +3691,7 @@ canvas[data-ui="fog"] {
 
 .tk-mp .id {
   font-family: var(--f-mono);
-  font-size: 11.5px;
+  font-size: var(--t-data);
   color: var(--ink);
   white-space: nowrap;
 }
@@ -3658,7 +3699,7 @@ canvas[data-ui="fog"] {
 .tk-mp .fl {
   font-family: var(--f-display);
   font-style: italic;
-  font-size: 14px;
+  font-size: var(--t-sm);
   color: var(--ink);
 }
 
@@ -3676,7 +3717,7 @@ canvas[data-ui="fog"] {
 
 .tk-vb {
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   white-space: nowrap;
 }
 
@@ -3693,7 +3734,7 @@ canvas[data-ui="fog"] {
 
 .tk-ph h3 {
   font-family: var(--f-mono);
-  font-size: 13px;
+  font-size: var(--t-data);
   font-weight: 400;
   color: var(--ink);
   word-break: break-all;
@@ -3701,7 +3742,7 @@ canvas[data-ui="fog"] {
 
 .tk-ph .r {
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   color: var(--ink-mute);
   white-space: nowrap;
 }
@@ -3712,7 +3753,7 @@ canvas[data-ui="fog"] {
   align-items: center;
   gap: 8px;
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-dim);
@@ -3751,13 +3792,13 @@ canvas[data-ui="fog"] {
 .tk-svg .axis {
   fill: var(--ink-mute);
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
 }
 
 .tk-svg .mark {
   fill: var(--ink);
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
 }
 
 /* The interaction graph. */
@@ -3769,12 +3810,12 @@ canvas[data-ui="fog"] {
 .tk-ig .n text {
   fill: var(--ink);
   font-family: var(--f-mono);
-  font-size: 10.5px;
+  font-size: var(--t-label);
 }
 
 .tk-ig .n .s {
   fill: var(--ink-mute);
-  font-size: 9px;
+  font-size: var(--t-label);
 }
 
 /* The base stroke is the transparent pool hue, not gold. Every edge the
@@ -3799,7 +3840,7 @@ canvas[data-ui="fog"] {
 .tk-ig .el {
   fill: var(--ink-dim);
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
   paint-order: stroke;
   stroke: var(--surface);
   stroke-width: 6px;
@@ -3814,12 +3855,12 @@ canvas[data-ui="fog"] {
 .tk-sankey .node text {
   fill: var(--ink);
   font-family: var(--f-mono);
-  font-size: 10.5px;
+  font-size: var(--t-label);
 }
 
 .tk-sankey .node .v {
   fill: var(--ink-mute);
-  font-size: 9.5px;
+  font-size: var(--t-label);
 }
 
 .tk-sankey .flow {
@@ -3846,7 +3887,7 @@ canvas[data-ui="fog"] {
 .tk-band text {
   fill: var(--danger);
   font-family: var(--f-mono);
-  font-size: 9.5px;
+  font-size: var(--t-label);
 }
 
 /* The migration histogram. */
@@ -3883,7 +3924,7 @@ canvas[data-ui="fog"] {
   flex: 1;
   text-align: center;
   font-family: var(--f-mono);
-  font-size: 8.5px;
+  font-size: var(--t-label);
   color: var(--ink-mute);
 }
 
@@ -3900,7 +3941,7 @@ canvas[data-ui="fog"] {
   gap: 8px;
   align-items: center;
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
 }
 
 @media (max-width: 700px) {
@@ -3964,7 +4005,7 @@ canvas[data-ui="fog"] {
 
 .tk-residual .l {
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ink-mute);
@@ -3973,7 +4014,7 @@ canvas[data-ui="fog"] {
 /* The pool balances table. */
 .tk-pooltbl td {
   font-family: var(--f-mono);
-  font-size: 11.5px;
+  font-size: var(--t-data);
 }
 
 /* ---------- the round-trip ledger ---------- */
@@ -3984,7 +4025,7 @@ canvas[data-ui="fog"] {
   padding: 7px 0;
   border-bottom: 1px solid var(--line-faint);
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   align-items: baseline;
 }
 
@@ -4037,7 +4078,7 @@ canvas[data-ui="fog"] {
   gap: 4px;
   margin-top: 10px;
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: var(--t-data);
   color: var(--ink-dim);
 }
 
@@ -4051,7 +4092,7 @@ canvas[data-ui="fog"] {
   padding-left: 18px;
   font-family: var(--f-display);
   font-style: italic;
-  font-size: 13.5px;
+  font-size: var(--t-dek);
   color: var(--ink-dim);
   line-height: 1.5;
 }
@@ -4075,7 +4116,7 @@ canvas[data-ui="fog"] {
 .tk-est-more > summary {
   cursor: pointer;
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.08em;
   text-transform: lowercase;
   color: var(--ink-mute);
@@ -4092,7 +4133,7 @@ canvas[data-ui="fog"] {
 }
 
 .tk-est-more .tk-assume-list {
-  font-size: 12.5px;
+  font-size: var(--t-micro);
 }
 
 /* ---------- /reveal: the two modes ---------- */
@@ -4170,7 +4211,7 @@ canvas[data-ui="fog"] {
   border: 0;
   color: var(--ink);
   font-family: var(--f-mono);
-  font-size: 12px;
+  font-size: var(--t-label);
   /* The mockup's 10px 12px, which is the ladder's first rung exactly. */
   padding: var(--inset-1);
   outline: none;
@@ -4182,7 +4223,7 @@ canvas[data-ui="fog"] {
 
 .tk-keyin button {
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   padding: 0 14px;
@@ -4213,7 +4254,7 @@ canvas[data-ui="fog"] {
   padding: var(--inset-1);
   border: 1px solid var(--line);
   border-radius: 2px;
-  font-size: 12px;
+  font-size: var(--t-label);
   color: var(--ink-dim);
   line-height: 1.5;
 }
@@ -4221,7 +4262,7 @@ canvas[data-ui="fog"] {
 .tk-reveals .rv b {
   display: block;
   font-family: var(--f-mono);
-  font-size: 10px;
+  font-size: var(--t-label);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   margin-bottom: 4px;
@@ -4287,10 +4328,485 @@ canvas[data-ui="fog"] {
 
 .tk-gap .q {
   font-family: var(--f-mono);
-  font-size: 13px;
+  font-size: var(--t-data);
   color: var(--ink);
   word-break: break-all;
   margin: 8px 0 12px;
+}
+
+/* ---------- the turnstile plane ----------
+   Five ledgers on a perspective plane. The composition is approved
+   (docs/2.0/mockups/04a-turnstile-plane.html); the arithmetic is lib/plane.ts;
+   this is the surface it is painted on.
+
+   ONE HOVER VERB. The figure dims its own marks and nodes and nothing else -
+   no swell, no recolour, no transform at any state. NOTHING ANIMATES: opacity
+   is a pure function of a mark's position in the window, recomputed when a
+   block arrives, so there is no loop here to cancel under reduced motion. */
+.tplane {
+  margin: 0;
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: var(--inset-5);
+}
+
+.tplane-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--line-faint);
+}
+
+.tplane-title {
+  font-family: var(--f-mono);
+  font-size: var(--t-label);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.tplane-sub {
+  display: block;
+  margin-top: 4px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-mute);
+}
+
+/* THE WINDOW IS THE READING, so it sits in the header at the same weight as
+   the counts rather than in the caption. Two boards holding the same number of
+   marks are not comparable until a reader can see what each one covers. */
+.tplane-reading,
+.tplane-absent {
+  font-family: var(--f-mono);
+  font-size: var(--t-label);
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.tplane-reading b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* An absence states its CONDITION, never an owner. SNAPSHOT.md section 8.1. */
+.tplane-absent {
+  color: var(--ink-mute);
+}
+
+.tplane-cond {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink-mute);
+  letter-spacing: 0;
+}
+
+.tplane-board {
+  position: relative;
+}
+
+.tplane-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.tplane-floor {
+  pointer-events: none;
+}
+
+.tmark,
+.tnode {
+  transition: opacity var(--t1) var(--ease);
+}
+
+.tplane:hover .tmark {
+  opacity: 0.32;
+}
+
+.tplane:hover .tmark:hover {
+  opacity: 1;
+}
+
+.tplane:hover .tnode {
+  opacity: 0.55;
+}
+
+.tplane:hover .tnode:hover {
+  opacity: 1;
+}
+
+/* THE LABELS ARE HTML OVER THE SVG, NOT SVG <text>. Text inside a viewBox
+   scales with the box, so a 12px label is 12px at exactly one width and
+   smaller at every narrower one - a floor a viewport can walk under is not a
+   floor. Positioned in per cent from the same projected coordinates the discs
+   use, so they track the picture at any width. */
+.tplane-labels {
+  position: absolute;
+  inset: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+
+.tplane-label {
+  position: absolute;
+  transform: translateX(-50%);
+  text-align: center;
+  white-space: nowrap;
+  font-family: var(--f-mono);
+  line-height: 1.4;
+}
+
+.tl-name {
+  display: block;
+  font-size: var(--t-label);
+  letter-spacing: 0.14em;
+  color: var(--ink);
+}
+
+.tl-bal {
+  display: block;
+  font-size: var(--t-label);
+  color: var(--ink-mute);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Three states, three registers, and they are not interchangeable: a measured
+   count, a measured zero, and a boundary this document does not measure at
+   all. The third is dimmer and italic because it is not a reading. */
+.tl-traffic {
+  display: block;
+  font-size: var(--t-label);
+  color: var(--ink-mute);
+  font-variant-numeric: tabular-nums;
+}
+
+.tplane-label[data-traffic="measured-zero"] .tl-traffic {
+  color: var(--ink-mute);
+}
+
+.tplane-label[data-traffic="not-measured"] .tl-traffic {
+  color: var(--ink-mute);
+  font-style: italic;
+  letter-spacing: 0;
+}
+
+.tplane-cap {
+  margin-top: 14px;
+  border-top: 1px solid var(--line-faint);
+  padding-top: 12px;
+}
+
+.tplane-legend {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  font-family: var(--f-mono);
+  font-size: var(--t-label);
+  color: var(--ink-mute);
+}
+
+.tlg {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.tlg-sw {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.tlg b {
+  color: var(--ink);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The plane states its own limit, on the surface, rather than in a comment
+   nobody reading the page can see. */
+.tplane-limit {
+  font-family: var(--f-sans);
+  font-size: var(--t-dek);
+  line-height: 1.5;
+  color: var(--ink-mute);
+  margin: 0;
+  max-width: 76ch;
+  border-left: 1px solid var(--line-strong);
+  padding-left: 12px;
+}
+
+.tplane-limit b {
+  color: var(--ink-dim);
+  font-weight: 600;
+}
+
+.tplane-cap-note {
+  font-family: var(--f-sans);
+  font-size: var(--t-dek);
+  line-height: 1.5;
+  color: var(--ink-mute);
+  margin: 10px 0 0;
+  max-width: 76ch;
+  border-left: 1px solid var(--line-strong);
+  padding-left: 12px;
+}
+
+@media (max-width: 760px) {
+  /* The labels are absolutely positioned over a board that is now narrow
+     enough for them to collide. They carry no information the legend does not,
+     so the legend keeps it and the overlay goes. */
+  .tplane-labels {
+    display: none;
+  }
+}
+
+/* ---------- the splash beats ----------
+   CLAIM -> EXPLANATION -> EVIDENCE -> THE WORKING, with the order VISIBLE.
+   The complaint this answers is about sequence rather than volume: "instead of
+   claim, explanation, evidence, visualization, we get vibes, cryptographic
+   terminology, vibes, huge number, tiny explanation, vibes". A page that
+   reduces what is on screen without fixing the order is a tidier page with the
+   same defect, so the beats are labelled rather than implied. */
+.beat {
+  border-left: 1px solid var(--line-faint);
+  padding-left: 20px;
+  margin-left: -21px;
+}
+
+.beattag {
+  display: block;
+  font-family: var(--f-mono);
+  font-size: var(--t-label);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 10px;
+}
+
+/* THE CLAIM BEAT CARRIES THE FOG, DEMOTED FROM AN OPENING TO A BACKDROP.
+   It was a 620px full-bleed hero with the wordmark and a four-idea paragraph
+   over it, which is the "vibes first" the reader objected to. It is now a
+   bounded band behind a falsifiable sentence: same argument - what stays in the
+   haze is what the proof hides, what lifts is what the chain publishes - but
+   supporting an assertion rather than standing in for one. The height is set by
+   the claim, not by the picture. */
+.beat-claim {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  margin-top: 26px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-deep);
+}
+
+.beat-claim canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.beat-claim .veil {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(18, 17, 16, 0.28), rgba(18, 17, 16, 0.86) 88%);
+}
+
+.beat-claim-in {
+  position: relative;
+  z-index: 2;
+  padding: 44px 48px 40px;
+}
+
+/* The claim is one sentence and it is falsifiable. It is also the largest
+   thing on the page and it is NOT gold: a figure about unprovability is never
+   gold, because size in the accent reads as an accusation this site does not
+   make (LEDGER-04 Q1b). */
+.beat-claim h1 {
+  font-family: var(--f-display);
+  font-size: clamp(30px, 4.6vw, 50px);
+  line-height: 1.14;
+  margin: 0;
+  max-width: 24ch;
+  color: var(--ink);
+  font-weight: 400;
+}
+
+.beat-claim .explain {
+  margin: 20px 0 0;
+  font-size: var(--t-prose);
+  line-height: 1.6;
+  color: var(--ink-dim);
+  max-width: 60ch;
+}
+
+.beat-claim .explain b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.beat-evidence {
+  margin-top: 48px;
+}
+
+.beat-working {
+  margin-top: 40px;
+  display: grid;
+  gap: 9px;
+}
+
+/* ---------- the working: progressive disclosure at page level ----------
+   Native `<details>`, promoted from `Cite` and `EstimatePanel` rather than
+   invented. `<details>` has no default animation, which is what keeps the
+   zero-registered-animations assertion true by construction rather than by a
+   cancellation.
+
+   THE COLLAPSE RULE, and it is the half that matters more than the mechanism:
+     NEVER collapse the claim. The claim is the page.
+     NEVER collapse confidence, lastVerified or a source count. Epistemic
+       status behind a toggle is the null-panel-renders-as-zero defect in a
+       nicer coat.
+     COLLAPSE the derivation, the raw table, the method walk-through, the full
+       source list.
+     EVERY SUMMARY CARRIES ITS FINDING - "6 fields, all public", never "Sources".
+       A page of closed panels that each say something is a page with its
+       working folded; a page of closed panels that say nothing reads as
+       evasive, which is the difference this rule is about. */
+.wdisc {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.wdisc[open] {
+  border-color: var(--line-strong);
+}
+
+.wdisc > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: var(--inset-3);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: opacity var(--t1) var(--ease);
+}
+
+.wdisc > summary:hover {
+  opacity: 0.66;
+}
+
+.wdisc > summary::-webkit-details-marker {
+  display: none;
+}
+
+.wdisc > summary::before {
+  content: "";
+  width: 0;
+  height: 0;
+  flex: none;
+  border-left: 5px solid var(--ink-mute);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform var(--t1) var(--ease);
+}
+
+.wdisc[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.wd-t {
+  font-family: var(--f-sans);
+  font-size: var(--t-body);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* The finding, in the closed state. Mono and tabular because it is nearly
+   always a count. */
+.wd-n {
+  font-family: var(--f-mono);
+  font-size: var(--t-micro);
+  color: var(--ink-mute);
+  margin-left: auto;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.wd-body {
+  padding: 2px 18px 18px;
+  border-top: 1px solid var(--line-faint);
+}
+
+.wd-body .note {
+  margin: 14px 0 0;
+}
+
+.wd-list {
+  margin: 14px 0 0;
+  padding-left: 18px;
+  font-family: var(--f-sans);
+  font-size: var(--t-sm);
+  line-height: 1.6;
+  color: var(--ink-dim);
+  display: grid;
+  gap: 6px;
+}
+
+/* ---------- what the chain publishes: a LEGEND, and it says so ----------
+   The reader's second complaint, verbatim: "The floating PUBLISHED NULLIFIERS
+   / ANCHORS / COMMITMENTS boxes are even better. Are they buttons? Filters?
+   Evidence? A legend? Nobody knows."
+
+   They were an unlabelled `<ul>` of pill-shaped boxes floating over the hero
+   fog, each with a tiny `published` tag, with the only statement of what they
+   were in an `aria-label` a sighted reader never sees. Four things make them
+   read as a legend now and none of them is a colour change: they are a
+   definition list, so each row is a NAME and WHAT IT IS rather than a box; the
+   heading says what the group is, on the surface, at reading size; they sit
+   inside "the working" in document flow instead of floating over an image; and
+   nothing in the group is interactive, so there is no hover state to mistake
+   for a control. */
+.pubgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
+  gap: 0 24px;
+  margin: 12px 0 0;
+}
+
+.pubrow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-faint);
+  align-items: baseline;
+}
+
+.pubname {
+  font-family: var(--f-mono);
+  font-size: var(--t-data);
+  color: var(--ink);
+}
+
+.pubwhat {
+  font-family: var(--f-sans);
+  font-size: var(--t-sm);
+  color: var(--ink-mute);
 }
 
 /* ---------- reduced motion ----------

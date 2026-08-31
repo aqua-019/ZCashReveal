@@ -255,58 +255,108 @@ thing. Each of these is checked and its disposition recorded in §7.
 | 6 | The honest null states of `SNAPSHOT.md` §8.1 rendered, not reinvented | the plane and the splash readings |
 | 7 | F-04a-3 closed in one direction, with a guard if the invariant stays | `apps/web/src/lib/nav.ts` + `scripts/` + `package.json` `check` |
 
-## §5 ASSERTIONS — binary and machine-checkable
+## §5 ASSERTIONS - binary and machine-checkable
 
-Amended format (LEDGER-09a Q2): every assertion states its **EXCLUSION SET**, and §7's
-fail-side transcript names **which member** it used. At least one fail side per assertion is a
-DATA mutation — a value drawn from the set the predicate claims to exclude.
+Amended format (LEDGER-09a Q2): every assertion states its **EXCLUSION SET** - the values its
+predicate is written to reject - and names which member of that set its fail side used. At
+least one fail side per assertion is a DATA mutation, a value drawn from inside the set, because
+a fail side that is only a code mutation proves the assertion is WIRED and never that it
+DISCRIMINATES. `scripts/check-ledger-structure.mjs` R4 checks that both clauses are PRESENT; it
+cannot check that either is correct, and that limit is stated in its own header.
 
-- **A1 — ONE SOURCE PER QUANTITY.** Every number rendered twice on one screen comes from one
-  computation: the plane's crossing count, the legend's per-pool counts, the node traffic
-  lines and the readings below are one derivation with four renderings.
-  *Exclusion set: any pair of renderings of one quantity that can disagree for some input.*
-  *Fail side (data): feed the legend from the fixture while the arcs read the live board, and
-  watch the assertion name the pair.*
-- **A2 — CONTRAST AT SIZE.** Every rendered text style meets WCAG AA at its own size,
-  COMPUTED from the token and the background in a test rather than read off the palette.
-  *Exclusion set: any (token, background, size, weight) tuple below its AA threshold.*
-- **A3 — THE FLOOR HOLDS.** No rendered body text below the floor deliverable 2 sets, checked
-  over the BUILT CSS rather than the source.
-  *Exclusion set: any font-size declaration under the floor reachable by rendered text.*
-- **A4 — EVERY `<summary>` CARRIES ITS FINDING.** Every `<summary>` in `apps/web` contains at
-  least one digit or count. *Exclusion set: a `<summary>` whose text has no digit.*
-- **A5 — EVERY SCREEN RENDERS ITS `dek`.** Every screen in `SCREENS` renders its `dek` in the
-  nav. *Exclusion set: a `SCREENS` member whose `dek` reaches no rendered node.*
-- **A6 — F-04a-3 CLOSED.** Closed in whichever direction was chosen, with the guard if the
-  invariant stayed. *Exclusion set: a user-facing static route with no nav entry while the
-  docblock claims none can exist.*
-- **A7 — THREE WAYS IN, AND OUT.** The nav opens by pointer, by `:focus-within`, and by the
-  button, and closes on Escape; the collapsed bar names the current screen. **Touch is
-  asserted, not assumed.** *Exclusion set: any of the three entry paths that does not open it,
-  or an Escape that does not close it.*
-- **A8 — FOUR HONEST STATES.** The plane renders four states against fixture snapshots:
-  crossings measured; a null `migrationHist`; a chain quiet for the whole ceiling; and a pool
-  with zero crossings — and **no state renders an unmeasured quantity as a zero.**
-  *Exclusion set: any state in which an absent measurement reaches the DOM as `0`.*
-- **A9 — THE ADAPTIVE WINDOW.** At a rate where the count exceeds `N_MAX` the board shows
-  exactly `N_MAX` marks AND the header states the shortened window.
-  *Exclusion set: (marks capped, window not shortened) — the pair the rule exists to prevent.*
-  *Fail side: cap the marks without shortening the stated window, and watch A9 fire.*
-- **A10 — REDUCED MOTION BY ARCHITECTURE.** The nav disclosure and the plane's block-arrival
-  step are NOT CONSTRUCTED rather than cancelled. *Exclusion set: an animation object,
-  transition or timer created and then disabled under `prefers-reduced-motion: reduce`.*
-- **A11 — UNIFORM WEIGHT.** Every mark the plane draws carries the same weight, and no
+- **A1.** ONE SOURCE PER QUANTITY. Every number rendered twice on one screen comes from one
+  computation: the plane's crossing count, the legend's per-lane counts, the node traffic lines
+  and the readings below are one derivation with four renderings.
+  *Exclusion set:* any pair of renderings of one quantity that can disagree for some input.
+  *Fail side names:* a legend fed from the fixture while the marks are built from the live
+  board - the member F-04a-7(b) is an instance of - and the assertion must name the pair.
+
+- **A2.** CONTRAST AT SIZE. Every rendered text style meets WCAG AA at its own size, COMPUTED
+  from the token and the background in a test rather than read off the palette.
+  *Exclusion set:* any (token, background, size, weight) tuple whose computed ratio is below its
+  AA threshold - 4.5:1 for normal text, 3:1 for large.
+  *Fail side names:* the mockup's original `--ink-mute` value `#7c7366`, which measures 4.04:1
+  on `--bg` and is a member HANDOFF-01 already removed once.
+
+- **A3.** THE FLOOR HOLDS. No rendered text below the floor deliverable 2 sets, checked over the
+  BUILT CSS rather than the source.
+  *Exclusion set:* any font-size reachable by rendered text whose computed value is under the
+  floor - 8.5px, 9px, 9.5px, 10px, 10.5px, 11px and 11.5px are the seven the tree carried.
+  *Fail side names:* `9.5px`, the size 24 declarations used, spliced back into the built
+  stylesheet.
+
+- **A4.** EVERY SUMMARY CARRIES ITS FINDING. Every `<summary>` in `apps/web` contains at least
+  one digit.
+  *Exclusion set:* any summary text with no digit in it.
+  *Fail side names:* the bare word `Sources`, which is the rule's own named counter-example.
+
+- **A5.** EVERY SCREEN RENDERS ITS `dek`. Every entry in `NAV_ENTRIES` renders its `dek` text
+  into the bar.
+  *Exclusion set:* any `NAV_ENTRIES` member whose `dek` string reaches no rendered node.
+  *Fail side names:* a `ScreenNav` that renders `idx` and `label` only - the state the tree was
+  in before this handoff, and the member F-04a-1 names.
+
+- **A6.** F-04a-3 CLOSED. Every user-facing static route under `apps/web/src/app` has a nav
+  entry or is excluded by name with a reason, enforced by a guard rather than by a docblock.
+  *Exclusion set:* any static route with a `page.tsx`, no `NAV_ENTRIES` entry and no exclusion.
+  *Fail side names:* `/pools` - the member that was actually open for four handoffs - restored
+  to the unlisted state by removing its entry, plus a fresh route the table has never seen.
+
+- **A7.** THREE WAYS IN, AND OUT. The index opens by pointer, by `:focus-within` and by the
+  button, and closes on Escape; the collapsed bar names the current screen. Touch is asserted,
+  not assumed.
+  *Exclusion set:* any of the three entry paths that leaves the index collapsed, an Escape that
+  leaves it open, and a collapsed bar that does not name the current screen.
+  *Fail side names:* the Escape path, measured against the state this session shipped first,
+  where Escape set `aria-expanded="false"` and the computed `grid-template-rows` stayed at its
+  open value because returning focus to the toggle re-satisfied `:focus-within`.
+
+- **A8.** FOUR HONEST STATES, AND NO UNMEASURED ZERO. The plane renders four states against
+  fixture snapshots - crossings measured; a null `migrationHist`; a window whose count is zero;
+  and a lane outside every measured relation - and no state renders an unmeasured quantity as a
+  zero.
+  *Exclusion set:* any state in which a quantity the document does not carry reaches the DOM as
+  `0`, or as a count with no condition beside it.
+  *Fail side names:* a lane with no measured crossing relation rendered as
+  `closed - 0 crossings in window` - which is the member the approved study itself renders under
+  `sprout`, so the fail side is drawn from the specification rather than invented.
+
+- **A9.** THE CAPPED BOARD STATES THE TRUE COUNT. When the counted crossings exceed `N_MAX` the
+  board draws exactly `N_MAX` marks AND the header states the measured count, not the drawn one.
+  *Exclusion set:* any rendering in which the marks are capped and the header reports only the
+  number drawn - the pair "density held constant, traffic silently misreported".
+  *Fail side names:* `drawnMarks` substituted for `countedCrossings` in the header, at a fixture
+  rate where the two differ (42 against 1,284).
+
+- **A10.** REDUCED MOTION BY ARCHITECTURE. The nav disclosure and the plane construct no
+  animation system: nothing to cancel rather than something cancelled.
+  *Exclusion set:* any rAF callback, interval, timer or Web Animations object created on the
+  splash under `prefers-reduced-motion: reduce`.
+  *Fail side names:* a constructed animation, planted with `element.animate()` on the splash,
+  which the same probe must then report.
+
+- **A11.** UNIFORM WEIGHT. Every mark the plane draws carries the same stroke weight, and no
   per-crossing amount, ordering or confirmation state reaches the renderer.
-  *Exclusion set: any per-mark visual property varying with a quantity the snapshot does not
-  carry.*
-- **A12 — DETERMINISM.** Two renders of the same snapshot produce byte-identical plane
-  geometry, and the plane's only entropy source is the tip hash through FNV-1a → mulberry32.
-  *Exclusion set: `Math.random`, `Date.now`, or any input outside the snapshot.*
-- **A13 — THE SUITE IS UNCHANGED IN COUNT.** `pnpm -r test` unchanged in COUNT as well as
-  colour against the baseline **1276 total, 1273 passed, 3 skipped** — measured by L2 on a
-  clean worktree of `e1a39f7` with a real Postgres 16 and a real local Redis — plus this
-  handoff's own additions, itemised. Guards, typecheck, lint, `content validate` and
-  `pnpm build` green.
+  *Exclusion set:* any per-mark visual property that varies with a quantity `SnapshotV1` does
+  not carry - thickness by amount, fade by wall-clock age, a dashed pending arc.
+  *Fail side names:* a per-mark stroke width drawn from a seeded amount, which is what the
+  full-size study does and what this build must not.
+
+- **A12.** DETERMINISM. Two builds of the same snapshot produce byte-identical plane geometry,
+  and the plane's only entropy source is the tip hash through FNV-1a to mulberry32.
+  *Exclusion set:* `Math.random`, `Date.now`, `new Date()`, and any input outside the snapshot
+  argument.
+  *Fail side names:* a second snapshot differing only in `hash`, which must produce a different
+  plane - the discriminating half, since identical output for every input would also satisfy a
+  naive equality check.
+
+- **A13.** THE SUITE IS UNCHANGED IN COUNT, PLUS WHAT THIS BRANCH ADDS, ITEMISED. Against the
+  baseline **1276 total, 1273 passed, 3 skipped** measured by L2 on a clean worktree of
+  `e1a39f7` with a real Postgres 16 and a real local Redis. Guards, typecheck, lint,
+  `content validate` and `pnpm build` green.
+  *Exclusion set:* any test that disappears without being named, and any suite whose count falls.
+  *Fail side names:* a deleted test file, which must move the total and be visible as a fall
+  rather than absorbed by an addition elsewhere.
 
 ### Two things that are not assertions
 

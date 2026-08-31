@@ -2,19 +2,25 @@ import Link from "next/link";
 
 import { ZecMark } from "@/components/icons";
 import { EpochClock } from "./EpochClock";
+import { ScreenDisclosure } from "./ScreenDisclosure";
 import { ScreenNav } from "./ScreenNav";
 import type { ChainTip } from "@/lib/chain";
 
 /**
- * The system bar: wordmark, screen list, epoch clock. Sticky, glass-backed,
- * present on every route - assertion A7 checks `[data-ui=sysbar]` on each one.
+ * The system bar: wordmark, where-you-are, epoch clock, and the screen index
+ * behind a disclosure. Sticky, glass-backed, present on every route -
+ * assertion A7 checks `[data-ui=sysbar]` on each one.
  *
- * A server component holding two client children, so the bar itself is in the
- * static HTML and only the nav's active state and the clock's tick hydrate.
+ * The `<header>` element itself moved into `ScreenDisclosure` in HANDOFF-04a,
+ * because the open state has to live on the element the CSS reads. This is
+ * still a server component and the markup is still in the static HTML; what
+ * changed is that the header hydrates along with the nav and the clock rather
+ * than staying inert. That is one more hydration boundary and it buys the only
+ * disclosure path a touch device has.
  */
 export function SysBar({ tip }: { readonly tip: ChainTip }) {
   return (
-    <header className="sysbar" role="banner" data-primitive="SysBar" data-ui="sysbar">
+    <ScreenDisclosure>
       <Link className="wordmark" href="/" aria-label="ZCashReveal home">
         <ZecMark className="z" />
         <span className="name">
@@ -22,8 +28,12 @@ export function SysBar({ tip }: { readonly tip: ChainTip }) {
         </span>
         <span className="tag">shielded ≠ silent</span>
       </Link>
-      <ScreenNav />
       <EpochClock tip={tip} />
-    </header>
+      <div className="navwrap">
+        <div className="navinner">
+          <ScreenNav />
+        </div>
+      </div>
+    </ScreenDisclosure>
   );
 }

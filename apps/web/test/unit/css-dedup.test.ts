@@ -99,7 +99,18 @@ describe("A9 (a): one preformatted-mono treatment", () => {
 });
 
 describe("A9 (b): one compact-cell register", () => {
-  const DEFINING = ["font-family: var(--f-mono)", "font-size: 11px", "line-height: 1.55", "color: var(--ink-dim)"];
+  // `font-size: 11px` until HANDOFF-04a. The compact-cell register is still one
+  // rule; what moved is that its size is now a named rung rather than a
+  // literal, so the defining set names the rung. Leaving the literal here would
+  // have made this check pass vacuously - no rule declares 11px any more, so
+  // `registers` would be empty and `[]` would never equal `[".cp"]`, which is
+  // exactly how this test failed when the scale landed.
+  const DEFINING = [
+    "font-family: var(--f-mono)",
+    "font-size: var(--t-data)",
+    "line-height: 1.55",
+    "color: var(--ink-dim)",
+  ];
 
   const registers = RULES.filter(([, body]) => DEFINING.every((d) => body.includes(d)));
 
@@ -149,7 +160,11 @@ describe("A9 (c): every card inset is a rung of the five-step ladder", () => {
     // are named here so that anything NOT on the list has to use a rung.
     const CHROME = new Set([
       ".skip",
-      ".sysbar",
+      // HANDOFF-04a: `.sysbar` no longer carries padding - the bar became a
+      // wrapper so the disclosure could grow inside it, and the row that holds
+      // the wordmark and the clock is `.sysbar-in`. Same chrome, one level in.
+      ".sysbar-in",
+      ".screens",
       ".screens a",
       ".screen",
       ".block",
@@ -159,8 +174,10 @@ describe("A9 (c): every card inset is a rung of the five-step ladder", () => {
       ".lrow",
       ".subnav a,\n.subnav button",
       ".tip",
-      ".hero .over",
-      ".leak",
+      // `.hero .over` and `.leak` left with the hero itself in HANDOFF-04a.
+      // `.beat-claim-in` is what replaced the first: a frame whose inset is set
+      // by the page margin rather than by the panel ladder.
+      ".beat-claim-in",
       ".record-head",
       ".ledgerfoot",
       ".srclist li",

@@ -321,18 +321,28 @@ const FINDINGS = [
     // RECORDS of what that handoff did and stay at the count of their day. Only
     // the sites that assert the CURRENT count are listed.
     //
-    // FIVE, THEN SEVEN, THEN ELEVEN, NOW TWELVE. This entry tracks the CURRENT
-    // count rather than one correction: the shape recurs every time a guard is
-    // added, which is exactly what makes it worth a register row instead of a
-    // review. Each widening moves `present` and pushes the superseded count into
-    // `absent`. The twelfth is `check-instrument-deps.mjs` (HANDOFF-09a), and
-    // this row earned its keep on that commit: the session updated CLAUDE.md's
-    // count, ran the guard, and was told about README.md and ci.yml - the two
-    // asserting sites it had not thought of.
-    present: /twelve (static )?guards/i,
-    probe: "# THE ELEVEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
-    antiProbe: "# THE TWELVE STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
-    absent: /five static guards|the five guards|five guards OK|seven static guards|the seven guards|seven guards OK|FOUR STATIC GUARDS|SEVEN STATIC GUARDS|eleven static guards|the eleven guards|eleven guards OK|ELEVEN STATIC GUARDS/i,
+    // FIVE, THEN SEVEN, THEN ELEVEN, THEN TWELVE, NOW THIRTEEN. This entry
+    // tracks the CURRENT count rather than one correction: the shape recurs
+    // every time a guard is added, which is exactly what makes it worth a
+    // register row instead of a review. Each widening moves `present` and pushes
+    // the superseded count into `absent`. The twelfth was
+    // `check-instrument-deps.mjs` (HANDOFF-09a) and the thirteenth is
+    // `check-nav-routes.mjs` (HANDOFF-04a), and this row has now earned its keep
+    // on both commits: at twelve it told a session that had updated CLAUDE.md
+    // about README.md and ci.yml, and at thirteen it held the same three sites
+    // to the same standard without anyone having to remember them.
+    //
+    // THE `absent` ARM GAINS THE SUPERSEDED COUNT, NOT A MENTION OF THE NUMBER.
+    // CLAUDE.md's ledger rules quote measurements over the guard population -
+    // "three of its thirteen guards have shipped with a self-test that certified
+    // a hole" - and a pattern hunting for the bare word would fire on prose
+    // doing its job, which is the loose-pattern failure recorded for
+    // `check-infra-docs`. Only the phrasings that ASSERT the current count are
+    // forbidden.
+    present: /thirteen (static )?guards/i,
+    probe: "# THE TWELVE STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
+    antiProbe: "# THE THIRTEEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
+    absent: /five static guards|the five guards|five guards OK|seven static guards|the seven guards|seven guards OK|FOUR STATIC GUARDS|SEVEN STATIC GUARDS|eleven static guards|the eleven guards|eleven guards OK|ELEVEN STATIC GUARDS|twelve static guards|the twelve guards|twelve guards OK|TWELVE STATIC GUARDS/i,
     sites: [
       "CLAUDE.md",
       "README.md",

@@ -92,7 +92,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      # THE TWELVE STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose. None of
+      # THE THIRTEEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose. None of
       # them needs node_modules or a build - they are bash, grep and dependency-free
       # node - and putting them after meant a PR whose build broke never got its
       # verdict on any of them. The Redis one in particular protects another
@@ -199,6 +199,35 @@ jobs:
       # directly.
       - name: Instrument package dependency graph (no zeromq, no indexer)
         run: node scripts/check-instrument-deps.mjs
+
+      # apps/web/src/lib/nav.ts opened with the claim that its screen table was
+      # one source for the bar, the route set and the A7 route list, "so a route
+      # can never exist without a nav entry or be tested without being
+      # reachable". The tree did not hold the sentence. At HANDOFF-04a there
+      # were nine screens in SCREENS, sixteen page.tsx files under src/app, and
+      # /pools and /reveal were top-level user-facing pages with no nav entry -
+      # for four handoffs. /pools is the page the turnstile plane is about, so
+      # the one screen the instrument half of the site exists to show could not
+      # be reached from the bar.
+      #
+      # NOTHING IN THE GATE COULD SEE IT. Both pages compiled, typechecked,
+      # linted and rendered; the file even argued the exclusion in a comment the
+      # docblock above it contradicted, and a file stating an invariant in one
+      # place and carving an exception out of it in another has no invariant,
+      # only two opinions. The A7 Playwright walk could not catch it either, and
+      # that is structural rather than an oversight: its route list is a
+      # hand-written MIRROR of ROUTES, deliberately not imported so that a route
+      # dropped from the table does not also drop out of the walk. A mirror
+      # catches a missing route; it is blind to a page that never reached the
+      # table at all, because then neither list disagrees with the other.
+      #
+      # So the rule becomes a guard, and the exceptions become data: three
+      # dynamic segments, one sub-view of /track and the dev-only gallery are
+      # named in the guard's own EXCLUSIONS table with a reason each, and its
+      # self-test removes every row in turn and requires the route to become a
+      # finding over the real tree.
+      - name: Nav routes (every static route has a nav entry)
+        run: node scripts/check-nav-routes.mjs
 
       - name: Install
         run: pnpm install --frozen-lockfile
