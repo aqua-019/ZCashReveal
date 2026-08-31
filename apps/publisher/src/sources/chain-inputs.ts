@@ -572,12 +572,23 @@ export async function readSnapshotInputs(
         //   as many words.
         //
         //   THE DOCUMENT ALREADY CARRIES IT, at the surface that has readers.
-        //   `ironwoodWindow.highHeight < birthHeight` IS "the pool does not
-        //   exist yet", published on every tip. A log line addressed to an
-        //   operator answers a question the snapshot already answers for
-        //   everyone - including the misconfiguration case, where a
-        //   `SNAPSHOT_IRONWOOD_BIRTH_HEIGHT` set far above the real birth is
-        //   visible as a published `birthHeight` that is simply wrong.
+        //   The snapshot's top-level `height` and the panel's `birthHeight` are
+        //   both REQUIRED fields, and `height < birthHeight` IS "the pool does
+        //   not exist yet" - measured on a pre-birth tip as 3,428,142 against
+        //   3,428,143. A log line addressed to one operator answers a question
+        //   the document already answers for everyone, including the
+        //   misconfiguration case: a `SNAPSHOT_IRONWOOD_BIRTH_HEIGHT` set far
+        //   above the real birth is visible as a published `birthHeight` that is
+        //   simply wrong.
+        //
+        //   NOT the WINDOW, which an earlier draft of this comment named and
+        //   which is NOT published: `snapshotNeffSeriesSchema` carries
+        //   `birthHeight`, `series`, `spendCount`, `windowSpendCount` and
+        //   `shares`, and `buildNeffSeries` drops the window. Gate round 3
+        //   established that and corrected the clamp comment above for it; this
+        //   comment then made the same claim again, in the commit fixing an
+        //   instance of exactly this shape. Caught by measuring the published
+        //   document rather than re-reading the sentence.
         //
         //   A CONTINUOUS EXPECTED LINE IS NOT WHAT THE RUNBOOK'S PRECEDENT
         //   COVERS. `RUNBOOK-VPS.md` carries "zmq unavailable # expected, once"

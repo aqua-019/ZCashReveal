@@ -779,12 +779,17 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
     // AND THE PANEL IS STILL THE MEASUREMENT round 3 made it.
     expect(belowInputs.ironwoodSpends).toEqual([]);
     expect(belowInputs.ironwoodWindow?.spendsInWindow).toBe(0);
-    // THE CONDITION IS PUBLISHED RATHER THAN LOGGED: a window whose high end is
-    // below the birth height is exactly "the pool does not exist yet", readable
-    // from the document by anyone who has it.
-    expect(belowInputs.ironwoodWindow!.highHeight).toBeLessThan(
-      belowInputs.ironwoodWindow!.birthHeight,
-    );
+    // THE CONDITION IS PUBLISHED RATHER THAN LOGGED, AND THIS ASSERTS IT ON THE
+    // DOCUMENT rather than on the inputs - which is the only place the claim can
+    // be checked. An earlier draft asserted `ironwoodWindow.highHeight <
+    // birthHeight` on the INPUTS; the window is not published at all
+    // (`buildNeffSeries` drops it, gate round 3's F4), so that assertion could
+    // have been green while the claim it stood for was false. What a reader
+    // actually has is the snapshot's top-level `height` and the panel's
+    // `birthHeight`, both required fields.
+    const belowSnapshot = buildSnapshot(belowInputs, REAL_INSTRUMENTS, () => undefined);
+    expect(belowSnapshot.neffSeries).not.toBeNull();
+    expect(belowSnapshot.height).toBeLessThan(belowSnapshot.neffSeries!.birthHeight);
 
     // THE OTHER VALUE OF THE SAME VARIABLE. One block above, the query IS called
     // - so the two tips take different paths and the assertion above is not
