@@ -273,6 +273,24 @@ jobs:
       - name: Test - packages/content (vitest run)
         run: pnpm --filter @zcashreveal/content exec vitest run
 
+      # packages/zec-instruments arrived in HANDOFF-09a carrying 98 tests that
+      # had been running here as part of apps/indexer's suite the day before -
+      # the three estimators' property tests and their two leaves'. A package
+      # move that did not add this step would have taken all 98 out of CI while
+      # every enumerated step stayed green, and the local `pnpm -r test` total
+      # would still have been right, so the count assertion that guarded the
+      # move would have passed.
+      #
+      # THIS IS THE SECOND INSTANCE OF THE SHAPE THE zebra-rpc COMMENT ABOVE
+      # RECORDS: a workspace package whose tests exist and are not enumerated
+      # here. That one went unnoticed from HANDOFF-05 to HANDOFF-08 and was
+      # found by reading a green run's log. Recorded in LEDGER-09a so a third is
+      # recognised as a third rather than as a fresh surprise.
+      #
+      # No services: these are pure unit and property tests over pure functions.
+      - name: Test - packages/zec-instruments (vitest run)
+        run: pnpm --filter @zcashreveal/instruments exec vitest run
+
       # The gate on the seeds themselves: counts, schema, source resolution,
       # lastVerified bounds and quarantine leakage. Unconditional since HANDOFF-02.
       - name: Validate content package
