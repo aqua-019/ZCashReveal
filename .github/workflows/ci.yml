@@ -321,10 +321,16 @@ jobs:
       - name: Content provenance
         run: pnpm --filter @zcashreveal/content check:provenance
 
-      - name: Upload test report
+      # BOTH REPORTS, since the skip assertion now reads both. Uploading only the
+      # indexer's would leave the evidence for half the assertion unavailable on
+      # exactly the run where someone needs it - a publisher suite that skipped
+      # itself is what the guard exists to catch.
+      - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: indexer-vitest-report
-          path: indexer-results.json
+          name: vitest-reports
+          path: |
+            indexer-results.json
+            publisher-results.json
           if-no-files-found: ignore

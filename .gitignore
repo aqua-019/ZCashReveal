@@ -22,8 +22,18 @@ redis-data/
 .claude/*.local.*
 docker-compose.override.yml
 
-# vitest JSON report consumed by scripts/assert-no-skipped-integration.mjs in CI
+# Redis's own snapshot, written into whatever directory `redis-server` was
+# started from. `redis-data/` above covers the compose volume; this covers a
+# developer - or a session - running the server directly, which the integration
+# suites need.
+dump.rdb
+
+# vitest JSON reports consumed by scripts/assert-no-skipped-integration.mjs in CI.
+# BOTH, since HANDOFF-09b widened that guard to apps/publisher: the CI step that
+# writes the second one was added without its sibling ignore, so anyone running
+# the same vitest command locally got an untracked file.
 indexer-results.json
+publisher-results.json
 
 # Playwright run artefacts (apps/web). The suite is reproducible; its output is not committed.
 test-results/
