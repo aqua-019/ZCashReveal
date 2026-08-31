@@ -253,7 +253,24 @@ export const snapshotNeffSeriesSchema = z.object({
   series: z.array(snapshotNeffPointSchema),
   /** Spends in the series, which is not `series.length` when the series is sampled. */
   spendCount: countSchema,
-  /** Shares by claim level, over `spendCount`. Sum to 1 when `spendCount > 0`. */
+  /**
+   * Ironwood spends SEEN in the window, before any could be bounded.
+   *
+   * `spendCount` counts the spends the series could measure; this counts the
+   * spends there were. They differ whenever a spend's anchor cannot be resolved,
+   * and without both numbers the shares below are uninterpretable: four of five
+   * spends unbounded published "100 per cent require disclosure", computed over
+   * the one spend whose anchor happened to resolve, with no field that could say
+   * so (HANDOFF-09b gate round 2). A renderer must show the pair, never the
+   * share alone - `docs/2.0/SNAPSHOT.md` section 8.1 states the contract.
+   *
+   * Always `>= spendCount`.
+   */
+  windowSpendCount: countSchema,
+  /**
+   * Shares by claim level, over `spendCount` - NOT over `windowSpendCount`. Sum
+   * to 1 when `spendCount > 0`.
+   */
   shares: z.object({
     aggregate_only: z.number().min(0).max(1),
     broad_candidate_set: z.number().min(0).max(1),

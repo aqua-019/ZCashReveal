@@ -47,10 +47,11 @@ export interface BlockTime {
 /**
  * Write one block's height, time and hash.
  *
- * `ON CONFLICT (height) DO UPDATE`, WHICH IS THE OPPOSITE OF THE FOUR POOL
- * WRITERS AND THE SAME AS `persistLeakReport`. The pool writers use DO NOTHING
- * because Module 1's in-memory index detects the real conflict and throws first,
- * so the database never sees one. There is no such index here, and a height
+ * `ON CONFLICT (height) DO UPDATE`, WHICH `writePoolSnapshot` NOW MATCHES AND
+ * THE THREE REMAINING POOL WRITERS DO NOT. Those three use DO NOTHING because
+ * Module 1's in-memory index detects the real conflict and throws first, so the
+ * database never sees one. (`writePoolNullifier` is a fourth case again: it
+ * updates one column, and only for the same spend.) There is no such index here, and a height
  * genuinely CHANGES its block across a reorg: the same height then carries a
  * different hash and a different time, and DO NOTHING would keep the orphaned
  * block's timestamp forever while every later read looked correct. Refreshing is

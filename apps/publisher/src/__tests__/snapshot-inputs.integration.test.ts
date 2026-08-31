@@ -118,6 +118,21 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
    * few milliseconds it saves.
    */
   beforeEach(async () => {
+    // NO SCHEMA, NO TRUNCATE - the same refusal `_setup.ts` makes, stated here
+    // because this suite truncates directly rather than through `truncateAll`
+    // and would otherwise be protected by nothing (gate round 2, F16). The
+    // isolation used to be a PATH, the `globalSetup` line in this package's
+    // vitest config, and a missing path is exactly how this suite came to
+    // truncate `public` in the first place. A config that loses the line again,
+    // a package move or a rename all reproduce it silently; this turns every one
+    // of them into a loud failure on the first `beforeEach`.
+    if (testSchema === undefined || testSchema === "") {
+      throw new Error(
+        "refused to TRUNCATE: ZR_TEST_SCHEMA is unset, so `search_path` is `public` and this " +
+          "would wipe the shared tables. This package's vitest config must declare " +
+          '`globalSetup: ["../indexer/test/global-setup.ts"]`.',
+      );
+    }
     await sql.unsafe("TRUNCATE pool_snapshots, blocks, pool_nullifiers, pool_anchors RESTART IDENTITY");
 
     // THE FIXTURE MODELS A CATCH-UP SYNC, WHICH IS THE ONE CONDITION UNDER WHICH
@@ -541,8 +556,12 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
     );
     expect(faults).toContain("drain");
 
-    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, () => undefined);
+    // A SPY, so an input absence is distinguishable from an estimator refusal
+    // (gate round 2, F15).
+    const panelFaults: string[] = [];
+    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, (panel) => panelFaults.push(panel));
     expect(snapshot.drain).toBeNull();
+    expect(panelFaults, "the absence must come from the INPUT layer").toEqual([]);
     // THE DOCUMENT SURVIVES, which is the half that makes this worth having.
     expect(snapshot.residual).not.toBeNull();
     expect(snapshot.neffSeries).not.toBeNull();
@@ -564,15 +583,25 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
       VALUES ('ironwood', ${"77".repeat(32)}, ${"e7".repeat(32)}, ${TIP - 5}, ${"ab".repeat(32)})
     `;
 
-    const faults: string[] = [];
+    const faults: Array<{ panel: string; message: string }> = [];
     const inputs = await readSnapshotInputs(
-      deps({ onInputFault: (panel) => faults.push(panel) }),
+      deps({ onInputFault: (panel, err) => faults.push({ panel, message: String(err) }) }),
       tip,
     );
-    expect(faults).toContain("neffSeries");
+    // ASSERT ON THE MESSAGE, NOT THE PANEL NAME (gate round 2, F13). This
+    // fixture also trips the partial-anchor fault on the same panel, so
+    // `toContain("neffSeries")` was green whether the NaN threw or was silently
+    // skipped - an assertion satisfied by a different fault.
+    expect(faults.some((f) => /Cannot convert NaN|SyntaxError/.test(f.message))).toBe(true);
 
-    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, () => undefined);
+    // A SPY, NOT `() => undefined` (gate round 2, F15). A panel whose estimator
+    // refuses produces the SAME null as a panel with no input, so `toBeNull()`
+    // alone stopped discriminating once refusals became absences - which is what
+    // `instruments-wired.test.ts` already arms against.
+    const panelFaults: string[] = [];
+    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, (panel) => panelFaults.push(panel));
     expect(snapshot.neffSeries).toBeNull();
+    expect(panelFaults, "the absence must come from the INPUT layer").toEqual([]);
     expect(snapshot.residual).not.toBeNull();
     expect(snapshot.drain).not.toBeNull();
   });
@@ -595,6 +624,116 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
     const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, () => undefined);
     expect(snapshot.drain).toBeNull();
     expect(snapshot.residual).not.toBeNull();
+  });
+
+  it("F6 a PARTIAL anchor loss still publishes, and says how many it lost", async () => {
+    // THE FAULT THAT REPORTS A PARTIAL LOSS HAD NO COVERAGE AND COULD BE DELETED
+    // WHOLE (gate round 2, F6). Its own comment says it is "the only place the
+    // gap is stated", because `buildNeffSeries` drops `ironwoodBirth`'s audit
+    // record and `countIn - countOut` reaches no reader - so an unstated gap was
+    // protected by nothing.
+    const faults: Array<{ panel: string; message: string }> = [];
+    const inputs = await readSnapshotInputs(
+      deps({ onInputFault: (panel, err) => faults.push({ panel, message: String(err) }) }),
+      tip,
+    );
+
+    // The fixture has two bounded spends and two in-window spends whose anchors
+    // do not resolve, so this is the partial case rather than the total one.
+    expect(inputs.ironwoodSpends).toHaveLength(2);
+    expect(faults.some((f) => /carry no resolvable anchor and are excluded/.test(f.message))).toBe(
+      true,
+    );
+    // AND IT NAMES BOTH NUMBERS. A message that said only "some were excluded"
+    // would pass a `toContain` and tell an operator nothing.
+    expect(faults.some((f) => /2 of 4/.test(f.message))).toBe(true);
+
+    // AND THE DOCUMENT CARRIES BOTH NUMBERS, WHICH THE LOG CANNOT DO FOR IT
+    // (gate round 2, F7). Publishing `spendCount` alone made a window where most
+    // anchors did not resolve read as a share over the whole population: four of
+    // five unbounded published "100 per cent require disclosure", computed over
+    // the one spend that resolved, with no field that could say so. The log line
+    // above is not the document and no reader sees it.
+    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, () => undefined);
+    const neff = snapshot.neffSeries;
+    if (neff === null) throw new Error("neffSeries is null; this is the partial case");
+    expect(neff.spendCount).toBe(2);
+    expect(neff.windowSpendCount, "the population must be published beside the measurement").toBe(4);
+    // The shares are over `spendCount`, and the pair is what makes that legible.
+    expect(neff.windowSpendCount).toBeGreaterThan(neff.spendCount);
+  });
+
+  it("F7 the fully-measured case publishes the two counts EQUAL, so the pair is not decorative", async () => {
+    // THE OTHER POLARITY. If `windowSpendCount` were wired to the same quantity
+    // as `spendCount` - the easiest wrong implementation - the assertion above
+    // would still pass, because 2 != 4 only distinguishes them when they differ.
+    // Here every in-window spend resolves, so the two are equal by measurement
+    // rather than by construction.
+    await sql`DELETE FROM pool_nullifiers WHERE anchor_root IS NULL OR anchor_root = ${"ff".repeat(32)}`;
+    const inputs = await readSnapshotInputs(deps(), tip);
+    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, () => undefined);
+    const neff = snapshot.neffSeries;
+    if (neff === null) throw new Error("neffSeries is null; every anchor resolves here");
+    expect(neff.spendCount).toBe(2);
+    expect(neff.windowSpendCount).toBe(2);
+  });
+
+  it("F3 a tip BELOW the birth height is a stated absence, not an inverted window", async () => {
+    // THE CLAMP HAD NO UPPER BOUND AT THE TIP (gate round 2, MEDIUM), so on any
+    // tip below NU6.3 - every block of an initial sync - it built
+    // [birthHeight, tip] with the low end ABOVE the high end, `ironwoodBirth`
+    // threw, and the only line an operator saw blamed the ESTIMATOR for a window
+    // the input layer manufactured. Once per block, for millions of blocks.
+    const early = { height: BASELINE_HEIGHT - 1000, hash: hashFor(1), timeMs: BASE_TIME_S * 1000 };
+    const faults: Array<{ panel: string; message: string }> = [];
+    const inputs = await readSnapshotInputs(
+      deps({ onInputFault: (panel, err) => faults.push({ panel, message: String(err) }) }),
+      early,
+    );
+
+    expect(inputs.ironwoodWindow, "an inverted window must not be built").toBeNull();
+    expect(inputs.ironwoodSpends).toBeNull();
+    // THE INPUT LAYER OWNS THE FAULT, which is the half that was missing: the
+    // absence is reported where it was caused.
+    expect(faults.some((f) => /does not exist yet at this height/.test(f.message))).toBe(true);
+
+    const panelFaults: string[] = [];
+    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, (panel) => panelFaults.push(panel));
+    expect(snapshot.neffSeries).toBeNull();
+    // NOT `toEqual([])`: `drain` legitimately refuses at this tip, because the
+    // fixture holds no Orchard snapshot at or below it and `orchardDrain` says
+    // so - "a drain of 0 would be a reading this call never took". The claim
+    // under test is narrower and is the one that was false: the N_eff ESTIMATOR
+    // must not be blamed for a window the input layer built.
+    expect(panelFaults, "the N_eff estimator must not be blamed for this").not.toContain(
+      "neffSeries",
+    );
+  });
+
+  it("F11 a THROWING fault sink costs nothing at all, least of all the document", async () => {
+    // THE ONE HOLE IN THE WRAPPER'S PROMISE (gate round 2, LOW). `fault` is
+    // called inside the `try` in three places and again inside the `catch`,
+    // where a second throw is unguarded - so a logger that threw turned a panel
+    // loss into exactly the whole-document loss `panelInputs` exists to prevent.
+    const boom = () => Promise.reject(new Error("connection terminated unexpectedly"));
+    const inputs = await readSnapshotInputs(
+      deps({
+        queryOrchardSeries: boom,
+        onInputFault: () => {
+          throw new Error("the logger itself is broken");
+        },
+      }),
+      tip,
+    );
+    // It resolved rather than rejecting, and the panel it lost is the one whose
+    // query failed.
+    expect(inputs.drainBaseline).toBeNull();
+    expect(inputs.orchardSeries).toEqual([]);
+
+    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, () => undefined);
+    expect(snapshot.drain).toBeNull();
+    expect(snapshot.residual).not.toBeNull();
+    expect(snapshot.neffSeries).not.toBeNull();
   });
 
   it.runIf(!up)("A1 SKIPPED, WITH ITS REASON: no reachable Postgres with migration 005 applied", () => {

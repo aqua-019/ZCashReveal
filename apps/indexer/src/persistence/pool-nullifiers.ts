@@ -12,10 +12,11 @@ import { asHex } from "@zcashreveal/types";
 
 /**
  * Write a single spent nullifier, and the anchor it cited when the caller knows
- * one. Idempotent on (pool, nf_id) via ON CONFLICT DO NOTHING. The application
- * layer (Module 1's NullifierIndex.record) detects duplicates and throws
- * DoubleSpendError BEFORE the DB write — the DB never sees a true double-spend,
- * so DO NOTHING is the right policy.
+ * one. Idempotent on (pool, nf_id): a re-write of the SAME spend fills in an
+ * anchor that arrived later and changes nothing else. The application layer
+ * (Module 1's NullifierIndex.record) detects duplicates and throws
+ * DoubleSpendError BEFORE the DB write - the DB never sees a true double-spend,
+ * so the conflict clause never has to arbitrate one.
  *
  * `anchorRoot` IS THE MISSING EDGE MIGRATION 005 ADDED, AND IT IS WHAT MAKES
  * `neffSeries` MEASURABLE. `IronwoodSpend.candidateCount` is Cand_0, which
@@ -49,6 +50,24 @@ import { asHex } from "@zcashreveal/types";
  * overwrite an observation" property the four pool writers share survives: only
  * a NULL is ever filled in.
  *
+ * AND THE `WHERE` REFUSES A MIXED-CHAIN ROW, WHICH THE FIRST `DO UPDATE` BUILT
+ * (gate round 2, MEDIUM). The clause updates `anchor_root` alone, so
+ * `spent_txid` and `spent_height` keep the FIRST write's values. Under the very
+ * reorg scenario both of this branch's `DO UPDATE`s are justified by - "the only
+ * variant that is safe when the driver is wrong" - that produced a row carrying
+ * chain A's spend identity beside chain B's anchor, and the publisher then
+ * bounded an ORPHANED txid with an anchor it never cited and published a claim
+ * level for a transaction that is not on the chain. It is the same failure
+ * `writeBlock` and `writePoolSnapshot` were just made to agree in order to
+ * prevent, reintroduced by the other conflict clause in the same commit: those
+ * two refresh EVERY column and so cannot mix, and this one refreshes exactly
+ * one.
+ *
+ * So the update applies only when the incoming row is the SAME spend. A
+ * different spend's write falls through to doing nothing, which is the right
+ * answer for a case this clause was never designed for and which a rollback is
+ * what actually handles.
+ *
  * DEFAULTING TO `null` IS THE HONEST DEFAULT AND IS NOT THE THING MIGRATION 005
  * ARGUES AGAINST. What 005 refuses is a `DEFAULT 0` on a derived COUNT, because
  * `candidateCount > 0n` is an admission predicate and a manufactured zero would
@@ -73,6 +92,8 @@ export async function writePoolNullifier<P extends Pool>(
     )
     ON CONFLICT (pool, nf_id) DO UPDATE
       SET anchor_root = COALESCE(pool_nullifiers.anchor_root, EXCLUDED.anchor_root)
+      WHERE pool_nullifiers.spent_txid   = EXCLUDED.spent_txid
+        AND pool_nullifiers.spent_height = EXCLUDED.spent_height
   `;
 }
 

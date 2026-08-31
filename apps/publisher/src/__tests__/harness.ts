@@ -253,7 +253,14 @@ export function fixtureInputs(height: number, overrides: Partial<SnapshotInputs>
     ironwoodSpends: [
       { txid: asHex("bb".repeat(32)), height, pool: "ironwood", candidateCount: 5n },
     ],
-    ironwoodWindow: { birthHeight: 3_428_143, lowHeight: height - 1151, highHeight: height },
+    ironwoodWindow: {
+      birthHeight: 3_428_143,
+      lowHeight: height - 1151,
+      highHeight: height,
+      // One spend in `ironwoodSpends` above, and one seen in the window: this
+      // harness is the fully-measured case.
+      spendsInWindow: 1,
+    },
     lastReports: [mempoolRow(1, 30), mempoolRow(2, 5)],
     labelsVersion: "labels-9-2026-08-22",
     ...overrides,

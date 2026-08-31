@@ -47,12 +47,13 @@ describe.skipIf(!reachable)("blocks persistence", () => {
   });
 
   it("a reorg REPLACES the row at a height rather than keeping the orphan", async () => {
-    // THE ONE PLACE THIS WRITER DIFFERS FROM THE FOUR POOL WRITERS, and the
-    // reason it does. They use ON CONFLICT DO NOTHING because Module 1's
-    // in-memory index throws on the real conflict first. There is no such index
-    // here, and a height genuinely changes its block across a reorg: DO NOTHING
-    // would keep the orphaned block's timestamp forever while every later read
-    // looked perfectly correct.
+    // WHY THIS WRITER REFRESHES. `writePoolSnapshot` now does the same, for the
+    // same event, because the two disagreeing published chain B's timestamp
+    // beside chain A's balance. The three remaining pool writers use DO NOTHING
+    // because Module 1's in-memory index throws on the real conflict first;
+    // there is no such index here, and a height genuinely changes its block
+    // across a reorg, so DO NOTHING would keep the orphaned block's timestamp
+    // forever while every later read looked perfectly correct.
     await writeBlock({ height: 100, timeS: 1_780_000_000, hash: h(1) }, sql);
     await writeBlock({ height: 100, timeS: 1_780_000_900, hash: h(2) }, sql);
     const rows = await readBlockTimes(100, 100, sql);

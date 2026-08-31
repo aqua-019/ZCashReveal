@@ -31,10 +31,49 @@
 -- constraint and it is the four-pool one. Ironwood has been admitted to that
 -- table for three handoffs. The real gap is the missing anchor column below.
 --
--- RE-RUNNABLE, on the contract 003 established and `migrate.ts`'s per-migration
--- transaction assumes: every statement here is `IF NOT EXISTS`, so a second
--- application is a no-op. This file ALTERs one object it did not create and adds
--- no constraint by name, so it needs no DROP-before-ADD pair.
+-- RE-RUNNABLE, proven by applying it twice against a real Postgres 16 and
+-- diffing the full schema rather than by asserting it. Every statement is
+-- `IF NOT EXISTS`; it rewrites no rows; and the two named constraints it adds
+-- (`blocks_height_check`, `blocks_time_s_check`) are INSIDE the guarded
+-- `CREATE TABLE`, so they need no DROP-before-ADD pair - which is a different
+-- statement from "adds no constraint by name", what an earlier draft claimed and
+-- what `blocks.test.ts` disproves by matching on one of those names.
+--
+-- WHAT RE-RUNNABILITY DOES NOT BUY, STATED BECAUSE THE UNQUALIFIED CLAIM IS THE
+-- ONE 003'S HEADER GOT WRONG. `IF NOT EXISTS` makes a second application a
+-- no-op, and a no-op INCLUDES not applying later corrections: a database that
+-- ran an EARLIER DRAFT of this file never receives the `blocks_height_check`
+-- constraint, keeps an index a later draft deleted, and keeps a non-partial
+-- index a later draft made partial - because `CREATE TABLE IF NOT EXISTS` and
+-- `CREATE INDEX IF NOT EXISTS` are no-ops against objects of those names
+-- whatever their definitions. `schema_migrations` keys on the FILENAME, so it
+-- cannot see the difference.
+--
+-- THAT IS WHY THIS FILE MAY BE EDITED IN PLACE AND 003 MAY NOT. 003 is merged
+-- and applied in persistent environments, so changing its bytes is a divergence
+-- nothing can detect. 005 has never been applied outside the ephemeral container
+-- database of the session that wrote it: it does not exist on `main`, CI builds
+-- a fresh schema per run, and no operator has run it. Editing an unmerged
+-- migration on the branch that introduces it is what makes it reviewable at all.
+-- Gate round 2 raised the in-place edit as a HIGH on the correct fact - the bytes
+-- DID change after an application - and named this bound as the condition under
+-- which the edit is right. It is met, so the claim is qualified rather than the
+-- file reverted.
+--
+-- ONE THING FOR THE OPERATOR, and it is in `handoffs/README.md`'s click list:
+-- apply 005 from the MERGED tree. A database that ran a pre-merge draft needs
+-- those three objects corrected by hand, because re-running this file will not.
+--
+-- ONE CAVEAT ABOUT 003, RECORDED RATHER THAN INHERITED. An earlier draft said
+-- this file followed "the contract 003 established". 003 does not satisfy that
+-- contract unqualified: its `UPDATE leak_reports SET fee_zat = NULL WHERE
+-- fee_zat = 0` is not a no-op on re-application, and on a second run it would
+-- reclassify a coinbase's MEASURED zero (`fee.ts` returns `0n` there, "a fact
+-- rather than an absence") as an absence. It is unreachable through the current
+-- runner, which wraps each migration's body and its `schema_migrations` row in
+-- one transaction. L2 ruled the defect to be the CLAIM rather than the
+-- statement, so 003's header now says re-runnable IN ITS DDL and its bytes are
+-- untouched.
 
 -- ---------------------------------------------------------------------------
 -- (a) blocks: the height -> time mapping, as a TABLE and not as a column.
@@ -105,9 +144,14 @@
 -- DERIVED value whose low three digits are always zero, advertising a resolution
 -- the chain does not have. `PoolBalanceSample.timeMs` is a consumer convention
 -- and the conversion is one multiplication at the read boundary, through the
--- `MS_PER_SECOND` the publisher already names for exactly this at
--- apps/publisher/src/index.ts. A reader who assigns `time_s` straight into a
--- `timeMs` field sees the mismatch in the names.
+-- ONE `MS_PER_SECOND` that app declares, in
+-- `apps/publisher/src/sources/chain-inputs.ts`, beside `orchardSeriesFromRows`
+-- where this column is actually read. An earlier draft pointed at
+-- `apps/publisher/src/index.ts`, where a SECOND constant of the same name
+-- converted an RPC block HEADER's time - a different conversion - so a reader
+-- following the pointer landed on the wrong one. The duplicate is gone, and this
+-- sentence is the second site of that one-site fix. A reader who assigns `time_s`
+-- straight into a `timeMs` field sees the mismatch in the names.
 --
 -- BIGINT, NOT INTEGER, and this one is not a matter of taste: unix seconds pass
 -- INT_MAX in January 2038. A column with a known expiry date, to save four
@@ -204,10 +248,14 @@ ALTER TABLE pool_nullifiers
 -- the table the sentence's cost figure came from.
 --
 -- It is kept, PARTIAL, on a narrower argument that survives the measurement: the
--- planner's choice depends on the anchor table's size, `anchor_root` is NULL for
--- every row written before 005 and for every spend whose anchor never resolved,
--- and indexing those NULLs costs storage for rows the join can never admit. The
--- partial predicate is the same one the join applies.
+-- planner's choice depends on the anchor table's size, and `anchor_root` is NULL
+-- for every row written before 005 and for every spend whose anchor never
+-- resolved, so indexing those NULLs costs storage to point at rows no ANCHOR
+-- LOOKUP can ever match. The partial predicate is NOT "the same one the join
+-- applies", which an earlier draft claimed and which the same commit falsified:
+-- the join is a LEFT join and DOES admit those rows - that is the whole point of
+-- it - it simply finds no anchor for them, reaching them through
+-- `pool_nullifiers_height_idx` instead.
 CREATE INDEX IF NOT EXISTS pool_nullifiers_anchor_idx
   ON pool_nullifiers (pool, anchor_root)
   WHERE anchor_root IS NOT NULL;

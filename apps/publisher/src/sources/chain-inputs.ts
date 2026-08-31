@@ -309,13 +309,30 @@ export function ironwoodSpendsFromRows(
     // can still see how many spends there were. That count is the difference
     // between a measurement of zero and a stated absence.
     if (r.max_position === null) continue;
+    // A NON-POSITIVE BOUND IS A DEFECT, NOT AN EXCLUSION (gate round 2, LOW).
+    // `BigInt("-5") + 1n` is `-4n`, `ironwoodBirth` drops it on
+    // `candidateCount > 0n`, and the document then carries `spendCount: 0` and
+    // `requires_disclosure: 0` - verbatim what migration 005's own prose says
+    // this design refuses, "a manufactured zero would SILENTLY EXCLUDE a spend
+    // while looking like a measurement". The live `CHECK (max_position >= 0)`
+    // makes it unreachable from the database, and this function is EXPORTED and
+    // takes rows from any source, so the guard is one comparison rather than an
+    // assumption. It throws because the caller wraps this parse and turns a
+    // throw into a stated absence with a logged reason.
+    const candidateCount = BigInt(r.max_position) + 1n;
+    if (candidateCount <= 0n) {
+      throw new RangeError(
+        `ironwoodSpendsFromRows: max_position ${r.max_position} for txid ${r.spent_txid} gives ` +
+          `Cand_0 = ${candidateCount}, which is not a candidate set`,
+      );
+    }
     out.push({
       txid: asHex(r.spent_txid),
       height: r.spent_height,
       // READ FROM THE ROW. Stamping `"ironwood"` here made `ironwoodBirth`'s
       // first admission rule inert, because the value it tests was manufactured.
       pool: r.pool as IronwoodSpend["pool"],
-      candidateCount: BigInt(r.max_position) + 1n,
+      candidateCount,
     });
   }
   return out;
@@ -412,7 +429,18 @@ export async function readSnapshotInputs(
   // `'NaN'`, and `max_position`'s `CHECK (>= 0)` does not exclude it because
   // Postgres sorts NaN ABOVE every number - verified against a real Postgres 16,
   // where the INSERT succeeds and `BigInt("NaN")` then throws a SyntaxError.
-  const fault: InputFault = deps.onInputFault ?? (() => undefined);
+  // A THROWING SINK MUST NEVER COST THE DOCUMENT (gate round 2, LOW). `fault` is
+  // called INSIDE the `try` in three places and again inside the `catch`, where a
+  // second throw is unguarded - so a logger that rejected turned a panel loss
+  // into exactly the whole-document loss this wrapper exists to prevent.
+  const sink: InputFault = deps.onInputFault ?? (() => undefined);
+  const fault: InputFault = (panel, err) => {
+    try {
+      sink(panel, err);
+    } catch {
+      /* a broken sink is not worth the document it would cost */
+    }
+  };
   async function panelInputs<T>(panel: string, read: () => Promise<T>, absent: T): Promise<T> {
     try {
       return await read();
@@ -475,16 +503,19 @@ export async function readSnapshotInputs(
   // no spend qualified" - two different claims, and SNAPSHOT.md section 8.1
   // turns on the difference. The query LEFT-joins so both facts arrive: how many
   // spends there were, and how many could be bounded.
-  // CLAMPED TO THE BIRTH HEIGHT, NOT JUST TO ZERO, and the fixture that exposed
-  // this is worth keeping in mind. `ironwoodBirth` admits a spend only at or
-  // above `birthHeight`, so for the first window-length of blocks after NU6.3 an
-  // unclamped low bound asks for spends from before the pool existed and the
-  // estimator drops them - silently, because `buildNeffSeries` discards the audit
-  // record that would carry `countIn - countOut`. That is the same shape as the
-  // birth-height conflation this file already refuses one paragraph down: a
-  // series that quietly narrows and still reads as a measurement. Clamping makes
-  // the published `ironwoodWindow.lowHeight` truthful about what was searched,
-  // and makes the query's row count and the series' point count agree.
+  // CLAMPED TO THE BIRTH HEIGHT, NOT JUST TO ZERO. `ironwoodBirth` admits a spend
+  // only at or above `birthHeight`, so for the first window-length of blocks
+  // after NU6.3 an unclamped low bound asks for spends from before the pool
+  // existed and the estimator drops them - silently, because `buildNeffSeries`
+  // discards the audit record that would carry `countIn - countOut`. That is the
+  // same shape as the birth-height conflation this file refuses below: a series
+  // that quietly narrows and still reads as a measurement. Clamping makes the
+  // query's row count and the series' point count agree.
+  //
+  // IT DOES NOT MAKE `ironwoodWindow.lowHeight` "truthful about what was
+  // searched", which an earlier draft claimed (gate round 2, MEDIUM):
+  // `snapshotNeffSeriesSchema` carries no window at all, so nothing published
+  // ever shows it. The claim was about a field the document does not have.
   const ironwoodLow = Math.max(
     0,
     deps.cfg.SNAPSHOT_IRONWOOD_BIRTH_HEIGHT,
@@ -494,9 +525,36 @@ export async function readSnapshotInputs(
     "neffSeries",
     async (): Promise<{
       spends: IronwoodSpend[] | null;
-      window: (HeightWindow & { birthHeight: number }) | null;
+      window: (HeightWindow & { birthHeight: number; spendsInWindow: number }) | null;
     }> => {
       if (deps.queryIronwoodSpends === null) return { spends: null, window: null };
+      // A TIP BELOW THE BIRTH HEIGHT IS A POOL THAT DOES NOT EXIST YET, AND IT
+      // IS A STATED ABSENCE RATHER THAN AN INVERTED WINDOW (gate round 2,
+      // MEDIUM). The clamp above has no upper bound at the tip, so on any tip
+      // below NU6.3 - every block of an initial sync, and every block on a
+      // network whose configured birth height sits above the tip - it produced
+      // `[birthHeight, tip]` with the low end ABOVE the high end.
+      // `ironwoodBirth` throws on an inverted window, `buildSnapshot` caught it,
+      // and the only line an operator saw was "analysis panel refused its
+      // inputs" - blaming the estimator for a window the input layer
+      // manufactured, which is exactly the discrimination
+      // `instruments-wired.test.ts` exists to protect. Once per block, for
+      // millions of blocks.
+      //
+      // It also made a path `ironwoodBirth` documents as correct unreachable
+      // from here: "a `highHeight` below `birthHeight` is NOT an error: it is a
+      // window before the pool existed, and the empty series is the correct
+      // answer to it."
+      if (deps.cfg.SNAPSHOT_IRONWOOD_BIRTH_HEIGHT > tip.height) {
+        fault(
+          "neffSeries",
+          new RangeError(
+            `Ironwood is born at ${deps.cfg.SNAPSHOT_IRONWOOD_BIRTH_HEIGHT} and the tip is ` +
+              `${tip.height}, so the pool does not exist yet at this height`,
+          ),
+        );
+        return { spends: null, window: null };
+      }
       const rows = await deps.queryIronwoodSpends(ironwoodLow, tip.height);
       const spends = ironwoodSpendsFromRows(rows);
       const window = {
@@ -509,6 +567,11 @@ export async function readSnapshotInputs(
         // height" - and a birth height is a CONSENSUS FACT. Sharing them meant
         // re-basing the drain chart silently shortened this series.
         birthHeight: deps.cfg.SNAPSHOT_IRONWOOD_BIRTH_HEIGHT,
+        // THE POPULATION, NOT THE MEASURED COUNT. `rows` is every Ironwood spend
+        // in the window; `spends` is the subset whose anchor resolved. The panel
+        // publishes both so a share computed over the second cannot be read as a
+        // statement about the first.
+        spendsInWindow: rows.length,
       };
       // SPENDS EXIST AND NONE COULD BE BOUNDED IS AN ABSENCE, NOT A ZERO. This
       // is the state of every database that has just applied 005: `anchor_root`

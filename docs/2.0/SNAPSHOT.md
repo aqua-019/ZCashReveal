@@ -328,6 +328,8 @@ a **named absence carrying its owner**:
 | --- | --- |
 | `drain` | `drain: not measured — needs a block-time source (HANDOFF-09b)` |
 | `neffSeries` | `N_eff series: not measured — needs an Ironwood spend source (HANDOFF-09b)` |
+
+**And a rule for `neffSeries` when it IS measured, because a panel can be present and still make a claim it cannot support.** Its `shares` are computed over `spendCount` — the spends whose anchor resolved — and `windowSpendCount` is how many Ironwood spends there were in the window. **A renderer must show the pair, never a share alone.** Four of five spends unbounded publishes `requires_disclosure: 1` over a single spend, and rendered as "100% require disclosure" that is a measurement of the window it was not taken over. `N_eff over 2 of 4 spends in the window` is the honest form; a bare percentage is not.
 | `residual` | `unprovable residual: not measured — the node reported no supply` |
 | `migrationHist` | `migration histogram: not measured — no migration window was read` |
 

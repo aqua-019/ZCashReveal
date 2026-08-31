@@ -96,8 +96,16 @@ export interface SnapshotInputs {
 
   /** Ironwood spends the N_eff series is computed over. Null suppresses the panel. */
   readonly ironwoodSpends: ReadonlyArray<IronwoodSpend> | null;
-  /** The birth height and the window. Null suppresses the panel. */
-  readonly ironwoodWindow: (HeightWindow & { readonly birthHeight: number }) | null;
+  /**
+   * The birth height, the window, and how many spends were SEEN in it.
+   *
+   * `spendsInWindow` is the population before anchor resolution, so the panel
+   * can publish it beside the count it actually measured. Null suppresses the
+   * panel.
+   */
+  readonly ironwoodWindow:
+    | (HeightWindow & { readonly birthHeight: number; readonly spendsInWindow: number })
+    | null;
 
   /** Mempool rows, any order. Trimmed to `SNAPSHOT_MAX_REPORTS`, newest first. */
   readonly lastReports: ReadonlyArray<MempoolRow>;
@@ -404,6 +412,11 @@ function buildNeffSeries(
       claimLevel: p.claimLevel,
     })),
     spendCount: b.spendCount,
+    // THE POPULATION THE SHARES ARE NOT OVER. `ironwoodBirth` measures the
+    // spends it could bound; this is how many there were. Publishing only the
+    // first made a window where four of five anchors did not resolve read as
+    // "100 per cent require disclosure" (gate round 2).
+    windowSpendCount: window.spendsInWindow,
     shares: {
       aggregate_only: b.shares.aggregate_only,
       broad_candidate_set: b.shares.broad_candidate_set,

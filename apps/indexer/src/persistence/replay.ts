@@ -64,7 +64,7 @@ export async function replayInto<P extends Pool>(
 }
 
 /**
- * Rollback all four state-machine tables to height H across ALL FOUR POOLS
+ * Rollback all six chain-derived tables to height H across ALL FOUR POOLS
  * atomically. Deletes records with block_height > H (or the table's
  * analogous height column: pool_anchors.height_created,
  * pool_nullifiers.spent_height). Records at height H are retained.
@@ -75,7 +75,7 @@ export async function replayInto<P extends Pool>(
  * one existed and needed no change. Only the description was wrong, which is
  * the kind of stale statement that survives longest because nothing fails.
  *
- * Wraps the four DELETEs in a single transaction so a mid-rollback crash
+ * Wraps the six DELETEs in a single transaction so a mid-rollback crash
  * leaves the tables consistent. Works whether `conn` is a top-level Sql
  * or a transaction-bound one — porsager's begin nests as a savepoint.
  *

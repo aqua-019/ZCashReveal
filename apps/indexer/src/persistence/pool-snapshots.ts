@@ -28,8 +28,8 @@ import type { Sql } from "postgres";
 import type { Pool, PoolStateSnapshot } from "@zcashreveal/types";
 
 /**
- * Write one pool's snapshot at one height. Idempotent on (pool, height) via
- * ON CONFLICT DO NOTHING.
+ * Write one pool's snapshot at one height. Idempotent on (pool, height): a
+ * re-write REFRESHES the row.
  *
  * DO UPDATE, AGREEING WITH `writeBlock`, AND THE FIRST DRAFT DID NOT (gate round
  * 1, HIGH). It used `DO NOTHING`, on the argument that a snapshot is a pure

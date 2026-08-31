@@ -113,6 +113,27 @@ export async function isPostgresReachable(): Promise<boolean> {
  * would give two test files two different ideas of what a clean database is.
  */
 export async function truncateAll(sql: Sql): Promise<void> {
+  // REFUSES TO RUN WITHOUT A SCHEMA OF THIS RUN'S OWN (gate round 2, F16). The
+  // isolation was a PATH - `globalSetup: ["../indexer/test/global-setup.ts"]` in
+  // each vitest config - and a path is exactly what the publisher's config was
+  // missing when its suite truncated `public`. A config that loses the line
+  // again, a package move, or a rename all reproduce that silently, because a
+  // `globalSetup` that fails to load leaves `ZR_TEST_SCHEMA` unset and this
+  // function then truncates the developer's real tables.
+  //
+  // So the guarantee moves from the config to here: no schema, no TRUNCATE. The
+  // escape hatch is deliberate and named, because CI and a developer running
+  // against a throwaway database both have a legitimate reason to opt out, and
+  // an unconditional refusal would be a rule nobody could satisfy.
+  if (testSchema() === null && process.env["ZR_ALLOW_PUBLIC_TRUNCATE"] !== "1") {
+    throw new Error(
+      "truncateAll refused: ZR_TEST_SCHEMA is unset, so `search_path` is `public` and this " +
+        "would TRUNCATE the shared tables rather than this run's own. Add " +
+        '`globalSetup: ["./test/global-setup.ts"]` to this package\'s vitest config (see ' +
+        "`apps/publisher/vitest.config.ts`), or set ZR_ALLOW_PUBLIC_TRUNCATE=1 if the database " +
+        "really is disposable.",
+    );
+  }
   await sql.unsafe(
     "TRUNCATE pool_commitments, pool_anchors, pool_nullifiers, pool_boundary_flows, pool_snapshots, blocks RESTART IDENTITY",
   );

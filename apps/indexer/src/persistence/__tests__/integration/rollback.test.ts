@@ -173,8 +173,16 @@ describe.skipIf(!reachable)("rollbackAllToHeight (chain-level reorg primitive)",
     // standing - and the publisher then joined them into a drain series where
     // three of four samples carried the old chain's balance against the new
     // chain's clock, published as a measurement.
+    // THE TWO POPULATIONS ARE DIFFERENT SIZES ON PURPOSE (gate round 2, F10).
+    // With three blocks and three snapshots at the same three heights, both
+    // counts were 2 and swapping the two fields in the return left this suite
+    // green - the two names were interchangeable in every assertion in the tree.
+    // That is the same "fixture makes distinct quantities equal" shape as the
+    // 4095 candidateCount, reproduced inside the test written to close it.
     for (const h of [100, 200, 300]) {
       await writeBlock({ height: h, timeS: 1_780_000_000 + h, hash: hx(h) }, sql);
+    }
+    for (const h of [100, 200]) {
       await writePoolSnapshot(
         {
           pool: "orchard",
@@ -189,12 +197,22 @@ describe.skipIf(!reachable)("rollbackAllToHeight (chain-level reorg primitive)",
     }
 
     const counts = await rollbackAllToHeight(100, sql);
-    expect(counts.snapshots).toBe(2);
-    expect(counts.blocks).toBe(2);
+    // Two blocks above 100 (200, 300) and ONE snapshot (200). Different numbers,
+    // so the fields cannot be swapped without this failing.
+    expect(counts).toMatchObject({ snapshots: 1, blocks: 2 });
 
     // AND THE ROW AT EXACTLY H SURVIVES, matching the other four tables so a
     // driver can call one function with one height.
     expect((await readBlockTimes(0, 1000, sql)).map((b) => b.height)).toEqual([100]);
     expect((await readPoolSnapshots("orchard", 0, 1000, sql)).map((r) => r.height)).toEqual([100]);
+  });
+
+  it("blocks_height_check refuses a negative height", async () => {
+    // The constraint shipped in 005 with no assertion anywhere (gate round 2,
+    // F14). Its argument is `time_s`'s: a negative height could only be a decode
+    // fault on our side, never a chain observation.
+    await expect(
+      writeBlock({ height: -1, timeS: 1_780_000_000, hash: hx(1) }, sql),
+    ).rejects.toThrow(/blocks_height_check/);
   });
 });

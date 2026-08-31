@@ -9,6 +9,11 @@
 
 import { describe, expect, it } from "vitest";
 
+import {
+  ironwoodSpendsFromRows,
+  type IronwoodSpendRow,
+} from "../sources/chain-inputs.js";
+
 /**
  * EVERY URL IN THIS FILE IS A FIXTURE AND NONE OF THEM CAN REACH ANYTHING.
  * A8 greps `apps/publisher` for a committed Redis URL, so the shapes below are
@@ -237,5 +242,49 @@ describe("the logger", () => {
     const out = redactUrlCredentials(pathological);
     expect(performance.now() - started).toBeLessThan(250);
     expect(out.startsWith("rediss://[redacted]@")).toBe(true);
+  });
+});
+
+describe("ironwoodSpendsFromRows - the pure row mapper", () => {
+  const row = (over: Partial<IronwoodSpendRow> = {}): IronwoodSpendRow => ({
+    spent_txid: "aa".repeat(32),
+    spent_height: 10,
+    pool: "ironwood",
+    max_position: "9",
+    ...over,
+  });
+
+  it("READS the pool from the row rather than stamping it", () => {
+    // THE ASSERTION THE INTEGRATION SUITE COULD NOT MAKE (gate round 2, F5).
+    // There, the query's `WHERE n.pool = 'ironwood'` means no other pool can
+    // reach this function, so `expect(every(pool === "ironwood"))` passed
+    // identically whether the value was read or manufactured - the one assertion
+    // added for the change was the one that could not fail. Over the pure
+    // function the value is free, so a stamped `"ironwood"` turns this red.
+    //
+    // It matters because `ironwoodBirth`'s FIRST admission rule is
+    // `s.pool === "ironwood"`, and a manufactured label makes that guard inert:
+    // it would be testing a value this function invented rather than one the
+    // database supplied.
+    const [s] = ironwoodSpendsFromRows([row({ pool: "sapling" })]);
+    expect(s?.pool).toBe("sapling");
+  });
+
+  it("derives Cand_0 as max_position + 1, on a value that is not a power of two", () => {
+    expect(ironwoodSpendsFromRows([row({ max_position: "4090" })])[0]?.candidateCount).toBe(4091n);
+  });
+
+  it("drops a row whose anchor did not resolve, rather than counting it as zero", () => {
+    expect(ironwoodSpendsFromRows([row({ max_position: null })])).toEqual([]);
+  });
+
+  it("REFUSES a non-positive bound instead of dropping it silently", () => {
+    // A silent drop publishes `spendCount: 0` and `requires_disclosure: 0` -
+    // verbatim what migration 005 says the design refuses, "a manufactured zero
+    // would SILENTLY EXCLUDE a spend while looking like a measurement". The
+    // caller turns this throw into a stated absence with a logged reason.
+    expect(() => ironwoodSpendsFromRows([row({ max_position: "-5" })])).toThrow(
+      /not a candidate set/,
+    );
   });
 });
