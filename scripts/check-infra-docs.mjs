@@ -201,6 +201,15 @@ function selfTest() {
     ["publisher panel faults", 'docker compose logs publisher | grep "analysis panel refused"   # NOT expected'],
     ["node subversion recorded", `python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["subversion"])'`],
     ["node subversion recorded", "jq -r .result.subversion"],
+    // FIVE TOPICS THAT HAD NEVER BEEN DRIVEN AT ALL, found by the completeness
+    // loop below when it was added at gate round 6. Each line is the real
+    // invocation the runbook carries, taken from the file rather than written
+    // from memory - the HANDOFF-10 precedent, where a probe written from memory
+    // illustrated a real finding with an example that did not satisfy it.
+    ["provisioning", "curl -fsSL https://get.docker.com | sh"],
+    ["restore", "pg_restore -U zcashreveal --dbname=zcashreveal --clean --if-exists \\"],
+    ["tunnel run", "docker compose up -d cloudflared"],
+    ["tunnel ingress to gateway:8080", "    service: http://gateway:8080"],
   ];
   for (const [topic, line] of shouldMatch) {
     const entry = A6_REQUIRED.find((e) => e.topic === topic);
@@ -230,10 +239,48 @@ function selfTest() {
     ["publisher input faults", "Every line this returns means an input query failed on that panel."],
     ["publisher panel faults", "The second channel fires when an analysis panel refused its inputs."],
     ["node subversion recorded", "| Height | Block hash | `subversion` observed | `vjoinsplit` present |"],
+    // EIGHT TOPICS HAD NO NEGATIVE PROBE, so nothing showed their patterns
+    // cannot be satisfied by a sentence - which is the exact defect three rows
+    // in this list were tightened for. Each line below is prose a runbook could
+    // plausibly carry ABOUT the topic, with no command in it.
+    ["provisioning", "Provision the box with Docker installed from the official convenience script."],
+    ["first sync", "Bring zebrad up first and let it sync before anything else starts."],
+    ["wipe and resync", "To start over, remove the zebrad data volume and resync from genesis."],
+    ["restore", "Restoring is the reverse of the backup step and takes about an hour."],
+    ["tunnel route", "Route the DNS record for the gateway hostname through the tunnel."],
+    ["tunnel run", "Run the tunnel alongside the gateway once the route exists."],
+    [
+      "tunnel ingress to gateway:8080",
+      "The tunnel's ingress sends traffic to the gateway on port 8080 over http.",
+    ],
   ];
   for (const [topic, line] of shouldNotMatch) {
     const entry = A6_REQUIRED.find((e) => e.topic === topic);
     if (entry !== undefined && entry.re.test(line)) fail(`A6 "${topic}" wrongly matched prose: ${line}`);
+  }
+
+  // ITERATE THE RULE'S OWN DATA, NOT THE PROBE LIST (LEDGER-09a Q3, enforced
+  // here at gate round 6). The loop below iterates `shouldMatch` and looks each
+  // entry UP in `A6_REQUIRED`, so a topic added to `A6_REQUIRED` with no probe
+  // beside it was never driven at all - and the run still printed "detectors
+  // self-tested in both directions". Measured: adding
+  // `{ topic: "UNPROBED", re: /docker/ }` - a pattern any prose in this runbook
+  // satisfies - printed OK over all 17 topics with the self-test silent. That is
+  // a probe set UNDER-COVERING its rule, which is the failure the ledger rule
+  // names, and this branch added two members to this very list one commit ago.
+  for (const entry of A6_REQUIRED) {
+    if (!shouldMatch.some(([topic]) => topic === entry.topic)) {
+      fail(
+        `A6 "${entry.topic}" has no shouldMatch probe, so its pattern has never been driven ` +
+          "against a real command. Every topic needs one.",
+      );
+    }
+    if (!shouldNotMatch.some(([topic]) => topic === entry.topic)) {
+      fail(
+        `A6 "${entry.topic}" has no shouldNotMatch probe, so nothing shows it cannot be ` +
+          "satisfied by prose - the defect three rows in this list were tightened for.",
+      );
+    }
   }
 
   // A7's extractor: reads, not prose.

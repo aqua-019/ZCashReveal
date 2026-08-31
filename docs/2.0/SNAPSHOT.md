@@ -376,7 +376,9 @@ panel's shape.
 **And note what the correction costs, because that is what shows it is not a convenience.** The
 corrected rule is count-independent, so it **no longer blocks the cutover**: if the operator wants
 HANDOFF-11 before 09b, the honesty rule permits it provided both panels render as named absences
-with their owner. 09b is still ordered first, on a cost argument that has nothing to do with panel
+stating the condition that produced them. (L2 wrote that permission as "carrying their owner", which
+was the form the table used then; gate round 6 found this sentence twelve lines below the paragraph
+that replaced it, still stating the superseded half of the same rule.) 09b is still ordered first, on a cost argument that has nothing to do with panel
 honesty — migrations 003 and 004 have never been applied to the VPS, so that database is COLD, and
 a 005 landing before the cutover is one free run where a 005 landing after it is a maintenance
 window on a live public site. That is a cost ruling the operator may overrule. The honesty ruling

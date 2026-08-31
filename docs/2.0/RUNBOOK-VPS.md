@@ -527,13 +527,6 @@ absence") is true of three of the four cases and false of the last. The line
 carries a `panel` (`migrationHist`, `drain` or `neffSeries`) and a `height`, and
 the panel is absent for three and present only for the fourth:
 
-One caveat on "not expected", because the second row strains it: that row fires
-once per block on any 005 database before a backfill, which is the continuous
-kind of line this section's closing paragraph says trains an operator to filter.
-It is here rather than suppressed because it names a real gap that a backfill
-closes - unlike the pre-birth condition, which no work closes and which
-therefore reaches no log at all.
-
 | what the message means | panel | published? |
 | --- | --- | --- |
 | the query threw or the connection dropped | any of the three | absent - the stated absence the message names |
@@ -545,6 +538,13 @@ The last row is the only one that clause does not fit: the panel is not a
 stated absence, it is a measurement over FEWER spends than the window holds, and
 this log line is the only place that gap is stated - `buildNeffSeries` drops the
 audit record, so no reader of the document can see it.
+
+One caveat on "not expected", because the second row strains it: that row fires
+once per block on any 005 database before a backfill, which is the continuous
+kind of line this section's closing paragraph says trains an operator to filter.
+It is here rather than suppressed because it names a real gap that a backfill
+closes - unlike the pre-birth condition, which no work closes and which
+therefore reaches no log at all.
 
 Gate round 5 measured this table against the real modules and found the third row
 INVERTED: it had said the series publishes without its baseline, and `buildDrain`

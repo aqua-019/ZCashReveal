@@ -214,6 +214,14 @@ const FINDINGS = [
     what: "the same ratio stated against the k-scaled allowance: 6.25, not 12",
     absent: /(twelve|(?<!\d)12(?!\.)) times the absolute allowance/i,
     present: /6\.25/,
+    // PROBED AT GATE ROUND 6, HAVING SHIPPED WITHOUT ONE. The self-test's old
+    // form skipped a row with no `probe` in silence and still printed "detector
+    // self-tested in both directions", so this row's `absent` had never been
+    // driven against any text at all - a self-test that under-covers its own
+    // rule, which is the shape LEDGER-09a Q3 names. The loop now fails on a
+    // probeless member, and this is the value it demanded.
+    probe: "the fee band is twelve times the absolute allowance at k = 1",
+    antiProbe: "the fee band is 6.25 times the absolute allowance at k = 2",
     sites: [
       "apps/indexer/src/analysis/echo.ts",
       "apps/indexer/src/analysis/__tests__/GOLDEN.md",
@@ -240,6 +248,9 @@ const FINDINGS = [
     id: "R2-GRADE",
     what: "an exact match with a rival grades LOW, not MEDIUM (TRACKING-MATH section 3.4 puts multiple candidates in the LOW clause by itself)",
     absent: /two grade MEDIUM|two of them MEDIUM/i,
+    // Probed at gate round 6, having shipped without one - see the loop below.
+    probe: "with two candidates in range, two grade MEDIUM and the rest LOW",
+    antiProbe: "with two candidates in range, a rival puts the match in the LOW clause by itself",
     sites: [
       "apps/indexer/src/analysis/echo.ts",
       "legacy/dashboard/src/components/CandidatesPanel.tsx",
@@ -249,6 +260,9 @@ const FINDINGS = [
     id: "R3-ROWS",
     what: "the /track fixture row count, stated as a literal where it went stale three times",
     absent: /twelve (real|committed) rows/i,
+    // Probed at gate round 6, having shipped without one - see the loop below.
+    probe: "the fixture holds twelve committed rows and the panel renders them all",
+    antiProbe: "the fixture's length is the count, so no literal can go stale here",
     sites: [
       "apps/web/src/components/track/MempoolPanel.tsx",
       "apps/web/src/app/track/page.tsx",
@@ -380,13 +394,55 @@ const FINDINGS = [
     // sweep's completeness a check rather than a claim.
     id: "H09b-ABSENCE-CONDITION",
     what: "a null panel renders as a named absence stating a CONDITION, never an owner - gate round 4 rewrote SNAPSHOT.md section 8.1's rows and left two sites still naming an owner",
-    absent: /named absence carrying its owner|8\.1 makes that null render as/,
+    // THE THIRD ALTERNATIVE IS THE DATA HALF, AND ROUND 5 SHIPPED WITHOUT IT
+    // (gate round 6). The first two alternatives match the SENTENCES round 5
+    // happened to fix, so reverting those sentences turned the guard red and it
+    // was called two-polarity evidence. It was not. Executed by round 6:
+    // restoring the round-3 TABLE ROWS verbatim - `drain: not measured - needs a
+    // block-time source (HANDOFF-09b)`, the actual rendering string the rule
+    // forbids - left the guard GREEN. That is the exact failure CLAUDE.md's
+    // data-mutation rule names: a fail side chosen from the code rather than
+    // from the set the predicate claims to exclude. Seven of eight paraphrases
+    // ("naming its owner", "carrying the handoff that owns it") also passed.
+    //
+    // So alternative one is widened over the phrasing, and alternative three
+    // matches the OBJECT: a table cell pairing "not measured" with a HANDOFF
+    // reference. It is anchored on the cell pipe so that section 8.1's own
+    // HISTORICAL quotation of that string in running prose - "would have told a
+    // visitor ... 'needs a block-time source (HANDOFF-09b)'" - is not a hit,
+    // which is the distinction `H09-WALLET-BOUND`'s comment says a bare phrase
+    // match cannot draw.
+    //
+    // AND THE RESIDUAL IS STATED RATHER THAN CLAIMED AWAY. Driven over eight
+    // paraphrases, the phrasing arm now catches seven; the eighth - "a named
+    // absence that names the handoff responsible" - uses no owner-word at all
+    // and is beyond any phrase match that does not also fire on ordinary prose
+    // about handoffs. THE DATA ARM IS THE ONE THAT DOES NOT DEPEND ON PHRASING:
+    // whatever sentence a future session writes about the rule, the thing that
+    // reaches a visitor is the rendering string, and the third alternative
+    // matches that. A reader should trust this row for the object and treat the
+    // phrasing arms as a convenience.
+    absent:
+      /named absences?[^.,;]{0,48}\b(owner|owns it|owning)\b|8\.1 makes that null render as|\|\s*`[^|`]{0,60}not measured[^|`]{0,90}\(?HANDOFF-\d/i,
     probe: "It renders a **named absence carrying its owner**:",
+    // A SECOND PROBE, DRAWN FROM THE EXCLUSION SET RATHER THAN FROM THE PROSE.
+    // This is the value the guard was green on when it shipped.
+    dataProbe: "| `drain` | `drain: not measured - needs a block-time source (HANDOFF-09b)` |",
     antiProbe: "It renders a **named absence stating the CONDITION that produced it**:",
     sites: [
       "docs/2.0/SNAPSHOT.md",
       "apps/publisher/src/sources/chain-inputs.ts",
       "apps/publisher/src/__tests__/snapshot-inputs.integration.test.ts",
+      "handoffs/README.md",
+      "handoffs/HANDOFF-11-live-wiring.md",
+      // HANDOFF-09b IS DELIBERATELY NOT A SITE, AND THAT IS A STATED LIMIT
+      // RATHER THAN AN OVERSIGHT. Its §1 carried the assertion and is fixed;
+      // its §7 must NARRATE the defect, quoting the forbidden phrase, and
+      // `absent` cannot tell an assertion from a report of one - which is the
+      // limit `H09-WALLET-BOUND`'s comment states about this whole mechanism.
+      // Registering the file would make the guard fight its own write-back.
+      // So §1 is corrected and unguarded, and the next session is told so here
+      // rather than left to infer it from a green run.
     ],
   },
 ];
@@ -403,7 +459,22 @@ const FINDINGS = [
  * the register is therefore written against flattened text.
  */
 function flatten(src) {
-  return src.replace(/^\s*(\/\/|\*)\s?/gm, " ").replace(/\s+/g, " ");
+  return (
+    src
+      // STRUCK TEXT IS NOT AN ASSERTION, AND THIS PROJECT'S AMENDMENT CONVENTION
+      // DEPENDS ON THAT (gate round 6). LEDGER-10 Q5 says a rule whose premise
+      // changed is amended IN PLACE rather than deleted, "because a rule whose
+      // premise changed is one the next session obeys for the wrong reason
+      // unless the change is visible" - so `~~the old rule~~` beside the new one
+      // is the correct shape, and a guard that fires on it would force the
+      // deletion the convention exists to prevent. `~~` is markdown's own marker
+      // for superseded, which makes this a rule about the document rather than a
+      // special case: what is struck is not in force, so it is not a site
+      // stating the old answer.
+      .replace(/~~[\s\S]*?~~/g, " ")
+      .replace(/^\s*(\/\/|\*)\s?/gm, " ")
+      .replace(/\s+/g, " ")
+  );
 }
 
 function read(rel) {
@@ -513,9 +584,34 @@ function selfTest() {
   // entries shipped matching the docblocks that explain their own fix. A
   // pattern nobody has run against the defect is a pattern nobody has tested.
   for (const f of FINDINGS) {
-    if (f.probe !== undefined) {
-      if (openSites({ ...f, sites: ["probe"] }, () => f.probe).length === 0) {
-        console.error(`[finding-sites] self-test: ${f.id}'s pattern does not match the defect it names.`);
+    // EVERY MEMBER MUST CARRY AT LEAST ONE PROBE, AND THE LOOP FAILS NAMING THE
+    // ONE THAT DOES NOT (LEDGER-09a Q3, enforced here at gate round 6). The
+    // guard on the next line used to be `if (f.probe !== undefined)`, so a row
+    // added WITHOUT a probe was skipped in silence and the run still printed
+    // "detector self-tested in both directions" - a self-test that under-covers
+    // its own rule, which is the exact shape the ledger rule names. Measured: a
+    // row with `absent` and no `probe` printed OK at 16 findings while one row
+    // had never been driven against any text.
+    if (f.probe === undefined && f.dataProbe === undefined) {
+      console.error(
+        `[finding-sites] self-test: ${f.id} carries no probe, so its pattern has never been ` +
+          "driven against the defect it names. Every register entry needs one.",
+      );
+      return false;
+    }
+    // BOTH PROBES, AND `dataProbe` IS THE ONE THAT MATTERS. `probe` is drawn
+    // from the PROSE a fix happened to touch; `dataProbe` is drawn from the set
+    // the predicate claims to exclude - an actual forbidden value. Round 5
+    // shipped this register's newest row with only the first kind, and
+    // reverting the two sentences it was written from turned the guard red,
+    // which was mistaken for two-polarity evidence. It was not: restoring the
+    // real forbidden TABLE ROWS left the same guard green.
+    for (const [kind, text] of [["probe", f.probe], ["dataProbe", f.dataProbe]]) {
+      if (text === undefined) continue;
+      if (openSites({ ...f, sites: [kind] }, () => text).length === 0) {
+        console.error(
+          `[finding-sites] self-test: ${f.id}'s pattern does not match the ${kind} - the defect it names.`,
+        );
         return false;
       }
     }

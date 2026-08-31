@@ -23,7 +23,9 @@ database is COLD**: migrations 003 and 004 have never been applied there, so a 0
 costs one cold run and a 005 landing after the cutover costs a maintenance window on a live public
 site holding real state. That is L2's ordering ruling and it rests on the cost argument alone —
 the honesty rule was amended in the same resolution and no longer blocks the cutover on a null
-panel, provided the panel renders as a named absence carrying its owner (fold 3).
+panel, provided the panel renders as a named absence stating the CONDITION that produced it (fold 3;
+L2 wrote "carrying its owner", which §8.1 superseded in gate round 4 - a null panel that names a
+shipped handoff as its owner is the defect, not the remedy).
 
 ### IN SCOPE
 
