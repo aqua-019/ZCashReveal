@@ -1,7 +1,7 @@
 ---
 handoff: 09
 title: Turnstile accounting, migration lens, Ironwood birth, snapshot publisher
-status: shipped
+status: closed
 branch: the session-designated branch (name it `feat/v2-09-instruments-snapshot` if you may choose)
 track: Data
 depends_on: 06, 08
