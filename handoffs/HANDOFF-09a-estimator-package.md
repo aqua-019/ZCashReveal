@@ -200,6 +200,17 @@ Executed: `redis-server` started on 6379 and PostgreSQL 16 started, a `zcashreve
 
 **THE PACKAGE MOVE UN-NULLS TWO OF THE FOUR PANELS, NOT FOUR.** This is the handoff's principal finding and it is a correction to its own §5. With the real estimators wired, `residual` and `migrationHist` become measurements on the production input path. `drain` and `neffSeries` stay `null`, and the reason is the INPUT layer rather than the packaging: `readSnapshotInputs` hard-codes `drainBaseline: null` because `pool_snapshots.ts` is a `TIMESTAMPTZ DEFAULT NOW()` — the indexer's WRITE time, not the block's, and plan §3.3's velocity is "from block timestamps" — and `ironwoodSpends: null` because the Ironwood spends live in the indexer's candidate analysis, which no table this process reads carries. Both reasons were documented in `chain-inputs.ts` and neither was connected to LEDGER-09 Q4. Executed against the real `readSnapshotInputs`, not a literal. **HANDOFF-11 may not ship a null analysis panel (LEDGER-09 Q4), so those two are its work, and they need a migration and an indexer read path rather than wiring.** Pinned by an executing assertion so a session meets it here rather than at the cutover.
 
+> **Superseded 31 Aug 2026 by HANDOFF-09b, and left standing rather than rewritten** — this is a
+> dated §7 report of what was measured at 09a, and rewriting a report to match a later state
+> falsifies the record. Two things in the paragraph above are no longer operative. **The two panels
+> are 09b's work, not HANDOFF-11's** (LEDGER-09a Q1): L2 ruled the sources into their own handoff on
+> a cost argument — the VPS database is COLD, so migration 005 lands in the same first `migrate` run
+> the operator already owes. **And "HANDOFF-11 may not ship a null analysis panel" was restated on
+> the right quantity** as "may not RENDER AN UNMEASURED PANEL AS A MEASUREMENT", which is
+> count-independent and permits a named absence carrying its owner. The assertion this paragraph
+> armed — `instruments-wired.test.ts` asserting `drain` and `neffSeries` are null — has been met and
+> inverted by 09b, with values rather than a presence check.
+
 ### The gate: three rounds, five workers, and the fix commit reviewed as its own commit each time
 
 **Round 1** (4 workers: move consumers, publisher seam, guard and infra, folds commit). Verification budget: each worker stated its own in its first line; 22, 27, 34 and 24 candidates examined, 14, 14, 30 and 11 verified by execution. No finding was logged unread.

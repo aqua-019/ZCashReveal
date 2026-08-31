@@ -1,9 +1,9 @@
 /**
  * Read one tip's inputs out of the world, so `buildSnapshot` can stay pure.
  *
- * WHAT THIS READS, AND THE THREE PANELS IT CANNOT FILL YET. Stated at the top
- * because a reader deserves the gap named rather than discovered as four `null`s
- * in a published document.
+ * WHAT THIS READS, AND THE ONE PANEL IT STILL CANNOT FILL. Stated at the top
+ * because a reader deserves the gap named rather than discovered as a `null` in
+ * a published document.
  *
  *   READ: the five lane balances and the supply, from `getblockchaininfo`'s
  *   `valuePools` and `chainSupply`. The block's own timestamp, from the header
@@ -11,19 +11,24 @@
  *   crossings in the migration window, from `migrations_zip318`, whose three
  *   columns are exactly `Crossing`'s three fields.
  *
- *   NOT READ - `drain`. Plan section 3.3's velocity is "from block timestamps",
- *   and `pool_snapshots` does not carry one: its `ts` column is
- *   `TIMESTAMPTZ NOT NULL DEFAULT NOW()`, which is when the indexer WROTE the
- *   row. Substituting a write time for a block time would publish a rate
- *   measured against the indexer's own scheduling - correct to within seconds
- *   while the indexer is at the tip, arbitrarily wrong across a catch-up sync,
- *   and indistinguishable from the real thing on the page. So the series is not
- *   assembled and `drainBaseline` is null, which publishes the panel as "not
- *   measured". The repair is a block-time column on `pool_snapshots`, which is a
- *   migration this handoff's publisher does not own.
+ *   READ SINCE HANDOFF-09b - `drain`. Plan section 3.3's velocity is "from block
+ *   timestamps", and until migration 005 there was no block timestamp in this
+ *   schema at all. `pool_snapshots.ts` is `TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+ *   the moment the indexer WROTE the row; substituting it would publish a rate
+ *   measured against the indexer's own scheduling - correct to within seconds at
+ *   the tip, arbitrarily wrong across a catch-up sync, and indistinguishable
+ *   from the real thing on the page. The series now joins `blocks`, so every
+ *   `timeMs` on it comes from a block header. A snapshot whose height has no
+ *   `blocks` row is DROPPED from the series rather than timestamped from a
+ *   fallback, and `orchardDrain`'s `sampleCount` reports the shortfall.
  *
- *   NOT READ - `neffSeries`. The Ironwood spends and their `Cand_0` bounds live
- *   in the indexer's candidate analysis, not in a table this process reads.
+ *   READ SINCE HANDOFF-09b - `neffSeries`. `IronwoodSpend.candidateCount` is
+ *   Cand_0, which `rawCandidateRange` defines as `pool_anchors.max_position + 1`.
+ *   That bound was already on disk; what no table could say was WHICH anchor a
+ *   spend cited. Migration 005 adds `pool_nullifiers.anchor_root` and this module
+ *   joins it. A spend whose anchor is unknown yields no count and is excluded by
+ *   the join, which is `rawCandidateRange` returning null - "a candidate count
+ *   cannot be claimed" - arriving as an absent row rather than as a zero.
  *
  *   NOT READ - `lastReports`. `mempoolRowSchema`'s fields are a VIEW - the flow
  *   text, the version text, the lane list, the severity - computed by
@@ -39,6 +44,7 @@
  */
 
 import { asHex, type Pool } from "@zcashreveal/types";
+import type { IronwoodSpend, PoolBalanceSample } from "@zcashreveal/instruments";
 
 import type { PublisherConfig } from "../config.js";
 import type { Crossing } from "../instruments.js";
@@ -216,17 +222,117 @@ export function crossingsFromRows(rows: ReadonlyArray<MigrationRow>): Crossing[]
   }));
 }
 
+/** One `pool_snapshots` row joined to its `blocks` row, as Postgres hands it back. */
+export interface OrchardSeriesRow {
+  readonly height: number;
+  /** `NUMERIC(20,0)`, which the driver returns as a decimal string. */
+  readonly balance_zat: string;
+  /** `blocks.time_s` - unix SECONDS. `BIGINT`, so also a string. */
+  readonly time_s: string;
+}
+
+/** One Ironwood spend joined to the anchor that bounds it. */
+export interface IronwoodSpendRow {
+  readonly spent_txid: string;
+  readonly spent_height: number;
+  /** `pool_anchors.max_position`, `NUMERIC(20,0)`, so a string. Cand_0 is this plus one. */
+  readonly max_position: string;
+}
+
+/** Milliseconds in a second. The one place this module converts the chain's unit. */
+const MS_PER_SECOND = 1000;
+
+/**
+ * Turn joined rows into the samples `orchardDrain` reads.
+ *
+ * `time_s` IS SECONDS ON THE WIRE AND MILLISECONDS ON THE SAMPLE, and this is
+ * the only place the conversion happens. `blocks.time_s` stores the header's own
+ * integer because that is what the chain states; `PoolBalanceSample.timeMs` is
+ * milliseconds because every estimator in this project is. Doing it here rather
+ * than in the column means a reader of the table sees the same number
+ * `zcash-cli getblockheader` prints.
+ *
+ * `Number` for the time and `BigInt` for the balance, which is not an
+ * inconsistency: a unix second is far below 2^53 and a zatoshi balance is not.
+ *
+ * Pure. No I/O, no clock, no mutation of the input array.
+ */
+export function orchardSeriesFromRows(
+  rows: ReadonlyArray<OrchardSeriesRow>,
+): PoolBalanceSample[] {
+  return rows.map((r) => ({
+    height: r.height,
+    timeMs: Number(r.time_s) * MS_PER_SECOND,
+    balanceZat: BigInt(r.balance_zat),
+  }));
+}
+
+/**
+ * Turn joined rows into the spends `ironwoodBirth` reads.
+ *
+ * `candidateCount` IS `max_position + 1n` AND IS NOT STORED. That is
+ * `rawCandidateRange`'s own definition - positions are 0-indexed inclusive, so a
+ * tree whose highest occupied position is 9 bounds ten candidates. Deriving it
+ * from `pool_anchors` rather than storing it beside the spend keeps one source
+ * of truth for a number the anchor already determines, and means a spend whose
+ * anchor is unknown produces no row at all rather than a zero: `candidateCount >
+ * 0n` is `ironwoodBirth`'s admission rule, so a manufactured zero would exclude
+ * the spend silently while looking like a measurement.
+ *
+ * Pure. No I/O, no clock, no mutation of the input array.
+ */
+export function ironwoodSpendsFromRows(
+  rows: ReadonlyArray<IronwoodSpendRow>,
+): IronwoodSpend[] {
+  return rows.map((r) => ({
+    txid: asHex(r.spent_txid),
+    height: r.spent_height,
+    pool: "ironwood" as const,
+    candidateCount: BigInt(r.max_position) + 1n,
+  }));
+}
+
 /** Just enough of `postgres`'s `Sql` for this module, so a test needs no database. */
 export type MigrationQuery = (
   lowHeight: number,
   highHeight: number,
 ) => Promise<ReadonlyArray<MigrationRow>>;
 
+/** The Orchard balance series over a height window, already joined to `blocks`. */
+export type OrchardSeriesQuery = (
+  lowHeight: number,
+  highHeight: number,
+) => Promise<ReadonlyArray<OrchardSeriesRow>>;
+
+/**
+ * The drain's denominator: the Orchard balance at or below the baseline height.
+ *
+ * Returns null when no snapshot exists at or below it, which suppresses the
+ * panel. That is the honest answer rather than an inconvenience: `orchardDrain`
+ * THROWS on a non-positive baseline, because `D = 1 - current/baseline` is
+ * undefined there and "a pool that held nothing cannot drain".
+ */
+export type DrainBaselineQuery = (
+  baselineHeight: number,
+) => Promise<{ readonly height: number; readonly balance_zat: string } | null>;
+
+/** Ironwood spends in a height window, joined to the anchors that bound them. */
+export type IronwoodSpendQuery = (
+  lowHeight: number,
+  highHeight: number,
+) => Promise<ReadonlyArray<IronwoodSpendRow>>;
+
 export interface ChainInputsDeps {
   /** `getblockchaininfo`, already parsed. */
   readonly readChainInfo: () => Promise<ChainValueReading>;
   /** The migration window query, or null when there is no database. */
   readonly queryMigrations: MigrationQuery | null;
+  /** The drain's series query, or null when there is no database. */
+  readonly queryOrchardSeries: OrchardSeriesQuery | null;
+  /** The drain's baseline query, or null when there is no database. */
+  readonly queryDrainBaseline: DrainBaselineQuery | null;
+  /** The N_eff series query, or null when there is no database. */
+  readonly queryIronwoodSpends: IronwoodSpendQuery | null;
   readonly cfg: PublisherConfig;
   readonly labelsVersion: string;
   /** The clock, injected. Supplies `publishedAt`, which the builder must not read. */
@@ -257,6 +363,57 @@ export async function readSnapshotInputs(
     migrationWindow = { lowHeight, highHeight: tip.height };
   }
 
+  // THE DRAIN. Both halves are required and neither substitutes for the other:
+  // the SERIES carries the current balance and the two velocities, and the
+  // BASELINE is the denominator of `D = 1 - current/baseline`. A series with no
+  // baseline cannot form D, and a baseline with no series has no current
+  // balance, so either being absent suppresses the panel rather than producing
+  // half of it. `buildDrain` reads `drainBaseline` for exactly that reason.
+  const drainLow = Math.max(0, tip.height - deps.cfg.SNAPSHOT_DRAIN_WINDOW_BLOCKS + 1);
+  let orchardSeries: PoolBalanceSample[] = [];
+  let drainBaseline: { height: number; zat: bigint } | null = null;
+  if (deps.queryOrchardSeries !== null && deps.queryDrainBaseline !== null) {
+    orchardSeries = orchardSeriesFromRows(await deps.queryOrchardSeries(drainLow, tip.height));
+    const baseline = await deps.queryDrainBaseline(deps.cfg.SNAPSHOT_DRAIN_BASELINE_HEIGHT);
+    // A NON-POSITIVE BASELINE IS ROUTED TO `null` RATHER THAN PASSED ON.
+    // `orchardDrain` THROWS on `baselineZat <= 0n`, and a throw here would cost
+    // the whole document to lose one panel - the trade `readSnapshotInputs`
+    // already refuses for the migration query. A zero baseline is also not a
+    // measurement: it is a height at which the pool held nothing, and "the pool
+    // has drained 100 per cent" is a claim no reading supports.
+    drainBaseline =
+      baseline !== null && BigInt(baseline.balance_zat) > 0n
+        ? { height: baseline.height, zat: BigInt(baseline.balance_zat) }
+        : null;
+  }
+
+  // THE N_eff SERIES. The window is its own, not the migration lens's - see
+  // `SNAPSHOT_IRONWOOD_WINDOW_BLOCKS`. `ironwoodSpends` is `null` rather than
+  // `[]` when there is no database, because `buildNeffSeries` reads the null as
+  // "not measured" and an empty array as "measured, and no spend qualified" -
+  // two different claims, and SNAPSHOT.md section 8.1 turns on the difference.
+  const ironwoodLow = Math.max(0, tip.height - deps.cfg.SNAPSHOT_IRONWOOD_WINDOW_BLOCKS + 1);
+  let ironwoodSpends: IronwoodSpend[] | null = null;
+  let ironwoodWindow: { lowHeight: number; highHeight: number; birthHeight: number } | null = null;
+  if (deps.queryIronwoodSpends !== null) {
+    ironwoodSpends = ironwoodSpendsFromRows(
+      await deps.queryIronwoodSpends(ironwoodLow, tip.height),
+    );
+    // THE BIRTH HEIGHT IS THE DRAIN BASELINE HEIGHT, AND THAT IS ONE CONSTANT
+    // AND NOT TWO. Both are NU6.3: Orchard becomes exit-only and Ironwood is
+    // born at the same activation, so `SNAPSHOT_DRAIN_BASELINE_HEIGHT` is read
+    // for both rather than a second knob being added that an operator could set
+    // to a different number. `ironwoodBirth` names the hazard itself - passing
+    // mainnet's height while replaying testnet admits spends below testnet's
+    // birth into a series whose x-axis starts before the pool existed - and one
+    // configured height is one thing to get right instead of two.
+    ironwoodWindow = {
+      lowHeight: ironwoodLow,
+      highHeight: tip.height,
+      birthHeight: deps.cfg.SNAPSHOT_DRAIN_BASELINE_HEIGHT,
+    };
+  }
+
   return {
     height: tip.height,
     hash: tip.hash,
@@ -266,15 +423,12 @@ export async function readSnapshotInputs(
     supplyZat: values.supplyZat,
     supplySource: values.supplySource,
     poolBalances: values.poolBalances,
-    // See this module's header: `pool_snapshots` carries no block time, so the
-    // drain's velocities cannot be measured from block timestamps and the panel
-    // is published as an absence rather than as a rate from the wrong clock.
-    orchardSeries: [],
-    drainBaseline: null,
+    orchardSeries,
+    drainBaseline,
     crossings,
     migrationWindow,
-    ironwoodSpends: null,
-    ironwoodWindow: null,
+    ironwoodSpends,
+    ironwoodWindow,
     lastReports: [],
     labelsVersion: deps.labelsVersion,
   };

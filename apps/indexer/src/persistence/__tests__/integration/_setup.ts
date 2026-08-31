@@ -101,11 +101,19 @@ export async function isPostgresReachable(): Promise<boolean> {
 }
 
 /**
- * Truncate all four state-machine tables and reset BIGSERIAL counters.
+ * Truncate the state-machine tables and reset BIGSERIAL counters.
  * Run in beforeEach for per-test isolation.
+ *
+ * SIX TABLES, NOT FOUR. `pool_snapshots` (migration 003) and `blocks`
+ * (migration 005) were outside this list for as long as neither had a writer -
+ * LEDGER-06 recorded that as correct at the time and flagged that "it will need
+ * changing by whichever handoff writes to them first". HANDOFF-09b is that
+ * handoff. `migrations.test.ts` carried a second `TRUNCATE pool_snapshots` of
+ * its own as a workaround; leaving that in place while adding a real writer
+ * would give two test files two different ideas of what a clean database is.
  */
 export async function truncateAll(sql: Sql): Promise<void> {
   await sql.unsafe(
-    "TRUNCATE pool_commitments, pool_anchors, pool_nullifiers, pool_boundary_flows RESTART IDENTITY",
+    "TRUNCATE pool_commitments, pool_anchors, pool_nullifiers, pool_boundary_flows, pool_snapshots, blocks RESTART IDENTITY",
   );
 }

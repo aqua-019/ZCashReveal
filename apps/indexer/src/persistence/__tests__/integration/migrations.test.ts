@@ -346,9 +346,11 @@ describe.skipIf(!reachable)("A3: the pool CHECK admits four pools", () => {
   const sql = getSql();
 
   beforeEach(async () => {
+    // `truncateAll` covers pool_snapshots and blocks since HANDOFF-09b gave
+    // both a writer; the second TRUNCATE that used to stand here is gone rather
+    // than left as a harmless duplicate, because two files disagreeing about
+    // what a clean database is only ever gets noticed the once it matters.
     await truncateAll(sql);
-    // pool_snapshots arrives in 003, after _setup.ts's truncateAll was written.
-    await sql`TRUNCATE pool_snapshots`;
   });
   afterAll(() => sql.end({ timeout: 5 }));
 

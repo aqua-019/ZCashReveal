@@ -1,0 +1,194 @@
+-- 005_block_time.sql
+-- The two input sources the snapshot publisher is missing: a height -> block
+-- time mapping, and the (nullifier -> anchor) edge that bounds an Ironwood
+-- spend's candidate set.
+--
+-- WHY THIS MIGRATION EXISTS. HANDOFF-09a wired the real estimators into the
+-- publisher and only two of the four analysis panels became measurements.
+-- `drain` and `neffSeries` stayed null, and HANDOFF-09a proved the reason is a
+-- missing SOURCE rather than a missing query:
+--
+--   drain       plan section 3.3's velocity is "from block timestamps", and
+--               there is no block timestamp anywhere in this schema. The one
+--               time column near it, `pool_snapshots.ts`, is
+--               `TIMESTAMPTZ NOT NULL DEFAULT NOW()` - when the INDEXER wrote
+--               the row. That is right to within seconds while the indexer sits
+--               at the tip and arbitrarily wrong across a catch-up sync, and it
+--               is indistinguishable from the real thing on the page.
+--   neffSeries  `IronwoodSpend.candidateCount` is Cand_0, the anchor bound of
+--               TRACKING-MATH section 3.1. `pool_anchors.max_position` already
+--               holds that bound. What no table can say is WHICH ANCHOR a spend
+--               cited, so the bound cannot be attached to the spend.
+--
+-- ONE PREMISE THIS MIGRATION WAS COMMISSIONED ON IS FALSE, AND IT IS RECORDED
+-- HERE RATHER THAN WORKED AROUND QUIETLY. The handoff states that
+-- `pool_nullifiers` still carries 002's ORIGINAL two-pool CHECK, and that
+-- "Ironwood is excluded by a CHECK constraint from the one table that could
+-- carry a spend". It is not. 002 created that CHECK; 003 lines 47-49 drop it BY
+-- NAME and re-add it over all four pools, and `migrations.test.ts` has asserted
+-- "pool_nullifiers accepts sprout and ironwood" since HANDOFF-06. Read back from
+-- pg_constraint on a database migrated through 004, there is exactly one
+-- constraint and it is the four-pool one. Ironwood has been admitted to that
+-- table for three handoffs. The real gap is the missing anchor column below.
+--
+-- RE-RUNNABLE, on the contract 003 established and `migrate.ts`'s per-migration
+-- transaction assumes: every statement here is `IF NOT EXISTS`, so a second
+-- application is a no-op. This file ALTERs one object it did not create and adds
+-- no constraint by name, so it needs no DROP-before-ADD pair.
+
+-- ---------------------------------------------------------------------------
+-- (a) blocks: the height -> time mapping, as a TABLE and not as a column.
+-- ---------------------------------------------------------------------------
+--
+-- The alternative was `block_time` on `pool_snapshots`, which is what
+-- HANDOFF-09a's finding literally names, and it was rejected. A block has one
+-- time. A column on `pool_snapshots` stores that one consensus number FOUR TIMES
+-- PER HEIGHT - once per pool, in four independently written rows with nothing
+-- holding them equal. That is two sources of truth for a number the chain
+-- decides, which is the defect this project rates highest and the same
+-- reasoning HANDOFF-09a used to MOVE `activation-heights.ts` rather than
+-- duplicate a consensus height.
+--
+-- Three consequences settled it past the principle:
+--
+--   * `PoolStateSnapshot` (packages/zec-types/src/analysis.ts) carries no time
+--     field. The column shape forces either widening that SHARED type - the
+--     type-widening shape CLAUDE.md warns about, where every consumer's
+--     coalesce has been dead code for as long as the field was absent - or a
+--     third parameter on the writer, breaking the uniform `writeX(record, conn)`
+--     signature the other four pool writers share. The table shape needs
+--     neither, and `writePoolSnapshot` below takes no time argument at all.
+--   * The mapping is reusable. `leak_reports`, `migrations_zip318` and
+--     `pool_nullifiers` all carry a height and none of them can name a time.
+--   * `hash` on the same row lets a reader tell WHICH block a height meant, which
+--     a reorg makes a real question and which a column on `pool_snapshots`
+--     cannot answer without storing that four times too.
+--
+-- NO FOREIGN KEY FROM pool_snapshots.height, DELIBERATELY. A FK would make a
+-- missing `blocks` row REJECT a pool snapshot - a constraint refusing to record
+-- something that was observed. That is the inversion this schema already refuses
+-- for `migrations_zip318.amount_zat`: "a database constraint that refuses to
+-- record something the chain did inverts that rule: it destroys the evidence
+-- instead of raising it." So the write always succeeds, and the READ is an inner
+-- join: a snapshot whose height has no block row is DROPPED from the series
+-- rather than timestamped from a fallback. That is deliberate and it is the
+-- reason the join is not a LEFT JOIN - a left join would keep the row with a
+-- NULL time, and a NULL time reaching `PoolBalanceSample.timeMs` is a `NaN`
+-- velocity, which is a worse answer than a shorter series. `orchardDrain`'s
+-- `sampleCount` is what reports the shortfall to the caller.
+--
+-- time_s IS NOT NULL WITH NO DEFAULT, AND EACH HALF IS A SEPARATE ARGUMENT.
+--
+--   NO DEFAULT is the entire point of this migration. `pool_snapshots.ts` is
+--   `DEFAULT NOW()` and that default is precisely what made it useless for a
+--   velocity. This is 004's stated reason for refusing one - "a DEFAULT 0 would
+--   go on manufacturing 'measured, and it did not move'" - sharpened by the fact
+--   that the value a default would manufacture HERE is the very wall-clock
+--   reading being replaced.
+--
+--   NOT NULL because, unlike 004's Ironwood columns, the "never examined" state
+--   does not exist. A `blocks` row exists only because a block header was
+--   decoded, and every header carries a timestamp; there is no way to observe a
+--   block and not its time. The absence is expressed by THE ROW'S ABSENCE, which
+--   the LEFT JOIN already returns as null. A nullable column here would create
+--   exactly the set of untested branches CLAUDE.md warns a dropped NOT NULL
+--   releases - every consumer's coalesce, cast and fallback, dead code for as
+--   long as the constraint stood - and it would buy nothing, because no writer
+--   could ever supply the null.
+--
+-- SECONDS, NOT MILLISECONDS, and the column name carries the unit. The header's
+-- own field is an integer number of seconds. Storing milliseconds would store a
+-- DERIVED value whose low three digits are always zero, advertising a resolution
+-- the chain does not have. `PoolBalanceSample.timeMs` is a consumer convention
+-- and the conversion is one multiplication at the read boundary, through the
+-- `MS_PER_SECOND` the publisher already names for exactly this at
+-- apps/publisher/src/index.ts. A reader who assigns `time_s` straight into a
+-- `timeMs` field sees the mismatch in the names.
+--
+-- BIGINT, NOT INTEGER, and this one is not a matter of taste: unix seconds pass
+-- INT_MAX in January 2038. A column with a known expiry date, to save four
+-- bytes, is not defensible. postgres.js hands a BIGINT back as a STRING - which
+-- was MEASURED against a real Postgres 16 rather than assumed, alongside
+-- INTEGER (number), NUMERIC (string) and TIMESTAMPTZ (Date) - so the read parses
+-- with `Number(...)`, exactly as `crossingsFromRows` already parses `amount_zat`.
+
+CREATE TABLE IF NOT EXISTS blocks (
+  height  INTEGER NOT NULL PRIMARY KEY,
+  -- Unix SECONDS from the block header, as the chain states it. No default:
+  -- see above. The CHECK refuses a zero or negative reading, which could only
+  -- be a decode fault on our side - the genesis block's own time is positive.
+  time_s  BIGINT  NOT NULL
+    CONSTRAINT blocks_time_s_check CHECK (time_s > 0),
+  -- 64 lowercase hex characters, no 0x, matching every other hash column here.
+  hash    TEXT    NOT NULL
+);
+
+-- Readers scan a height RANGE - the drain's 7-day window is exactly that - and
+-- the primary key already serves it. This index serves the other direction: "is
+-- the block I have at this height still the one on the chain", which is the
+-- question a reorg asks and the reason `hash` is on the row.
+CREATE INDEX IF NOT EXISTS blocks_hash_idx ON blocks (hash);
+
+-- ---------------------------------------------------------------------------
+-- (b) pool_nullifiers.anchor_root: the missing (nullifier -> anchor) edge.
+-- ---------------------------------------------------------------------------
+--
+-- THIS IS NOT A `candidate_count` COLUMN, AND THE DIFFERENCE IS THE WHOLE
+-- ARGUMENT. `candidateCount` is Cand_0, and `analysis/candidate-set.ts` already
+-- defines it - `rawCount = maxPosition + 1n`, where `maxPosition` is read from
+-- `pool_anchors`. Storing a `candidate_count` beside the spend would be a second
+-- source of truth for a number `pool_anchors` already determines, and correcting
+-- a re-analysis would mean UPDATEing an observation row. What `pool_nullifiers`
+-- genuinely cannot say is WHICH ANCHOR the spend cited: there is no such column,
+-- and that absence is the real structural gap the CHECK constraint was mistaken
+-- for. So this column persists the OBSERVATION and the publisher derives the
+-- count by joining `pool_anchors`.
+--
+-- The edge exists in the decoder and is discarded before it reaches disk:
+-- `DecodedBlockTx` carries `ironwoodActions[].nullifier` and `ironwoodAnchor`
+-- side by side, and that pairing is the only place the two are together.
+--
+-- NULLABLE WITH NO DEFAULT, and 004's argument holds twice over.
+--
+--   Nullable, because "never examined" is a real state here and does not expire:
+--   every row written before this column existed recorded no anchor, and a
+--   caller replaying a transaction shape whose anchor it could not resolve has
+--   genuinely not examined one. `readAllPoolNullifiers` reconstructs a
+--   `SpentNullifier` that has no anchor field, so those rows are correct and
+--   incomplete rather than wrong.
+--
+--   NO DEFAULT, and here the reason is sharper than 004's. A derived count is
+--   read as a PREDICATE: `candidateCount > 0n` is `ironwoodBirth`'s fourth
+--   admission rule. A manufactured zero would therefore SILENTLY EXCLUDE a spend
+--   from the series while looking like a measurement - worse than a false zero
+--   in a figure, because the row disappears rather than reading wrong. Deriving
+--   through a join keeps that impossible: an unknown anchor yields SQL NULL,
+--   which is `rawCandidateRange` returning null - "a candidate count cannot be
+--   claimed" - falling out of the join rather than being restated.
+--
+-- NO FOREIGN KEY to pool_anchors(pool, root), for the reason (a) gives: a spend
+-- citing an anchor this indexer has not yet recorded is an OBSERVATION, and a
+-- constraint that refused it would destroy the evidence. The anchor may also
+-- arrive after the spend - an Ironwood root comes from `z_gettreestate`, a
+-- separate call - so a FK would make write ORDER load-bearing across two RPCs.
+
+ALTER TABLE pool_nullifiers
+  ADD COLUMN IF NOT EXISTS anchor_root TEXT;
+
+-- The publisher joins spend -> anchor on (pool, anchor_root) for one height
+-- window. Without this the join is a sequential scan of every spend ever
+-- recorded, on every tip, three times a minute.
+CREATE INDEX IF NOT EXISTS pool_nullifiers_anchor_idx
+  ON pool_nullifiers (pool, anchor_root);
+
+-- NO BACKFILL, AND THE ABSENCE OF ONE IS STRONGER HERE THAN IT WAS IN 004.
+-- 004 had to argue that its columns were new, so every pre-004 row was NULL from
+-- the moment they were added and already said "never examined" correctly. The
+-- same holds for `anchor_root`. For `blocks` there is not even that to argue:
+-- `pool_snapshots` HAS NO PRODUCTION WRITER - there is no INSERT INTO
+-- pool_snapshots anywhere outside one test probe, no confirmed-block driver, and
+-- nothing in the tree constructs a PoolState (003's own closing comment says so,
+-- and HANDOFF-12 section 4 commissions the driver). So there are no rows to
+-- backfill ANYWHERE, not merely none on the VPS, and there never will be: the
+-- first row this table ever joins against will be written by the writer that
+-- ships in the same commit as this file.

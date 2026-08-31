@@ -43,6 +43,11 @@ import {
   readSnapshotInputs,
   type MigrationQuery,
   type MigrationRow,
+  type OrchardSeriesQuery,
+  type OrchardSeriesRow,
+  type DrainBaselineQuery,
+  type IronwoodSpendQuery,
+  type IronwoodSpendRow,
 } from "./sources/chain-inputs.js";
 import { createRedisTipSource } from "./sources/tip-source.js";
 
@@ -114,6 +119,55 @@ async function main(): Promise<void> {
       ORDER BY height ASC
     `;
 
+  // THE DRAIN'S SERIES. An INNER join, so a snapshot whose height has no `blocks`
+  // row is dropped rather than kept with a null time: a null reaching
+  // `PoolBalanceSample.timeMs` is a NaN velocity, which is a worse answer than a
+  // shorter series. Migration 005 declines the foreign key that would have
+  // prevented the write, because refusing to record an observation destroys the
+  // evidence; dropping it on READ is where the honest answer belongs.
+  const queryOrchardSeries: OrchardSeriesQuery = (lowHeight, highHeight) =>
+    sql<OrchardSeriesRow[]>`
+      SELECT s.height, s.balance_zat, b.time_s
+      FROM pool_snapshots s
+      JOIN blocks b ON b.height = s.height
+      WHERE s.pool = 'orchard' AND s.height >= ${lowHeight} AND s.height <= ${highHeight}
+      ORDER BY s.height ASC
+    `;
+
+  // THE DRAIN'S DENOMINATOR: the newest Orchard snapshot at or below the
+  // baseline height. `<=` rather than `=` because the indexer may not have
+  // written a snapshot at exactly the activation height - it writes one per
+  // block it processes, and a node that started syncing later has no row there.
+  // The nearest earlier reading is the honest baseline and `drainBaseline.height`
+  // publishes which one was used, so a reader is never told the wrong height.
+  const queryDrainBaseline: DrainBaselineQuery = async (baselineHeight) => {
+    const rows = await sql<Array<{ height: number; balance_zat: string }>>`
+      SELECT height, balance_zat
+      FROM pool_snapshots
+      WHERE pool = 'orchard' AND height <= ${baselineHeight}
+      ORDER BY height DESC
+      LIMIT 1
+    `;
+    return rows[0] ?? null;
+  };
+
+  // THE N_eff SERIES. Also an inner join, and the drop is the whole point: a
+  // spend whose `anchor_root` is null, or whose anchor this indexer has not
+  // recorded, has no Cand_0 bound and therefore no claim level. That is
+  // `rawCandidateRange` returning null - "a candidate count cannot be claimed" -
+  // expressed as an absent row instead of a zero, because `candidateCount > 0n`
+  // is `ironwoodBirth`'s admission rule and a zero would exclude the spend
+  // silently while looking like a measurement.
+  const queryIronwoodSpends: IronwoodSpendQuery = (lowHeight, highHeight) =>
+    sql<IronwoodSpendRow[]>`
+      SELECT n.spent_txid, n.spent_height, a.max_position
+      FROM pool_nullifiers n
+      JOIN pool_anchors a ON a.pool = n.pool AND a.root = n.anchor_root
+      WHERE n.pool = 'ironwood'
+        AND n.spent_height >= ${lowHeight} AND n.spent_height <= ${highHeight}
+      ORDER BY n.spent_height ASC, n.nf_id ASC
+    `;
+
   const labelsVersion = currentLabelsVersion();
 
   const publisher = new SnapshotPublisher({
@@ -125,6 +179,9 @@ async function main(): Promise<void> {
         {
           readChainInfo: () => rpc.getBlockchainInfoFull(),
           queryMigrations,
+          queryOrchardSeries,
+          queryDrainBaseline,
+          queryIronwoodSpends,
           cfg,
           labelsVersion,
           now: () => Date.now(),

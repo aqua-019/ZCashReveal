@@ -289,14 +289,14 @@ image cannot contain `apps/indexer` — its dependency tree carries `zeromq`, a 
 image has no compiler for, and its entry point opens a ZMQ subscriber. HANDOFF-09a moved them into
 `packages/zec-instruments`, a workspace package that depends on `@zcashreveal/types` and nothing
 else, and the publisher's composition root now passes the real functions. The state after that move
-is **two of the four**, and the remaining two are the INPUT layer rather than the packaging:
+was **two of the four**, and the remaining two were the INPUT layer rather than the packaging. HANDOFF-09b supplied both sources, so the production path now publishes all four; the table records what each one reads and what closed it:
 
 | panel | published | why |
 | --- | --- | --- |
 | `residual` | **measured** | supply and lane balances both come from `getblockchaininfo` |
 | `migrationHist` | **measured** | crossings come from `migrations_zip318`, whose three columns are `Crossing`'s three fields |
-| `drain` | still `null` | `pool_snapshots.ts` is `TIMESTAMPTZ DEFAULT NOW()` — the time the indexer **wrote** the row, not the block's. Plan §3.3's velocity is "from block timestamps", and a write time is right to within seconds at the tip and arbitrarily wrong across a catch-up sync. The repair is a block-time column, i.e. a migration. |
-| `neffSeries` | still `null` | the Ironwood spends and their Cand_0 bounds live in the indexer's candidate analysis, not in any table this process reads |
+| `drain` | **measured** since HANDOFF-09b | it was `null` because `pool_snapshots.ts` is `TIMESTAMPTZ DEFAULT NOW()` — the time the indexer **wrote** the row, not the block's — and §3.3's velocity is "from block timestamps". Migration 005 adds a `blocks` table (`height`, `time_s`, `hash`), one row per height rather than a column stored four times per height, and the series joins it. A snapshot whose height has no block row is dropped rather than timestamped from a fallback. |
+| `neffSeries` | **measured** since HANDOFF-09b | it was `null` because no table carried the (nullifier → anchor) edge. `pool_anchors.max_position` already held the Cand_0 bound; migration 005 adds `pool_nullifiers.anchor_root` so a spend can name the anchor that bounds it, and `candidateCount` is derived as `max_position + 1` rather than stored. |
 
 Both remaining absences are **HANDOFF-09b's** (LEDGER-09a Q1), not HANDOFF-11's, and both are the
 INPUT layer: `drain` needs a block-time source and `neffSeries` needs an Ironwood spend source.
