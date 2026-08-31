@@ -1,7 +1,7 @@
 ---
 handoff: 09b
 title: The two missing snapshot input sources - a block-time source and an Ironwood spend source
-status: in-progress
+status: shipped
 branch: the session-designated branch (name it `feat/v2-09b-snapshot-inputs` if you may choose)
 track: Data
 depends_on: 06, 07, 09, 09a
@@ -262,7 +262,7 @@ NOT be executed is unchanged from previous handoffs and is listed under UNVERIFI
 | **A3** | migration 005 is re-runnable | applied twice; 418-line schema dump **byte-identical** between runs | **`ADD COLUMN` without `IF NOT EXISTS`** — errors on the second application, where 005's guarded form is a NOTICE and a skip |
 | **A4** | the velocities come from BLOCK time | -1000 ZEC/h over the three hourly samples; the 7d window separately reaches the baseline at -6371.97 | **"a series whose `timeMs` comes from `pool_snapshots.ts`"** — the same rows through the write clock give **-172,043,100 ZEC/h**, five orders of magnitude wrong; swapping the production join to `ts` turns A4 red |
 | **A5** | `candidateCount` is `max_position + 1`, unknown anchors excluded | 3 spends on disk, 1 admitted, `candidateCount` 4096 from `max_position` 4095 | **"a spend whose `anchor_root` is absent from `pool_anchors`"** — recording that anchor admits it with a DIFFERENT bound (10, from `max_position` 9), so the exclusion is shown to be the join and not the window, the pool filter or a typo. The null-anchor spend stays excluded, so the fail side moved exactly one of the two members |
-| **A6** | `pnpm -r test` unchanged in COUNT | **1220 -> 1264**, larger; split below | deleting a new integration file drops the total |
+| **A6** | `pnpm -r test` unchanged in COUNT | **1220 -> 1266**, larger; split below, MEASURED per package rather than derived | deleting a new integration file drops the total |
 | **A7** | the retrofitted `check-instrument-deps.mjs` covers a third banned member | R1 now generates a direct and a transitive probe per member of `BANNED_DEPENDENCIES` | **"a banned name whose manifest-side detector is never driven"** — see the correction below; the discriminating probe is a detector that under-covers the list, rc=0 pre-fold and rc=2 post-fold |
 | **A8** | twelve guards, typecheck, lint, `content validate`, `pnpm build` | 12 guards rc=0, typecheck 13/13, lint 0, validate OK, `pnpm build` 9/9 | **the vacuous pass** — R4 driven over an opted-in §5 with no assertion bullet is reported as a finding rather than counted as a clean scan |
 
@@ -275,9 +275,16 @@ NOT be executed is unchanged from previous handoffs and is listed under UNVERIFI
 | `packages/zec-instruments` | 98 | 98 | — |
 | `apps/web` | 368 | 368 | — |
 | `apps/gateway` | 143 | 143 | — |
-| **`apps/publisher`** | 67 (66 + 1 skipped) | **80** (78 + 2 skipped) | +13: the A1/A4/A5 integration suite, the birth-height pin, and gate round 1's F6/F7/F8 |
-| **`apps/indexer`** | 427 (426 + 1 skipped) | **444** (443 + 1 skipped) | +17: `blocks` and `pool_snapshots` persistence, plus the reorg and late-anchor pins |
-| **total** | **1220** (1218 + 2) | **1264** (1261 + 3) | +44 |
+| **`apps/publisher`** | 67 (66 + 1 skipped) | **91** (89 + 2 skipped) | +24: the A1/A4/A5 integration suite, the birth-height pin, and the three gate rounds' fixes |
+| **`apps/indexer`** | 427 (426 + 1 skipped) | **449** (448 + 1 skipped) | +22: `blocks` and `pool_snapshots` persistence, the reorg and late-anchor pins, and the truncate guard's own suite |
+| **total** | **1220** (1218 + 2) | **1266** (1263 + 3) | +46 |
+
+**THE FIGURES IN TWO OF THIS BRANCH'S COMMIT MESSAGES DO NOT REPRODUCE, AND THAT IS RECORDED RATHER
+THAN QUIETLY CORRECTED.** They said `1264` and `1276`; measured per package with Postgres and Redis
+up, the totals at those commits were **1250** and **1259**. Both were arithmetic done instead of
+reading the run. Gate round 3 caught it by re-measuring, which is the only reason it is a footnote.
+In a repository that has three times recorded "a green run is not evidence a package ran", a count
+in a report that nobody re-measured is the same defect in a smaller font.
 
 **Both skips named, and now the third.** `decodeBlock - real mainnet fixture` (the operator's
 capture, seven handoffs old) and the two `runIf` markers, each of which fires only when its service
@@ -373,6 +380,35 @@ at one package. `assert-no-skipped-integration.mjs` now merges several reports a
 shapes; `ci.yml` emits a publisher report and checks both. **Shown to fail on the shape**: rc=1
 naming each skipped assertion, where the pre-widening guard on the same evidence prints "OK: every
 Postgres integration test executed" and exits 0.
+
+### The gate has NOT converged, and that is stated rather than claimed away
+
+**Three rounds, each reviewing the previous round's fix commit as its own commit, budgets in every
+first line: 28/24 and 16/14, then 34/24, then 57/44 with ten mutations of which nine killed their
+target and ONE SURVIVED.** No finding was logged unread.
+
+**Round 3 returned findings a user could see**, so clause (a) of the stopping rule is not met and
+this gate is open, not converged. The two: a migration header pointing at a click-list line that
+told the operator the opposite, in a file this branch itself wrote; and a tip below Ironwood's birth
+height publishing an absence that `SNAPSHOT.md` §8.1 renders as "needs an Ironwood spend source
+(HANDOFF-09b)" - naming a handoff for something no handoff can close, once per block of an initial
+sync. Both are fixed in `0e2df0c`, and that fix commit has NOT been reviewed as its own commit.
+
+**Clause (b) is met for the shapes the guards cover and NOT for the one this branch found.** The
+recurring shape here is *a fixture that makes two distinct quantities equal, so an assertion cannot
+say which one it read* - `4095`/`4096`, `snapshots`/`blocks` both 2, `pool` stamped versus read,
+`SNAPSHOT_DRAIN_BASELINE_HEIGHT` serving as two knobs. §8 Q4 records the guard ATTEMPT with its
+numbers, as the amended clause (b) requires before a rule may stand in: precise for one form (3
+hits, all genuine), unusable for the form the defect actually took (20 hits, about half correct
+assertions). The rule is recorded AS WEAKER.
+
+**The extrapolation, not a convergence claim.** Reach is falling steeply - round 1 found a suite that
+truncated the developer's database and a site stating "no Ironwood spend requires disclosure"; round
+3 found a click-list sentence, a markdown table broken by an inserted paragraph, and `> 0` where
+`>= 0` was meant. A fourth round probably finds one or two more of round 3's reach: a stale count in
+a docblock, or an assertion that passes either way. It is unlikely to find another defect that
+reaches the published document, because every input path is now exercised against a real Postgres in
+both polarities. **That is a prediction, and the PR stops at opened so L2 can test it.**
 
 ### The gate: round 1 fanned out to two reviewers, round 2 reviewed the fix commit
 
