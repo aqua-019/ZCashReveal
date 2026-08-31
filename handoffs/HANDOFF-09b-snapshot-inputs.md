@@ -541,21 +541,96 @@ runbook's table says so. The imprecision in `index.ts`'s message is real and is 
 round 4 was commissioned narrow, the message is outside F-46-1, and it is carried to §8 rather than
 taken in.
 
+### Round 5, and the headline is a negative result
+
+`923372e` changes control flow in three places, so the amended clause (ii) makes it a round rather
+than an in-round read. **Budget in the first line: 47 candidates / 35 by execution** - eleven
+mutations, a 2,000-case randomised sweep of the production path, three throwaway-database
+reproductions, a 63-pair predicate-equivalence check, a 7-path null-cause enumeration, nine suite
+runs. Two of the reviewer's own probes were wrong and are reported against itself.
+
+**NONE OF IT FOUND A LIVE DEFECT IN ANY EXECUTABLE LINE ROUND 4 ADDED, and that is the finding.**
+The producer refusal is the precise negation of the schema's refine (`b.spendCount` IS the published
+`spendCount`, not `series.length` under another name) and cannot fire on the production path: 2,000
+randomised tips gave 1,958 published, 0 refusals, `windowSpendCount >= spendCount` on every one -
+and injecting `spendsInWindow: rows.length - 1` fires it immediately, so the probe discriminates.
+`mayTruncate` is exhaustively equal to the inline condition it replaced across 63 pairs including
+`""`, `" "`, `"0"`, `" 1"` and `"TRUE"`. The recording stub reproduces round 4's own two-polarity
+claim exactly. **All eight findings are in prose, in guards, or in one assertion.**
+
+**THE TWO HIGHs ARE BOTH IN THE RUNBOOK SECTION ROUND 4 WROTE, AND BOTH ARE THE SAME ERROR.** Its
+`published?` column said a non-positive drain baseline publishes the series without its baseline.
+`buildDrain` returns null the moment the baseline is null, so the whole panel goes - absent for
+three of the four rows, not two. And the section says "the publisher logs each one" while
+documenting one of the two production sinks: `index.ts` wires `onInputFault` and, separately, an
+inline callback logging *"analysis panel refused its inputs"*, and `grep -rn "analysis panel
+refused" docs/` returned nothing. The case reaching only that second channel is `buildDrain` on an
+Orchard series emptied by the INNER JOIN against an empty `blocks` - **any 005 database before a
+backfill, which is the state the runbook's own section 4 says the VPS is about to be in.**
+
+Both errors have one cause, and §7 records it because the commit message got it wrong: that table
+was built by enumerating the `fault()` CALL SITES and not following what each one RETURNS. The
+commit message called it "written from the measured channel rather than from the log line's text".
+It was half a measurement, in the section that exists to warn against reading half of one.
+
+**AND THE OWNER-TO-CONDITION SWEEP LANDED AT ONE SITE OF THREE.** Round 4 rewrote §8.1's four rows,
+wrote twenty-two lines ending *"a condition does not decay, which is why all four now name one"*,
+swept the integration test's comment to past tense - and left the sentence INTRODUCING that table,
+three lines above it, still mandating "a named absence carrying its owner", plus `chain-inputs.ts`'s
+restatement still in the present tense, in a file the same commit edited fifty lines higher. §7 said
+"Swept:".
+
+**That is the fifth instance of "a corrected fact landing at some of its sites", and the fifth was
+committed inside the fix for the fourth.** Round 3's own commit title names the shape; round 4's two
+reviews found it twice; round 5 found it inside round 4's fix. Four rounds, so under the recurrence
+rule the instrument is a GUARD and not another reading. The register row `H09b-ABSENCE-CONDITION`
+is in `check-finding-sites.mjs`, driven to **FAIL naming both open sites** and to **PASS at 15
+findings / 42 sites** once closed, with the already-swept third site correctly reported closed
+throughout. The guard existed; what was missing was the row, and adding the row is part of fixing a
+multi-site finding rather than paperwork after it.
+
+**One MEDIUM, and it is the same defect one layer down from the one round 4 had just fixed.** §8.1's
+new `neffSeries` string read "the Ironwood spend query did not answer". Enumerated by execution,
+that panel is null on five paths and **the query answered on three of them** - the dominant one
+being rows returned with no resolvable anchor, which the same commit's runbook calls "the state of
+any database that applied 005 without a backfill". A renderer following it would have told a visitor
+the query failed when it succeeded and nothing in it could be bounded. Both strings now name their
+dominant cause, and the pre-birth row attributes its claim to the published `birthHeight` rather
+than asserting it of the chain, because that number is `SNAPSHOT_IRONWOOD_BIRTH_HEIGHT` and a
+misconfigured one is visible there and nowhere else.
+
+**The three LOWs.** §7.1 shipped unguarded - which is precisely what the round-4 review had named as
+the reason `check-infra-docs` passed over it - so it gains two topics, one per channel, because a
+single row matching only the input channel would have certified exactly the half-coverage that was
+the HIGH. `CLAUDE.md`'s clause (ii) still read as both "a new round" and "not a gate round", which
+give different budgets under Loop 4's three-rounds-per-finding, and the same ambiguous "shape" sat
+in the guard-recurrence rule without clause (b)'s disambiguation. And the round-4 stub assertion
+pinned one of six tables: measured, dropping `pool_snapshots` from `truncateAll` left **the file
+that exists to be this guard's transcript at 4 passed** while the rest of the tree went red. It now
+asserts the whole statement and is red under that mutation.
+
 ### The gate has NOT converged, and that is stated rather than claimed away
 
-**Five rounds, each reviewing the previous round's fix commit as its own commit, budgets in every
+**Six rounds, each reviewing the previous round's fix commit as its own commit, budgets in every
 first line: 28/24 and 16/14, then 34/24, then 57/44 with ten mutations of which nine killed their
-target and ONE SURVIVED, then L2's own pass plus 34/21 and 22/15.** No finding was logged unread in
-any of them.
+target and ONE SURVIVED, then L2's own pass plus 34/21 and 22/15, then 47/35.** No finding was
+logged unread in any of them.
 
-**Round 4 returned findings a user could see**, so clause (a) of the stopping rule is still not met
-and this gate is open. The reach did not fall the way round 3's extrapolation predicted: a test
-that wipes a developer's database on any run whose `globalSetup` line is missing, a guard left with
-no transcript in either polarity, and a rendering contract naming a shipped handoff as the owner of
-an absence. All eleven are fixed in `923372e`, and **that fix commit changes control flow in three
-places** - the producer refusal in `buildNeffSeries`, the extracted `mayTruncate`, the recording
-stub - so under L2's amended clause (ii) it earns a new round rather than in-round review. Round 5
-is out at write-back and is reported as work, not as a clean round.
+**Round 5 returned two HIGHs a user could see** - a triage table stating the opposite of what the
+publisher does, and a documented channel that is one of two - so clause (a) is still not met. But
+the shape of the round changed, and §7 records the change rather than the count: **round 5 found no
+live defect in any executable line round 4 added**, against eleven mutations, a 2,000-case
+randomised production-path sweep and three database reproductions. Every finding was in prose, in a
+guard, or in one assertion. Round 1 dropped whole panels; round 5 found a wrong word in a triage
+table and a sentence three lines above a table it had just rewritten.
+
+`39de2f6` fixes all eight. It is **not prose-only** - it changes two GUARD PREDICATES
+(`check-finding-sites.mjs`'s new register row, `check-infra-docs.mjs`'s two topics) and one test
+assertion - so under the amended clause (ii) it earns round 6, which is out at write-back and is
+reported as work rather than as a clean round. This project has measured that three of its twelve
+guards shipped with a self-test certifying a hole, and that eleven of twelve holes in one guard were
+found by executing a probe and none by reading, so a commit that edits two guards is exactly the
+commit the clause exists for.
 
 **Clause (b) is met for the shapes the guards cover and NOT for the one this branch found.** The
 recurring shape here is *a fixture that makes two distinct quantities equal, so an assertion cannot
@@ -573,9 +648,14 @@ wipes a database. Wrong in the direction that flatters the branch, about commits
 itself written - the second time on this branch, the fifth in this project, and the pattern is now
 a property of the codebase rather than an accident.
 
-So this one is stated with that in mind. **Round 6 probably finds one or two findings in the round-5
-FIX commit, not in the estimator**, of the reach round 4's LOWs had: a count, a referent, a claim a
-comment makes about itself. The behaviour is the part with real evidence behind it - every input
+So this one is stated with that in mind, and round 5 has now tested it. It predicted "one or two
+findings in the round-5 FIX commit, not in the estimator, of the reach round 4's LOWs had" - and
+round 5 returned eight, two of them HIGH, all in the fix commit and none in the estimator. **Right
+about the location and about the estimator, wrong about the count and the severity**, which is the
+same direction as before. Round 6's prediction, made with that record: one or two more of round 5's
+own reach, most likely in the two guard predicates `39de2f6` edits, because that is where the
+executable surface of this commit is and because three of this project's twelve guards have shipped
+certifying a hole. The behaviour is the part with real evidence behind it - every input
 path is exercised against a real Postgres in both polarities, five code mutations and a 14-path
 enumeration found no live defect in `readSnapshotInputs`, and the two HIGHs round 4 found were both
 in TEST and DOCUMENT layers rather than in the publisher. **What has not decayed is the fix commit
@@ -702,6 +782,12 @@ what was measured then, and rewriting a report to match a later state falsifies 
 reasoning 09a used for `CLAUDE-CODE-PROMPTS.md`) - but it gains a dated forward pointer in place, so
 a reader is not left holding a contradiction.
 
+**Round 5's sweep, and it is the reason there is now a guard.** Round 4's sweep below was
+incomplete: it corrected §8.1's table and the test comment and left the sentence introducing that
+table, plus `chain-inputs.ts`'s present-tense restatement. Both are corrected in `39de2f6`, and the
+completeness of the NEXT sweep of this fact is now a check rather than a claim -
+`H09b-ABSENCE-CONDITION` in `check-finding-sites.mjs`, with its three sites named as data.
+
 **Round 4's sweep, of the same fact one layer down.** `0e2df0c` corrected the claim that 09b left
 two panels unmeasured and left §8.1's contract table still naming 09b as their owner. Swept in
 `923372e`: `docs/2.0/SNAPSHOT.md` §8.1's table and the paragraph under it (all four rows now name a
@@ -731,7 +817,7 @@ and the resolution is to name the conflict rather than to pick the rule that let
 ### Provenance
 
 Executed, with output shown in the transcript: every §5 assertion in both polarities; the twelve
-guards; `typecheck` (13/13); `lint`; `content validate`; `pnpm build` (9/9); `pnpm -r test` before
+guards (carrying sixteen runbook topics after round 5); `typecheck` (13/13); `lint`; `content validate`; `pnpm build` (9/9); `pnpm -r test` before
 and after; the migration applied twice with a schema diff; the postgres.js type probe; the
 `pg_constraint` read-back; the fold-1 probes against both the pre-fold and post-fold guard; the
 CI-skip probe against both the pre-widening and widened guard; and the four source mutations that
@@ -743,7 +829,16 @@ and dropped for it, in both polarities, with the row counts shown; the fault-wra
 per half, after a first single mutation was found not to discriminate; the `windowSpendCount`
 refusal in three states (refusal removed, DATA made well-formed, both correct); the `mayTruncate`
 mutation dropping the empty-string case; and the enumeration of the fault channel's four cases from
-source, which is what the runbook's new table states.
+source, which is what the runbook's new table states - and which round 5 showed was HALF the
+enumeration, because it followed the call sites and not their returns.
+
+Round 5 adds, executed by the reviewer and the load-bearing ones re-run here before applying: the
+`H09b-ABSENCE-CONDITION` register row driven to FAIL naming both open sites and to PASS at 15
+findings / 42 sites; the `pool_snapshots` mutation of `truncateAll` against the strengthened stub
+assertion, which round 4's regex left green at 4 passed; the two new `check-infra-docs` topics; and
+the reviewer's 2,000-case randomised production-path sweep, 63-pair predicate-equivalence check and
+three throwaway-database reproductions, which are the evidence for the NEGATIVE result rather than
+for any fix.
 
 Read (file + commit): migration 003's and 004's nullability arguments; `orchardDrain` and
 `ironwoodBirth`'s admission rules; `rawCandidateRange`'s definition of Cand_0.
@@ -757,7 +852,8 @@ the VPS or a live node.
 
 *Appended: `## HANDOFF-09b — the two missing snapshot input sources (L3, 31 Aug 2026)`,
 `## HANDOFF-09b round 4 — F-46-1, and L2's own correction (L3, 31 Aug 2026)` and
-`## HANDOFF-09b round 4 continued — the two commissioned reviews (L3, 31 Aug 2026)`. The third
+`## HANDOFF-09b round 4 continued — the two commissioned reviews (L3, 31 Aug 2026)` and
+`## HANDOFF-09b round 5 — the negative result, and a sweep that landed at one site of three (L3, 31 Aug 2026)`. The third
 block carries the ledger-worthy finding of this round: a test whose RESULT is identical in both
 polarities, so only the database it wiped discriminated. Two items are raised there for L2 and are
 deliberately not taken into round 4 - `index.ts`'s fault message being true of two of the four
