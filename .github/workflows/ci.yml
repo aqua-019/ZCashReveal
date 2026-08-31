@@ -230,8 +230,8 @@ jobs:
       # DATABASE_URL would otherwise produce a green run with 60 fewer tests. See A5,
       # and A1 in HANDOFF-06, whose fail side is exactly this: vitest stays green and
       # rc=0 while this script goes rc=1 and names every skipped test.
-      - name: Assert Postgres integration tests actually ran
-        run: node scripts/assert-no-skipped-integration.mjs indexer-results.json
+      # MOVED BELOW THE PUBLISHER STEP so it can check both reports in one call.
+      # See the publisher step's comment for why.
 
       - name: Test - apps/gateway (vitest run)
         run: pnpm --filter @zcashreveal/gateway exec vitest run
@@ -241,8 +241,29 @@ jobs:
       # cadence, the three-command count, the key prefix and the budget refusal
       # are unit tests over a spy, because counting commands against a real
       # server would prove less and cost more.
-      - name: Test - apps/publisher (vitest run, Redis-backed)
-        run: pnpm --filter @zcashreveal/publisher exec vitest run
+      #
+      # POSTGRES-BACKED TOO, SINCE HANDOFF-09b, and the JSON report exists for
+      # that reason. `snapshot-inputs.integration.test.ts` gates itself on a
+      # Postgres reachability probe exactly as the indexer's suites do, so an
+      # unreachable database would skip A1, A4 and A5 - the three assertions the
+      # whole handoff is for - and leave this step green. That is instance three
+      # of "a green CI is not evidence a package ran" (F-45-2 recorded instances
+      # one and two and asked that the third be recognised), so the guard below
+      # now covers both packages instead of the indexer alone.
+      - name: Test - apps/publisher (vitest run, Postgres- and Redis-backed)
+        run: >-
+          pnpm --filter @zcashreveal/publisher exec
+          vitest run --reporter=default --reporter=json --outputFile=../../publisher-results.json
+
+      # vitest exits 0 when the integration suites skip themselves, so a broken
+      # DATABASE_URL would otherwise produce a green run with the Postgres coverage
+      # silently gone. See A5, and A1 in HANDOFF-06, whose fail side is exactly
+      # this: vitest stays green and rc=0 while this script goes rc=1 and names
+      # every skipped test.
+      - name: Assert Postgres integration tests actually ran
+        run: >-
+          node scripts/assert-no-skipped-integration.mjs
+          indexer-results.json publisher-results.json
 
       # apps/web arrives in HANDOFF-01. Its unit suite covers the seeded RNG,
       # the zatoshi formatters and assertion A2's token check, and none of it
