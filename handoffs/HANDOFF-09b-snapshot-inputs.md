@@ -1,7 +1,7 @@
 ---
 handoff: 09b
 title: The two missing snapshot input sources - a block-time source and an Ironwood spend source
-status: shipped
+status: closed
 branch: the session-designated branch (name it `feat/v2-09b-snapshot-inputs` if you may choose)
 track: Data
 depends_on: 06, 07, 09, 09a
