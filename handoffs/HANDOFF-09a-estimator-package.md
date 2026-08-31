@@ -1,7 +1,7 @@
 ---
 handoff: 09a
 title: The estimator package move - three instruments into a dependency-free workspace package
-status: shipped
+status: closed
 branch: the session-designated branch (name it `feat/v2-09a-estimator-package` if you may choose)
 track: Data
 depends_on: 09
