@@ -207,7 +207,11 @@ Executed: `redis-server` started on 6379 and PostgreSQL 16 started, a `zcashreve
 > a cost argument — the VPS database is COLD, so migration 005 lands in the same first `migrate` run
 > the operator already owes. **And "HANDOFF-11 may not ship a null analysis panel" was restated on
 > the right quantity** as "may not RENDER AN UNMEASURED PANEL AS A MEASUREMENT", which is
-> count-independent and permits a named absence carrying its owner. The assertion this paragraph
+> count-independent and permits a named absence stating the CONDITION that produced it. (L2 wrote
+> "carrying its owner"; `docs/2.0/SNAPSHOT.md` §8.1 superseded that half in 09b's gate round 4,
+> because an owner is a live statement on the wire and a prediction that outlives its subject reads
+> as a fact. Corrected here in 09b's round 7 - this blockquote states what is operative now, so it
+> is an assertion rather than a record.) The assertion this paragraph
 > armed — `instruments-wired.test.ts` asserting `drain` and `neffSeries` are null — has been met and
 > inverted by 09b, with values rather than a presence check.
 

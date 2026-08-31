@@ -666,7 +666,7 @@ for that rule:
 | guard | what the loop found |
 | --- | --- |
 | `check-finding-sites.mjs` | **three register rows** (`R3-H2`, `R2-GRADE`, `R3-ROWS`) whose patterns had never been driven against any text, while the run printed "detector self-tested in both directions" |
-| `check-infra-docs.mjs` | **five topics with no positive probe and eight with no negative one** - so nothing showed those patterns cannot be satisfied by prose, which is the defect three rows in that list were tightened for |
+| `check-infra-docs.mjs` | **four topics with no positive probe and seven with no negative one** - so nothing showed those patterns cannot be satisfied by prose, which is the defect three rows in that list were tightened for. (Round 6 reported five and eight; round 7 measured the arrays at +4 and +7 and this session reproduced it. The wrong pair reached three sites before it was caught, which is the inverse of the sweep rule and is corrected here and in §8's round-7 block; `LEDGER.md` is append-only, so the round-6 block keeps the error and the round-7 block states it.) |
 
 Fail side, the reviewer's own mutation: `{ topic: "UNPROBED TOPIC", re: /docker/ }` - a pattern any
 prose in the runbook satisfies - now fails the self-test naming itself. Before, it printed OK across
@@ -686,6 +686,117 @@ is real and reproducible outside the tree, so it is kept; and this is now three 
 three different agent roles, which is what CLAUDE.md's don't-list already predicts - the sweep is a
 net, not a substitute for the rule.
 
+### Round 7, L2's merge block, and the register driven against its own sites
+
+**L2 blocked the merge on `9f99c0f` and the block was real there.** L2 reproduced `H09b-ABSENCE-CONDITION`
+green on the data it forbids, independently rather than relaying round 6. Two facts belong beside
+that, in this order. **The block was correct**, and it is the same finding round 6 had already
+raised as F2(a). **And it was raised against a head two commits behind**: round 6's fix `9a534ed`
+and its write-back `8d0c28d` were pushed before the ruling arrived. Executed here on `8d0c28d`,
+with L2's own mutation in both the ASCII-hyphen form the ruling prints and the em-dash form the
+file uses:
+
+```
+| `neffSeries` | `N_eff series: not measured - needs an Ironwood spend source (HANDOFF-09b)` |
+[finding-sites] FAIL: 1 site(s) ... H09b-ABSENCE-CONDITION  docs/2.0/SNAPSHOT.md
+rc=1
+```
+
+**L2's correction of this session's own reassurance is accepted and is the sharper half of the
+ruling.** §7 had noted CI green as evidence the guards hold, "since CI runs `pnpm check` and would
+have caught a guard that no longer passes". CI catches a guard that FAILS. It cannot catch one that
+passes VACUOUSLY, which is what this one did on the same green run. A green `pnpm check` is evidence
+about failure and silent about vacuity, and this branch has now produced the case that proves it.
+
+**ROUND 7 FOUND THE ROUND-6 FIX HAD REINTRODUCED THE SAME FAILURE THROUGH A DIFFERENT DOOR.** Round
+6 made `flatten()` drop `~~struck~~` spans so an amendment-in-place would not read as a live
+assertion. The regex was `~~[\s\S]*?~~`, and pairing runs 1-2, 3-4 - so an ODD number of markers
+inverts it and the guard eats the COMPLEMENTS, the prose BETWEEN the strikes. Measured on
+`handoffs/README.md`:
+
+| | spans stripped | characters | share of file |
+| --- | --- | --- | --- |
+| clean | 4 | 229 | 1.1% |
+| one stray `~~` added | 4 | 16,269 | **80.3%** |
+
+**And `check-finding-sites.mjs` itself carries five `~~` markers, an odd count**, produced by the
+act of explaining the convention. End to end: the forbidden row live in a registered site plus one
+stray marker took the guard from FAIL to OK. Fixed by scoping the strip to one line with no interior
+tilde - GFM strikethrough does not span a blank line, so it costs nothing real and removes the
+inversion. The attack now fails, rc=1.
+
+**THE SECOND HIGH IS A GUARD THAT REDDENS ON CORRECT PROSE, WHICH IS HOW A GUARD GETS DELETED.**
+Round 6's widened arm allowed any 48 characters between "named absence" and an owner-word, with no
+polarity - so it fires on *"a named absence never names an owner"* as loudly as on the violation.
+`SNAPSHOT.md`'s own correct sentence clears it by **five characters**, in the direction copy-editing
+moves. Shortening "stating the CONDITION that produced it" to "stating its CONDITION" - still
+correct prose - turned the build red with the message "still states the old answer" about a sentence
+stating the new one. The arm now carries a negation lookahead; the shortened correct sentence is
+green and every violating paraphrase is still caught.
+
+**L2's ITEM 1, WHICH IS THE PART THAT OUTLASTS THIS BRANCH.** The requirement: each row's probe is
+the defect **as it actually appeared at a real site**, and the row is driven to fail by applying that
+probe **to the site itself**, not to a string the self-test holds. Two things had to change.
+
+*The probe loop was under-covering for 7 of 15 rows.* Routed through `openSites`, a probe counted as
+matched if `absent` fired **or** `present` was merely missing - so for every `present`-bearing row
+the pattern was never driven, and the literal string `"banana"` passed all seven while the run
+printed "self-tested in both directions". Each pattern is now asserted on its own terms, and an
+`antiProbe` is required wherever an `absent` exists - the asymmetry `check-infra-docs.mjs` had closed
+in the same commit that left this open.
+
+*And every row is now driven against its own real sites*, with the perturbation the row's kind
+demands: an `absent` row has its defect text spliced INTO the real file; a `present` row has its
+corrected text DELETED from it. The second half is why this matters rather than being tidiness -
+**a `present` row cannot be driven by a held string at all**, since any string lacking the required
+text satisfies the check. Only the real file carries the difference between "this text is missing"
+and "this is not the file". The drive discriminates: a pattern anchored so it matches its probe
+standalone but not embedded in the real file now fails with exactly that message.
+
+**THE PROBE AUDIT L2 ASKED FOR, AND THE COUNT IS NOT FLATTERING.** Fifteen rows carry a `probe`.
+Searching each probe's text through `git log -S` against its own registered sites:
+
+| verdict | count | rows |
+| --- | --- | --- |
+| **real-site text, recoverable from history** | **4** | `H09a-VITEST-ALIAS`, `R2-A9`, `H07-DENOM`, `R4-EXITZAT-REACH` |
+| reconstruction or invented sentence | 11 | the rest |
+
+So **four of fifteen** probes are the defect as it stood; eleven are sentences someone wrote to
+resemble it. That is the honest measure of what this register proves by its probes alone, and it is
+why the site drive above is the load-bearing half rather than a supplement. One qualification on the
+instrument, stated because the number will be quoted: `git log -S` over a site path finds a probe
+only if that exact text was committed at that path, so a faithful probe whose defect was reformatted,
+or which lived at a path not in the row's `sites`, is counted "invented" here. The count is a lower
+bound on faithfulness, not a proof of eleven fabrications.
+
+`H09b-ABSENCE-CONDITION`'s `dataProbe` is now **byte-verbatim** from `docs/2.0/SNAPSHOT.md` at
+`73ea340` line 329, recovered with `git show` rather than retyped - its first version used an ASCII
+hyphen where the file used an em dash, which is the whole gap between "a sentence resembling the
+defect" and "the defect".
+
+**A SEVENTH SITE OF THE SWEEP, FOUND INSIDE THE FIX FOR THE SIXTH.**
+`handoffs/HANDOFF-09a-estimator-package.md:210` - a supersession blockquote stating in the present
+tense that the rule "permits a named absence carrying its owner". The guard's own self-test settles
+the classification: the RECORD exclusion is pinned so it cannot widen to handoffs, because a
+handoff's §7 asserts facts. Corrected and registered; the row now checks seven sites.
+
+**AND A COUNT THIS SESSION GOT WRONG AND SWEPT TO THREE PLACES.** Round 6 reported
+`check-infra-docs.mjs` as having "five topics with no positive probe and eight with no negative
+one". Measured from the arrays: **four and seven**. It reached the commit message, §7 and §8 before
+round 7 caught it - the inverse of the sweep rule, a wrong fact propagated rather than a right one
+half-corrected. §7 is fixed above; `LEDGER.md` is append-only, so the round-6 block keeps the error
+and the round-7 block states it.
+
+**Three of this session's own probes were malformed and are reported rather than quietly redone.**
+The first rebuilt a row's regex as `new RegExp(source, "g")` and dropped the `i`, so a capitalised
+match survived the strip and the row read as inert. The second stripped the RAW file while
+`openSites` matches the FLATTENED one, so a phrase that only forms after comment-prefix stripping -
+`"number of\n * crossings"` in `migration-lens.ts` - could not be removed and the row read as inert
+again. Both looked like defects in the row they were testing. The third was a fail side that did not
+fail: mutating a pattern and its probe together is a consistent rename, not a discriminating
+mutation, and it proved nothing until it was rebuilt as a pattern that matches its probe standalone
+and not in the file.
+
 ### The gate has NOT converged, and that is stated rather than claimed away
 
 **Seven rounds, each reviewing the previous round's fix commit as its own commit, budgets in every
@@ -693,7 +804,24 @@ first line: 28/24 and 16/14, then 34/24, then 57/44 with ten mutations of which 
 target and ONE SURVIVED, then L2's own pass plus 34/21 and 22/15, then 47/35, then 31/24 with 38
 mutations.** No finding was logged unread in any of them.
 
-**Round 6 returned a HIGH a user could see**, so clause (a) is still not met. Two rounds running
+**ROUND 7 IS THE LAST ROUND, BY L2'S RULING AND FOR A REASON THIS SESSION COULD NOT SEE FROM
+INSIDE.** L2's diagnosis: the product converged at round 5 and the gate did not, because rounds 5,
+6 and 7 each found defects in the runbook prose, register rows and guard predicates that rounds 3, 4
+and 5 had written. **The gate was reviewing its own output, and every fix commit added more of it.**
+That is a scope problem rather than a convergence failure, and it does not terminate on its own. The
+first clause (ii) amendment bounded prose-only commits and could not bound this, because a guard
+predicate is not prose.
+
+**So clause (ii) has a second amendment, now in CLAUDE.md**: once a round returns no finding in an
+executable line of the PRODUCT - round 5 did, on the record - subsequent rounds review only (a) guard
+predicates and their self-tests, (b) test assertions, and (c) sentences making a checkable claim
+about runtime behaviour, checked by EXECUTING the behaviour. Everything else is applied without
+earning a round. Both of round 5's HIGHs were in (c) and both were false when executed, which is
+what makes (c) a real category rather than a loophole.
+
+This session's own round-6 extrapolation said "round 7 is owed; round 8 probably is not", and got
+the location right and the reason wrong: it argued from reach decay, and the actual argument is
+scope. **Round 6 returned a HIGH a user could see**, so clause (a) is still not met. Two rounds running
 have now found nothing wrong with the branch's executable core - round 5's eleven mutations, its
 2,000-case randomised production-path sweep and its three database reproductions found no live
 defect in the publisher, and round 6 spent its effort on the guards - **but what the last two rounds
@@ -706,12 +834,13 @@ covered. **The guard's shape is not, and round 6 is the fourth consecutive round
 a self-test was the defect** - which is the argument for the guard-about-guards work HANDOFF-13
 already holds, not for a further round of the same reading.
 
-`9a534ed` fixes all six of round 6's findings and is **not prose-only**: it widens a guard predicate,
-adds a `dataProbe` mechanism, changes `flatten()`'s semantics for every register row rather than one,
-and adds two self-test completeness loops. Under the amended clause (ii) that earns round 7, which is
-out at write-back and reported as work. The `flatten()` change is the one that most deserves it: it
-was made for a single struck amendment in one file and it applies to all fifteen findings at every
-site.
+`9a534ed` earned round 7 and the `flatten()` change was exactly the right thing to point it at: it
+had reintroduced the round-6 HIGH through a different door. Round 7's fix commit changes guard
+predicates and a self-test, which under the FIRST amendment would earn a round 8 - and under the
+SECOND it does not, because round 8 would be reviewing (a) again with no product defect in sight and
+no finding that reaches a reader. **The gate stops here.** What is carried forward instead is
+HANDOFF-13's registration question - what mechanically makes registration non-optional - which is the
+half of this that a guard cannot decide and which no further round of reading will answer.
 
 **Clause (b) is met for the shapes the guards cover and NOT for the one this branch found.** The
 recurring shape here is *a fixture that makes two distinct quantities equal, so an assertion cannot
@@ -963,7 +1092,8 @@ the VPS or a live node.
 `## HANDOFF-09b round 4 — F-46-1, and L2's own correction (L3, 31 Aug 2026)` and
 `## HANDOFF-09b round 4 continued — the two commissioned reviews (L3, 31 Aug 2026)` and
 `## HANDOFF-09b round 5 — the negative result, and a sweep that landed at one site of three (L3, 31 Aug 2026)`
-and `## HANDOFF-09b round 6 — a guard that certified its own hole (L3, 31 Aug 2026)`. The third
+`## HANDOFF-09b round 6 — a guard that certified its own hole (L3, 31 Aug 2026)` and
+`## HANDOFF-09b round 7 — L2's merge block, and the gate reviewing its own output (L3, 31 Aug 2026)`. The third
 block carries the ledger-worthy finding of this round: a test whose RESULT is identical in both
 polarities, so only the database it wiped discriminated. Two items are raised there for L2 and are
 deliberately not taken into round 4 - `index.ts`'s fault message being true of two of the four

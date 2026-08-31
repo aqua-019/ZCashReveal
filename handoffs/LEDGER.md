@@ -5629,3 +5629,145 @@ MEASURED, package by package: content 67, zebra-rpc 50, zec-instruments 98, web
   Twelve guards, sixteen runbook topics, typecheck 13/13, lint 0, content
   validate and `pnpm build` green.
 ```
+
+## HANDOFF-09b round 7 — L2's merge block, and the gate reviewing its own output (L3, 31 Aug 2026)
+
+```
+L2 BLOCKED THE MERGE ON `9f99c0f` AND THE BLOCK WAS REAL THERE. It reproduced
+`H09b-ABSENCE-CONDITION` green on the data it forbids, independently rather than
+relaying round 6, which had raised the same thing as F2(a). Two facts belong
+beside it in this order: the block was CORRECT, and it was raised against a head
+two commits behind - `9a534ed` and `8d0c28d` were pushed before the ruling
+arrived. Re-executed on `8d0c28d` in both the ASCII-hyphen form the ruling prints
+and the em-dash form the file uses: FAIL, rc=1, naming the site.
+
+THE CORRECTION TO THIS SESSION'S OWN REASSURANCE, WHICH IS THE SHARPER HALF.
+  Section 7 had cited CI green as evidence the guards hold, "since CI runs
+  `pnpm check` and would have caught a guard that no longer passes". CI CATCHES A
+  GUARD THAT FAILS AND IS SILENT ABOUT ONE THAT PASSES VACUOUSLY, which is what
+  this one did on the same green run. Green is evidence about failure only. This
+  branch produced the case that proves it, and the sentence is corrected rather
+  than quietly dropped.
+
+ROUND 7 FOUND THE ROUND-6 FIX HAD REINTRODUCED THE SAME FAILURE THROUGH A
+DIFFERENT DOOR, WHICH IS THE FOURTH TIME THAT PATTERN HAS PAID.
+  Round 6 made `flatten()` drop `~~struck~~` spans. The regex was
+  `~~[\s\S]*?~~` and pairing runs 1-2, 3-4, so an ODD number of markers inverts
+  it: the guard then eats the COMPLEMENTS, the prose BETWEEN the strikes.
+  Measured on `handoffs/README.md` - 229 characters stripped clean, 16,269 with
+  ONE stray marker added, 80.3% of the file invisible to every register row. And
+  `check-finding-sites.mjs` ITSELF carries five markers, an odd count, produced
+  by the act of explaining the convention.
+  THE GENERAL FORM, worth more than the regex: A DOCUMENT-STRIPPING RULE WHOSE
+  DELIMITER IS PAIRED HAS A PARITY FAILURE MODE, and the failure is not local -
+  it inverts, so the blast radius is the whole file rather than one span. Scoped
+  to a single line with no interior delimiter, which costs nothing because GFM
+  strikethrough does not span a blank line.
+
+THE SECOND HIGH IS A GUARD THAT REDDENS ON CORRECT PROSE, WHICH IS HOW A GUARD
+GETS DELETED RATHER THAN FIXED. Round 6's widened arm allowed any 48 characters
+  between "named absence" and an owner-word with NO POLARITY, so it fires on "a
+  named absence never names an owner" as loudly as on the violation.
+  SNAPSHOT.md's own correct sentence clears it by FIVE CHARACTERS, in the
+  direction copy-editing moves: shortening "stating the CONDITION that produced
+  it" to "stating its CONDITION" reddened the build with the message "still
+  states the old answer" about a sentence stating the new one. A negation
+  lookahead fixes it. THE RULE: a guard that can fail on a correct statement of
+  its own rule is worse than no guard, because the next session deletes it and
+  then nothing checks the shape.
+
+L2's ITEM 1, AND IT IS THE PART THAT OUTLASTS THIS BRANCH: each row's probe must
+be the defect AS IT ACTUALLY APPEARED AT A REAL SITE, and the row driven to fail
+by applying it TO THE SITE ITSELF.
+  THE PROBE LOOP WAS UNDER-COVERING FOR 7 OF 15 ROWS. Routed through
+  `openSites`, a probe counted as matched if `absent` fired OR `present` was
+  merely MISSING - so for every `present`-bearing row the pattern was never
+  driven, and the literal "banana" passed all seven while the run printed
+  "self-tested in both directions". The loop added in round 6 to close an
+  under-covering self-test was itself under-covering.
+  AND EVERY ROW IS NOW DRIVEN AGAINST ITS OWN REAL SITES, with the perturbation
+  its kind demands: an `absent` row has its defect text SPLICED INTO the real
+  file; a `present` row has its corrected text DELETED from it. The second half
+  is the load-bearing one: A `present` ROW CANNOT BE DRIVEN BY A HELD STRING AT
+  ALL, because any string lacking the required text satisfies the check. Only the
+  real file carries the difference between "this text is missing" and "this is
+  not the file". Stated in the guard so a green run is not read as wider than it
+  is: for a `present`-only row the probe field is documentation, not a test.
+
+THE PROBE AUDIT, AND THE COUNT IS NOT FLATTERING. Fifteen rows carry a probe;
+  searching each through `git log -S` against its own registered sites:
+    REAL-SITE TEXT, recoverable from history   4  (H09a-VITEST-ALIAS, R2-A9,
+                                                   H07-DENOM, R4-EXITZAT-REACH)
+    reconstruction or invented sentence       11
+  So four of fifteen probes are the defect as it stood. That is the honest
+  measure of what this register proves BY ITS PROBES ALONE, and it is why the
+  site drive is the load-bearing half. QUALIFICATION ON THE INSTRUMENT, because
+  the number will be quoted: `git log -S` over a site path finds a probe only if
+  that exact text was committed at that path, so a faithful probe whose defect
+  was reformatted, or which lived at a path outside the row's `sites`, counts as
+  "invented" here. Four is a LOWER BOUND on faithfulness, not proof of eleven
+  fabrications.
+  `H09b-ABSENCE-CONDITION`'s dataProbe is now BYTE-VERBATIM from SNAPSHOT.md at
+  `73ea340` line 329, recovered with `git show` rather than retyped: its first
+  version used an ASCII hyphen where the file used an em dash, which is the whole
+  gap between "a sentence resembling the defect" and "the defect".
+
+A SEVENTH SITE OF THE SWEEP, FOUND INSIDE THE FIX FOR THE SIXTH.
+  `HANDOFF-09a-estimator-package.md:210`, a supersession blockquote stating in
+  the PRESENT TENSE that the rule "permits a named absence carrying its owner".
+  The guard's own self-test settles the classification - the RECORD exclusion is
+  pinned so it cannot widen to handoffs, because a handoff's section 7 asserts
+  facts. Corrected and registered; the row checks seven sites.
+
+AND A COUNT THIS SESSION GOT WRONG AND SWEPT TO THREE PLACES. Round 6 reported
+  `check-infra-docs.mjs` as having "five topics with no positive probe and eight
+  with no negative one". Measured from the arrays: FOUR AND SEVEN. It reached the
+  commit message, section 7 and section 8 before round 7 caught it - the INVERSE
+  of the sweep rule, a wrong fact propagated rather than a right one
+  half-corrected. Section 7 is corrected; this file is append-only, so the
+  round-6 block above keeps the error and this block states it.
+
+THREE OF THIS SESSION'S OWN PROBES WERE MALFORMED AND ARE REPORTED RATHER THAN
+QUIETLY REDONE, all three inside the round-7 work:
+  (1) rebuilt a row's regex as `new RegExp(source, "g")`, dropping the `i`, so a
+      capitalised match survived the strip and the row read as inert;
+  (2) stripped the RAW file while `openSites` matches the FLATTENED one, so a
+      phrase forming only after comment-prefix stripping ("number of\n *
+      crossings" in `migration-lens.ts`) could not be removed and the row read as
+      inert again;
+  (3) a fail side that did not fail: mutating a pattern AND its probe together is
+      a consistent rename, not a discriminating mutation.
+  All three first looked like defects in the thing under test. That is now eight
+  malformed probes on this project's record and the rule has caught every one.
+
+STOPPING, AND THE REASON IS SCOPE RATHER THAN REACH:
+  L2's diagnosis is one this session could not see from inside. THE PRODUCT
+  CONVERGED AT ROUND 5 AND THE GATE DID NOT, because rounds 5, 6 and 7 each found
+  defects in the runbook prose, register rows and guard predicates that rounds 3,
+  4 and 5 had written. The gate was reviewing ITS OWN OUTPUT, and every fix
+  commit added more of it. That does not terminate on its own, and it is not a
+  reach curve - this session's round-6 extrapolation reached the right conclusion
+  ("round 7 owed, round 8 not") from the WRONG argument, reasoning from decaying
+  reach when the actual argument is scope.
+  CLAUSE (ii) SECOND AMENDMENT, now in CLAUDE.md: once a round returns no finding
+  in an executable line of the PRODUCT, subsequent rounds review only (a) guard
+  predicates and their self-tests, (b) test assertions, and (c) sentences making a
+  CHECKABLE CLAIM ABOUT RUNTIME BEHAVIOUR, checked by EXECUTING the behaviour.
+  Everything else is applied without earning a round. Both of round 5's HIGHs
+  were in (c) and both were false when executed, which is what makes (c) a
+  category rather than a loophole.
+  ROUND 7'S FIX COMMIT CHANGES GUARD PREDICATES AND A SELF-TEST. Under the first
+  amendment that earns a round 8; under the second it does not, because round 8
+  reviews (a) again with no product defect in sight. THE GATE STOPS HERE. What is
+  carried forward is HANDOFF-13's registration question - what mechanically makes
+  registration non-optional - which no further reading answers.
+
+MEASURED, package by package: content 67, zebra-rpc 50, zec-instruments 98, web
+  368, gateway 143, publisher 99 + 2 skipped, indexer 448 + 1 skipped. TOTAL
+  1276, 1273 passed, 3 skipped - unchanged; round 7 changed no test. Twelve
+  guards, sixteen runbook topics, typecheck 13/13, lint 0, content validate and
+  `pnpm build` green. Post-fan-out sweep after round 7 returned only the four
+  paths the fix touches. THE PR STOPS AT OPENED: L2's ruling ends "THEN MERGE",
+  and merging is Aqua's click under this file's own operating model, so the
+  transcript is posted and the button is not pressed.
+```

@@ -423,11 +423,16 @@ const FINDINGS = [
     // matches that. A reader should trust this row for the object and treat the
     // phrasing arms as a convenience.
     absent:
-      /named absences?[^.,;]{0,48}\b(owner|owns it|owning)\b|8\.1 makes that null render as|\|\s*`[^|`]{0,60}not measured[^|`]{0,90}\(?HANDOFF-\d/i,
+      /named absences?(?:(?!\b(?:never|not|no|nor|rather than|instead of|forbids|forbidden|without)\b)[^.,;]){0,48}\b(owner|owns it|owning)\b|8\.1 makes that null render as|\|\s*`[^|`]{0,60}not measured[^|`]{0,90}\(?HANDOFF-\d/i,
     probe: "It renders a **named absence carrying its owner**:",
     // A SECOND PROBE, DRAWN FROM THE EXCLUSION SET RATHER THAN FROM THE PROSE.
     // This is the value the guard was green on when it shipped.
-    dataProbe: "| `drain` | `drain: not measured - needs a block-time source (HANDOFF-09b)` |",
+    // BYTE-VERBATIM FROM `docs/2.0/SNAPSHOT.md` AT `73ea340`, line 329, which is
+    // where this defect actually stood until `923372e` removed it - recovered
+    // with `git show` rather than retyped. The first version of this key used an
+    // ASCII hyphen where the file used an em dash, which is exactly the gap
+    // between "a sentence resembling the defect" and "the defect".
+    dataProbe: "| `drain` | `drain: not measured \u2014 needs a block-time source (HANDOFF-09b)` |",
     antiProbe: "It renders a **named absence stating the CONDITION that produced it**:",
     sites: [
       "docs/2.0/SNAPSHOT.md",
@@ -435,6 +440,12 @@ const FINDINGS = [
       "apps/publisher/src/__tests__/snapshot-inputs.integration.test.ts",
       "handoffs/README.md",
       "handoffs/HANDOFF-11-live-wiring.md",
+      // THE SEVENTH SITE, FOUND BY GATE ROUND 7 INSIDE THE FIX FOR THE SIXTH.
+      // A supersession blockquote in 09a stating what is operative NOW -
+      // "permits a named absence carrying its owner", present tense - which the
+      // guard's own self-test settles as an ASSERTION rather than a record,
+      // because the RECORD exclusion is pinned so it cannot widen to handoffs.
+      "handoffs/HANDOFF-09a-estimator-package.md",
       // HANDOFF-09b IS DELIBERATELY NOT A SITE, AND THAT IS A STATED LIMIT
       // RATHER THAN AN OVERSIGHT. Its §1 carried the assertion and is fixed;
       // its §7 must NARRATE the defect, quoting the forbidden phrase, and
@@ -471,7 +482,18 @@ function flatten(src) {
       // for superseded, which makes this a rule about the document rather than a
       // special case: what is struck is not in force, so it is not a site
       // stating the old answer.
-      .replace(/~~[\s\S]*?~~/g, " ")
+      //
+      // LINE-SCOPED AND TILDE-FREE, BECAUSE THE FIRST FORM WAS `~~[\s\S]*?~~`
+      // AND AN ODD NUMBER OF MARKERS INVERTS IT (gate round 7). Pairing runs
+      // 1-2, 3-4, so one stray marker re-pairs every span and the guard then
+      // eats the COMPLEMENTS - the prose BETWEEN the strikes. Measured on
+      // `handoffs/README.md`: 229 characters stripped clean, 16,269 with one
+      // stray marker added, 80.3% of the file invisible to every register row.
+      // Not hypothetical: THIS FILE carries five `~~` markers, an odd count,
+      // produced by the act of explaining the convention. GFM strikethrough
+      // does not span a blank line, so scoping to one line with no interior
+      // tilde costs nothing real and removes the inversion.
+      .replace(/~~[^~\n]*~~/g, " ")
       .replace(/^\s*(\/\/|\*)\s?/gm, " ")
       .replace(/\s+/g, " ")
   );
@@ -606,13 +628,113 @@ function selfTest() {
     // reverting the two sentences it was written from turned the guard red,
     // which was mistaken for two-polarity evidence. It was not: restoring the
     // real forbidden TABLE ROWS left the same guard green.
+    //
+    // DRIVEN DIRECTLY, NOT THROUGH `openSites` (gate round 7). Routed through
+    // `openSites` a probe counted as "matched" if `absent` fired OR `present`
+    // was merely MISSING - so for the seven rows carrying a `present` check the
+    // pattern was never driven at all, and the literal string "banana" passed
+    // every one of them while the run printed "self-tested in both directions".
+    // The loop written to close an under-covering self-test was itself under-
+    // covering, for 7 of 15 rows. Each pattern the row carries is now asserted
+    // on its own terms.
     for (const [kind, text] of [["probe", f.probe], ["dataProbe", f.dataProbe]]) {
       if (text === undefined) continue;
-      if (openSites({ ...f, sites: [kind] }, () => text).length === 0) {
+      const flat = flatten(text);
+      if (f.absent !== undefined && !f.absent.test(flat)) {
         console.error(
-          `[finding-sites] self-test: ${f.id}'s pattern does not match the ${kind} - the defect it names.`,
+          `[finding-sites] self-test: ${f.id}'s ABSENT pattern does not match the ${kind} - the defect it names.`,
         );
         return false;
+      }
+      if (f.present !== undefined && f.present.test(flat)) {
+        console.error(
+          `[finding-sites] self-test: ${f.id}'s ${kind} satisfies its PRESENT check, so it is not the defect.`,
+        );
+        return false;
+      }
+    }
+    // WHAT THIS DOES NOT DO, STATED SO A GREEN RUN IS NOT READ AS WIDER THAN IT
+    // IS: for a row carrying ONLY a `present` check, the `probe` field is not
+    // load-bearing and cannot be. The defect such a row describes is text that
+    // is MISSING, so any string lacking that text is a valid probe - the literal
+    // "banana" is - and no held string can discriminate the pattern. The real
+    // evidence for those rows is the site drive below, which deletes the
+    // corrected text from the actual file. The probe is kept as documentation of
+    // the defect's shape, and it is documentation rather than a test.
+    //
+    // AND AN `antiProbe` IS REQUIRED WHERE AN `absent` PATTERN EXISTS, which is
+    // the asymmetry `check-infra-docs.mjs` closed in the same commit that left
+    // this open: a row with no antiProbe has nothing showing its pattern does
+    // not also match the CORRECTION, which is how three structural entries once
+    // shipped matching the docblocks explaining their own fix.
+    if (f.absent !== undefined && f.antiProbe === undefined) {
+      console.error(
+        `[finding-sites] self-test: ${f.id} has an absent pattern and no antiProbe, so nothing ` +
+          "shows it does not also match the correction.",
+      );
+      return false;
+    }
+    // AND EACH ROW IS DRIVEN AGAINST ITS OWN REAL SITES, NOT ONLY AGAINST A
+    // STRING THIS FILE HOLDS (L2's ruling on PR #46, gate round 7). A probe
+    // checked in isolation proves the pattern matches a sentence somebody wrote
+    // into the self-test; it does not prove the pattern fires on that defect
+    // sitting in the file it is supposed to police, which is the only claim a
+    // green run makes. The two kinds of row need opposite perturbations:
+    //
+    //   `absent`  the defect is text that must not be there, so the probe is
+    //             SPLICED INTO the real file and the row must report that site.
+    //   `present` the defect is text that is MISSING, so the corrected text is
+    //             DELETED from the real file and the row must report that site.
+    //
+    // The second half is why this matters beyond tidiness. A `present` row
+    // cannot be driven by a held string at all: any string that merely lacks
+    // the required text satisfies the old check, and the literal "banana"
+    // passed all seven `present`-bearing rows. Only the real file can carry the
+    // difference between "this text is missing" and "this is not the file".
+    for (const site of f.sites) {
+      if (RECORD_FILES.some((r) => r.test(site))) continue;
+      const real = read(site);
+      if (real === null) {
+        console.error(`[finding-sites] self-test: ${f.id}'s site ${site} does not exist.`);
+        return false;
+      }
+      if (f.absent !== undefined) {
+        const defect = f.dataProbe ?? f.probe;
+        const perturbed = `${real}\n${defect}\n`;
+        if (openSites({ ...f, sites: [site] }, () => perturbed).length === 0) {
+          console.error(
+            `[finding-sites] self-test: ${f.id} does not fire on ${site} with its own defect ` +
+              "text spliced in - the pattern matches the probe in isolation and not the real file.",
+          );
+          return false;
+        }
+      }
+      if (f.present !== undefined) {
+        // STRIPPED IN THE SPACE THE MATCH HAPPENS IN, AND WITH THE ROW'S OWN
+        // FLAGS. Two malformed drafts of this loop, both reported rather than
+        // quietly redone, because each read as a defect in the row it was
+        // testing: the first rebuilt the regex as `new RegExp(source, "g")` and
+        // dropped the `i`, so a capitalised match survived; the second stripped
+        // the RAW file while `openSites` matches the FLATTENED one, so a phrase
+        // that only forms after comment-prefix stripping - "number of\n *
+        // crossings" in `migration-lens.ts` - could not be removed and the row
+        // looked inert. Strip where the guard looks.
+        const all = f.present.flags.includes("g") ? f.present.flags : `${f.present.flags}g`;
+        const stripped = flatten(real).replace(new RegExp(f.present.source, all), "");
+        if (stripped === real) {
+          console.error(
+            `[finding-sites] self-test: ${f.id}'s present pattern does not match ${site} at all, ` +
+              "so deleting it changes nothing and the row proves nothing about that site.",
+          );
+          return false;
+        }
+        if (openSites({ ...f, sites: [site] }, () => stripped).length === 0) {
+          console.error(
+            `[finding-sites] self-test: ${f.id} does not fire on ${site} with its corrected text ` +
+              "deleted, so nothing shows the row would notice that site regressing.",
+          );
+          return false;
+        }
       }
     }
     if (f.antiProbe !== undefined && f.absent !== undefined && f.absent.test(flatten(f.antiProbe))) {
