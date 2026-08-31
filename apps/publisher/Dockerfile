@@ -23,7 +23,7 @@
 # Build from the REPOSITORY ROOT, not from this directory:
 #   docker build -f apps/publisher/Dockerfile -t zecreveal/publisher:local .
 # The build context is the workspace root because this is a pnpm monorepo and
-# the app's dependencies are three sibling packages resolved through
+# the app's dependencies are four sibling packages resolved through
 # `pnpm-workspace.yaml`. A context rooted at `apps/publisher` cannot see them.
 #
 # FOUR STAGES, AND THE SPLIT IS NOT DECORATION. `manifests` exists so that a
@@ -60,6 +60,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json tsconfig.base.js
 COPY packages/zec-types/package.json ./packages/zec-types/
 COPY packages/content/package.json ./packages/content/
 COPY packages/zebra-rpc/package.json ./packages/zebra-rpc/
+COPY packages/zec-instruments/package.json ./packages/zec-instruments/
 COPY apps/indexer/package.json ./apps/indexer/
 COPY apps/gateway/package.json ./apps/gateway/
 COPY apps/publisher/package.json ./apps/publisher/
@@ -78,7 +79,7 @@ FROM manifests AS build
 RUN pnpm install --frozen-lockfile --filter @zcashreveal/publisher...
 COPY packages ./packages
 COPY apps/publisher ./apps/publisher
-# Builds the three workspace packages topologically and then the app. `tsc -b`
+# Builds the four workspace packages topologically and then the app. `tsc -b`
 # is the app's own `build` script; turbo orders them.
 RUN pnpm --filter @zcashreveal/publisher... build
 
@@ -115,6 +116,7 @@ COPY --from=prod-deps --chown=node:node /app ./
 # those JSON seeds at runtime, so the data directory is not optional.
 COPY --from=build --chown=node:node /app/packages/zec-types/dist ./packages/zec-types/dist
 COPY --from=build --chown=node:node /app/packages/zebra-rpc/dist ./packages/zebra-rpc/dist
+COPY --from=build --chown=node:node /app/packages/zec-instruments/dist ./packages/zec-instruments/dist
 COPY --from=build --chown=node:node /app/packages/content/dist ./packages/content/dist
 COPY --from=build --chown=node:node /app/packages/content/data ./packages/content/data
 COPY --from=build --chown=node:node /app/apps/publisher/dist ./apps/publisher/dist

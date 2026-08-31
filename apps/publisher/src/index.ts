@@ -30,7 +30,7 @@ import postgres from "postgres";
 
 import { FileCommandBudget } from "./budget.js";
 import { loadConfig, managedStoreUrl, type PublisherConfig } from "./config.js";
-import { NO_INSTRUMENTS } from "./instruments.js";
+import { REAL_INSTRUMENTS } from "./instruments.js";
 import { createPublisherLogger } from "./logger.js";
 import { currentLabelsVersion } from "./labels-version.js";
 import { SnapshotPublisher, type Tip } from "./publisher.js";
@@ -131,13 +131,16 @@ async function main(): Promise<void> {
         },
         tip,
       );
-      // NO_INSTRUMENTS, and `instruments.ts`'s header is the whole argument for
-      // it: the Dockerfile this app must satisfy copies three sibling packages
-      // and not `apps/indexer`, whose analysis modules these are, and whose
-      // dependency tree carries a native addon this image has no compiler for.
-      // Every panel they would fill publishes as a stated absence until those
-      // modules live somewhere the publisher may depend on.
-      const snapshot = buildSnapshot(inputs, NO_INSTRUMENTS);
+      // REAL_INSTRUMENTS. Until HANDOFF-09a this line passed NO_INSTRUMENTS and
+      // `residual`, `drain`, `migrationHist` and `neffSeries` published as null
+      // on every tip - legal under SnapshotV1, where null means "not measured",
+      // and not what the publisher is for. The reason was structural rather than
+      // an oversight: the estimators lived in `apps/indexer`, whose dependency
+      // tree carries a native addon this image has no compiler for and whose
+      // entry point opens a socket. They now live in `@zcashreveal/instruments`,
+      // a workspace package that depends on `@zcashreveal/types` and nothing
+      // else, which this image's Dockerfile already copies.
+      const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS);
       return { snapshot, json: serializeSnapshot(snapshot) };
     },
   });

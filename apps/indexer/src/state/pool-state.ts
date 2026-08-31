@@ -22,7 +22,7 @@
  */
 
 import type { Anchor, Pool, PoolStateSnapshot } from "@zcashreveal/types";
-import type { Network } from "../decoder/activation-heights.js";
+import type { Network } from "@zcashreveal/instruments";
 import { CommitmentIndex } from "./commitment-index.js";
 import { AnchorIndex } from "./anchor-index.js";
 import { NullifierIndex } from "./nullifier-index.js";

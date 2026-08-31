@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { asHex, type BoundaryDelta, type Pool } from "@zcashreveal/types";
 
-import { NU6_3_ACTIVATION_MAINNET, NU6_3_ACTIVATION_TESTNET } from "../../decoder/activation-heights.js";
+import { NU6_3_ACTIVATION_MAINNET, NU6_3_ACTIVATION_TESTNET } from "@zcashreveal/instruments";
 import { ExitOnlyViolation, NegativeBalanceError, ZCashRevealStateError } from "../errors.js";
 import { ValuePool } from "../value-pool.js";
 

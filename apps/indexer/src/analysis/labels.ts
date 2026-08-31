@@ -59,7 +59,8 @@ import { LABELLER_RANK, type Labeller } from "@zcashreveal/types";
  *     `zebra-consensus` funding-stream tables, or zcashd's chainparams). This
  *     repository has neither, and a session cannot fetch a ZIP: `zips.z.cash`
  *     is refused by the egress proxy with `CONNECT tunnel failed, response 403`
- *     (recorded at `activation-heights.ts` and LEDGER-07 Q5).
+ *     (recorded at `@zcashreveal/instruments`'s `activation-heights.ts` and
+ *     LEDGER-07 Q5).
  *     Note that ECC's and ZF's streams ENDED at NU6, block 2,726,400 - Swihart:
  *     "Our wallet address will no longer be codified in the protocol" - so a
  *     complete implementation is historical for two of the three recipients and

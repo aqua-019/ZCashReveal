@@ -75,7 +75,8 @@ export const MAX_SUPPORTED_TX_VERSION = 6;
  * - "229/258/318/326 = Draft"). A Draft ZIP may be edited, so the format this
  * decoder models can still change under it. The Ironwood ACTIVATION HEIGHTS
  * carry the same dependency and are marked at
- * `activation-heights.ts:IRONWOOD_HEIGHTS_REST_ON_A_DRAFT_ZIP`; this is the
+ * `@zcashreveal/instruments`'s `activation-heights.ts`, constant
+ * `IRONWOOD_HEIGHTS_REST_ON_A_DRAFT_ZIP`; this is the
  * same fact for the format rather than for the height, marked here so a grep
  * for "Draft" finds both. Tracked as a standing deferred entry in
  * `handoffs/LEDGER.md`.

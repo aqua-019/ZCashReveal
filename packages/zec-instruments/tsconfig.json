@@ -8,8 +8,6 @@
   },
   "include": ["src/**/*"],
   "references": [
-    { "path": "../../packages/zec-types" },
-    { "path": "../../packages/zec-instruments" },
-    { "path": "../../packages/zebra-rpc" }
+    { "path": "../zec-types" }
   ]
 }

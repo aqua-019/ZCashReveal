@@ -277,6 +277,29 @@ renders as a measurement**, which is the same rule `sprout-field.ts` applies to 
 The schema is `packages/zec-types/src/snapshot.ts`. It is a zod schema, so the assertion that a
 published document conforms is a parse and not a review.
 
+**WHICH OF THOSE PANELS THE PUBLISHER ACTUALLY FILLS, as of HANDOFF-09a (31 Aug 2026), because
+"can say not measured" is a property of the type and says nothing about what ships.** HANDOFF-09
+published `residual`, `drain`, `migrationHist` and `neffSeries` as `null` on **every** tip, for a
+reason that was structural: the three estimators lived in `apps/indexer/src/analysis/`, and this
+image cannot contain `apps/indexer` — its dependency tree carries `zeromq`, a native addon this
+image has no compiler for, and its entry point opens a ZMQ subscriber. HANDOFF-09a moved them into
+`packages/zec-instruments`, a workspace package that depends on `@zcashreveal/types` and nothing
+else, and the publisher's composition root now passes the real functions. The state after that move
+is **two of the four**, and the remaining two are the INPUT layer rather than the packaging:
+
+| panel | published | why |
+| --- | --- | --- |
+| `residual` | **measured** | supply and lane balances both come from `getblockchaininfo` |
+| `migrationHist` | **measured** | crossings come from `migrations_zip318`, whose three columns are `Crossing`'s three fields |
+| `drain` | still `null` | `pool_snapshots.ts` is `TIMESTAMPTZ DEFAULT NOW()` — the time the indexer **wrote** the row, not the block's. Plan §3.3's velocity is "from block timestamps", and a write time is right to within seconds at the tip and arbitrarily wrong across a catch-up sync. The repair is a block-time column, i.e. a migration. |
+| `neffSeries` | still `null` | the Ironwood spends and their Cand_0 bounds live in the indexer's candidate analysis, not in any table this process reads |
+
+Both remaining absences are HANDOFF-11's, which **may not ship a null analysis panel** (LEDGER-09
+Q4). They are pinned by an executing assertion rather than by this paragraph:
+`apps/publisher/src/__tests__/instruments-wired.test.ts` asserts the two measured panels are
+non-null and the two absent ones are null on the production input shape, so a session that makes
+either measurable is told to re-read this table.
+
 ### 8.2 Why there is a `schema` field the handoff did not ask for
 
 HANDOFF-09 §3 names ten fields and this document carries eleven. A type called `SnapshotV1` that

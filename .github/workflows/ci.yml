@@ -189,6 +189,17 @@ jobs:
       - name: Ledger structure (no heading separated from its block)
         run: node scripts/check-ledger-structure.mjs
 
+      # packages/zec-instruments exists for exactly one reason: the publisher's
+      # image carries no compiler and its runtime opens no sockets, so it cannot
+      # depend on apps/indexer, which pulls zeromq (a native addon) and whose
+      # entry point starts a ZMQ subscriber. HANDOFF-09 spent a whole handoff
+      # publishing four null analysis panels for want of that split. The
+      # constraint is checked as a GRAPH rather than trusted as a comment,
+      # transitively, because the edge that matters is the one nobody adds
+      # directly.
+      - name: Instrument package dependency graph (no zeromq, no indexer)
+        run: node scripts/check-instrument-deps.mjs
+
       - name: Install
         run: pnpm install --frozen-lockfile
 

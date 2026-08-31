@@ -40,6 +40,7 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json tsconfig.base.js
 COPY packages/zec-types/package.json ./packages/zec-types/
 COPY packages/content/package.json ./packages/content/
 COPY packages/zebra-rpc/package.json ./packages/zebra-rpc/
+COPY packages/zec-instruments/package.json ./packages/zec-instruments/
 COPY apps/indexer/package.json ./apps/indexer/
 COPY apps/gateway/package.json ./apps/gateway/
 COPY apps/publisher/package.json ./apps/publisher/
