@@ -343,6 +343,48 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
     // simply switching the join on.
   });
 
+  it("re-basing the DRAIN CHART does not move Ironwood's birth height", async () => {
+    // A REGRESSION PIN FOR A DEFECT THAT WAS SILENT. The first draft of this
+    // handoff read `birthHeight` from `SNAPSHOT_DRAIN_BASELINE_HEIGHT`, arguing
+    // one configured height beats two. But that value is a CHART ORIGIN an
+    // operator may legitimately re-base - `orchardDrain`'s own docblock invites
+    // it - while a birth height is a consensus fact. Sharing them meant moving
+    // the chart origin above a spend's height silently dropped that spend from
+    // `neffSeries`: a real measurement, of a window nobody asked for, with
+    // nothing on the page saying so.
+    //
+    // THE MUTATION IS A DATA ONE, drawn from the set the predicate must reject:
+    // a drain baseline ABOVE the admitted spend's height. Under the old code
+    // this produced an empty series; under the current code the series is
+    // unchanged, because the two heights are now independent.
+    const rebased = loadConfig({
+      SNAPSHOT_DRAIN_BASELINE_HEIGHT: String(TIP - 5),
+    });
+    const inputs = await readSnapshotInputs(deps({ cfg: rebased }), tip);
+
+    expect(inputs.ironwoodWindow?.birthHeight).toBe(BASELINE_HEIGHT);
+    expect(inputs.ironwoodSpends).toHaveLength(1);
+
+    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, () => undefined);
+    expect(snapshot.neffSeries?.spendCount, "the spend was dropped by a re-based chart origin").toBe(1);
+
+    // AND THE FAIL SIDE, so the assertion above is evidence rather than a
+    // restatement: the old conflation, reproduced by passing the re-based height
+    // as the birth height directly. The spend sits below it and must vanish.
+    const conflated = await readSnapshotInputs(deps({ cfg: rebased }), tip);
+    const asOldCode = {
+      ...conflated,
+      ironwoodWindow: conflated.ironwoodWindow
+        ? { ...conflated.ironwoodWindow, birthHeight: rebased.SNAPSHOT_DRAIN_BASELINE_HEIGHT }
+        : null,
+    };
+    const oldSnapshot = buildSnapshot(asOldCode, REAL_INSTRUMENTS, () => undefined);
+    expect(
+      oldSnapshot.neffSeries?.spendCount,
+      "the conflation probe did not discriminate - it must drop the spend",
+    ).toBe(0);
+  });
+
   it.runIf(!up)("A1 SKIPPED, WITH ITS REASON: no reachable Postgres with migration 005 applied", () => {
     expect(up).toBe(false);
   });

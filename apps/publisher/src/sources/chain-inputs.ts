@@ -399,18 +399,22 @@ export async function readSnapshotInputs(
     ironwoodSpends = ironwoodSpendsFromRows(
       await deps.queryIronwoodSpends(ironwoodLow, tip.height),
     );
-    // THE BIRTH HEIGHT IS THE DRAIN BASELINE HEIGHT, AND THAT IS ONE CONSTANT
-    // AND NOT TWO. Both are NU6.3: Orchard becomes exit-only and Ironwood is
-    // born at the same activation, so `SNAPSHOT_DRAIN_BASELINE_HEIGHT` is read
-    // for both rather than a second knob being added that an operator could set
-    // to a different number. `ironwoodBirth` names the hazard itself - passing
-    // mainnet's height while replaying testnet admits spends below testnet's
-    // birth into a series whose x-axis starts before the pool existed - and one
-    // configured height is one thing to get right instead of two.
+    // THE BIRTH HEIGHT IS ITS OWN CONFIGURED VALUE, NOT THE DRAIN BASELINE, even
+    // though both default to NU6.3 and coincide on mainnet. A first draft read
+    // the drain baseline here, arguing that one configured height is one thing
+    // to get right instead of two. That was wrong, and the failure it produces
+    // is silent: the drain baseline is a CHART ORIGIN an operator may
+    // legitimately re-base - `orchardDrain`'s docblock says so in as many words,
+    // "a chart re-based to a later height" - and a birth height is a CONSENSUS
+    // FACT that cannot be re-based at all. Sharing them means re-basing the
+    // drain chart also moves Ironwood's birth, `ironwoodBirth` then drops every
+    // spend below the new value, and `neffSeries` shortens into a real
+    // measurement of a window nobody asked for, with nothing on the page saying
+    // so. See `SNAPSHOT_IRONWOOD_BIRTH_HEIGHT` in config.ts.
     ironwoodWindow = {
       lowHeight: ironwoodLow,
       highHeight: tip.height,
-      birthHeight: deps.cfg.SNAPSHOT_DRAIN_BASELINE_HEIGHT,
+      birthHeight: deps.cfg.SNAPSHOT_IRONWOOD_BIRTH_HEIGHT,
     };
   }
 

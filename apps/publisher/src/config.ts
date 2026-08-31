@@ -168,6 +168,40 @@ const Schema = z.object({
    * investigate a migration burst should not silently rescale the other.
    */
   SNAPSHOT_IRONWOOD_WINDOW_BLOCKS: z.coerce.number().int().positive().default(BLOCKS_PER_DAY),
+
+  /**
+   * The height Ironwood was born at - NU6.3 on the network this publisher reads.
+   *
+   * A SEPARATE KNOB FROM `SNAPSHOT_DRAIN_BASELINE_HEIGHT` EVEN THOUGH BOTH
+   * DEFAULT TO THE SAME NUMBER, and the reason is that they are different KINDS
+   * of quantity that happen to coincide on mainnet.
+   *
+   * `SNAPSHOT_DRAIN_BASELINE_HEIGHT` is a CHART ORIGIN. `orchardDrain`'s own
+   * docblock says so - "the baseline is the caller's, not this module's ... the
+   * drain is well defined against any baseline a caller can justify, testnet's
+   * NU6.3, or A CHART RE-BASED TO A LATER HEIGHT" - so an operator moving it to
+   * re-base the drain is using it exactly as intended.
+   *
+   * A BIRTH HEIGHT IS A CONSENSUS FACT and cannot be re-based at all. The first
+   * draft of HANDOFF-09b read `birthHeight` from the drain baseline, on the
+   * argument that "one configured height is one thing to get right instead of
+   * two". That argument was wrong, and the failure it produces is silent: an
+   * operator re-basing the drain chart to a later height would move Ironwood's
+   * birth with it, `ironwoodBirth` would exclude every spend below the new
+   * value, and `neffSeries` would shorten - a real measurement, of a window
+   * nobody asked for, with nothing on the page saying so.
+   *
+   * The two-knobs-can-drift objection is real and is answered by which drift
+   * matters: setting this wrong shortens or over-extends a series, and
+   * `violatesBirthBound` is the falsifiable check a caller runs for exactly
+   * that. Setting the drain baseline wrong changes a denominator that is
+   * PUBLISHED beside its result, where a reader can see it.
+   */
+  SNAPSHOT_IRONWOOD_BIRTH_HEIGHT: z.coerce
+    .number()
+    .int()
+    .nonnegative()
+    .default(NU6_3_MAINNET_HEIGHT),
 });
 
 export type PublisherConfig = z.infer<typeof Schema>;
