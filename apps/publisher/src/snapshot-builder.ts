@@ -251,7 +251,22 @@ function panelOrNull<T>(panel: string, build: () => T, onFault: PanelFault): T |
   try {
     return build();
   } catch (err) {
-    onFault(panel, err);
+    // A BROKEN SINK IS NOT WORTH THE DOCUMENT IT WOULD COST (gate round 3).
+    // Identical shape and identical reason to `readSnapshotInputs`' `fault`
+    // wrapper, which gained this guard one round earlier and at one of the TWO
+    // sites that needed it: this call is INSIDE a `catch`, so a throw here
+    // escapes `buildSnapshot` entirely and the tip publishes nothing - the exact
+    // whole-document loss `panelOrNull` exists to prevent. In production both
+    // sinks are the same pino `log.error`, so one broken logger reached both.
+    //
+    // `void` does not forbid an async sink - TypeScript's void-return
+    // assignability admits `Promise<void>` - and a rejected promise escapes a
+    // `catch`, so both halves are caught.
+    try {
+      void Promise.resolve(onFault(panel, err)).catch(() => undefined);
+    } catch {
+      /* intentionally empty */
+    }
     return null;
   }
 }

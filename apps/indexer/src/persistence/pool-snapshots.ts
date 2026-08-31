@@ -20,8 +20,9 @@
  * and would force `PoolStateSnapshot`, a type shared through
  * `packages/zec-types`, to gain a field that nothing in memory produces. The
  * consequence a reader can check by eye: {@link writePoolSnapshot} takes the
- * snapshot and the connection and nothing else, exactly like the other four pool
- * writers, and needs no third parameter for a clock.
+ * snapshot and the connection and nothing else, exactly like the three pool writers
+ * whose signature is still `writeX(record, conn)`, and needs no third parameter
+ * for a clock.
  */
 
 import type { Sql } from "postgres";

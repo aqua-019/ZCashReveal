@@ -104,7 +104,7 @@ describe.skipIf(!reachable)("pool_nullifiers persistence", () => {
     expect(await readPoolNullifierAnchor("ironwood", h(0x11), sql)).toBe(h(0xee));
 
     // AND A RECORDED ANCHOR STILL WINS. COALESCE fills a NULL in; it never
-    // overwrites an observation, which is the property the four pool writers
+    // overwrites an observation, which is the property the three pool writers that still use DO NOTHING
     // share and which a bare DO UPDATE would have broken.
     await writePoolNullifier(rec, sql, h(0xff));
     expect(await readPoolNullifierAnchor("ironwood", h(0x11), sql)).toBe(h(0xee));

@@ -31,6 +31,10 @@ import { labelsVersionOf } from "../labels-version.js";
 import { redactUrlCredentials } from "../logger.js";
 import { crossingsFromRows, readChainValues } from "../sources/chain-inputs.js";
 import { parseTipMessage } from "../sources/tip-source.js";
+import { snapshotNeffSeriesSchema } from "@zcashreveal/types";
+import { REAL_INSTRUMENTS } from "../instruments.js";
+import { buildSnapshot } from "../snapshot-builder.js";
+import { fixtureInputs } from "./harness.js";
 
 const EMPTY_ENV: NodeJS.ProcessEnv = {};
 
@@ -286,5 +290,82 @@ describe("ironwoodSpendsFromRows - the pure row mapper", () => {
     expect(() => ironwoodSpendsFromRows([row({ max_position: "-5" })])).toThrow(
       /not a candidate set/,
     );
+  });
+});
+
+describe("the two fault sinks - a broken logger costs nothing", () => {
+  it("buildSnapshot survives a THROWING panel sink", () => {
+    // THE SECOND OF TWO SITES (gate round 3). `readSnapshotInputs` gained this
+    // guard one round earlier and `panelOrNull` did not, though the call sits in
+    // a `catch` in both and in production both sinks are the same pino
+    // `log.error` - so one broken logger reached both. Executed then: this threw
+    // and the tip published nothing at all.
+    // THE FIXTURE MUST MAKE A PANEL ACTUALLY FAULT, or the sink is never called
+    // and this test passes with the guard removed - which the first draft did.
+    // An empty series with a PRESENT baseline is what `orchardDrain` refuses:
+    // "the series holds no sample at or below atHeight ... a drain of 0 would be
+    // a reading this call never took."
+    const inputs = fixtureInputs(3_500_000, { orchardSeries: [] });
+    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, () => {
+      throw new Error("the logger itself is broken");
+    });
+    expect(snapshot.height).toBe(inputs.height);
+    expect(snapshot.drain).toBeNull();
+  });
+
+  it("buildSnapshot survives an ASYNC panel sink that rejects", async () => {
+    // `void` does not forbid an async sink - TypeScript's void-return
+    // assignability admits `Promise<void>` - and a rejected promise escapes a
+    // `catch`. Unhandled, that is a Node 22 process exit: worse than the
+    // document loss the guard was added to prevent.
+    // THE FIXTURE MUST MAKE A PANEL ACTUALLY FAULT, or the sink is never called
+    // and this test passes with the guard removed - which the first draft did.
+    // An empty series with a PRESENT baseline is what `orchardDrain` refuses:
+    // "the series holds no sample at or below atHeight ... a drain of 0 would be
+    // a reading this call never took."
+    const inputs = fixtureInputs(3_500_000, { orchardSeries: [] });
+    const rejections: unknown[] = [];
+    const onUnhandled = (err: unknown) => rejections.push(err);
+    process.on("unhandledRejection", onUnhandled);
+    try {
+      const snapshot = buildSnapshot(
+        inputs,
+        REAL_INSTRUMENTS,
+        (() => Promise.reject(new Error("the async logger is broken"))) as unknown as () => void,
+      );
+      expect(snapshot.height).toBe(inputs.height);
+      await new Promise((r) => setImmediate(r));
+      expect(rejections, "a rejected sink must not reach the process").toEqual([]);
+    } finally {
+      process.off("unhandledRejection", onUnhandled);
+    }
+  });
+});
+
+describe("snapshotNeffSeriesSchema's windowSpendCount invariant", () => {
+  const panel = (spendCount: number, windowSpendCount: number) => ({
+    birthHeight: 3_428_143,
+    series: [],
+    spendCount,
+    windowSpendCount,
+    shares: {
+      aggregate_only: 0,
+      broad_candidate_set: 0,
+      small_heuristic_set: 0,
+      requires_disclosure: 0,
+    },
+  });
+
+  it("REFUSES a population smaller than the measurement drawn from it", () => {
+    // "Always >= spendCount" was written only in a docstring, and both the
+    // gateway and apps/web re-validate with this schema - so it is the thing
+    // that fails closed (gate round 3). Inverted, SNAPSHOT.md 8.1's mandated
+    // form renders "N_eff over 5 of 2 spends in the window".
+    expect(snapshotNeffSeriesSchema.safeParse(panel(5, 2)).success).toBe(false);
+  });
+
+  it("ADMITS equal counts, which is the fully-measured window", () => {
+    expect(snapshotNeffSeriesSchema.safeParse(panel(2, 2)).success).toBe(true);
+    expect(snapshotNeffSeriesSchema.safeParse(panel(2, 4)).success).toBe(true);
   });
 });

@@ -47,8 +47,10 @@ import { asHex } from "@zcashreveal/types";
  * is supposed to mean.
  *
  * `COALESCE(existing, incoming)` keeps the recorded value winning, so the "never
- * overwrite an observation" property the four pool writers share survives: only
- * a NULL is ever filled in.
+ * overwrite an observation" property survives here too: only a NULL is ever
+ * filled in. THREE pool writers still share it - `writePoolSnapshot` is no
+ * longer one of them, because it refreshes every column for the reason
+ * `blocks.ts` gives.
  *
  * AND THE `WHERE` REFUSES A MIXED-CHAIN ROW, WHICH THE FIRST `DO UPDATE` BUILT
  * (gate round 2, MEDIUM). The clause updates `anchor_root` alone, so

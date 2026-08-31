@@ -201,7 +201,7 @@ describe.skipIf(!reachable)("rollbackAllToHeight (chain-level reorg primitive)",
     // so the fields cannot be swapped without this failing.
     expect(counts).toMatchObject({ snapshots: 1, blocks: 2 });
 
-    // AND THE ROW AT EXACTLY H SURVIVES, matching the other four tables so a
+    // AND THE ROW AT EXACTLY H SURVIVES, matching the other five tables so a
     // driver can call one function with one height.
     expect((await readBlockTimes(0, 1000, sql)).map((b) => b.height)).toEqual([100]);
     expect((await readPoolSnapshots("orchard", 0, 1000, sql)).map((r) => r.height)).toEqual([100]);
@@ -214,5 +214,15 @@ describe.skipIf(!reachable)("rollbackAllToHeight (chain-level reorg primitive)",
     await expect(
       writeBlock({ height: -1, timeS: 1_780_000_000, hash: hx(1) }, sql),
     ).rejects.toThrow(/blocks_height_check/);
+
+    // AND ADMITS ZERO, WHICH IS THE HALF THAT MAKES THE PREDICATE `>= 0` RATHER
+    // THAN `> 0`. This is the one mutation gate round 3 ran that SURVIVED: the
+    // constraint's own comment says its argument is `time_s`'s, `time_s` is
+    // `> 0`, and a one-character copy of that predicate passed all 444 indexer
+    // tests while rejecting the genesis block forever. Height 0 is a legitimate
+    // chain observation - regtest, a replay from genesis, any devnet - so the
+    // negative case alone was never the assertion.
+    await writeBlock({ height: 0, timeS: 1_780_000_000, hash: hx(2) }, sql);
+    expect((await readBlockTimes(0, 0, sql)).map((b) => b.height)).toEqual([0]);
   });
 });

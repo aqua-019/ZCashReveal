@@ -129,8 +129,10 @@ export async function truncateAll(sql: Sql): Promise<void> {
     throw new Error(
       "truncateAll refused: ZR_TEST_SCHEMA is unset, so `search_path` is `public` and this " +
         "would TRUNCATE the shared tables rather than this run's own. Add " +
-        '`globalSetup: ["./test/global-setup.ts"]` to this package\'s vitest config (see ' +
-        "`apps/publisher/vitest.config.ts`), or set ZR_ALLOW_PUBLIC_TRUNCATE=1 if the database " +
+        "a `globalSetup` pointing at `apps/indexer/test/global-setup.ts` to this package's " +
+        "vitest config - `./test/global-setup.ts` from apps/indexer, " +
+        '`../indexer/test/global-setup.ts` from anywhere else (see ' +
+        "`apps/publisher/vitest.config.ts`) - or set ZR_ALLOW_PUBLIC_TRUNCATE=1 if the database " +
         "really is disposable.",
     );
   }

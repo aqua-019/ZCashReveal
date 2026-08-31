@@ -298,12 +298,13 @@ was **two of the four**, and the remaining two were the INPUT layer rather than 
 | `drain` | **measured** since HANDOFF-09b | it was `null` because `pool_snapshots.ts` is `TIMESTAMPTZ DEFAULT NOW()` — the time the indexer **wrote** the row, not the block's — and §3.3's velocity is "from block timestamps". Migration 005 adds a `blocks` table (`height`, `time_s`, `hash`), one row per height rather than a column stored four times per height, and the series joins it. A snapshot whose height has no block row is dropped rather than timestamped from a fallback. |
 | `neffSeries` | **measured** since HANDOFF-09b | it was `null` because no table carried the (nullifier → anchor) edge. `pool_anchors.max_position` already held the Cand_0 bound; migration 005 adds `pool_nullifiers.anchor_root` so a spend can name the anchor that bounds it, and `candidateCount` is derived as `max_position + 1` rather than stored. |
 
-Both remaining absences are **HANDOFF-09b's** (LEDGER-09a Q1), not HANDOFF-11's, and both are the
-INPUT layer: `drain` needs a block-time source and `neffSeries` needs an Ironwood spend source.
-They are pinned by an executing assertion rather than by this paragraph:
-`apps/publisher/src/__tests__/instruments-wired.test.ts` asserts the two measured panels are
-non-null and the two absent ones are null on the production input shape, so a session that makes
-either measurable is told to re-read this table.
+Both of those absences were **HANDOFF-09b's** (LEDGER-09a Q1), not HANDOFF-11's, and both were the
+INPUT layer: `drain` needed a block-time source and `neffSeries` needed an Ironwood spend source.
+**09b supplied both, so all four panels are measurements on the production path** and the table
+above records what closed each one. They are pinned by an executing assertion rather than by this
+paragraph: `apps/publisher/src/__tests__/instruments-wired.test.ts` asserts all four are non-null on
+the production input shape, and by VALUE rather than by presence, because a panel of zeros satisfies
+`.not.toBeNull()` and is the exact reading section 8.1 forbids the site to render.
 
 #### The rendering contract for an unmeasured panel
 
@@ -328,10 +329,10 @@ a **named absence carrying its owner**:
 | --- | --- |
 | `drain` | `drain: not measured — needs a block-time source (HANDOFF-09b)` |
 | `neffSeries` | `N_eff series: not measured — needs an Ironwood spend source (HANDOFF-09b)` |
-
-**And a rule for `neffSeries` when it IS measured, because a panel can be present and still make a claim it cannot support.** Its `shares` are computed over `spendCount` — the spends whose anchor resolved — and `windowSpendCount` is how many Ironwood spends there were in the window. **A renderer must show the pair, never a share alone.** Four of five spends unbounded publishes `requires_disclosure: 1` over a single spend, and rendered as "100% require disclosure" that is a measurement of the window it was not taken over. `N_eff over 2 of 4 spends in the window` is the honest form; a bare percentage is not.
 | `residual` | `unprovable residual: not measured — the node reported no supply` |
 | `migrationHist` | `migration histogram: not measured — no migration window was read` |
+
+**And a rule for `neffSeries` when it IS measured, because a panel can be present and still make a claim it cannot support.** Its `shares` are computed over `spendCount` — the spends whose anchor resolved — and `windowSpendCount` is how many Ironwood spends there were in the window. **A renderer must show the pair, never a share alone.** Four of five spends unbounded publishes `requires_disclosure: 1` over a single spend, and rendered as "100% require disclosure" that is a measurement of the window it was not taken over. `N_eff over 2 of 4 spends in the window` is the honest form; a bare percentage is not.
 
 The first two name a HANDOFF because the absence is a gap in this project's pipeline that a
 numbered handoff owns and closes. The second two name a CONDITION instead, because their inputs

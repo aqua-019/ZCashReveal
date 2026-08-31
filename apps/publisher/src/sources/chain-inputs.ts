@@ -26,9 +26,11 @@
  *   Cand_0, which `rawCandidateRange` defines as `pool_anchors.max_position + 1`.
  *   That bound was already on disk; what no table could say was WHICH anchor a
  *   spend cited. Migration 005 adds `pool_nullifiers.anchor_root` and this module
- *   joins it. A spend whose anchor is unknown yields no count and is excluded by
- *   the join, which is `rawCandidateRange` returning null - "a candidate count
- *   cannot be claimed" - arriving as an absent row rather than as a zero.
+ *   joins it, LEFT, so a spend whose anchor is unknown still comes back - with a
+ *   NULL bound, which is `rawCandidateRange` returning null, "a candidate count
+ *   cannot be claimed". `ironwoodSpendsFromRows` drops it, and the row count it
+ *   was drawn from is published as `windowSpendCount`, so a share computed over
+ *   the bounded subset cannot be read as a statement about the window.
  *
  *   NOT READ - `lastReports`. `mempoolRowSchema`'s fields are a VIEW - the flow
  *   text, the version text, the lane list, the severity - computed by
@@ -436,7 +438,13 @@ export async function readSnapshotInputs(
   const sink: InputFault = deps.onInputFault ?? (() => undefined);
   const fault: InputFault = (panel, err) => {
     try {
-      sink(panel, err);
+      // `void` IN `InputFault` DOES NOT FORBID AN ASYNC SINK - TypeScript's
+      // void-return assignability admits `Promise<void>` - and a rejected
+      // promise escapes a `catch` entirely. Executed: an `async` sink that
+      // throws produced an UNHANDLED REJECTION that reached the process, which
+      // on Node 22 is an exit - worse than the document loss this guard was
+      // added to prevent (gate round 3). Both halves are caught.
+      void Promise.resolve(sink(panel, err)).catch(() => undefined);
     } catch {
       /* a broken sink is not worth the document it would cost */
     }
@@ -553,7 +561,29 @@ export async function readSnapshotInputs(
               `${tip.height}, so the pool does not exist yet at this height`,
           ),
         );
-        return { spends: null, window: null };
+        // MEASURED AND EMPTY, NOT ABSENT (gate round 3). Returning `null` here
+        // published the same `neffSeries: null` as "no Ironwood spend source",
+        // and SNAPSHOT.md section 8.1 makes that null render as "needs an
+        // Ironwood spend source (HANDOFF-09b)" - naming a handoff for an absence
+        // no handoff can close, on every block of an initial sync. That document
+        // draws the distinction against itself one line later: a CONDITION, not
+        // an owner, is what an absence of this kind names.
+        //
+        // `[]` is also the answer `ironwoodBirth` documents as correct, which
+        // the first version of this guard quoted and then made unreachable: "a
+        // `highHeight` below `birthHeight` is NOT an error: it is a window
+        // before the pool existed, and the empty series is the correct answer to
+        // it." A degenerate one-block window keeps the estimator's own
+        // precondition (`lowHeight <= highHeight`) satisfied.
+        return {
+          spends: [],
+          window: {
+            lowHeight: tip.height,
+            highHeight: tip.height,
+            birthHeight: deps.cfg.SNAPSHOT_IRONWOOD_BIRTH_HEIGHT,
+            spendsInWindow: 0,
+          },
+        };
       }
       const rows = await deps.queryIronwoodSpends(ironwoodLow, tip.height);
       const spends = ironwoodSpendsFromRows(rows);

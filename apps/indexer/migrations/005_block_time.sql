@@ -95,7 +95,8 @@
 --     type-widening shape CLAUDE.md warns about, where every consumer's
 --     coalesce has been dead code for as long as the field was absent - or a
 --     third parameter on the writer, breaking the uniform `writeX(record, conn)`
---     signature the other four pool writers share. The table shape needs
+--     signature three of the other four pool writers share (`writePoolBoundaryFlow`
+--     always took a third). The table shape needs
 --     neither, and `writePoolSnapshot` below takes no time argument at all.
 --   * The mapping is reusable. `migrations_zip318` and `pool_nullifiers` both
 --     carry a MINED height and neither can name a time. (`leak_reports` is NOT

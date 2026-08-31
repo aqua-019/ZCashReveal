@@ -237,7 +237,10 @@ DATABASE_URL="postgres://zcashreveal:<password>@127.0.0.1:5433/zcashreveal" \
 **005 adds `blocks` and `pool_nullifiers.anchor_root`, and it is ordinary.**
 Every statement is `IF NOT EXISTS`, it rewrites no rows, and it was proven
 re-runnable by applying it twice against a real Postgres 16 and diffing the full
-schema. It is what makes the `drain` and `neffSeries` panels measurements rather
+schema. **Apply it from the merged tree, not from a branch checkout.** A no-op
+includes not applying later corrections, and `schema_migrations` keys on the
+filename, so a database that ran an earlier draft cannot receive them by
+re-running the file - it needs those objects corrected by hand. It is what makes the `drain` and `neffSeries` panels measurements rather
 than stated absences: `blocks` carries the block header's own timestamp, because
 `pool_snapshots.ts` is the time the indexer WROTE the row and a velocity measured
 against that is arbitrarily wrong across a catch-up sync.
