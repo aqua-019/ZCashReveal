@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZECReveal 04a - legibility pass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Fraunces:opsz,wght@9..144,400;9..144,600&family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#121110; --bg-deep:#0c0b0a; --surface:#1a1816; --surface-2:#221f1b; --surface-3:#2a2621;
+  --line:rgba(237,230,216,.10); --line-strong:rgba(237,230,216,.18); --line-faint:rgba(237,230,216,.06);
+  --ink:#ede6d8; --ink-dim:#b3a996; --ink-mute:#8f8576; --ink-faint:#6a6157;
+  --gold:#f4b728; --gold-ink:#1a1405; --gold-dim:rgba(244,183,40,.55); --gold-wash:rgba(244,183,40,.08);
+  --blue-fn:#4c8dff; --danger:#e4553f; --danger-wash:rgba(228,85,63,.10); --warn:#d9a441; --ok:#3fa776;
+  --p-transparent:#3a8bd9; --p-sprout:#1f9e62; --p-sapling:#d9641e; --p-orchard:#c94f8f; --p-ironwood:#8b7fe6;
+  --curve:cubic-bezier(.32,.72,0,1);
+  --serif:"Instrument Serif",Georgia,serif;
+  --num:"Fraunces",Georgia,serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  --prose:"Manrope",system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--prose);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased}
+
+/* FLOOR: nothing below 12px anywhere in this document. */
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mute)}
+.data{font-family:var(--mono);font-size:13px;color:var(--ink-dim);font-variant-numeric:tabular-nums}
+.prose{font-size:16px;line-height:1.65;color:var(--ink-dim);max-width:64ch}
+.prose b{color:var(--ink);font-weight:600}
+.sm{font-size:15px}
+
+/* ---------- system bar ---------- */
+.sysbar{position:sticky;top:0;z-index:40;background:rgba(12,11,10,.90);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+/* THE APPROACH ZONE. "or near": a transparent strip below the bar so the nav
+   opens as the cursor arrives rather than only on contact. It rides `top:100%`
+   so it travels with the bar as it grows, and it sits inside the page's own
+   64px of head-room, where there is nothing to intercept. */
+.sysbar::after{content:"";position:absolute;left:0;right:0;top:100%;height:22px}
+.sysbar-in{max-width:1180px;margin:0 auto;padding:9px 22px 10px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+
+/* Collapsed by default: one thin line. Opens on hover, on keyboard focus, and
+   on tap - three paths, because hover alone excludes touch and the keyboard. */
+.navwrap{width:100%;display:grid;grid-template-rows:0fr;transition:grid-template-rows .34s var(--curve)}
+.navwrap > .navinner{overflow:hidden;min-height:0}
+.sysbar:hover .navwrap,
+.sysbar:focus-within .navwrap,
+.sysbar[data-open] .navwrap{grid-template-rows:1fr}
+.navgroups{display:flex;gap:34px;flex-wrap:wrap;width:100%;padding:14px 0 4px;border-top:1px solid var(--line-faint);margin-top:9px}
+
+/* the collapsed line still says where you are - hiding the nav must not cost
+   orientation, which was the complaint in the first place */
+.here{display:flex;align-items:center;gap:9px;background:none;border:0;padding:4px 8px;margin:0 -8px;
+  border-radius:3px;cursor:pointer;font:inherit;color:inherit;transition:opacity .18s var(--curve)}
+.here:hover{opacity:.66}
+.here:focus-visible{outline:2px solid var(--blue-fn);outline-offset:1px}
+.here-idx{font-family:var(--mono);font-size:12px;color:var(--gold)}
+.here-label{font-family:var(--prose);font-size:14px;font-weight:600;color:var(--ink)}
+.here-chev{width:10px;height:10px;color:var(--ink-mute);transition:transform .28s var(--curve)}
+.sysbar:hover .here-chev,.sysbar:focus-within .here-chev,.sysbar[data-open] .here-chev{transform:rotate(180deg)}
+.wordmark{font-family:var(--serif);font-size:20px;letter-spacing:.01em;color:var(--ink);white-space:nowrap}
+.wordmark em{font-style:normal;color:var(--gold)}
+.clockdot{width:6px;height:6px;border-radius:50%;background:var(--gold);display:inline-block;margin-left:9px;vertical-align:middle}
+.tip{margin-left:auto;text-align:right}
+
+/* ---------- nav: grouped, and every item states what it is ---------- */
+.navgroup{flex:1 1 320px;min-width:0}
+.navgroup > .eyebrow{display:block;padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid var(--line-faint);color:var(--ink-mute)}
+.navlist{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.navlist a{display:grid;grid-template-columns:26px 1fr;gap:11px;text-decoration:none;padding:6px 8px;margin:0 -8px;border-radius:3px;transition:opacity .18s var(--curve)}
+.navlist a:hover{opacity:.62}
+.navlist a[aria-current]{background:var(--gold-wash)}
+.navidx{font-family:var(--mono);font-size:12px;color:var(--gold);padding-top:2px}
+.navlabel{display:block;font-family:var(--prose);font-size:15px;font-weight:600;color:var(--ink);line-height:1.3}
+.navdek{display:block;font-size:13.5px;line-height:1.45;color:var(--ink-mute);margin-top:2px}
+
+/* ---------- page ---------- */
+main{max-width:1180px;margin:0 auto;padding:0 22px 96px}
+.beat{border-left:1px solid var(--line-faint);padding-left:20px;margin-left:-21px}
+.beattag{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);display:block;margin-bottom:10px}
+
+/* 1. CLAIM */
+.claim{padding:64px 0 0}
+.claim h1{font-family:var(--serif);font-size:clamp(30px,4.6vw,50px);line-height:1.14;margin:0;max-width:24ch;color:var(--ink);font-weight:400}
+.claim .explain{margin:20px 0 0;font-size:17px;line-height:1.6;color:var(--ink-dim);max-width:60ch}
+.claim .explain b{color:var(--ink);font-weight:600}
+
+/* 3. EVIDENCE - the pool diagram */
+.evidence{margin-top:52px}
+.tank{background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:22px 22px 18px}
+.tankhead{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.tank-fig{margin:0}
+.tankbar{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-bottom:9px;margin-bottom:4px;border-bottom:1px solid var(--line-faint)}
+.tb-l{font-family:var(--mono);font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-dim)}
+.tb-sub{display:block;margin-top:4px;letter-spacing:0;text-transform:none;color:var(--ink-mute);font-variant-numeric:tabular-nums}
+.tb-r{font-family:var(--mono);font-size:12px;color:var(--ink-mute);font-variant-numeric:tabular-nums}
+.tb-r b{color:var(--gold);font-weight:500}
+.tb-r .warn{color:var(--ink-faint)}
+.tank-limit{font-size:13.5px;line-height:1.5;color:var(--ink-mute);margin:12px 0 0;max-width:76ch;
+  border-left:1px solid var(--line-strong);padding-left:12px}
+.tank-limit b{color:var(--ink-dim);font-weight:600}
+  .tflow{transition:opacity .18s var(--curve)}
+.tank-fig:hover .tflow{opacity:.32}
+.tank-fig:hover .tflow:hover{opacity:1}
+.node{transition:opacity .18s var(--curve)}
+.tank-fig:hover .node{opacity:.55}
+.tank-fig:hover .node:hover{opacity:1}
+#tank{width:100%;height:auto;display:block}
+#tanklegend{display:flex;gap:20px;flex-wrap:wrap}
+#tanklegend .lg{display:flex;align-items:center;gap:7px}
+#tanklegend .sw{width:9px;height:9px;border-radius:2px}
+#tanklegend b{color:var(--ink);font-weight:500}
+.tank-cap{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-top:10px;
+  font-family:var(--mono);font-size:12px;color:var(--ink-mute);font-variant-numeric:tabular-nums}
+.tank-cap b{color:var(--ink);font-weight:500}
+.tank-cap .quiet{color:var(--ink-faint);font-family:var(--prose);font-size:13px;max-width:52ch}
+.mono-inline{color:var(--ink-dim)}
+.lane-veil{fill:url(#veil)}
+.arc{fill:none;stroke:var(--gold);stroke-linecap:round;transition:opacity .18s var(--curve)}
+.arc:hover{opacity:.72}
+.arc-pending{fill:none;stroke:var(--ink-faint);stroke-dasharray:2 3;stroke-linecap:round}
+.lane-label{font-family:var(--mono);font-size:12px;fill:var(--ink-dim)}
+.lane-bal{font-family:var(--mono);font-size:12px;fill:var(--ink-mute)}
+.axis-lab{font-family:var(--mono);font-size:12px;fill:var(--ink-faint)}
+.tip-rule{stroke:var(--line-strong);stroke-width:1;stroke-dasharray:3 3}
+/* D3640 PRIVACY-FOG REGISTER. What an outside observer sees IS the resting
+   state. Transparent value is observable and renders solid; a shielded pool's
+   INTERIOR is not observable by anyone, including this site, so it renders
+   veiled - and its BOUNDARY, which is public, renders sharp. Solidity means
+   observability. A flat equal bar would claim this site can see inside four
+   pools it cannot. PERF=L: two gradients, no filter, no canvas. */
+.seg{position:relative;transition:opacity .18s var(--curve)}
+.seg[data-veiled]{opacity:.9}
+.seg[data-veiled]::before{content:"";position:absolute;inset:0;
+  background:repeating-linear-gradient(135deg,rgba(18,17,16,.34) 0 2px,transparent 2px 5px)}
+.seg[data-veiled]::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;
+  background:currentColor;box-shadow:0 54px 0 currentColor}
+.seg:hover{opacity:.72}
+.seg[data-tiny]{min-width:5px;box-shadow:0 0 0 1px var(--bg) inset}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:2px 20px;margin-top:16px}
+.lg{display:grid;grid-template-columns:9px 1fr auto;gap:9px;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--line-faint)}
+.sw{width:9px;height:9px;border-radius:2px;margin-top:5px}
+.lgname{font-family:var(--prose);font-size:14px;color:var(--ink)}
+.lgval{font-family:var(--mono);font-size:13px;color:var(--ink-dim);font-variant-numeric:tabular-nums;text-align:right}
+.lgpct{font-family:var(--mono);font-size:12px;color:var(--ink-mute);display:block;text-align:right}
+
+/* flows: the one gold job that is not identity or action */
+.flows{margin-top:20px;border-top:1px solid var(--line);padding-top:16px;display:grid;gap:9px}
+.flow{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:9px 12px;background:var(--surface-2);border-radius:3px}
+.flowline{display:flex;align-items:center;gap:9px;min-width:0}
+.flowdot{width:8px;height:8px;border-radius:50%;flex:none}
+.flowarrow{flex:1;height:1px;background:linear-gradient(90deg,var(--gold-dim),var(--gold));min-width:22px;position:relative}
+.flowarrow::after{content:"";position:absolute;right:-1px;top:-2.5px;border-left:5px solid var(--gold);border-top:3px solid transparent;border-bottom:3px solid transparent}
+.flowtxt{font-size:14px;color:var(--ink-dim)}
+/* D3646 LEDGER PERMANENCE TYPOGRAPHY. Two registers, one law: CONFIRMED chain
+   data is engraved - tabular, lining, letterspaced, full ink. PENDING data is
+   provisional - lighter weight, dimmer, no tracking. Permanence is readable
+   before a single label is, which is what lets the mempool populate a register
+   without animating (the ceremony clause). */
+.flowval{font-family:var(--mono);font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums lining-nums;letter-spacing:.04em;white-space:nowrap}
+.flow[data-pending]{border-left:1px solid var(--line-strong)}
+.flow[data-pending] .flowtxt{color:var(--ink-mute)}
+.flow[data-pending] .flowval{color:var(--ink-mute);letter-spacing:0;font-weight:400}
+.flow[data-pending] .flowarrow{background:linear-gradient(90deg,transparent,var(--ink-faint))}
+.flow[data-pending] .flowarrow::after{border-left-color:var(--ink-faint)}
+/* an absence states its CONDITION, never an owner */
+.absent{display:grid;grid-template-columns:1fr;gap:3px;padding:9px 12px;background:transparent;border:1px dashed var(--line);border-radius:3px}
+.absent .t{font-size:14px;color:var(--ink-mute)}
+.absent .c{font-family:var(--mono);font-size:12px;color:var(--ink-faint)}
+
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:5px;overflow:hidden;margin-top:20px}
+.metric{background:var(--surface);padding:18px 20px}
+.metric .k{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-mute);display:block}
+.metric .v{font-family:var(--num);font-size:33px;line-height:1.12;color:var(--ink);margin-top:9px;display:block;font-variant-numeric:tabular-nums}
+.metric .u{font-size:14px;color:var(--ink-mute);margin-left:5px;font-family:var(--prose)}
+.metric .n{font-size:13.5px;color:var(--ink-mute);margin-top:7px;line-height:1.45}
+
+/* 4. THE WORKING */
+.working{margin-top:40px;display:grid;gap:9px}
+details{background:var(--surface);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+details[open]{border-color:var(--line-strong)}
+summary{cursor:pointer;list-style:none;padding:14px 18px;display:flex;align-items:center;gap:12px;transition:opacity .18s var(--curve)}
+summary:hover{opacity:.66}
+summary::-webkit-details-marker{display:none}
+summary:focus-visible{outline:2px solid var(--blue-fn);outline-offset:-2px}
+.chev{width:11px;height:11px;flex:none;color:var(--ink-mute);transition:transform .22s var(--curve)}
+details[open] .chev{transform:rotate(90deg)}
+.sumtitle{font-size:15px;font-weight:600;color:var(--ink)}
+.sumcount{font-family:var(--mono);font-size:12.5px;color:var(--ink-mute);margin-left:auto;text-align:right;white-space:nowrap}
+.dbody{padding:2px 18px 18px;border-top:1px solid var(--line-faint)}
+.dbody .prose{margin:14px 0 0}
+.pubgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));gap:0 24px;margin:12px 0 0}
+.pubrow{display:grid;grid-template-columns:auto 1fr;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-faint);align-items:baseline}
+.pubname{font-family:var(--mono);font-size:13px;color:var(--ink)}
+.pubwhat{font-size:14px;color:var(--ink-mute)}
+
+/* chips: epistemic status is NEVER collapsed */
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}
+.chip{font-family:var(--mono);font-size:12px;padding:3px 9px;border-radius:2px;border:1px solid var(--line-strong);color:var(--ink-dim);white-space:nowrap}
+.chip.crit{border-color:rgba(228,85,63,.5);color:var(--danger);background:var(--danger-wash)}
+.chip.ok{border-color:rgba(63,167,118,.42);color:var(--ok)}
+
+.cta{margin-top:34px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.btn{font-family:var(--prose);font-size:15px;font-weight:600;padding:11px 20px;border-radius:3px;text-decoration:none;transition:opacity .18s var(--curve)}
+.btn:hover{opacity:.72}
+.btn.pri{background:var(--gold);color:var(--gold-ink)}
+.btn.sec{border:1px solid var(--line-strong);color:var(--ink)}
+
+/* record page */
+.entry{background:var(--surface);border:1px solid var(--line);border-radius:4px;margin-bottom:9px}
+.entryhead{padding:16px 18px}
+.entrytitle{font-family:var(--serif);font-size:21px;line-height:1.28;color:var(--ink);margin:0}
+.entrysum{font-size:15px;line-height:1.6;color:var(--ink-dim);margin:9px 0 0;max-width:78ch}
+.entry details{border:0;border-top:1px solid var(--line-faint);border-radius:0;background:transparent}
+.entry details summary{padding:12px 18px}
+
+/* screen switch + annotations */
+.switch{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:60;display:flex;gap:2px;background:var(--surface-3);border:1px solid var(--line-strong);border-radius:4px;padding:3px;box-shadow:0 6px 26px rgba(0,0,0,.5)}
+.switch button{font-family:var(--mono);font-size:12px;padding:8px 14px;background:transparent;border:0;color:var(--ink-mute);cursor:pointer;border-radius:3px;transition:opacity .18s var(--curve)}
+.switch button:hover{opacity:.7}
+.switch button[data-on]{background:var(--gold);color:var(--gold-ink)}
+.pin{display:none;font-family:var(--mono);font-size:12px;background:var(--blue-fn);color:#08131f;border-radius:2px;padding:1px 5px;margin-left:8px;vertical-align:2px;font-weight:500}
+body[data-notes] .pin{display:inline-block}
+.notes{display:none;margin-top:56px;border-top:1px solid var(--line);padding-top:22px}
+body[data-notes] .notes{display:block}
+.note{display:grid;grid-template-columns:34px 1fr;gap:12px;padding:9px 0;border-bottom:1px solid var(--line-faint)}
+.noteid{font-family:var(--mono);font-size:12px;color:var(--blue-fn)}
+.notetxt{font-size:14.5px;color:var(--ink-dim);line-height:1.55}
+.notetxt b{color:var(--ink);font-weight:600}
+[hidden]{display:none!important}
+/* LAW-12: honoured by ARCHITECTURE. The only motion here is the hover dim and the
+   chevron; under reduce we do not construct them rather than cancelling them. */
+@media (prefers-reduced-motion:reduce){
+  .navlist a,summary,.btn,.seg,.chev,.here,.here-chev,.tflow,.node{transition-property:none}
+  .navwrap{transition:none}
+}
+</style>
+</head>
+<body>
+
+<header class="sysbar">
+  <div class="sysbar-in">
+    <span class="wordmark">ZCash<em>Reveal</em><span class="clockdot"></span></span>
+    <button class="here" type="button" aria-expanded="false" aria-controls="screens">
+      <span class="here-idx">00</span><span class="here-label">Splash</span>
+      <svg class="here-chev" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M2 4l4 5 4-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <span class="tip data">block 3,456,227 &middot; fixture data, 22 Aug 2026</span>
+    <div class="navwrap"><div class="navinner">
+    <nav class="navgroups" id="screens" aria-label="Screens">
+      <div class="navgroup">
+        <span class="eyebrow">The Record <span class="pin">1</span></span>
+        <ul class="navlist">
+          <li><a href="#" aria-current="page"><span class="navidx">00</span><span><span class="navlabel">Splash</span><span class="navdek">What this instrument measures, and what it cannot.</span></span></a></li>
+          <li><a href="#"><span class="navidx">01</span><span><span class="navlabel">Beware</span><span class="navdek">The exploit ledger: what was found, when it was disclosed, how long the window stayed open.</span></span></a></li>
+          <li><a href="#"><span class="navidx">02</span><span><span class="navlabel">Contradictions</span><span class="navdek">What was claimed publicly, set against what the record shows.</span></span></a></li>
+          <li><a href="#"><span class="navidx">03</span><span><span class="navlabel">Timeline</span><span class="navdek">Every disclosure, fork and advisory in order.</span></span></a></li>
+          <li><a href="#"><span class="navidx">04</span><span><span class="navlabel">Network</span><span class="navdek">Who audited what, and who funded it.</span></span></a></li>
+          <li><a href="#"><span class="navidx">06</span><span><span class="navlabel">Method</span><span class="navdek">How a claim on this site is graded, and what each level permits.</span></span></a></li>
+          <li><a href="#"><span class="navidx">08</span><span><span class="navlabel">Sources</span><span class="navdek">Every citation, with its primary document.</span></span></a></li>
+        </ul>
+      </div>
+      <div class="navgroup">
+        <span class="eyebrow">The Instrument <span class="pin">1</span></span>
+        <ul class="navlist">
+          <li><a href="#"><span class="navidx">05</span><span><span class="navlabel">Track</span><span class="navdek">Search an address, transaction or block against the live chain.</span></span></a></li>
+          <li><a href="#"><span class="navidx">07</span><span><span class="navlabel">Flows</span><span class="navdek">Value crossing the turnstile, bounded rather than named.</span></span></a></li>
+          <li><a href="#"><span class="navidx">--</span><span><span class="navlabel">Pools <span class="pin">2</span></span><span class="navdek">Balances at the tip, per shielded pool.</span></span></a></li>
+          <li><a href="#"><span class="navidx">--</span><span><span class="navlabel">Reveal <span class="pin">2</span></span><span class="navdek">Open your own balance with a viewing key, in this browser only.</span></span></a></li>
+        </ul>
+      </div>
+    </nav>
+    </div></div>
+  </div>
+</header>
+
+<main>
+
+<!-- ============ SPLASH ============ -->
+<section id="splash">
+
+  <div class="beat claim">
+    <span class="beattag">Claim <span class="pin">3</span></span>
+    <h1>Two windows in Zcash's history cannot be proven sound, and 731,462 ZEC still sits inside the pools they touched.</h1>
+    <p class="explain">Sprout's proving system was unsound for five years and Orchard's for four. Neither window can be closed by argument &mdash; only by <b>emptying the pools</b>. Until then nobody, including this site, can prove that nothing was minted.</p>
+  </div>
+
+  <div class="beat evidence">
+    <span class="beattag">Evidence <span class="pin">4</span></span>
+    <div class="tank">
+      <figure class="tank-fig">
+        <div class="tankbar">
+          <span class="tb-l">the turnstile plane<br><span class="tb-sub">16,889,987 ZEC across five ledgers &middot; block 3,456,227</span></span>
+          <span class="tb-r" id="depth"></span>
+        </div>
+        <svg id="tank" viewBox="0 0 1180 560" role="img"
+          aria-label="Five Zcash ledgers on a perspective plane. Transparent near-left, Orchard near-right, Sprout far-left, Sapling far-right, Ironwood raised at the centre. Each arc is value crossing from one pool to another; the gold arrowhead marks where it landed."></svg>
+        <figcaption class="tank-cap">
+          <span id="tanklegend"></span>
+        </figcaption>
+        <p class="tank-limit">One mark per counted crossing, uniform weight. <b>Amounts, ordering and confirmation state are not carried per crossing in this window</b> &mdash; they arrive with the per-crossing source (HANDOFF-12), and until then arc thickness means nothing and the plane draws no pending arcs. The three unconfirmed crossings are counted in the readings below rather than drawn here, because the snapshot knows how many there are and not which ones. <span class="pin">13</span></p>
+      </figure>
+
+      <div class="flows">
+        <span class="eyebrow" style="display:block;margin-bottom:4px">Measured flow in this window <span class="pin">6</span></span>
+        <div class="flow">
+          <div class="flowline">
+            <span class="flowdot" style="background:var(--p-orchard)"></span>
+            <span class="flowarrow"></span>
+            <span class="flowdot" style="background:var(--p-ironwood)"></span>
+            <span class="flowtxt" style="margin-left:5px">Orchard &rarr; Ironwood &middot; 1,284 crossings</span>
+          </div>
+          <span class="flowval">41,208.5 ZEC</span>
+        </div>
+        <div class="flow" data-pending>
+          <div class="flowline">
+            <span class="flowdot" style="background:var(--ink-faint)"></span>
+            <span class="flowarrow"></span>
+            <span class="flowdot" style="background:var(--ink-faint)"></span>
+            <span class="flowtxt" style="margin-left:5px">In the mempool &middot; 3 crossings, unconfirmed <span class="pin">11</span></span>
+          </div>
+          <span class="flowval">112.0 ZEC</span>
+        </div>
+        <div class="absent">
+          <span class="t">Orchard drain rate &mdash; not measured</span>
+          <span class="c">no block time for this height <span class="pin">7</span></span>
+        </div>
+        <div class="absent">
+          <span class="t">Anonymity-set series &mdash; not measured</span>
+          <span class="c">no Ironwood spend in the window could be bounded</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="metrics">
+      <div class="metric">
+        <span class="k">Unprovable residual <span class="pin">8</span></span>
+        <span class="v">731,462<span class="u">ZEC</span></span>
+        <span class="n">Sprout plus Orchard &mdash; value inside pools whose circuits were unsound during their lifetime.</span>
+      </div>
+      <div class="metric">
+        <span class="k">Verified share of supply</span>
+        <span class="v">95.67<span class="u">%</span></span>
+        <span class="n">The complement. It rises only as the two pools empty, never by argument.</span>
+      </div>
+      <div class="metric">
+        <span class="k">Windows open, combined</span>
+        <span class="v">9<span class="u">years</span></span>
+        <span class="n">Sprout 2016&ndash;2019 undetected; Orchard 2022&ndash;2026 undetected. Neither was found by monitoring.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="beat working">
+    <span class="beattag">The working <span class="pin">9</span></span>
+
+    <details>
+      <summary><svg class="chev" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M4 2l5 4-5 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sumtitle">What the chain publishes</span><span class="sumcount">6 fields, all public</span></summary>
+      <div class="dbody">
+        <p class="prose sm">These are the fields this site reads. Every number above is derived from them and nothing else. None of them is an identity.</p>
+        <div class="pubgrid">
+          <div class="pubrow"><span class="pubname">nullifiers</span><span class="pubwhat">one per spent note</span></div>
+          <div class="pubrow"><span class="pubname">valueBalance</span><span class="pubwhat">every boundary amount</span></div>
+          <div class="pubrow"><span class="pubname">anchors</span><span class="pubwhat">tree root at spend time</span></div>
+          <div class="pubrow"><span class="pubname">commitments</span><span class="pubwhat">one per output note</span></div>
+          <div class="pubrow"><span class="pubname">t-addresses</span><span class="pubwhat">every shield and unshield endpoint</span></div>
+          <div class="pubrow"><span class="pubname">migration amounts</span><span class="pubwhat">quantised, since NU6.3</span></div>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary><svg class="chev" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M4 2l5 4-5 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sumtitle">How the residual is derived</span><span class="sumcount">TRACKING-MATH &sect;3.2, 2 terms</span></summary>
+      <div class="dbody"><p class="prose sm">U<sub>h</sub> = Bal<sup>sprout</sup><sub>h</sub> + Bal<sup>orchard</sup><sub>h</sub>. Both circuits were unsound during their lifetime, so value still inside them cannot be shown to have been legitimately created. V<sub>h</sub> = 1 &minus; U<sub>h</sub> / Supply<sub>h</sub>. The lockbox is carried separately and is not netted here.</p></div>
+    </details>
+
+    <details>
+      <summary><svg class="chev" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M4 2l5 4-5 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sumtitle">What this instrument cannot do</span><span class="sumcount">4 limits, stated</span></summary>
+      <div class="dbody"><p class="prose sm">It cannot name a wallet. It cannot show a shielded balance without your own viewing key. It cannot prove nothing was minted. It cannot tell you a bound is tight &mdash; only that it holds.</p></div>
+    </details>
+
+    <div class="cta">
+      <a class="btn pri" href="#">Open the instrument</a>
+      <a class="btn sec" href="#">Read the exploit ledger</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RECORD ============ -->
+<section id="record" hidden>
+  <div class="beat claim">
+    <span class="beattag">Claim</span>
+    <h1>Eight soundness failures reached mainnet. None was found by monitoring.</h1>
+    <p class="explain">Every entry below is a defect that shipped, ran undetected, and was found by <b>audit or accident</b> rather than by anything watching the chain. The window column is how long it ran before anyone knew.</p>
+  </div>
+
+  <div class="beat evidence" style="margin-top:44px">
+    <span class="beattag">Evidence <span class="pin">10</span></span>
+
+    <article class="entry">
+      <div class="entryhead">
+        <h2 class="entrytitle">Orchard Action circuit soundness &mdash; missing copy constraint</h2>
+        <p class="entrysum">A single missing equality constraint in the halo2 scalar-multiplication gadget left the Orchard Action circuit's key-to-nullifier binding unenforced for four years, letting a malicious prover forge nullifiers and spend authorisations.</p>
+        <div class="chips">
+          <span class="chip crit">CVSS 9.3 critical</span>
+          <span class="chip">CVE-2026-54496</span>
+          <span class="chip">window 4y 0m</span>
+          <span class="chip ok">confirmed &middot; 6 primary sources</span>
+          <span class="chip">verified 15 Jun 2026</span>
+        </div>
+      </div>
+      <details>
+        <summary><svg class="chev" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M4 2l5 4-5 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sumtitle">Timeline</span><span class="sumcount">7 events, 31 May 2022 &ndash; 15 Jun 2026</span></summary>
+        <div class="dbody"><p class="prose sm">Live at NU5/Orchard activation, block 1,687,104, 31 May 2022. Found 29 May 2026 by Taylor Hornby using an AI-assisted auditing framework. Confirmed 30 May. Emergency soft fork at block 3,363,426 disabled Orchard network-wide. NU6.2 shipped the corrected circuit at block 3,364,600 on 3 June. Disclosed 4 June; advisory 15 June.</p></div>
+      </details>
+      <details>
+        <summary><svg class="chev" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M4 2l5 4-5 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sumtitle">Root cause</span><span class="sumcount">1 file, 3 lines</span></summary>
+        <div class="dbody"><p class="prose sm"><span class="data">halo2_gadgets/src/ecc/chip/mul/incomplete.rs</span> &mdash; the gadget omitted the equality constraint binding the accumulated scalar to the witnessed key, so the prover was free to choose them independently.</p></div>
+      </details>
+      <details>
+        <summary><svg class="chev" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M4 2l5 4-5 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sumtitle">Sources</span><span class="sumcount">6 cited, 4 primary</span></summary>
+        <div class="dbody"><p class="prose sm">GHSA-ww9q-8r59-xv46 &middot; CVE-2026-54496 &middot; Zcash forum disclosure, 4 Jun 2026 &middot; halo2 commit &middot; NU6.2 release notes &middot; Defuse Security write-up.</p></div>
+      </details>
+    </article>
+
+    <article class="entry">
+      <div class="entryhead">
+        <h2 class="entrytitle">zcashd skipped Sprout proof verification for 5.7 years</h2>
+        <p class="entrysum">A verification path that returned early meant Sprout joinsplit proofs were accepted without being checked, on the reference implementation, for the majority of the pool's active life.</p>
+        <div class="chips">
+          <span class="chip crit">critical</span>
+          <span class="chip">window 5y 8m</span>
+          <span class="chip ok">confirmed &middot; 4 primary sources</span>
+          <span class="chip">verified 22 Aug 2026</span>
+        </div>
+      </div>
+      <details>
+        <summary><svg class="chev" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M4 2l5 4-5 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="sumtitle">Timeline</span><span class="sumcount">5 events</span></summary>
+        <div class="dbody"><p class="prose sm">Collapsed by default. The claim, its severity and its source count stay on the page &mdash; only the working folds.</p></div>
+      </details>
+    </article>
+  </div>
+</section>
+
+<section class="notes">
+  <span class="eyebrow" style="display:block;margin-bottom:14px">Annotations &mdash; what each decision answers</span>
+  <div class="note"><span class="noteid">1</span><span class="notetxt"><b>Nav grouped by <span class="data">half</span>, and every item renders its <span class="data">dek</span>.</b> Both fields already exist in <span class="data">nav.ts</span> and neither is rendered today. Answers "am I selecting missions in Metal Gear Solid" without writing new copy. The two-digit index stays &mdash; the Record is numbered like evidence, and it read as a mission select because the label beside it said nothing.</span></div>
+  <div class="note"><span class="noteid">2</span><span class="notetxt"><b>/pools and /reveal appear in the nav.</b> They are real pages with no entry today, while <span class="data">nav.ts</span> claims "a route can never exist without a nav entry". Shown with a placeholder index pending a decision on renumbering.</span></div>
+  <div class="note"><span class="noteid">3</span><span class="notetxt"><b>Claim first, one sentence, and it is falsifiable.</b> The old splash opened with the wordmark over a four-idea paragraph. This is the fix for "vibes &rarr; terminology &rarr; vibes": an assertion you could disagree with, before anything else.</span></div>
+  <div class="note"><span class="noteid">4</span><span class="notetxt"><b>The four beats are labelled.</b> Claim &rarr; explanation &rarr; evidence &rarr; the working, in that order, with the order visible rather than implied.</span></div>
+  <div class="note"><span class="noteid">5</span><span class="notetxt"><b>Sprout is 0.13% and would be invisible.</b> Given a minimum segment width with an inset hairline so it is not read as a rendering seam, and the true figure carried in the legend rather than in the bar. A pool that rounds to nothing must still be countable.</span></div>
+  <div class="note"><span class="noteid">6</span><span class="notetxt"><b>Gold is spent on the crossing, not on the biggest number.</b> The fourth licensed job is "value crossing a pool boundary", so the flow band is gold and the metrics are not.</span></div>
+  <div class="note"><span class="noteid">7</span><span class="notetxt"><b>An absence states its CONDITION, never an owner.</b> Dashed, unfilled, and it names why rather than who &mdash; the rendering contract 09b put in SNAPSHOT.md &sect;8.1. Two of the three flows are unmeasured here on purpose, so you can see the honest state rather than a plausible one.</span></div>
+  <div class="note"><span class="noteid">8</span><span class="notetxt"><b>731,462 ZEC is the largest figure on the page and it is not gold.</b> A figure about unprovability is never gold, because size in the accent reads as an accusation this site does not make (LEDGER-04 Q1b).</span></div>
+  <div class="note"><span class="noteid">9</span><span class="notetxt"><b>Every summary carries its finding.</b> "6 fields, all public", "6 cited, 4 primary" &mdash; a closed panel still tells you something, so a page of closed panels does not read as evasive.</span></div>
+  <div class="note"><span class="noteid">10</span><span class="notetxt"><b>Claim, severity, window and source count never collapse.</b> Only the working folds. Putting epistemic status behind a toggle is the null-panel-renders-as-zero defect in a nicer coat.</span></div>
+  <div class="note"><span class="noteid">11</span><span class="notetxt"><b>D3646 &mdash; two type registers, one law.</b> Confirmed chain data is engraved: tabular, lining, letterspaced, full ink. Pending data is provisional: lighter, dimmer, untracked. Permanence reads before any label does, which is what lets the mempool populate a register <i>without animating</i> &mdash; the block-arrival ceremony stays the surface's only one (LAW-15, D3628).</span></div>
+  <div class="note"><span class="noteid">12</span><span class="notetxt"><b>D3640 &mdash; the privacy-fog register, and it corrects a defect in my first draft.</b> I had drawn all five pools as equal solid blocks, which visually claims this site can see inside four pools it cannot. What an outside observer sees IS the resting state: shielded interiors render veiled, their public boundaries render sharp, transparent renders solid. Privacy as material rather than as a lock icon &mdash; and honest to what the instrument actually measures, which is boundaries.</span></div>
+  <div class="note"><span class="noteid">13</span><span class="notetxt"><b>The tank, and it is allowed to be empty.</b> Lane height is fixed and the fill is the balance &mdash; mempool.space's water-level grammar (D0994), which is the only reason Sprout at 0.13% is drawable. Time runs left to right; the dashed rule is the tip, and everything right of it is mempool. A crossing arcs out of its source lane and into its destination lane at its own block, in gold, because "value crossing a pool boundary" is the accent's fourth licensed job and this is literally it. Long empty stretches are the truth: value moving <i>within</i> a pool crosses nothing. Every position is derived from the block hash through FNV-1a &rarr; mulberry32, so the picture is re-derivable by anyone with the same block &mdash; D3649's "provable atmosphere", and the reason <span class="data">Math.random</span> is banned.</span></div>
+  <div class="note"><span class="noteid">14</span><span class="notetxt"><b>The bar is one thin line until you approach it.</b> A transparent 22px strip below it opens the nav as the cursor <i>arrives</i> rather than on contact, and it rides with the bar as it grows. Three ways in, because hover alone excludes touch and the keyboard entirely: pointer, <span class="data">:focus-within</span> when you tab into it, and the chevron as a real button with <span class="data">aria-expanded</span>. Escape closes it. Under reduced motion the disclosure is not constructed rather than cancelled. The collapsed line still names the screen you are on &mdash; hiding the nav must not cost orientation, which was the original complaint.</span></div>
+  <div class="note"><span class="noteid">&mdash;</span><span class="notetxt"><b>Size floor: 12px, nothing below.</b> Prose 16px, secondary 15, mono data 13, labels 12 with tracking. The shipped site floors at 10px and the source mockup at 8.5px, which is where "9px punishment" comes from. Same four families, same palette, same curve &mdash; no token changed.</span></div>
+</section>
+
+</main>
+
+<div class="switch">
+  <button data-screen="splash" data-on>Splash</button>
+  <button data-screen="record">Record &middot; Beware</button>
+  <button data-notes-toggle>Annotations</button>
+</div>
+
+<script>
+var TIP="0000000000000000000273b1f4a9c6e5d8b02c19fa3e77104d5c8be9a41f";
+function fnv1a(s){var h=0x811c9dc5;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0;}return h>>>0;}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
+var rnd=mulberry32(fnv1a(TIP));
+
+/* ---- camera. World: x left-right [-1,1], z far-to-near [-1,1], y = lift. --- */
+var CX=590, CY=268, SX=372, SZ=166, LIFT=176, PERSP=.32;
+function proj(x,y,z){var d=1/(1-z*PERSP);return[CX+x*SX*d, CY+z*SZ*d-y*LIFT*d, d];}
+
+var POOLS={
+  /* Placement is an argument, not decoration. The two pools the record is ABOUT
+     - Sprout and Orchard, the two unsound circuits - sit on one diagonal.
+     Transparent is nearest because it is the only ledger a reader can see into.
+     Ironwood is raised at the centre because every migration lands there. */
+  transparent:{n:"transparent",x:-.80,z: .80,y:0,   c:"#3a8bd9",zec:"12,500,223",share:.7401,veil:false},
+  orchard:    {n:"orchard",    x: .80,z: .80,y:0,   c:"#c94f8f",zec:"708,841",   share:.0420,veil:true},
+  sprout:     {n:"sprout",     x:-.80,z:-.80,y:0,   c:"#1f9e62",zec:"22,621",    share:.0013,veil:true},
+  sapling:    {n:"sapling",    x: .80,z:-.80,y:0,   c:"#d9641e",zec:"529,015",   share:.0313,veil:true},
+  ironwood:   {n:"ironwood",   x: 0,z: 0,y:.30, c:"#8b7fe6",zec:"3,129,287", share:.1853,veil:true}
+};
+var ORDER=["transparent","orchard","sprout","sapling","ironwood"];
+
+/* Which crossings exist. A pair that cannot occur is absent, never drawn at
+   zero - the same rule the null panels follow. */
+var EDGES=[
+  ["orchard","ironwood",9,"migration"],
+  ["transparent","sapling",2,"shield"],
+  ["transparent","orchard",2,"shield"],
+  ["sapling","transparent",2,"unshield"],
+  ["orchard","transparent",2,"unshield"]
+];
+
+var S=[];
+function esc(t){return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;");}
+
+/* ---- defs: one shared glow, one hatch per veiled pool ---- */
+var defs='<defs>';
+defs+='<filter id="glow" x="-40%" y="-40%" width="180%" height="180%">'+
+      '<feGaussianBlur stdDeviation="1.9" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>';
+defs+='<radialGradient id="floorwash" cx="50%" cy="58%" r="62%">'+
+      '<stop offset="0%" stop-color="#f4b728" stop-opacity=".085"/><stop offset="60%" stop-color="#f4b728" stop-opacity=".022"/>'+
+      '<stop offset="100%" stop-color="#f4b728" stop-opacity="0"/></radialGradient>';
+ORDER.forEach(function(k){var p=POOLS[k];
+  defs+='<pattern id="h-'+k+'" width="5" height="5" patternTransform="rotate(135)" patternUnits="userSpaceOnUse">'+
+        '<rect width="5" height="5" fill="'+p.c+'" fill-opacity=".16"/>'+
+        '<line x1="0" y1="0" x2="0" y2="5" stroke="'+p.c+'" stroke-opacity=".62" stroke-width="1.6"/></pattern>';
+  defs+='<marker id="ah-'+k+'" viewBox="0 0 10 10" refX="8.4" refY="5" markerWidth="7.4" markerHeight="7.4" orient="auto-start-reverse">'+
+        '<path d="M0 1.2 L9.4 5 L0 8.8 z" fill="#f4b728"/></marker>';
+});
+defs+='</defs>';
+S.push(defs);
+
+/* ---- the plane: a graticule, the reference globe's grammar flattened ---- */
+var g=[];
+g.push('<path d="M'+proj(-1,0,-1).slice(0,2)+' L'+proj(1,0,-1).slice(0,2)+' L'+proj(1,0,1).slice(0,2)+' L'+proj(-1,0,1).slice(0,2)+' z" fill="url(#floorwash)"/>');
+var N=14;
+for(var i=0;i<=N;i++){
+  var t=-1+2*i/N, o=(i%7===0)?.42:((i%2===0)?.20:.10);
+  var a=proj(t,0,-1), b=proj(t,0,1);
+  g.push('<line x1="'+a[0].toFixed(1)+'" y1="'+a[1].toFixed(1)+'" x2="'+b[0].toFixed(1)+'" y2="'+b[1].toFixed(1)+'" stroke="#f4b728" stroke-opacity="'+o+'" stroke-width="1"/>');
+  var c=proj(-1,0,t), d=proj(1,0,t);
+  g.push('<line x1="'+c[0].toFixed(1)+'" y1="'+c[1].toFixed(1)+'" x2="'+d[0].toFixed(1)+'" y2="'+d[1].toFixed(1)+'" stroke="#f4b728" stroke-opacity="'+o+'" stroke-width="1"/>');
+}
+g.push('<path d="M'+proj(-1,0,-1).slice(0,2)+' L'+proj(1,0,-1).slice(0,2)+' L'+proj(1,0,1).slice(0,2)+' L'+proj(-1,0,1).slice(0,2)+' z" fill="none" stroke="#f4b728" stroke-opacity=".5" stroke-width="1.2"/>');
+S.push('<g>'+g.join("")+'</g>');
+
+/* ---- dotted orbit rings on the plane, straight from the reference ---- */
+function planeRing(cx,cz,r,op,dash){
+  var pts=[];
+  for(var a=0;a<=64;a++){var th=a/64*Math.PI*2;var p=proj(cx+Math.cos(th)*r,0,cz+Math.sin(th)*r);pts.push(p[0].toFixed(1)+","+p[1].toFixed(1));}
+  return '<polyline points="'+pts.join(" ")+'" fill="none" stroke="#f4b728" stroke-opacity="'+op+'" stroke-width="1" stroke-dasharray="'+dash+'"/>';
+}
+S.push(planeRing(0,0,1.02,.30,"1 6"));
+S.push(planeRing(0,0,1.13,.19,"1 8"));
+S.push(planeRing(0,0,1.26,.11,"1 10"));
+var BASE=S.slice();
+
+/* ---- THE ADAPTIVE RETENTION WINDOW ------------------------------------------
+   The board holds a constant visual DENSITY (N_MAX arcs). What varies is how far
+   back it reaches: take the newest N_MAX crossings and the window is whatever
+   they happen to span, clamped to [1 block, 24h]. A busy chain therefore shows a
+   SHORTER window, not a denser picture.
+   That makes the window the reading, so it is stated in the header at the same
+   weight as the counts - two boards holding 60 arcs are not comparable unless a
+   reader can see one covers 40 minutes and the other six hours.
+   Stateless by construction: the board is a pure function of the snapshot, with
+   no expiry timers, so a reader who loads at :30 and one who loads at :45 render
+   the same plane from the same document. Timer-based expiry would drift them.
+   ---------------------------------------------------------------------------- */
+var N_MAX=42, BLOCK_S=75, MAX_WINDOW_S=86400, MIN_WINDOW_S=BLOCK_S;
+var RATES=[
+  {n:"quiet",       perDay:9},
+  {n:"typical",     perDay:1284},
+  {n:"busy",        perDay:140},
+  {n:"migration surge", perDay:900},
+  {n:"NU6.3 cutover",   perDay:5200}
+];
+var WEIGHT=[];EDGES.forEach(function(e){for(var i=0;i<e[2];i++)WEIGHT.push(e);});
+
+function build(rateIdx){
+  var R=RATES[rateIdx], total=R.perDay;
+  var shown=Math.min(N_MAX,total);
+  /* the window the shown arcs span, clamped */
+  var winS=Math.max(MIN_WINDOW_S,Math.min(MAX_WINDOW_S, shown/total*MAX_WINDOW_S));
+  var r2=mulberry32(fnv1a(TIP+"|"+rateIdx));
+  var out=[];
+  for(var i=0;i<shown;i++){
+    var e=WEIGHT[Math.floor(r2()*WEIGHT.length)];
+    var age=i/Math.max(1,shown-1);          /* 0 = newest, 1 = about to expire */
+    out.push({a:POOLS[e[0]],b:POOLS[e[1]],k:e[0],kind:e[3],
+      amt:.5, spread:(r2()-.5)*.46, pending:false, age:age});
+  }
+  return {flows:out,winS:winS,total:total,shown:shown,rate:R};
+}
+var STATE=build(1), flows=STATE.flows;
+/* far first, so nearer arcs occlude correctly */
+flows.sort(function(p,q){return ((p.a.z+p.b.z)/2)-((q.a.z+q.b.z)/2);});
+
+function arcSvg(f){
+  var A=f.a,B=f.b, SEG=34, pts=[], lift=.045+f.amt*.13;
+  var nx=-(B.z-A.z), nz=(B.x-A.x), nl=Math.hypot(nx,nz)||1; nx/=nl; nz/=nl;
+  for(var s=0;s<=SEG;s++){
+    var t=s/SEG;
+    var x=A.x+(B.x-A.x)*t + nx*f.spread*Math.sin(Math.PI*t);
+    var z=A.z+(B.z-A.z)*t + nz*f.spread*Math.sin(Math.PI*t);
+    var y=A.y+(B.y-A.y)*t + Math.sin(Math.PI*t)*lift;
+    var p=proj(x,y,z); pts.push(p);
+  }
+  var d="M"+pts.map(function(p){return p[0].toFixed(1)+" "+p[1].toFixed(1);}).join(" L");
+  var w=1.15;
+  var col=f.pending?"#6a6157":POOLS[f.k].c;
+  /* D3646's registers extended by AGE: the newest arc is engraved, the oldest is
+     nearly gone. Opacity is a pure function of age in blocks and is recomputed
+     on block arrival - the surface's one ceremony - so nothing animates between
+     blocks and reduced motion simply takes the step instantly. */
+  var fade=f.pending?.55:(0.92-f.age*0.74);
+  var title=A.n+" to "+B.n+" - "+f.kind+(f.pending?" - unconfirmed, in the mempool":"");
+  return '<g class="tflow"><title>'+esc(title)+'</title>'+
+    '<path d="'+d+'" fill="none" stroke="'+col+'" stroke-opacity="'+(f.pending?.55:.82)+'" stroke-width="'+w.toFixed(2)+'" '+
+    'stroke-linecap="round" '+(f.pending?'stroke-dasharray="3 4" ':'')+
+    ((f.pending||f.age>.72)?'':'marker-end="url(#ah-'+f.k+')" ')+'filter="url(#glow)"/>'+
+    /* the crossing itself is the one gold mark: a tick at the apex */
+    ''+
+    '</g>';
+}
+
+/* ---- nodes: disc, veil hatch, share arc, dotted ring, label ---- */
+var nodes=ORDER.slice().sort(function(a,b){return POOLS[a].z-POOLS[b].z;});
+function nodesSvg(fl){
+var NODESVG=[];
+var TRAF={};ORDER.forEach(function(k){TRAF[k]={out:0,inn:0};});
+fl.forEach(function(f){TRAF[f.k].out++;TRAF[f.b.n].inn++;});
+nodes.forEach(function(k){
+  var p=POOLS[k], q=proj(p.x,p.y,p.z), d=q[2], r=(k==="ironwood"?26:22)*d;
+  var out='<g class="node"><title>'+esc(p.n+" - "+p.zec+" ZEC - "+(p.share*100).toFixed(2)+"% of supply")+'</title>';
+  /* drop line to the plane for the raised centre pool */
+  if(p.y>0){var f0=proj(p.x,0,p.z);
+    out+='<line x1="'+q[0].toFixed(1)+'" y1="'+q[1].toFixed(1)+'" x2="'+f0[0].toFixed(1)+'" y2="'+f0[1].toFixed(1)+'" stroke="'+p.c+'" stroke-opacity=".34" stroke-width="1" stroke-dasharray="2 4"/>';
+    out+='<ellipse cx="'+f0[0].toFixed(1)+'" cy="'+f0[1].toFixed(1)+'" rx="'+(r*.62).toFixed(1)+'" ry="'+(r*.24).toFixed(1)+'" fill="none" stroke="'+p.c+'" stroke-opacity=".22" stroke-width="1" stroke-dasharray="1 5"/>';}
+  /* dotted orbit, the reference's ring */
+  out+='<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="'+(r*1.42).toFixed(1)+'" fill="none" stroke="'+p.c+'" stroke-opacity=".26" stroke-width="1" stroke-dasharray="1 6"/>';
+  /* the body. Veiled pools are hatched: the interior is not observable, by
+     anyone, including this site. Transparent is solid because it is. */
+  out+='<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="'+r.toFixed(1)+'" fill="'+(p.veil?'url(#h-'+k+')':p.c)+'" fill-opacity="'+(p.veil?1:.82)+'"/>';
+  /* the BOUNDARY is public, so it is drawn sharp */
+  out+='<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="'+r.toFixed(1)+'" fill="none" stroke="'+p.c+'" stroke-width="'+(1.7*d).toFixed(2)+'" filter="url(#glow)"/>';
+  /* share of supply as an arc on the ring - keeps sprout at 0.13% countable */
+  var R=r*1.42, sw=p.share*Math.PI*2, a0=-Math.PI/2;
+  var x0=q[0]+Math.cos(a0)*R, y0=q[1]+Math.sin(a0)*R, x1=q[0]+Math.cos(a0+sw)*R, y1=q[1]+Math.sin(a0+sw)*R;
+  out+='<path d="M'+x0.toFixed(1)+' '+y0.toFixed(1)+' A'+R.toFixed(1)+' '+R.toFixed(1)+' 0 '+(sw>Math.PI?1:0)+' 1 '+x1.toFixed(1)+' '+y1.toFixed(1)+'" fill="none" stroke="'+p.c+'" stroke-width="'+(3*d).toFixed(2)+'" stroke-linecap="round"/>';
+  var away=(p.z>=0?1:-1), ly=q[1]+away*(r*1.62+20*d)+(p.z<0?-8:14);
+  if(k==='ironwood') ly=q[1]-r*1.9-16*d;
+  out+='<text x="'+q[0].toFixed(1)+'" y="'+ly.toFixed(1)+'" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="'+(13*Math.max(.86,d)).toFixed(1)+'" fill="#ede6d8" letter-spacing="1.4">'+p.n+'</text>';
+  out+='<text x="'+q[0].toFixed(1)+'" y="'+(ly+16*d).toFixed(1)+'" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="'+(12*Math.max(.86,d)).toFixed(1)+'" fill="#8f8576">'+p.zec+' &#183; '+(p.share*100).toFixed(2)+'%</text>';
+  var t=TRAF[k], line, col;
+  if(t.out===0&&t.inn===0){ line='closed - 0 crossings in window'; col='#6a6157'; }
+  else { line=t.out+' out / '+t.inn+' in'; col='#8f8576'; }
+  out+='<text x="'+q[0].toFixed(1)+'" y="'+(ly+32*d).toFixed(1)+'" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="'+(12*Math.max(.86,d)).toFixed(1)+'" fill="'+col+'" letter-spacing=".5">'+line+'</text>';
+  out+='</g>';
+  NODESVG.push(out);
+});
+return {svg:NODESVG,traf:TRAF};
+}
+
+
+
+function fmtWin(sec){ if(sec<3600) return Math.round(sec/60)+" min"; if(sec<86400) return (sec/3600).toFixed(sec<7200?1:0)+" h"; return "24 h"; }
+(function(){
+  STATE=build(1); flows=STATE.flows;
+  flows.sort(function(p,q){return ((p.a.z+p.b.z)/2)-((q.a.z+q.b.z)/2);});
+  var out=BASE.slice(); flows.forEach(function(f){out.push(arcSvg(f));});
+  var N=nodesSvg(flows); out=out.concat(N.svg);
+  document.getElementById("tank").innerHTML=out.join("");
+  var capped=STATE.total>STATE.shown;
+  document.getElementById("depth").innerHTML='showing the last <b>'+fmtWin(STATE.winS)+'</b> &middot; '+
+    STATE.shown+' of '+STATE.total.toLocaleString('en')+' crossings <span class="warn">&middot; '+
+    (capped?'window shrinking to hold density':'whole window fits')+'</span>';
+  document.getElementById("tanklegend").innerHTML=
+    ORDER.map(function(k){var p=POOLS[k];return '<span class="lg"><span class="sw" style="background:'+p.c+';opacity:'+(p.veil?.72:1)+'"></span>'+p.n+' <b>'+N.traf[k].out+'</b> out</span>';}).join("")
+    +'<span class="lg"><span class="sw" style="background:var(--gold)"></span>the crossing <b>'+STATE.shown+'</b></span>';
+})();
+
+/* Tap/keyboard path for the nav, since hover excludes touch entirely. */
+(function(){
+  var bar=document.querySelector(".sysbar"), btn=document.querySelector(".here");
+  btn.addEventListener("click",function(){
+    var open=bar.hasAttribute("data-open");
+    if(open){bar.removeAttribute("data-open");}else{bar.setAttribute("data-open","");}
+    btn.setAttribute("aria-expanded", String(!open));
+  });
+  document.addEventListener("keydown",function(e){
+    if(e.key==="Escape"&&bar.hasAttribute("data-open")){bar.removeAttribute("data-open");btn.setAttribute("aria-expanded","false");btn.focus();}
+  });
+})();
+
+(function(){
+  var secs={splash:document.getElementById("splash"),record:document.getElementById("record")};
+  document.querySelectorAll("[data-screen]").forEach(function(b){
+    b.addEventListener("click",function(){
+      document.querySelectorAll("[data-screen]").forEach(function(x){x.removeAttribute("data-on")});
+      b.setAttribute("data-on","");
+      for(var k in secs){secs[k].hidden = (k!==b.dataset.screen);}
+      window.scrollTo(0,0);
+    });
+  });
+  var t=document.querySelector("[data-notes-toggle]");
+  t.addEventListener("click",function(){
+    if(document.body.hasAttribute("data-notes")){document.body.removeAttribute("data-notes");t.removeAttribute("data-on");}
+    else{document.body.setAttribute("data-notes","");t.setAttribute("data-on","");}
+  });
+})();
+</script>
+</body>
+</html>

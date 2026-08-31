@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ZECReveal - the turnstile, study 01</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Instrument+Serif&family=Manrope:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+ --bg:#0c0b0a; --bg2:#121110; --surface:#1a1816; --surface-2:#221f1b;
+ --line:rgba(237,230,216,.10); --line-strong:rgba(237,230,216,.18);
+ --ink:#ede6d8; --ink-dim:#b3a996; --ink-mute:#8f8576; --ink-faint:#6a6157;
+ --gold:#f4b728; --gold-dim:rgba(244,183,40,.55); --gold-wash:rgba(244,183,40,.08); --gold-ink:#1a1405;
+ --p-transparent:#3a8bd9; --p-sprout:#1f9e62; --p-sapling:#d9641e; --p-orchard:#c94f8f; --p-ironwood:#8b7fe6;
+ --curve:cubic-bezier(.32,.72,0,1);
+ --mono:"JetBrains Mono",ui-monospace,Menlo,monospace; --num:"Fraunces",Georgia,serif;
+ --serif:"Instrument Serif",Georgia,serif; --prose:"Manrope",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--prose);font-size:16px}
+.wrap{max-width:1500px;margin:0 auto;padding:26px 22px 80px}
+
+/* ---- header strip, the reference's instrument register ---- */
+.strip{display:flex;align-items:baseline;justify-content:space-between;gap:20px;flex-wrap:wrap;
+  border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:16px}
+.strip .t{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-mute)}
+.strip .t b{color:var(--gold);font-weight:500}
+.strip .r{font-family:var(--mono);font-size:12px;color:var(--ink-faint);letter-spacing:.06em}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--gold);display:inline-block;margin-right:7px;vertical-align:1px}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:1px;background:var(--line);
+  border:1px solid var(--line);border-radius:3px;overflow:hidden;margin-bottom:16px}
+.tile{background:var(--bg2);padding:13px 16px}
+.tile .k{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mute);display:block}
+.tile .v{font-family:var(--num);font-size:29px;line-height:1.1;margin-top:6px;display:block;font-variant-numeric:tabular-nums lining-nums}
+.tile .u{font-family:var(--mono);font-size:12px;color:var(--ink-mute);margin-left:6px}
+.tile.acc .v{color:var(--gold)}
+
+/* ---- the board ---- */
+.board{position:relative;border:1px solid var(--line-strong);border-radius:3px;background:
+  radial-gradient(120% 90% at 50% 62%, rgba(244,183,40,.055) 0%, rgba(244,183,40,.018) 42%, transparent 72%), var(--bg)}
+.boardhead{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:11px 16px;border-bottom:1px solid var(--line)}
+.boardhead .l{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-dim)}
+.boardhead .r{font-family:var(--mono);font-size:12px;color:var(--ink-faint);letter-spacing:.06em}
+svg#tank{display:block;width:100%;height:auto}
+
+/* one hover verb: dim. Nothing swells, nothing recolours. */
+.flow{transition:opacity .18s var(--curve)}
+.board:hover .flow{opacity:.34}
+.board:hover .flow:hover{opacity:1}
+.node{transition:opacity .18s var(--curve)}
+.board:hover .node{opacity:.55}
+.board:hover .node:hover{opacity:1}
+
+.rate{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:9px 16px;border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:12px;color:var(--ink-mute);letter-spacing:.06em}
+.rate label{text-transform:uppercase;letter-spacing:.14em}
+.rate input[type=range]{accent-color:var(--gold);width:186px}
+#rateLab{color:var(--ink);min-width:186px}
+.rate-note{color:var(--ink-faint);letter-spacing:0;font-family:var(--prose);font-size:13px}
+#depth b{color:var(--gold);font-weight:500}
+#depth .warn{color:var(--ink-dim)}
+.legend{display:flex;gap:26px;flex-wrap:wrap;padding:12px 16px;border-top:1px solid var(--line);
+  font-family:var(--mono);font-size:12px;color:var(--ink-mute)}
+.lg{display:flex;align-items:center;gap:8px}
+.sw{width:10px;height:10px;border-radius:2px;flex:none}
+.lg b{color:var(--ink);font-weight:500;font-variant-numeric:tabular-nums}
+.caption{font-family:var(--mono);font-size:12px;color:var(--ink-faint);padding:0 16px 13px;letter-spacing:.03em}
+.caption em{font-style:normal;color:var(--ink-mute)}
+
+.notes{margin-top:30px;border-top:1px solid var(--line);padding-top:18px;display:grid;gap:2px;max-width:96ch}
+.note{display:grid;grid-template-columns:112px 1fr;gap:16px;padding:9px 0;border-bottom:1px solid rgba(237,230,216,.06)}
+.nk{font-family:var(--mono);font-size:12px;color:var(--gold-dim);letter-spacing:.06em}
+.nv{font-size:14.5px;line-height:1.55;color:var(--ink-dim)}
+.nv b{color:var(--ink);font-weight:600}
+.nv code{font-family:var(--mono);font-size:13px;color:var(--ink-mute)}
+@media (prefers-reduced-motion:reduce){ .flow,.node{transition-property:none} }
+</style></head>
+<body>
+<div class="wrap">
+
+  <div class="strip">
+    <span class="t"><span class="dot"></span>the turnstile <b>&middot; five ledgers, one boundary</b></span>
+    <span class="r">block 3,456,227 &middot; window 24h &middot; seeded 0000&hellip;a41f &middot; fixture</span>
+  </div>
+
+  <div class="tiles">
+    <div class="tile"><span class="k">crossings</span><span class="v">17<span class="u">24h</span></span></div>
+    <div class="tile"><span class="k">crossed</span><span class="v">41,208<span class="u">zec</span></span></div>
+    <div class="tile acc"><span class="k">unprovable</span><span class="v">731,462<span class="u">zec</span></span></div>
+    <div class="tile"><span class="k">pending</span><span class="v">3<span class="u">mempool</span></span></div>
+    <div class="tile"><span class="k">observable</span><span class="v">74.01<span class="u">% of supply</span></span></div>
+  </div>
+
+  <div class="board">
+    <div class="boardhead">
+      <span class="l">circuit &middot; the turnstile plane</span>
+      <span class="r"><span id="depth"></span></span>
+    </div>
+    <div class="rate">
+      <label for="rateIn">arrival rate</label>
+      <input id="rateIn" type="range" min="0" max="4" step="1" value="1">
+      <span id="rateLab"></span>
+      <span class="rate-note">the board holds a constant DENSITY, so the window is what moves &mdash; drag it</span>
+    </div>
+    <svg id="tank" viewBox="0 0 1500 830" role="img"
+      aria-label="Five Zcash ledgers on a perspective plane. Transparent near-left, Orchard near-right, Sprout far-left, Sapling far-right, Ironwood raised at the centre. Each arc is value crossing from one pool to another; the arrowhead marks the destination."></svg>
+    <div class="legend" id="legend"></div>
+    <p class="caption">packet colour = origin ledger &middot; arc lift = amount &middot; <em>perspective is composition, not a measurement</em> &middot; empty plane is the normal state: value moving inside a pool crosses nothing</p>
+  </div>
+
+  <div class="notes" id="notes"></div>
+</div>
+
+<script>
+(function(){
+/* ---------------------------------------------------------------------------
+   Everything below derives from the block hash. FNV-1a seeds mulberry32 - the
+   dialect CLAUDE.md names - so two readers on the same block get the same
+   plane and either can re-derive it. No Math.random. (LAW-10 / D3649.)
+   --------------------------------------------------------------------------- */
+var TIP="0000000000000000000273b1f4a9c6e5d8b02c19fa3e77104d5c8be9a41f";
+function fnv1a(s){var h=0x811c9dc5;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0;}return h>>>0;}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
+var rnd=mulberry32(fnv1a(TIP));
+
+/* ---- camera. World: x left-right [-1,1], z far-to-near [-1,1], y = lift. --- */
+var CX=750, CY=386, SX=466, SZ=246, LIFT=250, PERSP=.32;
+function proj(x,y,z){var d=1/(1-z*PERSP);return[CX+x*SX*d, CY+z*SZ*d-y*LIFT*d, d];}
+
+var POOLS={
+  /* Placement is an argument, not decoration. The two pools the record is ABOUT
+     - Sprout and Orchard, the two unsound circuits - sit on one diagonal.
+     Transparent is nearest because it is the only ledger a reader can see into.
+     Ironwood is raised at the centre because every migration lands there. */
+  transparent:{n:"transparent",x:-.80,z: .80,y:0,   c:"#3a8bd9",zec:"12,500,223",share:.7401,veil:false},
+  orchard:    {n:"orchard",    x: .80,z: .80,y:0,   c:"#c94f8f",zec:"708,841",   share:.0420,veil:true},
+  sprout:     {n:"sprout",     x:-.80,z:-.80,y:0,   c:"#1f9e62",zec:"22,621",    share:.0013,veil:true},
+  sapling:    {n:"sapling",    x: .80,z:-.80,y:0,   c:"#d9641e",zec:"529,015",   share:.0313,veil:true},
+  ironwood:   {n:"ironwood",   x: 0,z: 0,y:.30, c:"#8b7fe6",zec:"3,129,287", share:.1853,veil:true}
+};
+var ORDER=["transparent","orchard","sprout","sapling","ironwood"];
+
+/* Which crossings exist. A pair that cannot occur is absent, never drawn at
+   zero - the same rule the null panels follow. */
+var EDGES=[
+  ["orchard","ironwood",9,"migration"],
+  ["transparent","sapling",2,"shield"],
+  ["transparent","orchard",2,"shield"],
+  ["sapling","transparent",2,"unshield"],
+  ["orchard","transparent",2,"unshield"]
+];
+
+var S=[];
+function esc(t){return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;");}
+
+/* ---- defs: one shared glow, one hatch per veiled pool ---- */
+var defs='<defs>';
+defs+='<filter id="glow" x="-40%" y="-40%" width="180%" height="180%">'+
+      '<feGaussianBlur stdDeviation="1.9" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>';
+defs+='<radialGradient id="floorwash" cx="50%" cy="58%" r="62%">'+
+      '<stop offset="0%" stop-color="#f4b728" stop-opacity=".085"/><stop offset="60%" stop-color="#f4b728" stop-opacity=".022"/>'+
+      '<stop offset="100%" stop-color="#f4b728" stop-opacity="0"/></radialGradient>';
+ORDER.forEach(function(k){var p=POOLS[k];
+  defs+='<pattern id="h-'+k+'" width="5" height="5" patternTransform="rotate(135)" patternUnits="userSpaceOnUse">'+
+        '<rect width="5" height="5" fill="'+p.c+'" fill-opacity=".16"/>'+
+        '<line x1="0" y1="0" x2="0" y2="5" stroke="'+p.c+'" stroke-opacity=".62" stroke-width="1.6"/></pattern>';
+  defs+='<marker id="ah-'+k+'" viewBox="0 0 10 10" refX="8.4" refY="5" markerWidth="7.4" markerHeight="7.4" orient="auto-start-reverse">'+
+        '<path d="M0 1.2 L9.4 5 L0 8.8 z" fill="#f4b728"/></marker>';
+});
+defs+='</defs>';
+S.push(defs);
+
+/* ---- the plane: a graticule, the reference globe's grammar flattened ---- */
+var g=[];
+g.push('<path d="M'+proj(-1,0,-1).slice(0,2)+' L'+proj(1,0,-1).slice(0,2)+' L'+proj(1,0,1).slice(0,2)+' L'+proj(-1,0,1).slice(0,2)+' z" fill="url(#floorwash)"/>');
+var N=14;
+for(var i=0;i<=N;i++){
+  var t=-1+2*i/N, o=(i%7===0)?.42:((i%2===0)?.20:.10);
+  var a=proj(t,0,-1), b=proj(t,0,1);
+  g.push('<line x1="'+a[0].toFixed(1)+'" y1="'+a[1].toFixed(1)+'" x2="'+b[0].toFixed(1)+'" y2="'+b[1].toFixed(1)+'" stroke="#f4b728" stroke-opacity="'+o+'" stroke-width="1"/>');
+  var c=proj(-1,0,t), d=proj(1,0,t);
+  g.push('<line x1="'+c[0].toFixed(1)+'" y1="'+c[1].toFixed(1)+'" x2="'+d[0].toFixed(1)+'" y2="'+d[1].toFixed(1)+'" stroke="#f4b728" stroke-opacity="'+o+'" stroke-width="1"/>');
+}
+g.push('<path d="M'+proj(-1,0,-1).slice(0,2)+' L'+proj(1,0,-1).slice(0,2)+' L'+proj(1,0,1).slice(0,2)+' L'+proj(-1,0,1).slice(0,2)+' z" fill="none" stroke="#f4b728" stroke-opacity=".5" stroke-width="1.2"/>');
+S.push('<g>'+g.join("")+'</g>');
+
+/* ---- dotted orbit rings on the plane, straight from the reference ---- */
+function planeRing(cx,cz,r,op,dash){
+  var pts=[];
+  for(var a=0;a<=64;a++){var th=a/64*Math.PI*2;var p=proj(cx+Math.cos(th)*r,0,cz+Math.sin(th)*r);pts.push(p[0].toFixed(1)+","+p[1].toFixed(1));}
+  return '<polyline points="'+pts.join(" ")+'" fill="none" stroke="#f4b728" stroke-opacity="'+op+'" stroke-width="1" stroke-dasharray="'+dash+'"/>';
+}
+S.push(planeRing(0,0,1.02,.30,"1 6"));
+S.push(planeRing(0,0,1.13,.19,"1 8"));
+S.push(planeRing(0,0,1.26,.11,"1 10"));
+var BASE=S.slice();
+
+/* ---- THE ADAPTIVE RETENTION WINDOW ------------------------------------------
+   The board holds a constant visual DENSITY (N_MAX arcs). What varies is how far
+   back it reaches: take the newest N_MAX crossings and the window is whatever
+   they happen to span, clamped to [1 block, 24h]. A busy chain therefore shows a
+   SHORTER window, not a denser picture.
+   That makes the window the reading, so it is stated in the header at the same
+   weight as the counts - two boards holding 60 arcs are not comparable unless a
+   reader can see one covers 40 minutes and the other six hours.
+   Stateless by construction: the board is a pure function of the snapshot, with
+   no expiry timers, so a reader who loads at :30 and one who loads at :45 render
+   the same plane from the same document. Timer-based expiry would drift them.
+   ---------------------------------------------------------------------------- */
+var N_MAX=60, BLOCK_S=75, MAX_WINDOW_S=86400, MIN_WINDOW_S=BLOCK_S;
+var RATES=[
+  {n:"quiet",       perDay:9},
+  {n:"typical",     perDay:17},
+  {n:"busy",        perDay:140},
+  {n:"migration surge", perDay:900},
+  {n:"NU6.3 cutover",   perDay:5200}
+];
+var WEIGHT=[];EDGES.forEach(function(e){for(var i=0;i<e[2];i++)WEIGHT.push(e);});
+
+function build(rateIdx){
+  var R=RATES[rateIdx], total=R.perDay;
+  var shown=Math.min(N_MAX,total);
+  /* the window the shown arcs span, clamped */
+  var winS=Math.max(MIN_WINDOW_S,Math.min(MAX_WINDOW_S, shown/total*MAX_WINDOW_S));
+  var r2=mulberry32(fnv1a(TIP+"|"+rateIdx));
+  var out=[];
+  for(var i=0;i<shown;i++){
+    var e=WEIGHT[Math.floor(r2()*WEIGHT.length)];
+    var age=i/Math.max(1,shown-1);          /* 0 = newest, 1 = about to expire */
+    out.push({a:POOLS[e[0]],b:POOLS[e[1]],k:e[0],kind:e[3],
+      amt:.18+r2()*.82, spread:(r2()-.5)*.46,
+      pending: age<.06 && r2()<.5, age:age});
+  }
+  return {flows:out,winS:winS,total:total,shown:shown,rate:R};
+}
+var STATE=build(1), flows=STATE.flows;
+/* far first, so nearer arcs occlude correctly */
+flows.sort(function(p,q){return ((p.a.z+p.b.z)/2)-((q.a.z+q.b.z)/2);});
+
+function arcSvg(f){
+  var A=f.a,B=f.b, SEG=34, pts=[], lift=.045+f.amt*.13;
+  var nx=-(B.z-A.z), nz=(B.x-A.x), nl=Math.hypot(nx,nz)||1; nx/=nl; nz/=nl;
+  for(var s=0;s<=SEG;s++){
+    var t=s/SEG;
+    var x=A.x+(B.x-A.x)*t + nx*f.spread*Math.sin(Math.PI*t);
+    var z=A.z+(B.z-A.z)*t + nz*f.spread*Math.sin(Math.PI*t);
+    var y=A.y+(B.y-A.y)*t + Math.sin(Math.PI*t)*lift;
+    var p=proj(x,y,z); pts.push(p);
+  }
+  var d="M"+pts.map(function(p){return p[0].toFixed(1)+" "+p[1].toFixed(1);}).join(" L");
+  var w=(f.pending?.9:.85+f.amt*1.5);
+  var col=f.pending?"#6a6157":POOLS[f.k].c;
+  /* D3646's registers extended by AGE: the newest arc is engraved, the oldest is
+     nearly gone. Opacity is a pure function of age in blocks and is recomputed
+     on block arrival - the surface's one ceremony - so nothing animates between
+     blocks and reduced motion simply takes the step instantly. */
+  var fade=f.pending?.55:(0.92-f.age*0.74);
+  var title=A.n+" to "+B.n+" - "+f.kind+(f.pending?" - unconfirmed, in the mempool":"");
+  return '<g class="flow"><title>'+esc(title)+'</title>'+
+    '<path d="'+d+'" fill="none" stroke="'+col+'" stroke-opacity="'+(f.pending?.55:.82)+'" stroke-width="'+w.toFixed(2)+'" '+
+    'stroke-linecap="round" '+(f.pending?'stroke-dasharray="3 4" ':'')+
+    ((f.pending||f.age>.72)?'':'marker-end="url(#ah-'+f.k+')" ')+'filter="url(#glow)"/>'+
+    /* the crossing itself is the one gold mark: a tick at the apex */
+    ''+
+    '</g>';
+}
+
+/* ---- nodes: disc, veil hatch, share arc, dotted ring, label ---- */
+var nodes=ORDER.slice().sort(function(a,b){return POOLS[a].z-POOLS[b].z;});
+function nodesSvg(fl){
+var NODESVG=[];
+var TRAF={};ORDER.forEach(function(k){TRAF[k]={out:0,inn:0};});
+fl.forEach(function(f){TRAF[f.k].out++;TRAF[f.b.n].inn++;});
+nodes.forEach(function(k){
+  var p=POOLS[k], q=proj(p.x,p.y,p.z), d=q[2], r=(k==="ironwood"?34:29)*d;
+  var out='<g class="node"><title>'+esc(p.n+" - "+p.zec+" ZEC - "+(p.share*100).toFixed(2)+"% of supply")+'</title>';
+  /* drop line to the plane for the raised centre pool */
+  if(p.y>0){var f0=proj(p.x,0,p.z);
+    out+='<line x1="'+q[0].toFixed(1)+'" y1="'+q[1].toFixed(1)+'" x2="'+f0[0].toFixed(1)+'" y2="'+f0[1].toFixed(1)+'" stroke="'+p.c+'" stroke-opacity=".34" stroke-width="1" stroke-dasharray="2 4"/>';
+    out+='<ellipse cx="'+f0[0].toFixed(1)+'" cy="'+f0[1].toFixed(1)+'" rx="'+(r*.62).toFixed(1)+'" ry="'+(r*.24).toFixed(1)+'" fill="none" stroke="'+p.c+'" stroke-opacity=".22" stroke-width="1" stroke-dasharray="1 5"/>';}
+  /* dotted orbit, the reference's ring */
+  out+='<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="'+(r*1.42).toFixed(1)+'" fill="none" stroke="'+p.c+'" stroke-opacity=".26" stroke-width="1" stroke-dasharray="1 6"/>';
+  /* the body. Veiled pools are hatched: the interior is not observable, by
+     anyone, including this site. Transparent is solid because it is. */
+  out+='<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="'+r.toFixed(1)+'" fill="'+(p.veil?'url(#h-'+k+')':p.c)+'" fill-opacity="'+(p.veil?1:.82)+'"/>';
+  /* the BOUNDARY is public, so it is drawn sharp */
+  out+='<circle cx="'+q[0].toFixed(1)+'" cy="'+q[1].toFixed(1)+'" r="'+r.toFixed(1)+'" fill="none" stroke="'+p.c+'" stroke-width="'+(1.7*d).toFixed(2)+'" filter="url(#glow)"/>';
+  /* share of supply as an arc on the ring - keeps sprout at 0.13% countable */
+  var R=r*1.42, sw=p.share*Math.PI*2, a0=-Math.PI/2;
+  var x0=q[0]+Math.cos(a0)*R, y0=q[1]+Math.sin(a0)*R, x1=q[0]+Math.cos(a0+sw)*R, y1=q[1]+Math.sin(a0+sw)*R;
+  out+='<path d="M'+x0.toFixed(1)+' '+y0.toFixed(1)+' A'+R.toFixed(1)+' '+R.toFixed(1)+' 0 '+(sw>Math.PI?1:0)+' 1 '+x1.toFixed(1)+' '+y1.toFixed(1)+'" fill="none" stroke="'+p.c+'" stroke-width="'+(3*d).toFixed(2)+'" stroke-linecap="round"/>';
+  var away=(p.z>=0?1:-1), ly=q[1]+away*(r*1.62+20*d)+(p.z<0?-8:14);
+  if(k==='ironwood') ly=q[1]-r*1.9-16*d;
+  out+='<text x="'+q[0].toFixed(1)+'" y="'+ly.toFixed(1)+'" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="'+(13*Math.max(.86,d)).toFixed(1)+'" fill="#ede6d8" letter-spacing="1.4">'+p.n+'</text>';
+  out+='<text x="'+q[0].toFixed(1)+'" y="'+(ly+16*d).toFixed(1)+'" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="'+(12*Math.max(.86,d)).toFixed(1)+'" fill="#8f8576">'+p.zec+' &#183; '+(p.share*100).toFixed(2)+'%</text>';
+  var t=TRAF[k], line, col;
+  if(t.out===0&&t.inn===0){ line='closed - 0 crossings in window'; col='#6a6157'; }
+  else { line=t.out+' out / '+t.inn+' in'; col='#8f8576'; }
+  out+='<text x="'+q[0].toFixed(1)+'" y="'+(ly+32*d).toFixed(1)+'" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="'+(12*Math.max(.86,d)).toFixed(1)+'" fill="'+col+'" letter-spacing=".5">'+line+'</text>';
+  out+='</g>';
+  NODESVG.push(out);
+});
+return {svg:NODESVG,traf:TRAF};
+}
+
+
+/* ---- redraw on rate change. The plane is a pure function of (snapshot, rate). ---- */
+function fmtWin(sec){
+  if(sec<3600) return Math.round(sec/60)+" min";
+  if(sec<86400) return (sec/3600).toFixed(sec<7200?1:0)+" h";
+  return "24 h";
+}
+function render(idx){
+  STATE=build(idx); flows=STATE.flows;
+  flows.sort(function(p,q){return ((p.a.z+p.b.z)/2)-((q.a.z+q.b.z)/2);});
+  var out=BASE.slice();
+  flows.forEach(function(f){ out.push(arcSvg(f)); });
+  var N=nodesSvg(flows);
+  out=out.concat(N.svg);
+  document.getElementById("tank").innerHTML=out.join("");
+  var pend=flows.filter(function(f){return f.pending;}).length;
+  document.getElementById("legend").innerHTML =
+    ORDER.map(function(k){var p=POOLS[k];
+      return '<span class="lg"><span class="sw" style="background:'+p.c+';opacity:'+(p.veil?.72:1)+'"></span>'+
+             p.n+' <b>'+N.traf[k].out+'</b> out</span>';}).join("")
+    + '<span class="lg"><span class="sw" style="background:var(--gold)"></span>the crossing <b>'+STATE.shown+'</b></span>'
+    + '<span class="lg"><span class="sw" style="background:var(--ink-faint)"></span>unconfirmed <b>'+pend+'</b></span>';
+  var capped = STATE.total>STATE.shown;
+  document.getElementById("depth").innerHTML =
+    'showing the last <b>'+fmtWin(STATE.winS)+'</b> &middot; '+STATE.shown+' of '+STATE.total+' crossings'+
+    (capped?' <span class="warn">&middot; window shrinking to hold density</span>':' <span class="warn">&middot; whole window fits</span>');
+  document.getElementById("rateLab").textContent = STATE.rate.n+" - "+STATE.total+"/day";
+}
+render(1);
+var rIn=document.getElementById("rateIn");
+rIn.addEventListener("input",function(){render(+rIn.value);});
+
+/* ---- legend + notes ---- */
+
+
+var NOTES=[
+ ["placement","<b>The layout is an argument.</b> The two unsound circuits &mdash; <code>sprout</code> and <code>orchard</code> &mdash; sit on one diagonal, so the thing the record is about is a shape rather than a caption. <code>transparent</code> is nearest the reader because it is the only ledger anyone can see into. <code>ironwood</code> is raised at the centre because every ZIP&nbsp;318 migration lands there, and the drop-line to the plane keeps it locatable rather than floating."],
+ ["colour","<b>Line colour is the ORIGIN, the arrowhead is the destination, and gold is the crossing itself.</b> That resolves the contract cleanly: the five pool hues are their own register, and gold keeps its fourth licensed job &mdash; value crossing a boundary &mdash; as the tick at each arc's apex rather than being spent on the whole line."],
+ ["the veil","<b>Solid means observable.</b> Four pools are hatched because their interiors are not visible to anyone, this site included; their boundaries are drawn sharp because those are public. A plane of five equal solid discs would claim a view the instrument does not have (D3640)."],
+ ["perspective","<b>Every arc is sampled in world space and projected point by point</b>, so it foreshortens like an object instead of bowing like a 2-D ribbon. The caption says what perspective is not: composition, never a measurement. Amount is carried by lift and stroke width, both stated."],
+ ["sprout at 0.13%","Balance is an arc swept on each node's dotted ring, not the disc's area. A 550&times; range between the largest and smallest ledger makes area useless &mdash; sprout would be a dot. On the ring it is a short tick you can still see and count."],
+ ["quiet","<b>An empty plane is the normal state.</b> Value moving <i>inside</i> a pool crosses nothing and draws nothing. Seventeen arcs in twenty-four hours is what the chain actually does; a busy plane would be manufactured."],
+ ["determinism","Positions, fan spread, amounts and which three are pending all come from the block hash through FNV-1a&nbsp;&rarr;&nbsp;mulberry32. Same block, same plane, every visitor, re-derivable by anyone &mdash; D3649's provable atmosphere, and why <code>Math.random</code> is banned rather than merely discouraged."],
+ ["the window","<b>Density is held; the WINDOW is what moves.</b> The board keeps the newest ~60 crossings, so a busy chain shows a <i>shorter</i> window rather than a denser picture. That makes the window the reading, which is why it sits in the header at the same weight as the counts &mdash; two boards each holding 60 arcs are not comparable until you can see one covers 1.6 hours and the other twenty-four. Without that line the picture would hold its density constant and quietly lie about how busy the chain is, which is the null-panel-renders-as-zero defect in a new place."],
+ ["expiry","Age is a pure function of position in the window, not a timer: opacity runs from engraved at the newest to nearly gone at the oldest, and the arrowhead drops off the last quarter. It is recomputed <b>on block arrival</b> &mdash; the surface's one ceremony &mdash; so nothing animates between blocks and reduced motion simply takes the step instantly. Stateless by construction, so the server-rendered snapshot and a browser that loaded fifteen seconds later draw the same plane; timer-based expiry would drift them apart."],
+ ["what it costs","The cap is also what makes this <i>publishable</i>. <code>SnapshotV1</code> deliberately carries no per-crossing record, so the tank needs a new field &mdash; and an unbounded one could not ship: the publisher already spends <code>WIRE_COMMANDS_PER_TIP</code> = 5 per tip, about 172,500 a month against a 200,000 ceiling, on a store shared with an unrelated production project. A field capped at the newest N is a fixed-size array. That is the difference between a design that can be published and one that cannot."],
+ ["motion, later","Nothing moves here. When it does it is <b>one ceremony on block arrival</b> &mdash; the newest arcs draw in over ~2s and the plane settles &mdash; never a per-transaction firework. Mempool arcs stay dashed and dim in the provisional register until they confirm."]
+];
+document.getElementById("notes").innerHTML = NOTES.map(function(n){
+  return '<div class="note"><span class="nk">'+n[0]+'</span><span class="nv">'+n[1]+'</span></div>';}).join("");
+})();
+</script>
+</body></html>
