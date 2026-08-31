@@ -81,8 +81,18 @@ export const COMMANDS_PER_TIP = 3;
  *
  * STILL AN OPERATOR TASK, and raising the charge does not close it: after one
  * full month of publishing, read the console's actual command count against the
- * tips published (`handoffs/README.md`'s click list). Whichever number it is,
- * this constant and `Sink.managedStoreCommandsPerWrite` become it.
+ * tips published (`handoffs/README.md`'s click list).
+ *
+ * NEITHER CONSTANT BECOMES THAT NUMBER, and the earlier wording of this
+ * paragraph said it did. 3 is the write count and 5 is the wire count; both are
+ * MEASURED facts about what this code does, both are pinned by tests, and a
+ * meter reading is a third quantity that falsifies neither. What the bill
+ * changes is the CHARGE - the `redis` sink's `managedStoreCommandsPerWrite`,
+ * which is currently this constant. If the meter says three, that field becomes
+ * {@link COMMANDS_PER_TIP}; if it says something else again, it becomes a named
+ * constant of its own. Section 8.7's ceiling is re-checked against whichever it
+ * is. Setting a constant called WIRE to a non-wire number would falsify its own
+ * docblock and turn two suites red, which is what the old wording invited.
  */
 export const WIRE_COMMANDS_PER_TIP = 5;
 
@@ -162,7 +172,7 @@ export function addCommands(state: BudgetState, commands: number): BudgetState {
  *
  * AT OR ABOVE, NOT ABOVE. A12 says "at or above", and the difference is one
  * whole publish: `>` would let a run that has already spent exactly the ceiling
- * spend three more.
+ * spend five more.
  *
  * Pure. No I/O, no clock, no mutation of the input.
  */

@@ -204,6 +204,14 @@ EVIDENCE (per §5 assertion: pass transcript + fail transcript, provenance):
     the gate around day 26 and run the publisher file-only, buying nothing against
     a 500,000 allowance that is a third spent either way. Reading the console for
     one month is now a named operator task in handoffs/README.md.
+    SUPERSEDED 31 Aug 2026 (LEDGER-09 Q2, fold 2), recorded here because section 3
+    of this same file carries the marker and a report that contradicted it would
+    be the one-file-corrected defect LEDGER-03 Q3 rates HIGH: L2 could reach
+    Upstash, its published exemption list names neither MULTI nor EXEC, and the
+    ruling is to charge the wire count of five with the ceiling raised to 200,000.
+    The paragraph above records what this session decided and why, which is what a
+    section 7 is for; docs/2.0/SNAPSHOT.md sections 5 and 8.6 carry the current
+    numbers.
 
   A11 every key is `zecreveal:` - EXECUTED, AND ITS FAIL SIDE WAS A PROBE THAT
     COULD NOT FAIL UNTIL THE GATE. PASS: every key argument across three tips

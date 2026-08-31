@@ -344,7 +344,8 @@ services:
   #
   # THE MONTHLY COUNTER IS A FILE ON A NAMED VOLUME AND IS NEVER IN THE STORE IT
   # COUNTS. docs/2.0/SNAPSHOT.md section 5 gives both halves of why: in the
-  # managed store it would be a FOURTH command per tip and would break the
+  # managed store it would be a FOURTH WRITE - a sixth command on the wire - per
+  # tip and would break the
   # assertion that says there are exactly three, and in memory alone it would
   # reset on every restart and make the ceiling vacuous. `publisher-data` below
   # is that volume, and SNAPSHOT_BUDGET_FILE is what puts the counter in it.

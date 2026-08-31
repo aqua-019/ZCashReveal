@@ -144,13 +144,16 @@ numbers measure different things.
 what the publisher writes. Every server-side render in `apps/web` that resolves to the `redis-rest`
 source issues at least one `GET`, and that side scales with traffic, with the number of Vercel
 regions serving the page, and with how often the page revalidates — none of which the publisher
-controls. One `GET` per 60-second revalidation in three regions is already ~4,300/day, which is
-MORE than the publisher's whole budget. Two rules follow, and HANDOFF-11 owns both: the snapshot is
+controls. One `GET` per 60-second revalidation in three regions is already ~4,320/day — about three
+quarters of everything the publisher spends in a day (~5,750), and unlike the publisher's side it is
+bounded by nothing. *(That sentence read "MORE than the publisher's whole budget" until 31 Aug 2026,
+which was true while the publisher was charged 3 commands per tip and became false when it began
+charging the wire count of 5. LEDGER-09 Q2, fold 2.)* Two rules follow, and HANDOFF-11 owns both: the snapshot is
 fetched **once per render at module scope, never once per component or once per request**, and the
 resolution order must prefer a cached value over a fresh `GET` whenever the cached one is inside
 its staleness window. Until HANDOFF-11 states a measured figure here, the combined share is
-**unknown and larger than 21%** — which is the honest answer and the reason this row says so
-rather than carrying a number nobody has measured.
+**unknown and larger than 35%** — the publisher's own charged share, from the table above — which is
+the honest answer and the reason that row says so rather than carrying a number nobody has measured.
 
 Four consequences, none optional:
 
@@ -170,8 +173,9 @@ Four consequences, none optional:
   wants a Redis for one of those, it wants the VPS Redis or its own database.
 - **The monthly counter lives on the VPS, in a file, and never in the managed store.** Keyed by
   `YYYY-MM` on a named volume, read at startup and flushed after each tip. Stating this is not
-  pedantry: putting the counter in the store it is counting would add a fourth command per tip and
-  break the assertion that says there are exactly three, and holding it only in memory would reset
+  pedantry: putting the counter in the store it is counting would add a fourth WRITE - a sixth
+  command on the wire - per tip and break the assertion that says there are exactly three writes,
+  and holding it only in memory would reset
   it on every restart and make the ceiling vacuous.
 
 ## 6. The exit condition
@@ -376,7 +380,7 @@ a reader can fetch without parsing the document.
 
 The count is asserted by **counting**, not by reading the code — HANDOFF-09 A10, with a spy on the
 client, across a fake tip stream, asserting `3 x tips`. §5 gives the reason: "counting commands is
-the only honest way to assert 'exactly three'". A10's fail side adds a fourth command and watches the
+the only honest way to assert an exact number". A10's fail side adds a fourth write and watches the
 count assert.
 
 **THREE IS THE WRITE COUNT. FIVE CROSS THE WIRE, AND FIVE IS WHAT THE COUNTER IS CHARGED.**

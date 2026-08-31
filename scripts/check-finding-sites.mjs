@@ -106,6 +106,34 @@ const RECORD_FILES = [/^handoffs\/LEDGER\.md$/, /^handoffs\/prompts\//, /^handof
  */
 const FINDINGS = [
   {
+    id: "H09-WALLET-BOUND",
+    what: "the published wallet upper bound is `<= Sigma counts` (the crossing count), never the denomination-run count - two wallets crossing one denomination in adjacent blocks form ONE run, so the run count can fall BELOW the truth and tightens as evidence accumulates",
+    // `present` AND NOT `absent`, which is the one judgement in this row and is
+    // worth stating. Every corrected site QUOTES the falsified claim in order to
+    // correct it - TRACKING-MATH 3.9 says "this sentence read `<= number of
+    // denomination runs` until 31 Aug 2026", and `migration-lens.ts` carries the
+    // whole argument that amended it. An `absent: /denomination runs/` would fire
+    // on all five corrections and catch nothing, which is the loose-pattern
+    // failure CLAUDE.md records for `check-infra-docs`. What actually
+    // distinguishes a live defect is a site that discusses the bound and states
+    // ONLY the old one, which is exactly what the public /method page did for two
+    // handoffs. So: every registered site must STATE the corrected bound.
+    present: /Sigma counts|Σ counts|number of crossings|crossing count|<= *Σ|≤ *Σ/i,
+    // The pre-fold /method sentence, verbatim - the eighth site, which HANDOFF-09
+    // swept seven of and missed. Measured: this string fails `present`, and the
+    // real file at 2c5b951~1 failed it too, so the row would have caught the
+    // instance that prompted it rather than only the ones already fixed.
+    probe:
+      "so a migration session bounds the number of notes at >= ceil(B / 10,000) and the set of wallets at <= the number of denomination runs.",
+    sites: [
+      "docs/2.0/TRACKING-MATH.md",
+      "apps/web/src/components/record/MethodEstimators.tsx",
+      "packages/zec-instruments/src/migration-lens.ts",
+      "packages/zec-types/src/snapshot.ts",
+      "packages/zec-types/src/analysis.ts",
+    ],
+  },
+  {
     id: "F-41-1",
     what: "the subset-sum residual ratio: 12.5 times the UNSCALED FEE_TOLERANCE_ZAT, 6.25 times the k-scaled allowance at k=2",
     // Both figures must be stated together, which is what fold 3 asks for:
@@ -222,14 +250,18 @@ const FINDINGS = [
     // RECORDS of what that handoff did and stay at the count of their day. Only
     // the sites that assert the CURRENT count are listed.
     //
-    // FIVE, THEN SEVEN, NOW ELEVEN. This entry tracks the CURRENT count rather
-    // than one correction: the shape recurs every time a guard is added, which
-    // is exactly what makes it worth a register row instead of a review. Each
-    // widening moves `present` and pushes the superseded count into `absent`.
-    present: /eleven (static )?guards/i,
-    probe: "# THE SEVEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
-    antiProbe: "# THE ELEVEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
-    absent: /five static guards|the five guards|five guards OK|seven static guards|the seven guards|seven guards OK|FOUR STATIC GUARDS|SEVEN STATIC GUARDS/i,
+    // FIVE, THEN SEVEN, THEN ELEVEN, NOW TWELVE. This entry tracks the CURRENT
+    // count rather than one correction: the shape recurs every time a guard is
+    // added, which is exactly what makes it worth a register row instead of a
+    // review. Each widening moves `present` and pushes the superseded count into
+    // `absent`. The twelfth is `check-instrument-deps.mjs` (HANDOFF-09a), and
+    // this row earned its keep on that commit: the session updated CLAUDE.md's
+    // count, ran the guard, and was told about README.md and ci.yml - the two
+    // asserting sites it had not thought of.
+    present: /twelve (static )?guards/i,
+    probe: "# THE ELEVEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
+    antiProbe: "# THE TWELVE STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
+    absent: /five static guards|the five guards|five guards OK|seven static guards|the seven guards|seven guards OK|FOUR STATIC GUARDS|SEVEN STATIC GUARDS|eleven static guards|the eleven guards|eleven guards OK|ELEVEN STATIC GUARDS/i,
     sites: [
       "CLAUDE.md",
       "README.md",

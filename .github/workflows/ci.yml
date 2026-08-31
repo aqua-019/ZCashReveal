@@ -92,7 +92,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      # THE ELEVEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose. None of
+      # THE TWELVE STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose. None of
       # them needs node_modules or a build - they are bash, grep and dependency-free
       # node - and putting them after meant a PR whose build broke never got its
       # verdict on any of them. The Redis one in particular protects another

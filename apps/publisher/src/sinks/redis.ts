@@ -14,7 +14,8 @@
  *   own connection. A test cannot count what it cannot see.
  *
  *   THE TRANSACTION ENVELOPE IS TWO MORE ROUND TRIPS AND WHETHER THE METER
- *   BILLS THEM IS UNVERIFIED. `MULTI` and `EXEC` are commands the client sends
+ *   BILLS THEM IS EVIDENCE RATHER THAN PROOF - AND FIVE IS WHAT THE COUNTER IS
+ *   CHARGED. `MULTI` and `EXEC` are commands the client sends
  *   over RESP like any other, so one tip puts FIVE commands on the wire and
  *   three of them are writes. Which number the managed store's monthly meter
  *   counts is a fact about Upstash's billing, not about this code, and no
