@@ -424,17 +424,56 @@ so the two writers described different reorg protocols for one event; `writePool
 where `max_position + 1` is indistinguishable from next-power-of-two, where a hardcoded `4096n`
 passed three of the four assertions. At 4090 all of them catch it.
 
-**`blocks_hash_idx` is deleted on a measurement rather than an argument:** `idx_scan = 0` after
-running all three publisher queries five times, no query in the tree reads `blocks` by hash, and at
-64 hex characters in a btree it cost 48 MB per 400,000 rows - about 420 MB on the hot path at
-mainnet's height, for nothing. Five prose claims in 005 were wrong about the tree the same commit
+**`blocks_hash_idx` is deleted because NO QUERY IN THE TREE READS `blocks` BY HASH** - an
+exhaustive static claim over `apps`, `packages` and `scripts`, which is the load-bearing half and
+the only one that covers the indexer and the gateway. The `idx_scan = 0` measured after running the
+three publisher queries five times is corroboration and is demoted to that, on L2's interim
+correction and it is a correction worth keeping: **`idx_scan = 0` is equally true of an index that
+is correct and simply unexercised**, so a report that led with it would be teaching the next reader
+to drop an index on a predicate satisfied by every value it was written to exclude - LEDGER-09a Q2's
+shape arriving in a performance argument. The cost figure is the third rung, not the first: 48 MB
+per 400,000 rows at 64 hex characters in a btree, about 420 MB on the hot path at mainnet's height. Five prose claims in 005 were wrong about the tree the same commit
 changed, **including one written in the present tense inside the commit that made it stale**.
+
+**TWO OF THE ROUND'S FINDINGS CAME FROM DATA MUTATION, WHICH IS THE FIRST EVIDENCE LEDGER-09a Q2'S
+RULE EARNED ITS COST.** The rule - "at least one fail side per assertion must be a DATA mutation, a
+value drawn from the set the predicate claims to exclude" - was made one handoff ago on an argument
+rather than on a measurement. Both findings were caught by changing a VALUE, not the code: a
+hardcoded `4096n` passing three of four `candidateCount` assertions is instance five of "an
+assertion whose predicate is satisfied by every value it was written to exclude" and was found by
+varying the fixture to 4090; and `ironwoodLow` failing to clamp to the birth height was found by
+widening the fixture with window-edge rows, not by reading the arithmetic. Recorded because the
+next session will want to know whether the rule pays, and this round is the first data point.
 
 **One finding is reported rather than fixed.** Migration 003's
 `UPDATE leak_reports SET fee_zat = NULL WHERE fee_zat = 0` is not a no-op on re-application and
 would reclassify a coinbase's MEASURED zero as an absence - the error 003 spends two paragraphs
 condemning, in reverse. It is unreachable through the current runner and it is another handoff's
-migration, so it goes to L2 in §8; 005 no longer claims to follow a contract 003 does not satisfy.
+migration. **L2 pre-ruled it in an interim: the defect is the CLAIM, not the statement.** 003's
+header said "RE-RUNNABLE BY CONSTRUCTION" without qualification and 004 and 005 both cite that as
+the contract they follow, so the header now says re-runnable IN ITS DDL and not in that one DML
+statement, and names what actually makes it safe - the runner's `schema_migrations` guard, which the
+statement's own comment assumed without ever saying. **The statement's bytes are deliberately
+unchanged**: 003 is already applied on CI, on development databases and in L2's container, and a
+migration whose bytes change after application is a divergence `schema_migrations` cannot detect -
+worse than the defect. There is also no correct rewrite: the statement is right for pre-003 rows and
+afterwards no column distinguishes them. 005 no longer claims to follow a contract 003 does not
+satisfy.
+
+**THE `globalSetup` FACE IS A DIFFERENT SHAPE FROM THE ONE THE WIDENED GUARD COVERS, and it is
+closed by a REGISTER ROW rather than a thirteenth guard** (L2's interim, item 1).
+`assert-no-skipped-integration.mjs` covers "a green CI is not evidence a package RAN" - silence.
+This suite RAN, against `public`, and the failure is a truncated developer database plus fabricated
+rows left behind. Same origin - a new suite joins the workspace without inheriting a convention
+every existing member has - and a different failure mode. Verified before writing the row: **no
+guard in the tree reads a vitest config for `globalSetup`**, so deleting the line that fixed it
+could not have failed anything. `check-finding-sites.mjs` gains `H09b-TEST-SCHEMA` over the two
+configs that are already `H09a-VITEST-ALIAS`'s sites - ten lines inside a guard that has already
+been reviewed, rather than a thirteenth written under time pressure, which is a failure mode this
+very report documents. Shown to fire at BOTH sites by deleting the line at each in turn. One
+residual is written down rather than designed against: the publisher's entry reaches across apps, so
+a moved file fails loudly, but a change to the indexer's schema convention that silently does not
+apply to the publisher is what the row cannot see.
 
 ### The corrected fact, swept in one commit (LEDGER-03 Q3)
 

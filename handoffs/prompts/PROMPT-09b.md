@@ -312,3 +312,35 @@ each application in the ledger:
     gains migration 005 alongside 003 and 004, as ONE cold-database run, with the sentence that
     doing it before the cutover is what keeps it free.
 ````
+
+---
+
+## 2. L2 INTERIM — gate round 1 read, arrived mid-session while round 2 was running (31 Aug 2026)
+
+Not a resolution and not tied to a PR: L2 read the round-1 findings as they landed and sent four
+items that change what rounds 2 and 3 do, rather than holding them for the gate. Three are rulings
+the session applied immediately (a register row instead of a thirteenth guard; correct migration
+003's header and do NOT rewrite its statement; reword the index argument to lead with the static
+claim); the fourth records that the data-mutation rule earned its cost. Appended in the commit after
+it arrived, per LEDGER-02 Q7.
+
+````markdown
+L2 INTERIM — HANDOFF-09b, gate round 1 read (Cowork, 31 Aug 2026)
+Not a resolution. No PR is open and round 2 is still running. These are the four things that change what round 2 or 3 does, so they are worth having now rather than at the gate.
+
+1. THE globalSetup FACE IS NOT COVERED BY THE GUARD YOU JUST WIDENED, AND IT IS A DIFFERENT SHAPE FROM THE ONE YOU UNIFIED. You were right that zebra-rpc, zec-instruments and the publisher's missing JSON report are one shape - "a green CI is not evidence a package ran" - and widening `assert-no-skipped-integration.mjs` at instance three is the correct application of clause (b). That unification is better than my F-45-2 framing, which counted CI steps and would have missed the report. Take the credit for it.
+The publisher's missing `globalSetup` is NOT that shape. The suite RAN. It ran against `public`. The consequence is not silence, it is a truncated developer database and five fabricated snapshots a local publisher would then publish a drain from. Same origin - a new suite joins the workspace without inheriting a convention every existing member has - and a different failure mode entirely.
+EXHAUSTIVE STATIC CHECK, not a measurement: I grepped all thirteen guard scripts for `vitest.config`, `globalSetup` and `search_path`. One file matches - `check-finding-sites.mjs` - and only for the `H09a-VITEST-ALIAS` row. Nothing you have reads a vitest config for `globalSetup`, so deleting the line round 1 added cannot fail any guard. The fix is a line, not a defence.
+THE CHEAPEST CLOSURE IS A ROW, NOT A GUARD, and it is why that register exists:
+id: "H09b-TEST-SCHEMA" present: /globalSetup:/ sites: ["apps/publisher/vitest.config.ts", "apps/indexer/vitest.config.ts"]
+Those two files are ALREADY the sites of the `H09a-VITEST-ALIAS` row, the register already self-tests in both directions, and the shape is verbatim the one the register is for - a convention holding at one site of two. Ten lines inside a guard that has already been reviewed, rather than a thirteenth guard written under time pressure, which is the failure mode your own §7 documents. Do this one. It does not need its own gate round.
+One line of caution, not a finding: `globalSetup: ["../indexer/test/global-setup.ts"]` reaches across apps. A moved file fails loudly, so that is fine; a change to the indexer's schema convention that silently does not apply to the publisher is the residual, and it is small enough to write down rather than design against.
+2. MIGRATION 003'S `UPDATE ... WHERE fee_zat = 0` - PRE-RULING, so you do not wait for the gate. You triaged it correctly: real, unreachable, another handoff's file. My ruling is that the DEFECT IS THE CLAIM, NOT THE STATEMENT.
+CORRECT 003'S HEADER. It says the file is re-runnable; that is true of its DDL and false of line 116, and 004 and 005 cite 003's re-runnability as the contract they follow. State that the file is re-runnable in its DDL and NOT in that one DML statement, and that what makes it safe is the runner's `schema_migrations` guard rather than the statement's shape. The statement's own comment already argues "this runs once" - it just does not say what enforces that.
+DO NOT REWRITE THE STATEMENT. 003 is applied in my container and may be applied in preview or development databases. A migration whose bytes change after application is a divergence `schema_migrations` cannot detect, and that is a worse defect than the one being fixed. There is also no correct rewrite available: the statement is right for pre-003 rows and there is no column that distinguishes them afterwards. Your own side - 005 no longer claiming a contract 003 does not satisfy - is already the right half of this.
+3. THE INDEX ARGUMENT IS CORRECT IN THE MIGRATION AND INVERTED IN THE REPORT SENTENCE. 005's comment leads with "NO QUERY IN THIS TREE READS `blocks` BY HASH" and cites `idx_scan = 0` as corroboration. That ordering is right. The sentence "deleted on a measurement, not an argument" reverses it, and if §7 says that, the next reader learns to drop an index on `idx_scan = 0`.
+`idx_scan = 0` after running three publisher queries five times is equally true of an index that is correct and simply unexercised - it is a predicate satisfied by every value it was written to exclude, which is LEDGER-09a Q2's shape arriving in a performance argument. The exhaustive static claim is the load-bearing one and it is the one that covers the indexer and the gateway, which those three queries never touched. Reword §7 to lead with the static claim. Keep the measurement; demote it.
+4. 4095 -> 4090 IS THE FIRST EVIDENCE THE DATA-MUTATION RULE WORKS, AND IT IS WORTH SAYING SO IN §8. A hardcoded `4096n` passing three of four assertions is exactly instance five from LEDGER-09a Q2 - a fixture VALUE that makes distinct quantities indistinguishable - and you caught it by changing the value rather than the code, which is the rule I ruled in one handoff ago. `ironwoodLow` not being clamped to the birth height was found the same way: a widened fixture, not a review. Two findings from data mutation in one round is the evidence I did not have when I made the rule. Record it as such, because the next session will want to know whether the rule earned its cost.
+
+NOTHING ELSE HERE REOPENS ANYTHING. The three HIGHs are correctly rated, the three production queries having zero execution coverage is the finding I would most want on the record too, and five green mutations going red is the right proof that the shared module is a fix rather than a tidy-up. Carry on with round 2.
+````

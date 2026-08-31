@@ -124,6 +124,45 @@ const FINDINGS = [
     ],
   },
   {
+    id: "H09b-TEST-SCHEMA",
+    what: "a package whose integration suite TRUNCATEs shared tables must run the schema-per-run globalSetup, or `search_path` stays at `public` and the suite truncates the developer's real database",
+    // A ROW RATHER THAN A THIRTEENTH GUARD, and L2 ruled it that way for the
+    // reason this register exists: the two sites below are ALREADY the sites of
+    // `H09a-VITEST-ALIAS`, this file already self-tests in both directions, and
+    // the shape is verbatim the one it is for - a convention holding at one site
+    // of two.
+    //
+    // IT IS NOT THE SHAPE `assert-no-skipped-integration.mjs` WAS WIDENED FOR,
+    // and the distinction is the whole reason this needs its own row. That guard
+    // covers "a green CI is not evidence a package RAN" - silence. Here the
+    // suite RAN, against `public`: `apps/publisher`'s integration suite read
+    // `ZR_TEST_SCHEMA` to scope itself while its vitest config declared no
+    // `globalSetup`, so the variable was never set and `beforeEach` truncated
+    // four real tables. The failure is not silence, it is a truncated developer
+    // database plus five fabricated snapshots left behind for a local publisher
+    // to publish a drain from. Same origin as the alias row - a new suite joins
+    // the workspace without inheriting a convention every existing member has -
+    // and a different failure mode.
+    //
+    // Verified before writing this: no other guard reads a vitest config for
+    // `globalSetup`, so deleting the line that fixed it could not have failed
+    // anything.
+    //
+    // ONE RESIDUAL, WRITTEN DOWN RATHER THAN DESIGNED AGAINST. The publisher's
+    // entry points across apps at `../indexer/test/global-setup.ts`. A MOVED
+    // file fails loudly, which is fine; a change to the indexer's schema
+    // convention that silently does not apply to the publisher is what this row
+    // cannot see.
+    present: /globalSetup:/,
+    // A config with the alias map and no globalSetup - the real pre-fix state of
+    // `apps/publisher/vitest.config.ts`.
+    probe: 'test: { include: ["src/**/__tests__/**/*.test.ts"], environment: "node", globals: false },',
+    sites: [
+      "apps/publisher/vitest.config.ts",
+      "apps/indexer/vitest.config.ts",
+    ],
+  },
+  {
     id: "H09-WALLET-BOUND",
     what: "the published wallet upper bound is `<= Sigma counts` (the crossing count), never the denomination-run count - two wallets crossing one denomination in adjacent blocks form ONE run, so the run count can fall BELOW the truth and tightens as evidence accumulates",
     // `present` AND NOT `absent`, which is the one judgement in this row and is
