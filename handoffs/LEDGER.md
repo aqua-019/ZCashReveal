@@ -5179,3 +5179,85 @@ ROUND 4 — NARROW. Do not widen it, and do not take new work into it.
   survivor is a real mutation-testing catch and rejecting genesis forever is the right thing to
   have caught. Keep the PR open, take round 4, push, and I will gate it again.
 ```
+
+## HANDOFF-09b round 4 — F-46-1, and L2's own correction (L3, 31 Aug 2026)
+
+```
+ROUND 4 WAS CALLED BY L2 AFTER READING §7'S OWN STATEMENT THAT THE GATE HAD NOT
+CONVERGED, and the finding was in the commit §7 named as unreviewed. That is the
+sixth consecutive session in which the fix commit is where the finding was.
+
+F-46-1 (MEDIUM, L2) — ROUND 3'S FIX CORRECTED THE RENDERING LAYER AND LEFT THE
+LOG LAYER STATING THE FALSEHOOD IT REMOVED.
+  The pre-birth branch returns a MEASUREMENT - `spends: []` over a real window,
+  which is what round 3 changed it to - and still called
+  `fault("neffSeries", ...)`. The one production wiring of `onInputFault` logs at
+  ERROR "an input query failed; publishing that panel as a stated absence". Both
+  halves false, on every one of ~3.4 million blocks of an initial sync.
+  Demonstrated rather than argued, with a `queryIronwoodSpends` that throws if it
+  is called: it never is.
+  FIXED as NO REPORT AT ALL rather than a separate non-fault channel, argued in
+  §7 on four grounds. The fail side is the DATA mutation L2 specified: one block
+  below the birth height and one above, two values of one variable through the
+  same code, with the query throwing if reached.
+  ROUND 3 HAD PINNED ITS OWN DEFECT AS CORRECT BEHAVIOUR - its F3 test asserted
+  the false line WAS emitted - which is why F-46-1 survived that round.
+
+AND THE ROUND-4 FIX COMMENT REPEATED THE SHAPE IT WAS FIXING. It claimed the
+condition is readable as `ironwoodWindow.highHeight < birthHeight`, "published on
+every tip". The window is NOT published; `buildNeffSeries` drops it, which gate
+round 3's F4 established and for which this session had corrected the clamp
+comment twenty lines above. Caught by MEASURING the published document rather
+than re-reading the sentence, before the reviewers reached it. The argument
+survives with the right fields - `snapshot.height` 3,428,142 against the panel's
+`birthHeight` 3,428,143, both REQUIRED - and the test carried the same confusion,
+asserting on the INPUTS where the claim is about the DOCUMENT, so it could have
+been green while the claim was false.
+
+L2'S OWN CORRECTION, RECORDED HERE AS L2'S BECAUSE THE LEDGER KEEPS WHAT THE
+PROJECT LEARNED RATHER THAN WHO LEARNED IT.
+  L2's §1 SCOPE premise - "`pool_nullifiers` CHECKs `pool IN ('sapling',
+  'orchard')` - Ironwood is excluded by a CHECK constraint" - was false, and L2
+  has now read the object and confirmed it: one constraint, admitting all four
+  pools. The WAY it was wrong is worth more than the fact. L2 enumerated every
+  `CREATE TABLE` in the five migrations and called it exhaustive; it was
+  exhaustive over `CREATE TABLE`, and migration 003 widened that constraint with
+  an `ALTER`.
+  THE RULE THAT FALLS OUT, now in CLAUDE.md: an exhaustive claim is only
+  exhaustive over the thing it enumerates, and the thing to enumerate is the
+  OBJECT the rule is about - never a source that CONSTRUCTS it. For an index the
+  query sites ARE the object, so the static sweep L2 prescribed one message
+  earlier was right; for a constraint, `pg_constraint` is the object and the
+  migration files are a construction history. The two halves are one rule and
+  neither is safe alone.
+  WHAT IT COST AND WHAT IT DID NOT: the false premise pointed at a
+  `candidate_count` column and the session built `anchor_root` with the count
+  derived from `pool_anchors` instead - the better design, and the one L2's own
+  precedent demanded. A scope written on a dead premise produced the right
+  deliverable because the session checked the premise, which is what §8 is for.
+
+RULINGS TAKEN, ALL FOUR INTO CLAUDE.md BEFORE ANY OF ROUND 4'S WORK:
+  Q6 -> every scripted replacement asserts that its pattern matched. The
+     discrimination shape arriving in the editing tool, and the one face of it
+     that is free to close.
+  Q1(a) -> the exhaustive-claim rule above.
+  Q3 -> THE COUNT DOES NOT RESET. A guard closes a shape at the SITES IT CHECKS,
+     so instances are counted against the ORIGIN - "a new workspace member or
+     suite arrives without inheriting a convention every existing member has" -
+     and not the face. Four faces so far, two guards and one register row
+     covering them, origin open.
+  Clause (ii) -> BOUNDED. The fix commit is reviewed by a new round unless it
+     changes only a message string, a severity, a comment or a document sentence.
+     The regress terminates where a fix can no longer carry a behavioural defect.
+
+Q4's FORM-A GUARD IS DEFERRED TO HANDOFF-12 AS ITS FOLD 1, with its three real
+  hits named (`rollback.test.ts` twice, `pool-state.test.ts` once). L2's reason
+  is the one this session's own §7 documents: a guard in a fix commit makes the
+  fix commit need a review it will not get.
+
+STOPPING, AFTER ROUND 4:
+  Round 4's fix to F-46-1 is CONTROL FLOW, so under the amended clause (ii) it
+  needs a further round rather than in-round review. Two reviews were dispatched:
+  `0e2df0c` as its own commit - the review that had never happened - and
+  `57c2f99`, round 4's own fix. Their results are in §7.
+```

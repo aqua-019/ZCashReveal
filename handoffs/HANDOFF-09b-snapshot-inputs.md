@@ -262,7 +262,7 @@ NOT be executed is unchanged from previous handoffs and is listed under UNVERIFI
 | **A3** | migration 005 is re-runnable | applied twice; 418-line schema dump **byte-identical** between runs | **`ADD COLUMN` without `IF NOT EXISTS`** — errors on the second application, where 005's guarded form is a NOTICE and a skip |
 | **A4** | the velocities come from BLOCK time | -1000 ZEC/h over the three hourly samples; the 7d window separately reaches the baseline at -6371.97 | **"a series whose `timeMs` comes from `pool_snapshots.ts`"** — the same rows through the write clock give **-172,043,100 ZEC/h**, five orders of magnitude wrong; swapping the production join to `ts` turns A4 red |
 | **A5** | `candidateCount` is `max_position + 1`, unknown anchors excluded | 3 spends on disk, 1 admitted, `candidateCount` 4096 from `max_position` 4095 | **"a spend whose `anchor_root` is absent from `pool_anchors`"** — recording that anchor admits it with a DIFFERENT bound (10, from `max_position` 9), so the exclusion is shown to be the join and not the window, the pool filter or a typo. The null-anchor spend stays excluded, so the fail side moved exactly one of the two members |
-| **A6** | `pnpm -r test` unchanged in COUNT | **1220 -> 1266**, larger; split below, MEASURED per package rather than derived | deleting a new integration file drops the total |
+| **A6** | `pnpm -r test` unchanged in COUNT | **1220 -> 1267**, larger; split below, MEASURED per package rather than derived | deleting a new integration file drops the total |
 | **A7** | the retrofitted `check-instrument-deps.mjs` covers a third banned member | R1 now generates a direct and a transitive probe per member of `BANNED_DEPENDENCIES` | **"a banned name whose manifest-side detector is never driven"** — see the correction below; the discriminating probe is a detector that under-covers the list, rc=0 pre-fold and rc=2 post-fold |
 | **A8** | twelve guards, typecheck, lint, `content validate`, `pnpm build` | 12 guards rc=0, typecheck 13/13, lint 0, validate OK, `pnpm build` 9/9 | **the vacuous pass** — R4 driven over an opted-in §5 with no assertion bullet is reported as a finding rather than counted as a clean scan |
 
@@ -275,9 +275,9 @@ NOT be executed is unchanged from previous handoffs and is listed under UNVERIFI
 | `packages/zec-instruments` | 98 | 98 | — |
 | `apps/web` | 368 | 368 | — |
 | `apps/gateway` | 143 | 143 | — |
-| **`apps/publisher`** | 67 (66 + 1 skipped) | **91** (89 + 2 skipped) | +24: the A1/A4/A5 integration suite, the birth-height pin, and the three gate rounds' fixes |
+| **`apps/publisher`** | 67 (66 + 1 skipped) | **92** (90 + 2 skipped) | +24: the A1/A4/A5 integration suite, the birth-height pin, and the three gate rounds' fixes |
 | **`apps/indexer`** | 427 (426 + 1 skipped) | **449** (448 + 1 skipped) | +22: `blocks` and `pool_snapshots` persistence, the reorg and late-anchor pins, and the truncate guard's own suite |
-| **total** | **1220** (1218 + 2) | **1266** (1263 + 3) | +46 |
+| **total** | **1220** (1218 + 2) | **1267** (1264 + 3) | +47 |
 
 **THE FIGURES IN TWO OF THIS BRANCH'S COMMIT MESSAGES DO NOT REPRODUCE, AND THAT IS RECORDED RATHER
 THAN QUIETLY CORRECTED.** They said `1264` and `1276`; measured per package with Postgres and Redis
@@ -380,6 +380,57 @@ at one package. `assert-no-skipped-integration.mjs` now merges several reports a
 shapes; `ci.yml` emits a publisher report and checks both. **Shown to fail on the shape**: rc=1
 naming each skipped assertion, where the pre-widening guard on the same evidence prints "OK: every
 Postgres integration test executed" and exits 0.
+
+### Round 4, which L2 called after reading §7's own statement that the gate had not converged
+
+**L2 reviewed `0e2df0c` as its own commit because nobody had** - the review §7 named as missing -
+and found **F-46-1 (MEDIUM)** in it: round 3's fix corrected the RENDERING layer and left the LOG
+layer stating the falsehood it had just removed.
+
+The pre-birth branch returns a MEASUREMENT - `spends: []` over a real window, which is what round 3
+changed it to - and still called `fault("neffSeries", ...)`. The one production wiring of
+`onInputFault` logs at ERROR: *"an input query failed; publishing that panel as a stated absence"*.
+Both halves false, on every one of ~3.4 million blocks of an initial sync. **Demonstrated rather
+than argued**, with a `queryIronwoodSpends` that throws if it is called: it never is.
+
+Not cosmetic. `RUNBOOK-VPS.md` triages by reading logs and carries the concept of an expected line
+that must stay distinguishable from a fault - "zmq unavailable # expected, once". This one is
+expected AND continuous, has no runbook entry, and arrives at the same severity as a real failure on
+the same panel, training an operator to filter `neffSeries` faults including the real one round 2's
+unresolvable-anchor fixture exists to produce.
+
+**ROUND 3 HAD PINNED ITS OWN DEFECT AS CORRECT BEHAVIOUR.** Its F3 test asserted the false line was
+emitted - `expect(faults.some(/does not exist yet at this height/)).toBe(true)` - which is why
+F-46-1 survived that round and needed a fourth. The assertion is inverted with the history visible.
+
+**The choice, argued as L2 required: NO REPORT AT ALL, not a separate non-fault channel.** Four
+reasons. Nothing happened - not a failure, not an absence, not an anomaly. The document already
+carries the condition at the surface that has readers. The runbook's precedent is for a line that
+fires ONCE. And a tip ABOVE the birth height with no spends makes the identical claim - "measured,
+and it is zero" - while reporting nothing, so reporting one zero and not the other would make the
+log's meaning depend on which of two true zeros produced it. The fail side is the DATA mutation L2
+specified: one block below the birth height and one above, two values of one variable through the
+same code.
+
+### And the round-4 fix comment repeated the shape it was fixing, caught by measuring
+
+The comment claimed the condition is readable as `ironwoodWindow.highHeight < birthHeight`,
+"published on every tip". **The window is not published.** `snapshotNeffSeriesSchema` carries
+`birthHeight`, `series`, `spendCount`, `windowSpendCount` and `shares`; `buildNeffSeries` drops the
+window. Gate round 3's F4 established exactly that and this session corrected the clamp comment
+twenty lines above for it - then wrote the same claim again, in the commit fixing an instance of
+this very shape.
+
+Caught by **measuring the published document** rather than re-reading the sentence, before the
+reviewers reached it. The argument survives with the right fields: on a pre-birth tip
+`snapshot.height` is 3,428,142 against the panel's `birthHeight` 3,428,143, both REQUIRED, so
+`height < birthHeight` is readable by anyone holding the document. The other three claims in the
+comment were then checked rather than assumed.
+
+**The test carried the same confusion and could have been green while the claim it stood for was
+false**: it asserted on `belowInputs.ironwoodWindow` - the INPUTS - where the claim is about the
+DOCUMENT. It now builds the snapshot and asserts on the published panel, which is the only place the
+claim can be checked.
 
 ### The gate has NOT converged, and that is stated rather than claimed away
 
