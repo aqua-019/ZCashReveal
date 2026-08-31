@@ -244,7 +244,172 @@ a code mutation proves the assertion is WIRED, never that it DISCRIMINATES.
 
 ## §7 REPORT — written by L3 before the PR opens
 
-*(filled in below once the work is done)*
+**STATUS: DONE.** Spawn mode WORKING, proven by a tool attempt before any other output.
+
+### The environment, stated first because every number below depends on it
+
+A **real PostgreSQL 16.13** (`initdb` + `pg_ctl` in this container, not a stub) and a **real local
+`redis-server`** on 6379. All six migrations applied by the project's own `migrate.ts`. Every count,
+every velocity and every schema fingerprint below was executed here; nothing is relayed. What could
+NOT be executed is unchanged from previous handoffs and is listed under UNVERIFIED.
+
+### §5 assertions — every one executed, in both polarities, with the fail side naming its member
+
+| | assertion | pass state (executed) | fail side — **which member of the exclusion set** |
+|---|---|---|---|
+| **A1** | four panels are measurements through the real `readSnapshotInputs` against real rows | all four non-null, and asserted by **value** rather than presence: `drained` = 1 - 708841/900000, `sampleCount` 2, `velocity24h` -1000 ZEC/h, `candidateCount` 4096 | **"rows exist but carry no joinable block time"** — `DELETE FROM blocks`, series empty, `drain` null AND reported through the fault callback; the other panels unaffected |
+| **A2** | `pool_nullifiers` admits `'ironwood'` today | `pg_get_constraintdef` returns exactly one constraint, over all four pools; the INSERT succeeds | **`'tachyon'`** — rejected by `pool_nullifiers_pool_check`, so the constraint is shown LIVE rather than absent, which a bare INSERT success cannot distinguish |
+| **A3** | migration 005 is re-runnable | applied twice; 418-line schema dump **byte-identical** between runs | **`ADD COLUMN` without `IF NOT EXISTS`** — errors on the second application, where 005's guarded form is a NOTICE and a skip |
+| **A4** | the velocities come from BLOCK time | -1000 ZEC/h over the three hourly samples; the 7d window separately reaches the baseline at -6371.97 | **"a series whose `timeMs` comes from `pool_snapshots.ts`"** — the same rows through the write clock give **-172,043,100 ZEC/h**, five orders of magnitude wrong; swapping the production join to `ts` turns A4 red |
+| **A5** | `candidateCount` is `max_position + 1`, unknown anchors excluded | 3 spends on disk, 1 admitted, `candidateCount` 4096 from `max_position` 4095 | **"a spend whose `anchor_root` is absent from `pool_anchors`"** — recording that anchor admits it with a DIFFERENT bound (10, from `max_position` 9), so the exclusion is shown to be the join and not the window, the pool filter or a typo. The null-anchor spend stays excluded, so the fail side moved exactly one of the two members |
+| **A6** | `pnpm -r test` unchanged in COUNT | **1220 -> 1240**, larger; split below | deleting a new integration file drops the total |
+| **A7** | the retrofitted `check-instrument-deps.mjs` covers a third banned member | R1 now generates a direct and a transitive probe per member of `BANNED_DEPENDENCIES` | **"a banned name whose manifest-side detector is never driven"** — see the correction below; the discriminating probe is a detector that under-covers the list, rc=0 pre-fold and rc=2 post-fold |
+| **A8** | twelve guards, typecheck, lint, `content validate`, `pnpm build` | 12 guards rc=0, typecheck 13/13, lint 0, validate OK, `pnpm build` 9/9 | **the vacuous pass** — R4 driven over an opted-in §5 with no assertion bullet is reported as a finding rather than counted as a clean scan |
+
+### A6's split, before and after
+
+| package | before | after | delta |
+|---|---|---|---|
+| `packages/content` | 67 | 67 | — |
+| `packages/zebra-rpc` | 50 | 50 | — |
+| `packages/zec-instruments` | 98 | 98 | — |
+| `apps/web` | 368 | 368 | — |
+| `apps/gateway` | 143 | 143 | — |
+| **`apps/publisher`** | 67 (66 + 1 skipped) | **74** (72 + 2 skipped) | +7: the A1/A4/A5 integration suite and the birth-height regression pin |
+| **`apps/indexer`** | 427 (426 + 1 skipped) | **440** (439 + 1 skipped) | +13: `blocks` and `pool_snapshots` persistence |
+| **total** | **1220** (1218 + 2) | **1240** (1237 + 3) | +20 |
+
+**Both skips named, and now the third.** `decodeBlock - real mainnet fixture` (the operator's
+capture, seven handoffs old) and the two `runIf` markers, each of which fires only when its service
+is DOWN and is therefore correctly skipped BECAUSE the service is up.
+
+### The two premises in the commissioned scope that were false
+
+Both were established by execution, not by reading, and both are in §1 rather than worked around.
+
+1. **`pool_nullifiers` has admitted Ironwood for three handoffs.** Migration 002 created the
+   two-pool CHECK; **003 lines 47-49 drop it by name and re-add it over all four pools**, and
+   `migrations.test.ts` has asserted it since HANDOFF-06. L2 enumerated `CREATE TABLE` statements
+   and did not see the `ALTER`. This changed the deliverable: the real gap is that no table could
+   say WHICH ANCHOR a spend cited, which is why 005 adds `anchor_root` rather than a
+   `candidate_count`.
+2. **`pool_snapshots` had no production writer at all** - no `INSERT` outside one test probe, no
+   confirmed-block driver, nothing constructing a `PoolState`. So "rows written from now on" names
+   rows this handoff's writer is the first to write, and the backfill question is not "none on the
+   VPS yet" but **none anywhere, ever**. It also fixed the write-path boundary: this handoff ships
+   the writer FUNCTIONS and their tests; HANDOFF-12's driver calls them.
+
+### The design decisions, and why each was defensible rather than merely taken
+
+- **A `blocks` table, not a `block_time` column.** A block has one time; the column stores that one
+  consensus number four times per height with nothing holding the copies equal. Decisive past the
+  principle: `PoolStateSnapshot` is a SHARED type with no time field, so the column shape forces
+  either widening it or a third writer parameter, and the table needs neither -
+  `writePoolSnapshot(record, conn)` matches the other four writers exactly.
+- **`time_s BIGINT NOT NULL`, no default, seconds.** No default because a default is what made
+  `pool_snapshots.ts` useless. NOT NULL because a block cannot be observed without its time, so the
+  absence is the ROW's absence. BIGINT because unix seconds pass `INT_MAX` in 2038 - and because
+  postgres.js returns BIGINT as a **string**, which was MEASURED against this Postgres alongside
+  INTEGER (number), NUMERIC (string) and TIMESTAMPTZ (Date) rather than assumed.
+- **`anchor_root`, not `candidate_count`.** `rawCandidateRange` already defines Cand_0 as
+  `max_position + 1n`; storing it beside the spend is a second source of truth for a number
+  `pool_anchors` determines. No DEFAULT, and the reason is sharper than 004's: the count is read as
+  a PREDICATE (`> 0n` is the admission rule), so a manufactured zero excludes a spend **silently**
+  while looking like a measurement.
+
+### Three findings this session raised against its own work before the gate returned
+
+- **The Ironwood birth height was tied to the drain's chart origin.** `readSnapshotInputs` read
+  `birthHeight` from `SNAPSHOT_DRAIN_BASELINE_HEIGHT`, on the argument that one configured height
+  beats two. Wrong, and silently: the drain baseline is a chart origin `orchardDrain`'s own docblock
+  invites an operator to re-base, and a birth height is a consensus fact. Re-basing the chart would
+  have dropped every spend below the new value and shortened `neffSeries` into a real measurement of
+  a window nobody asked for. Split into `SNAPSHOT_IRONWOOD_BIRTH_HEIGHT` and pinned by a regression
+  test with both polarities; restoring the conflation turns it red.
+- **`check-pool-union` caught a stale two-pool union in migration 005's own comment**, where it
+  quoted L2's false premise verbatim. **Rephrased rather than exempted** - weakening a guard to
+  accommodate prose is the wrong trade, and `check-redis-safety`'s "the rule's own documents may
+  name them" exemption was deliberately not copied for one comment.
+- **Two test-fixture defects, both found by a red run rather than by review.** The A1 fail side
+  deleted too narrow a height range (the drain window is eight days and reaches far below it), and
+  its restore wrote timestamps the seed never had, which then contaminated A4 into measuring
+  -47,789 ZEC/h against a fixture it had not built. **The estimator was right and the fixture was
+  wrong both times.** Fixed by re-seeding per test and by modelling a catch-up sync deterministically
+  with explicit `ts` values.
+
+### L2's stated verification for fold 1 does not discriminate, and is reported rather than redone
+
+Fold 1 says: "Verify by the probe that found it: append a third member, the self-test must go RED."
+**Executed: it does not, and it should not.** A correctly generated probe set produces probes for
+the new member that PASS - exactly as R2's eight generated probes already pass, which L2's own
+F-45-1 observed without drawing the consequence. Appending `better-sqlite3` leaves the retrofitted
+self-test green, and that is the right answer.
+
+The discriminating probe is a detector that UNDER-COVERS the list: `findBannedPath` called with
+`BANNED_DEPENDENCIES.slice(0, 2)`, a no-op while the list has two members and a hole once it has
+three. Executed both ways:
+
+- **pre-fold guard**, that mutation, third member appended: **rc=0**, and the summary line asserts
+  the rule for `better-sqlite3` by name while its detector was never driven. F-45-1 reproduced.
+- **post-fold guard**, same mutation: **rc=2**, with three named failures.
+
+This is the fifth-and-sixth instance of the rule about probes rather than code (LEDGER-05 fold 7).
+The sixth: `pg_dump` 16 emits a random `\restrict` nonce per invocation, so A3's first schema
+comparison reported two different fingerprints for a byte-identical schema. **The probe was wrong,
+not the migration**, and the instrument was corrected rather than the conclusion.
+
+### Instance three of "a green CI is not evidence a package ran", recognised as F-45-2 asked
+
+L2 recorded instances one (`zebra-rpc`) and two (`zec-instruments`) and wrote: "Clause (b) of the
+stopping rule triggers at three. I am not asking for the guard now. I am recording the count so
+instance three is RECOGNISED rather than re-derived." **This is instance three.**
+`snapshot-inputs.integration.test.ts` gates itself on a Postgres reachability probe and the
+publisher's CI step emitted no JSON report, so nothing checked it. Executed: with `DATABASE_URL`
+pointed at a closed port, vitest exits **0** with 73 tests, 66 passed and **7 silently pending** -
+including A1, A4 and A5, the three the handoff exists for.
+
+Under clause (b) the instrument at instance three is a guard, and the guard already existed pointed
+at one package. `assert-no-skipped-integration.mjs` now merges several reports and matches both path
+shapes; `ci.yml` emits a publisher report and checks both. **Shown to fail on the shape**: rc=1
+naming each skipped assertion, where the pre-widening guard on the same evidence prints "OK: every
+Postgres integration test executed" and exits 0.
+
+### The corrected fact, swept in one commit (LEDGER-03 Q3)
+
+`chain-inputs.ts`'s header, `instruments-wired.test.ts`'s header AND its A1 assertion,
+`docs/2.0/SNAPSHOT.md` §8.1's table, `docs/2.0/RUNBOOK-VPS.md`'s "MIGRATIONS 003 AND 004" note, and
+`handoffs/README.md`'s click list. **`HANDOFF-09a`'s §7 keeps its text** - it is a dated report of
+what was measured then, and rewriting a report to match a later state falsifies the record (the same
+reasoning 09a used for `CLAUDE-CODE-PROMPTS.md`) - but it gains a dated forward pointer in place, so
+a reader is not left holding a contradiction.
+
+### Folds 1-6
+
+| fold | disposition |
+|---|---|
+| 1 | **APPLIED**, plus the correction to its stated verification above |
+| 2 | **APPLIED** — HANDOFF-11 §3 amended in place, old wording struck through per LEDGER-10 Q5 |
+| 3 | **APPLIED** — `SNAPSHOT.md` §8.1 gains the rendering contract with copy for all four panels; the two input-layer absences named 09b as owner, the other two name a CONDITION because their inputs exist |
+| 4 | **APPLIED** — three rules in `CLAUDE.md` |
+| 5 | **NOT-MATCHED, already satisfied.** HANDOFF-13's A2 already names `apps packages scripts .github`; the 09a session widened it and recorded the measurement. Reported rather than applied twice |
+| 6 | **APPLIED** — 09b's §5 is in the amended format and `check-ledger-structure.mjs` gains R4, opt-in by marker rather than retroactive, with "checks PRESENT, never CORRECT" in its own header. **R4 driven over the real tree found a real defect on its first run: A8 of this session's own §5 carried no exclusion set.** |
+
+### Provenance
+
+Executed, with output shown in the transcript: every §5 assertion in both polarities; the twelve
+guards; `typecheck` (13/13); `lint`; `content validate`; `pnpm build` (9/9); `pnpm -r test` before
+and after; the migration applied twice with a schema diff; the postgres.js type probe; the
+`pg_constraint` read-back; the fold-1 probes against both the pre-fold and post-fold guard; the
+CI-skip probe against both the pre-widening and widened guard; and the four source mutations that
+turn A4, A7 and the birth-height pin red.
+
+Read (file + commit): migration 003's and 004's nullability arguments; `orchardDrain` and
+`ironwoodBirth`'s admission rules; `rawCandidateRange`'s definition of Cand_0.
+
+**UNVERIFIED, labelled:** `docker build` has still never run anywhere - no daemon in this container,
+unchanged from HANDOFF-09 and -09a. The VPS database has not been migrated; that is the operator's
+click and is now named in `README.md` with all three migrations. No session can reach a preview host,
+the VPS or a live node.
 
 ## §8 LEDGER — appended to `handoffs/LEDGER.md`; read by L2 before the next handoff
 
