@@ -5261,3 +5261,134 @@ STOPPING, AFTER ROUND 4:
   `0e2df0c` as its own commit - the review that had never happened - and
   `57c2f99`, round 4's own fix. Their results are in §7.
 ```
+
+## HANDOFF-09b round 4 continued — the two commissioned reviews (L3, 31 Aug 2026)
+
+```
+L2 COMMISSIONED TWO REVIEWS AND BOTH FOUND THE FIX COMMIT. Budgets in the first
+lines: `0e2df0c` as its own commit, 34 candidates / 21 by execution; round 4's
+own fix `57c2f99`, 22 / 15. Eleven findings, three HIGH, all fixed in `923372e`.
+Both reviewers reported a malformed probe of their own AGAINST THEMSELVES rather
+than silently redoing it - instances six and seven of the converse rule.
+
+THE FINDING WORTH THE LEDGER: A TEST WHOSE RESULT IS IDENTICAL IN BOTH
+POLARITIES, SO ONLY THE DATABASE DISCRIMINATES.
+  `truncate-guard.test.ts` was written by gate round 3 to prove `truncateAll`
+  refuses when this run owns no schema - the guard that exists because the
+  publisher suite once truncated a developer's `public`. Its fourth case tests
+  the ESCAPE HATCH, so it must delete `ZR_TEST_SCHEMA`, and it then called the
+  real `truncateAll(sql)`. `getSql()` fixes `search_path` at CREATION time, so on
+  any run whose `globalSetup` line is missing - the exact door `_setup.ts` names
+  in as many words - the connection resolves to `public` and the file wipes the
+  developer's six chain tables. The case above it throws in that state, and A
+  THROWN TEST DOES NOT STOP THE FILE. Its header said "IT NEVER TRUNCATES
+  ANYTHING".
+  REPRODUCED, twice, on a throwaway database:
+    round 3's file: 1 failed, 3 passed | blocks=0 nullifiers=0
+    round 4's file: 1 failed, 3 passed | blocks=1 nullifiers=1
+  THE TEST RESULT IS THE SAME LINE IN BOTH. Three rounds of reading missed it and
+  one execution found it, because the only channel carrying the difference was
+  the database. The general form, which is what makes this ledger-worthy: WHEN A
+  TEST'S SUBJECT IS A SIDE EFFECT, THE ASSERTION AND THE DAMAGE ARE ON DIFFERENT
+  CHANNELS, AND A GREEN OR RED RUN IS EVIDENCE ABOUT NEITHER. The fix drives a
+  recording stub - what the hatch must be shown to do is let the TRUNCATE
+  through, and a recorded statement is that exactly, while the case above already
+  proves the same statement empties real tables.
+
+A GUARD THAT LOST ITS TEST INSIDE THE COMMIT SAYING BOTH GUARDS WERE COVERED.
+  Round 2 added the fault wrapper in `readSnapshotInputs` with its two-polarity
+  transcript, `F11`. Round 3 added two cases for the OTHER site, `panelOrNull`,
+  and deleted `F11`. So `0e2df0c`, whose message reads "both sites now guard",
+  left one with no transcript in either polarity. Measured there: replacing the
+  wrapper with a bare `sink(panel, err)` left the publisher suite unchanged.
+  The first fix used ONE mutation for both restored halves and it only killed the
+  async one - a fail-side probe that does not discriminate, caught by running it,
+  reported here rather than quietly repaired. Each half now has its own: the sync
+  case dies to removing the outer try/catch, the async case to removing the
+  promise wrap.
+
+THE SWEEP RULE, INSIDE THE COMMIT THAT ARGUED FOR IT. `0e2df0c` rewrote
+  SNAPSHOT.md's "what closed each one" table to say 09b supplied both sources and
+  left section 8.1's rendering contract 25 lines below still reading "drain: not
+  measured - needs a block-time source (HANDOFF-09b)". The publisher change in
+  that same commit was made FOR that reason. `drain` is still reachable as null on
+  the production path, so a renderer would have told a visitor that a database
+  which did not answer needs a handoff that had already shipped. All four rows now
+  name a CONDITION - the `POOLS_VIEW_GAPS` precedent, an owner outliving its
+  subject and reading as a fact.
+
+AND ROUND 4'S OWN TEST ASSERTED IN A COMMENT WHAT IT DID NOT CHECK. The F-46-1
+  test's `explode` query went only to the BELOW call while its comment claimed
+  "one block above, the query IS called". Mutating the guard to `if (true)` left
+  BOTH halves of F-46-1 green; eight other tests caught it, so the suite was safe
+  and the test's statement about itself was false. The DATA-mutation half - the
+  half L2's Q2 rule exists for - was the half that did not discriminate.
+
+THE DELETION'S SECOND REASON NAMED READERS THAT DO NOT EXIST. "The document
+  already carries it, at the surface that has readers": executed, `neffSeries`
+  appears ZERO times in `apps/web`, the gateway has no snapshot read path, and
+  8.1 distinguished only null from non-null - so nothing instructed anyone to
+  compare `height` against `birthHeight`, the one comparison the argument rests
+  on. True of the FIELDS, false of the CONTRACT. Fixed by making it true: 8.1
+  gains a four-row `neffSeries` rendering table keyed on that comparison. THE
+  GENERAL FORM: a required field is not a rendering contract, and "the document
+  carries it" is a claim about the CONSUMER, checkable only by finding one.
+
+ROUND 3'S EXTRAPOLATION WAS WRONG, IN THE DIRECTION THAT FLATTERS THE BRANCH, AND
+  IS KEPT ON THE RECORD. It predicted round 4 would find "a stale count in a
+  docblock, or an assertion that passes either way" and was "unlikely to find
+  another defect that reaches the published document". It found both named things
+  AND three HIGHs, one of which wipes a database. Second time on this branch,
+  fifth in this project, about commits the predicting session had itself written.
+
+A SHAPE FOR CLAUSE (b), NAMED INDEPENDENTLY BY BOTH REVIEWERS: A FIX COMMIT THAT
+  MOVES A GUARD AND DOES NOT MOVE ITS TEST. Three instances on this branch -
+  round 2's truncate refusal shipped with no test; round 3's fault wrapper tested
+  and then untested; round 3's `truncate-guard.test.ts`, whose hatch case
+  exercised the guard by performing the wipe. Under the rule that a shape
+  recurring across three rounds gets a GUARD rather than another review, this is
+  HANDOFF-12's work, beside Q4's form A, for L2's own reason: a guard in a fix
+  commit makes that fix commit need a review it will not get.
+
+TWO THINGS RAISED AND DELIBERATELY NOT TAKEN, BECAUSE ROUND 4 WAS COMMISSIONED
+NARROW:
+  (1) `index.ts`'s fault message says "publishing that panel as a stated absence"
+      and that is true of TWO of the four things reaching the channel. The drain
+      baseline refusal publishes a series with no baseline, and the partial
+      anchor loss PUBLISHES the panel over fewer spends than the window holds -
+      and that line is the only place the gap is stated at all, since
+      `buildNeffSeries` drops the audit record. The new runbook section 7.1
+      states this rather than repeating the message; the message itself is
+      untouched.
+  (2) `handoffs/HANDOFF-11-live-wiring.md` line 58 still quotes the old string
+      "drain: not measured - needs a block-time source, HANDOFF-09b" as L2's
+      worked example. THE SWEEP RULE AND THE CROSS-HANDOFF RULE CONFLICT HERE:
+      the sweep says correct every restatement in the same commit, and the
+      revolution protocol says a handoff body is not one of the five cross-handoff
+      edits a session may make. The session named the conflict rather than
+      picking the rule that let it act. It is L2's to correct, and a session
+      executing 11 would otherwise copy that string.
+
+STOPPING, AFTER `923372e`:
+  `923372e` changes CONTROL FLOW in three places - the producer-side
+  `windowSpendCount` refusal in `buildNeffSeries`, the extracted `mayTruncate`,
+  and the recording stub - so under the amended clause (ii) it earns a ROUND,
+  not in-round review. Round 5 was dispatched on it and is out at write-back;
+  it is reported as work, not as a clean round. Clause (a) is NOT met: round 4
+  returned three HIGHs a user could see.
+  THE EXTRAPOLATION: round 6 probably finds one or two findings in ROUND 5'S FIX
+  COMMIT rather than in the estimator, of the reach round 4's LOWs had - a count,
+  a referent, a claim a comment makes about itself. The behaviour has real
+  evidence behind it: five code mutations and a 14-path enumeration found no live
+  defect in `readSnapshotInputs`, and both of round 4's HIGHs were in the TEST and
+  DOCUMENT layers. What has not decayed across six sessions is that the fix commit
+  is where the finding is.
+
+MEASURED, package by package, not summed from a delta: content 67, zebra-rpc 50,
+  zec-instruments 98, web 368, gateway 143, publisher 99 + 2 skipped, indexer 448
+  + 1 skipped. TOTAL 1276, 1273 passed, 3 skipped, from 1267/1264/3. Nine new
+  publisher cases. typecheck 13/13, lint 0, twelve guards, content validate and
+  `pnpm build` all green. The post-fan-out sweep after both reviews returned only
+  the ten paths the fix commit touches; neither read-only reviewer wrote to the
+  tree, and both stated their own `git status` at start and finish.
+```
