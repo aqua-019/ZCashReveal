@@ -65,7 +65,7 @@
  *
  * THE BIRTH HEIGHT IS A PARAMETER AND NEVER A LITERAL IN THIS FILE. It is
  * `NU6_3_ACTIVATION_MAINNET` (3,428,143) or its testnet twin, both of which live
- * in `decoder/activation-heights.ts` with their citations attached, and the
+ * in this package's own `activation-heights.ts` with their citations attached, and the
  * caller passes whichever network it is replaying. The reason it is not imported
  * and defaulted here is {@link IRONWOOD_HEIGHTS_REST_ON_A_DRAFT_ZIP}: ZIP 258 is
  * status **Draft**, so the height this module uses as the origin of its whole

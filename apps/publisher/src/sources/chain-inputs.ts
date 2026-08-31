@@ -109,6 +109,8 @@ export function readChainValues(info: ChainValueReading, atHeight: number): Chai
   const pools = info.valuePools ?? [];
   let sawAny = false;
   let accounted = 0n;
+  /** The lanes the node NAMED, as against the five `byLane` is seeded with. */
+  const reportedLanes = new Set<LaneBalance["lane"]>();
 
   for (const p of pools) {
     if (p.id === undefined) continue;
@@ -116,6 +118,7 @@ export function readChainValues(info: ChainValueReading, atHeight: number): Chai
     accounted += p.chainValueZat;
     const lane = LANE_BY_POOL_ID[p.id];
     if (lane === undefined) continue; // the lockbox, and anything a later node adds
+    reportedLanes.add(lane);
     byLane.set(lane, (byLane.get(lane) ?? 0n) + p.chainValueZat);
   }
 
@@ -125,22 +128,44 @@ export function readChainValues(info: ChainValueReading, atHeight: number): Chai
   }));
 
   const supplyFromNode = info.chainSupply?.chainValueZat;
-  const supplyZat = supplyFromNode ?? (sawAny ? accounted : null);
+  const reported = supplyFromNode ?? (sawAny ? accounted : null);
+  // A NON-POSITIVE SUPPLY IS NOT A MEASUREMENT, IT IS A NON-ANSWER. `U/Supply`
+  // is undefined at zero and `turnstileResidual` refuses it, and `?? ` does not
+  // catch a `0n` because zero is not nullish. A regtest node, a node at genesis
+  // or any reading that sums to zero produced a `supplyZat: 0n` that reached the
+  // estimator. Routed to the same branch this module already means by "the node
+  // did not answer" (gate round 1, M2).
+  const supplyZat = reported !== null && reported > 0n ? reported : null;
   const supplySource =
-    supplyFromNode !== undefined
-      ? `getblockchaininfo chainSupply at height ${atHeight}`
-      : sawAny
-        ? `getblockchaininfo valuePools, summed over all six entries including the ZIP 271 lockbox, at height ${atHeight}`
-        : "not reported by the node";
+    supplyZat === null
+      ? "not reported by the node"
+      : supplyFromNode !== undefined
+        ? `getblockchaininfo chainSupply at height ${atHeight}`
+        : `getblockchaininfo valuePools, summed over all six entries including the ZIP 271 lockbox, at height ${atHeight}`;
 
   return {
     lanes,
-    poolBalances: {
-      sprout: byLane.get("sprout") ?? 0n,
-      sapling: byLane.get("sapling") ?? 0n,
-      orchard: byLane.get("orchard") ?? 0n,
-      ironwood: byLane.get("ironwood") ?? 0n,
-    },
+    // ONLY THE LANES THE NODE ACTUALLY REPORTED, and the `?? 0n` that used to be
+    // here was a live defect (gate round 1, H2). `byLane` is pre-seeded with
+    // zeros so that `lanes` above always carries five entries for the site to
+    // render; reading `poolBalances` out of the same map made every pool key
+    // PRESENT whatever the node said, which defeated `turnstileResidual`'s
+    // deliberate refusal - "an absent balance is not a zero balance, and
+    // treating it as one would overstate the verified share".
+    //
+    // `valuePools` is `.optional()` in `blockchainInfoSchema`. A reading with
+    // `chainSupply` present and `valuePools` absent or partial therefore
+    // published `U = 0`, `unprovableShare = 0` and `verifiedShare = 1` - "100
+    // per cent of supply is verified" - stamped with a `supplySource` naming the
+    // node and the height, as a MEASUREMENT. Dropping only sprout moved the
+    // headline figure from 0.95669 to 0.95803, in the wrong direction. It was
+    // latent until HANDOFF-09a wired the real estimator; before that the panel
+    // was null and nothing was claimed.
+    poolBalances: Object.fromEntries(
+      (["sprout", "sapling", "orchard", "ironwood"] as const)
+        .filter((lane) => reportedLanes.has(lane))
+        .map((lane) => [lane, byLane.get(lane) ?? 0n]),
+    ),
     supplyZat,
     supplySource,
   };

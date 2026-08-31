@@ -1,7 +1,7 @@
 // Guards the one kind of provenance this project uses most and checks least: a
 // citation of the form `docs/2.0/research/01-contemporary-zcash.md:<line>`.
 //
-// WHY IT EXISTS. Constants in `apps/indexer/src/decoder/activation-heights.ts`
+// WHY IT EXISTS. Constants in `@zcashreveal/instruments`' `activation-heights.ts`
 // are chain parameters, and each carries a line citation into the research
 // corpus as its provenance. A line number is the weakest possible citation -
 // it decays the moment anyone inserts a paragraph above it - and this project

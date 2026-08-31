@@ -140,7 +140,17 @@ async function main(): Promise<void> {
       // entry point opens a socket. They now live in `@zcashreveal/instruments`,
       // a workspace package that depends on `@zcashreveal/types` and nothing
       // else, which this image's Dockerfile already copies.
-      const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS);
+      // THE FAULT CALLBACK IS NOT OPTIONAL HERE (gate round 1, H1). A panel
+      // whose estimator refuses its inputs publishes as a stated absence rather
+      // than costing the whole document, and this is where the reason is
+      // recorded - an absence with no logged cause is indistinguishable from a
+      // panel nobody wired.
+      const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, (panel, err) => {
+        log.error(
+          { err, panel, height: tip.height },
+          "analysis panel refused its inputs; publishing it as a stated absence",
+        );
+      });
       return { snapshot, json: serializeSnapshot(snapshot) };
     },
   });

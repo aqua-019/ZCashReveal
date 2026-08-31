@@ -1,5 +1,6 @@
 // Guards the ONE constraint `packages/zec-instruments` exists to satisfy: its
-// dependency graph contains neither `zeromq` nor `@zcashreveal/indexer`.
+// dependency graph contains neither `zeromq` nor `@zcashreveal/indexer`, and its
+// sources open no socket.
 //
 // WHY THIS EXISTS. HANDOFF-09 built three pool-level estimators inside
 // `apps/indexer/src/analysis/` and a publisher that could not reach them, so
@@ -28,45 +29,97 @@
 // `docker build` on the operator's machine, or worse, in a publisher process
 // that opens a socket nobody asked it to open.
 //
+// ============================================================================
+// THIS FILE'S FIRST DRAFT HAD ELEVEN HOLES AND ITS SELF-TEST CERTIFIED ALL OF
+// THEM. Gate round 1 of HANDOFF-09a found them by executing probes against the
+// real tree rather than by reading, and they are listed here because the list is
+// the argument for how this version is built. Every one was a clean rc=0 with
+// the real defect in place:
+//
+//   1. The self-test never exercised `zeromq` AT ALL. Its one case commented "a
+//      transitive path to zeromq through the indexer" hit `@zcashreveal/indexer`
+//      at hop one and returned there, because both names are in the banned set.
+//      Deleting `zeromq` from the banned list left the self-test green and the
+//      guard green - the native-addon rule, gone, certified by its own probe.
+//      That is the shape CLAUDE.md records for HANDOFF-08's round 4, committed
+//      inside the guard written to answer it.
+//   2. A pnpm ALIAS evaded the graph walk entirely: `"zmq": "npm:zeromq@^6.1.2"`
+//      and `"idx": "workspace:@zcashreveal/indexer@*"` are both valid, both
+//      install the banned package, and both were invisible because the walk
+//      keyed on `Object.keys` and the real name is in the VALUE.
+//   3. `peerDependencies` was not read, and this workspace sets
+//      `autoInstallPeers: true`, so a peer IS in the installed graph.
+//   4. `devDependencies` was excluded ON A STATED JUSTIFICATION THAT WAS FALSE.
+//      The old docblock argued a devDependency "is not installed by `pnpm
+//      install --prod`" - true, and about the wrong install. Every Dockerfile
+//      here runs `pnpm install --frozen-lockfile --filter <app>...` with NO
+//      `--prod`, so a `zeromq` devDependency on this package lands in a
+//      compiler-less build stage: exactly the failure the header describes.
+//   5. R2 missed `net` without the `node:` prefix, `require("net")`, and dynamic
+//      `await import("node:child_process")` - three ordinary spellings of the
+//      thing it forbids. It also could not see `import { Subscriber } from
+//      "zeromq"` in a source file, because R1 reads manifests and R2's list was
+//      builtins: a banned DEPENDENCY imported from source was checked by neither.
+//   6. A directory rename made the source scan return zero files IN SILENCE, so
+//      R2 passed vacuously while reporting "0 source file(s)".
+//   7. `readWorkspace` and `sourceFiles` - the two functions that produce the
+//      real inputs - were outside the self-test, which built its inputs by hand.
+//      Breaking either left every probe green. The old header claimed the
+//      self-test "drives the REAL rule functions"; it was true one level down
+//      and false where the defect then lived.
+//   8. Three of the five banned builtins had no self-test case; deleting them
+//      left the self-test green.
+//   9. The workspace scan read `packages/` and `apps/` while
+//      `pnpm-workspace.yaml` resolves `legacy/*` too, so a path through
+//      `@zcashreveal/dashboard` was invisible - and the guard PRINTED the hole
+//      on every clean run as "8 workspace manifest(s)" where pnpm resolves 9.
+//  10. R2's negative self-test did not discriminate. The header claimed the
+//      regex matched a specifier "and NOT a mention in a comment"; a comment
+//      CONTAINING a full import statement failed the guard. The probe passed
+//      only because its prose had no `from` clause, so it tested nothing about
+//      comments containing code - the fail-side-probe rule from CLAUDE.md, where
+//      the negative case does not discriminate and the positive result was
+//      therefore never evidence. This matters concretely in a package whose
+//      `index.ts` carries a fifty-line header discussing imports.
+//  11. `sourceFiles` matched `.ts` only, so `probe.mts` and `probe.js` were not
+//      scanned.
+// ============================================================================
+//
 // WHAT IT CHECKS, AND WHY TRANSITIVELY. The rule is about the resolved GRAPH,
 // not the direct dependency list. `@zcashreveal/instruments` -> some future
 // `@zcashreveal/chain-io` -> `@zcashreveal/indexer` -> `zeromq` is the same
 // defect as a direct edge and is harder to see; a direct-only check would pass
-// exactly the case that matters. So this walks the workspace graph from the
-// package's own manifest, following `workspace:` edges into the other manifests
-// and treating every non-workspace dependency as a leaf to be matched by name.
+// exactly the case that matters.
 //
-// The BANNED set is deliberately small and each entry is justified rather than
-// precautionary:
-//
-//   zeromq                 a native addon; the publisher image has no compiler
-//   @zcashreveal/indexer   its entry point opens a ZMQ subscriber, and it is
-//                          what the estimators were moved OUT of - an edge back
-//                          to it would re-create the cycle the package exists to
-//                          break
+// EVERY DEPENDENCY FIELD IS READ, which is the correction to hole 4 and is now
+// the simpler rule as well as the true one: `dependencies`,
+// `optionalDependencies`, `peerDependencies` and `devDependencies` can each put
+// a package into an installed graph that some stage of some Dockerfile builds.
+// This package's own devDependencies - `vitest`, `fast-check`, `typescript`,
+// `@types/node` - are leaves matched by name, so reading them costs nothing and
+// closes the hole rather than arguing about it.
 //
 // A THIRD RULE THAT IS NOT A DEPENDENCY EDGE, because the graph cannot see it.
-// `packages/zec-instruments/src` must not import a node socket or child-process
-// module directly - `node:net`, `node:dgram`, `node:tls`, `node:child_process`,
-// `node:worker_threads` - since "no socket layer" is a statement about what the
-// code does and a manifest says nothing about `import "node:net"`. Checked by
-// scanning the package's own sources.
+// The package's sources must not import a socket or child-process module, or a
+// banned dependency, DIRECTLY - a manifest says nothing about
+// `import "node:net"`, and "no socket layer" is a statement about what the code
+// does. Comments are stripped before that scan so the rule is about code, and
+// `import type` is ignored because it is erased at compile time.
 //
 // WHAT IT DELIBERATELY DOES NOT CHECK. It does not forbid `@zcashreveal/types`,
-// which is the package's one legitimate dependency and is itself pure. It does
-// not police the OTHER packages' graphs: `apps/indexer` may depend on `zeromq`
-// and does, which is correct and is the whole reason the split exists. The rule
-// is scoped to what `@zcashreveal/instruments` can reach, and a version of it
-// that policed the workspace generally would fire on the correct arrangement.
+// this package's one runtime dependency and itself pure. It does not police the
+// OTHER packages' graphs: `apps/indexer` may depend on `zeromq` and does, which
+// is correct and is the whole reason the split exists. The rule is scoped to
+// what `@zcashreveal/instruments` can reach, and a version of it that policed
+// the workspace generally would fire on the correct arrangement.
 //
 // Self-tested in both directions on every run, and the self-test drives the REAL
-// rule functions rather than copies of them - HANDOFF-10's gate round 3 found
-// this project's zebrad guard asserting against patterns written out a second
-// time inside its own selfTest, so breaking the real check left every probe
-// green. One function, two callers.
+// functions - `readWorkspace` and `sourceFiles` included, over a temporary
+// fixture tree, which is hole 7's correction.
 
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 const PACKAGE_DIR = "packages/zec-instruments";
 const PACKAGE_NAME = "@zcashreveal/instruments";
@@ -74,27 +127,27 @@ const PACKAGE_NAME = "@zcashreveal/instruments";
 /** Dependencies that may not appear anywhere in the package's resolved graph. */
 export const BANNED_DEPENDENCIES = ["zeromq", "@zcashreveal/indexer"];
 
-/** Node builtins that would make this package a socket layer whatever its manifest says. */
-export const BANNED_MODULES = [
-  "node:net",
-  "node:dgram",
-  "node:tls",
-  "node:child_process",
-  "node:worker_threads",
-];
+/**
+ * Builtins that would make this package a socket or a process spawner whatever
+ * its manifest says. BOTH SPELLINGS: `net` and `node:net` resolve to the same
+ * builtin and do the same thing, and only one of them was listed (hole 5).
+ */
+export const BANNED_BUILTINS = ["net", "dgram", "tls", "child_process", "worker_threads"].flatMap(
+  (m) => [m, `node:${m}`],
+);
+
+/** Every specifier R2 refuses: the builtins above, plus the banned packages. */
+export const BANNED_MODULES = [...BANNED_BUILTINS, ...BANNED_DEPENDENCIES];
+
+/** Source extensions the scan reads. `.ts` alone missed `.mts` and `.js` (hole 11). */
+const SOURCE_EXT = /\.(?:m|c)?[jt]sx?$/;
 
 /**
  * Every workspace manifest, as {name -> {dir, deps}}.
  *
- * `deps` merges `dependencies` and `optionalDependencies` and EXCLUDES
- * `devDependencies`, which is the one judgement call in this file and is worth
- * stating. A devDependency is not in the shipped graph: it is not installed by
- * `pnpm install --prod`, it is not copied into the runtime stage of any
- * Dockerfile here, and it cannot reach a running publisher. `vitest` and
- * `fast-check` are devDependencies of this package and would otherwise have to
- * be special-cased, which is how a rule acquires exceptions and stops meaning
- * anything. If a future session needs the dev graph checked too, that is a
- * different rule with a different justification, not a widening of this one.
+ * `deps` merges ALL FOUR dependency fields - see the header, hole 4 - and also
+ * resolves pnpm ALIASES out of the VALUE, because `"zmq": "npm:zeromq@^6"`
+ * installs `zeromq` under a key that matches nothing (hole 2).
  */
 export function readWorkspace(root, dirs) {
   const manifests = new Map();
@@ -102,10 +155,24 @@ export function readWorkspace(root, dirs) {
     const file = join(root, dir, "package.json");
     if (!existsSync(file)) continue;
     const json = JSON.parse(readFileSync(file, "utf8"));
-    manifests.set(json.name, {
-      dir,
-      deps: Object.keys({ ...json.dependencies, ...json.optionalDependencies }),
-    });
+    const fields = {
+      ...json.dependencies,
+      ...json.optionalDependencies,
+      ...json.peerDependencies,
+      ...json.devDependencies,
+    };
+    const deps = [];
+    for (const [key, spec] of Object.entries(fields)) {
+      deps.push(key);
+      // The captured name must LOOK like an npm package name, or `workspace:*`
+      // - an ordinary version spec, not an alias - yields a dependency called
+      // `*`. Harmless (nothing bans it) and wrong, and it printed on every run.
+      const alias = /^(?:npm|workspace):((?:@[a-z0-9~][a-z0-9._~-]*\/)?[a-z0-9~][a-z0-9._~-]*)(?:@|$)/.exec(
+        String(spec ?? ""),
+      );
+      if (alias !== null && alias[1] !== key) deps.push(alias[1]);
+    }
+    manifests.set(json.name, { dir, deps });
   }
   return manifests;
 }
@@ -139,30 +206,44 @@ export function findBannedPath(manifests, start, banned) {
   return null;
 }
 
-/** Every `.ts` file under a directory, recursively. */
-function sourceFiles(dir) {
+/** Every source file under a directory, recursively. Real function, self-tested. */
+export function sourceFiles(dir) {
   const out = [];
   if (!existsSync(dir)) return out;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) out.push(...sourceFiles(full));
-    else if (entry.name.endsWith(".ts")) out.push(full);
+    else if (SOURCE_EXT.test(entry.name)) out.push(full);
   }
   return out;
 }
 
 /**
- * Banned module specifiers imported by a source text. Matches the specifier in
- * an `import`/`export ... from` clause or a `require`, and NOT a mention in a
- * comment - this file's own headers name `node:net` in prose, and a guard that
- * fired on its own explanation would be useless.
+ * Banned module specifiers a source text IMPORTS.
+ *
+ * COMMENTS ARE STRIPPED FIRST, which is hole 10's correction. The previous
+ * version claimed to match "a specifier and NOT a mention in a comment" and did
+ * not: a comment containing a full import statement failed the guard, and its
+ * negative probe passed only because the prose had no `from` clause. This
+ * package's `index.ts` carries a fifty-line header discussing imports, so a
+ * guard that fired on its own explanation would be deleted by the next session.
+ *
+ * `import type` and `export type` are ignored: they are erased at compile time,
+ * so they are not something the package DOES.
  */
 export function bannedModuleImports(text, banned) {
+  const code = text
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    // `[^:]` keeps `https://` out of the line-comment rule.
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+
   const found = [];
-  const specifier = /(?:^|[\s;])(?:import|export)[^;]*?from\s*["']([^"']+)["']|(?:^|[\s;=(])require\s*\(\s*["']([^"']+)["']\s*\)|(?:^|[\s;])import\s*["']([^"']+)["']/g;
+  const specifier =
+    /(?:^|[\s;])(?:import|export)(\s+type\b)?[^;]*?from\s*["']([^"']+)["']|(?:^|[\s;=(])require\s*\(\s*["']([^"']+)["']\s*\)|(?:^|[\s;])import\s*["']([^"']+)["']|(?:^|[\s;=(,:])import\s*\(\s*["']([^"']+)["']\s*\)/g;
   let m;
-  while ((m = specifier.exec(text)) !== null) {
-    const spec = m[1] ?? m[2] ?? m[3];
+  while ((m = specifier.exec(code)) !== null) {
+    if (m[1] !== undefined) continue; // `import type` - erased, not a socket
+    const spec = m[2] ?? m[3] ?? m[4] ?? m[5];
     if (banned.includes(spec)) found.push(spec);
   }
   return found;
@@ -179,6 +260,15 @@ export function instrumentFindings(manifests, sources) {
     return findings;
   }
 
+  // R0b - the source scan is silent on a missing directory, so an empty result
+  // is reported rather than treated as a clean one (hole 6).
+  if (sources.length === 0) {
+    findings.push(
+      `${PACKAGE_DIR}/src  R0b: the source scan found no files. R2 cannot check a directory ` +
+        "that is not there, and a vacuous pass is what a rename would otherwise produce.",
+    );
+  }
+
   // R1 - the resolved dependency graph.
   const path = findBannedPath(manifests, PACKAGE_NAME, BANNED_DEPENDENCIES);
   if (path !== null) {
@@ -189,17 +279,35 @@ export function instrumentFindings(manifests, sources) {
     );
   }
 
-  // R2 - a socket the manifest cannot see.
+  // R2 - a socket, a spawn, or a banned package the manifest cannot see.
   for (const { file, text } of sources) {
     for (const spec of bannedModuleImports(text, BANNED_MODULES)) {
       findings.push(
         `${file}  R2: imports "${spec}". "No socket layer" is a statement about what this ` +
-          "package DOES, and a manifest says nothing about a node builtin.",
+          "package DOES, and a manifest says nothing about a bare import.",
       );
     }
   }
 
   return findings;
+}
+
+/* ============================================================================
+   Self-test, both directions, over the REAL functions
+   ========================================================================== */
+
+function withFixtureTree(build) {
+  const root = mkdtempSync(join(tmpdir(), "instrument-deps-"));
+  try {
+    return build(root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+function writeManifest(root, dir, json) {
+  mkdirSync(join(root, dir), { recursive: true });
+  writeFileSync(join(root, dir, "package.json"), JSON.stringify(json));
 }
 
 function selfTest() {
@@ -214,27 +322,28 @@ function selfTest() {
     ["@zcashreveal/types", { dir: "packages/zec-types", deps: ["zod"] }],
     ["@zcashreveal/indexer", { dir: "apps/indexer", deps: ["zeromq", PACKAGE_NAME] }],
   ]);
+  const oneSource = [{ file: "x.ts", text: "export const a = 1;" }];
 
   // Pass side: the real arrangement. The indexer depends on the package and on
   // zeromq, which is CORRECT and must not fire - a guard that policed the
   // workspace generally instead of this package's reachable set would fail here.
-  if (instrumentFindings(clean, []).length !== 0) {
-    fail(`the correct arrangement was reported: ${JSON.stringify(instrumentFindings(clean, []))}`);
+  if (instrumentFindings(clean, oneSource).length !== 0) {
+    fail(`the correct arrangement was reported: ${JSON.stringify(instrumentFindings(clean, oneSource))}`);
   }
 
-  // R1 fail side, DIRECT edge.
+  // R1, DIRECT edge.
   const direct = new Map(clean);
   direct.set(PACKAGE_NAME, { dir: PACKAGE_DIR, deps: ["@zcashreveal/types", "@zcashreveal/indexer"] });
-  const directFindings = instrumentFindings(direct, []);
-  if (!directFindings.some((f) => f.includes("R1"))) fail("R1 did not fire on a direct banned edge");
+  if (!instrumentFindings(direct, oneSource).some((f) => f.includes("R1"))) {
+    fail("R1 did not fire on a direct banned edge");
+  }
 
-  // R1 fail side, TRANSITIVE edge - the case a direct-only check would pass, and
-  // the reason this walks the graph at all. The package depends on a new pure
-  // package which depends on the indexer.
+  // R1, TRANSITIVE edge - the case a direct-only check would pass, and the
+  // reason this walks the graph at all.
   const transitive = new Map(clean);
   transitive.set(PACKAGE_NAME, { dir: PACKAGE_DIR, deps: ["@zcashreveal/chain-io"] });
   transitive.set("@zcashreveal/chain-io", { dir: "packages/chain-io", deps: ["@zcashreveal/indexer"] });
-  const transFindings = instrumentFindings(transitive, []);
+  const transFindings = instrumentFindings(transitive, oneSource);
   if (!transFindings.some((f) => f.includes("R1"))) {
     fail("R1 did not fire on a TRANSITIVE banned edge - a direct-only check would pass this");
   }
@@ -242,34 +351,113 @@ function selfTest() {
     fail("R1 fired but did not name the intermediate package, so the path is not actionable");
   }
 
-  // A transitive path to `zeromq` through the indexer, which is two hops.
-  const twoHop = new Map(clean);
-  twoHop.set(PACKAGE_NAME, { dir: PACKAGE_DIR, deps: ["@zcashreveal/indexer"] });
-  if (!instrumentFindings(twoHop, []).some((f) => f.includes("R1"))) {
-    fail("R1 did not fire on a two-hop path to a native addon");
+  // R1 REACHING `zeromq` SPECIFICALLY, BY A PATH THAT DOES NOT PASS THROUGH THE
+  // INDEXER. Hole 1: the old version's only zeromq case went through
+  // `@zcashreveal/indexer`, which is ITSELF banned, so the walk stopped at hop
+  // one and `zeromq` was never reached by any probe. Deleting it from the banned
+  // list left the self-test green. This path has no banned name but the target.
+  const toAddon = new Map([
+    [PACKAGE_NAME, { dir: PACKAGE_DIR, deps: ["@zcashreveal/chain-io"] }],
+    ["@zcashreveal/chain-io", { dir: "packages/chain-io", deps: ["zeromq"] }],
+  ]);
+  const addonFindings = instrumentFindings(toAddon, oneSource);
+  if (!addonFindings.some((f) => f.includes("R1") && f.includes("zeromq"))) {
+    fail("R1 did not fire on a path to zeromq that avoids @zcashreveal/indexer");
   }
 
-  // R2 fail side.
-  const socket = [{ file: "x.ts", text: 'import { createServer } from "node:net";' }];
-  if (!instrumentFindings(clean, socket).some((f) => f.includes("R2"))) {
-    fail("R2 did not fire on a node:net import");
-  }
-  const required = [{ file: "x.ts", text: 'const net = require("node:child_process");' }];
-  if (!instrumentFindings(clean, required).some((f) => f.includes("R2"))) {
-    fail("R2 did not fire on a require of a banned builtin");
+  // R2, EVERY banned specifier, generated from the array so a future entry
+  // cannot arrive untested (hole 8). Four spellings each.
+  for (const mod of BANNED_MODULES) {
+    const spellings = [
+      `import { x } from "${mod}";`,
+      `const x = require("${mod}");`,
+      `import "${mod}";`,
+      `const x = await import("${mod}");`,
+    ];
+    for (const text of spellings) {
+      if (!instrumentFindings(clean, [{ file: "x.ts", text }]).some((f) => f.includes("R2"))) {
+        fail(`R2 did not fire on ${JSON.stringify(text)}`);
+      }
+    }
   }
 
-  // R2 must NOT fire on prose. This file's own header names `node:net`, and a
-  // guard that flagged its own explanation would be deleted by the next session.
-  const prose = [{ file: "x.ts", text: "/* This package must never import node:net or node:tls. */" }];
-  if (instrumentFindings(clean, prose).length !== 0) {
-    fail(`R2 fired on a comment mentioning a banned module: ${JSON.stringify(instrumentFindings(clean, prose))}`);
+  // R2 must NOT fire on a comment, INCLUDING a comment that contains a whole
+  // import statement. Hole 10: the old negative probe was prose with no `from`
+  // clause, so it discriminated nothing, and the real behaviour was the
+  // opposite of what the header claimed.
+  const commented = [
+    { file: "a.ts", text: '// Never write: import { createServer } from "node:net"; in this package.' },
+    { file: "b.ts", text: '/*\n * Do not do this:\n *   import { Socket } from "node:tls";\n */\nexport const a = 1;' },
+    { file: "c.ts", text: '// see https://example.com/net for why\nexport const b = 2;' },
+  ];
+  const commentFindings = instrumentFindings(clean, commented);
+  if (commentFindings.length !== 0) {
+    fail(`R2 fired on a comment containing an import: ${JSON.stringify(commentFindings)}`);
+  }
+
+  // `import type` is erased at compile time and is not something the package
+  // DOES, so it must not fire.
+  const typeOnly = [{ file: "x.ts", text: 'import type { Socket } from "node:net";' }];
+  if (instrumentFindings(clean, typeOnly).length !== 0) {
+    fail("R2 fired on an `import type`, which is erased at compile time");
   }
 
   // R0: the guard must fail loudly rather than pass when the package is absent.
   if (!instrumentFindings(new Map(), []).some((f) => f.includes("R0"))) {
     fail("R0 did not fire when the package was missing - the guard would have passed vacuously");
   }
+  // R0b: an empty source scan is a finding, not a clean run (hole 6).
+  if (!instrumentFindings(clean, []).some((f) => f.includes("R0b"))) {
+    fail("R0b did not fire on an empty source scan - a rename would pass vacuously");
+  }
+
+  // THE REAL `readWorkspace` AND `sourceFiles`, over a temporary tree. Hole 7:
+  // both were outside the self-test, so breaking either left every probe green
+  // while the header claimed the real functions were driven.
+  withFixtureTree((root) => {
+    writeManifest(root, "packages/p", { name: PACKAGE_NAME, dependencies: { "@zcashreveal/types": "workspace:*" } });
+    writeManifest(root, "packages/t", { name: "@zcashreveal/types", dependencies: { zod: "^3" } });
+    const m = readWorkspace(root, ["packages/p", "packages/t"]);
+    if (m.size !== 2) fail(`readWorkspace read ${m.size} manifests, expected 2`);
+    if (!m.get(PACKAGE_NAME)?.deps.includes("@zcashreveal/types")) {
+      fail("readWorkspace lost a plain dependency");
+    }
+
+    // An ALIAS hides the real name in the value (hole 2).
+    writeManifest(root, "packages/alias", { name: "aliased", dependencies: { zmq: "npm:zeromq@^6.1.2" } });
+    const aliased = readWorkspace(root, ["packages/alias"]);
+    if (!aliased.get("aliased")?.deps.includes("zeromq")) {
+      fail('readWorkspace did not resolve the alias "zmq": "npm:zeromq@^6.1.2" to zeromq');
+    }
+    writeManifest(root, "packages/alias2", {
+      name: "aliased2",
+      dependencies: { idx: "workspace:@zcashreveal/indexer@*" },
+    });
+    if (!readWorkspace(root, ["packages/alias2"]).get("aliased2")?.deps.includes("@zcashreveal/indexer")) {
+      fail('readWorkspace did not resolve "workspace:@zcashreveal/indexer@*" to @zcashreveal/indexer');
+    }
+
+    // A PEER dependency is in the installed graph here (hole 3).
+    writeManifest(root, "packages/peer", { name: "peered", peerDependencies: { zeromq: "^6.1.2" } });
+    if (!readWorkspace(root, ["packages/peer"]).get("peered")?.deps.includes("zeromq")) {
+      fail("readWorkspace did not read peerDependencies, which autoInstallPeers puts in the graph");
+    }
+
+    // A DEV dependency reaches the compiler-less build stage (hole 4).
+    writeManifest(root, "packages/dev", { name: "devved", devDependencies: { zeromq: "^6.1.2" } });
+    if (!readWorkspace(root, ["packages/dev"]).get("devved")?.deps.includes("zeromq")) {
+      fail("readWorkspace did not read devDependencies, which every Dockerfile install stage gets");
+    }
+
+    // `sourceFiles` over a real tree, including the extensions `.ts` missed.
+    const srcDir = join(root, "src");
+    mkdirSync(join(srcDir, "nested"), { recursive: true });
+    for (const f of ["a.ts", "b.mts", "c.js", "d.tsx", "ignore.json"]) writeFileSync(join(srcDir, f), "");
+    writeFileSync(join(srcDir, "nested", "e.cjs"), "");
+    const found = sourceFiles(srcDir);
+    if (found.length !== 5) fail(`sourceFiles found ${found.length} files, expected 5 (.ts .mts .js .tsx .cjs)`);
+    if (sourceFiles(join(root, "does-not-exist")).length !== 0) fail("sourceFiles threw on a missing directory");
+  });
 
   return ok;
 }
@@ -279,18 +467,30 @@ if (!selfTest()) {
   process.exit(2);
 }
 
+/* ============================================================================
+   The sweep
+   ========================================================================== */
+
 const ROOT = process.cwd();
-const WORKSPACE_DIRS = [
-  ...readdirSync(join(ROOT, "packages"), { withFileTypes: true })
+
+// `legacy` is here because `pnpm-workspace.yaml` resolves `legacy/*` and the old
+// version did not (hole 9) - it read 8 manifests where pnpm resolves 9, and
+// printed that number on every clean run.
+const WORKSPACE_TOPS = ["packages", "apps", "legacy"];
+const WORKSPACE_DIRS = WORKSPACE_TOPS.flatMap((top) => {
+  const dir = join(ROOT, top);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { withFileTypes: true })
     .filter((e) => e.isDirectory())
-    .map((e) => join("packages", e.name)),
-  ...readdirSync(join(ROOT, "apps"), { withFileTypes: true })
-    .filter((e) => e.isDirectory())
-    .map((e) => join("apps", e.name)),
-];
+    .map((e) => join(top, e.name));
+});
 
 const manifests = readWorkspace(ROOT, WORKSPACE_DIRS);
-const sources = sourceFiles(join(ROOT, PACKAGE_DIR, "src")).map((file) => ({
+
+// The manifest's own recorded directory, not the constant, so a rename is
+// followed rather than silently producing an empty scan (hole 6).
+const packageDir = manifests.get(PACKAGE_NAME)?.dir ?? PACKAGE_DIR;
+const sources = sourceFiles(join(ROOT, packageDir, "src")).map((file) => ({
   file: file.slice(ROOT.length + 1),
   text: readFileSync(file, "utf8"),
 }));
@@ -305,8 +505,9 @@ if (findings.length > 0) {
 
 const deps = manifests.get(PACKAGE_NAME).deps;
 console.log(
-  `[instrument-deps] OK: ${PACKAGE_NAME} declares ${deps.length} runtime dependency(ies) ` +
-    `(${deps.join(", ") || "none"}), reaches none of ${BANNED_DEPENDENCIES.join(", ")} through ` +
-    `${manifests.size} workspace manifest(s), and none of its ${sources.length} source file(s) ` +
-    "imports a socket or child-process builtin (detectors self-tested in both directions).",
+  `[instrument-deps] OK: ${PACKAGE_NAME} declares ${deps.length} dependency(ies) across all four ` +
+    `manifest fields (${deps.join(", ") || "none"}), reaches none of ` +
+    `${BANNED_DEPENDENCIES.join(", ")} through ${manifests.size} workspace manifest(s), and none ` +
+    `of its ${sources.length} source file(s) imports a socket, a spawn or a banned package ` +
+    "(detectors self-tested in both directions, over the real readWorkspace and sourceFiles).",
 );

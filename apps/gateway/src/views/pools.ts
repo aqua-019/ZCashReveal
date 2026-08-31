@@ -162,7 +162,7 @@ export const POOLS_VIEW_GAPS: ReadonlyArray<{ readonly block: string; readonly o
   {
     block: "neff",
     // HANDOFF-08 until it shipped. THE ESTIMATOR NOW EXISTS: HANDOFF-09's
-    // `analysis/ironwood-birth.ts` produces the claim-level distribution and
+    // `@zcashreveal/instruments`' `ironwood-birth.ts` produces the claim-level distribution and
     // the publisher writes it as the snapshot's `neffSeries`. What is missing
     // is the read path - this route answers from the chain and has no snapshot
     // reader - which is HANDOFF-11's wiring.

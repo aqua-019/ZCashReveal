@@ -59,7 +59,7 @@ export function parseTipMessage(message: string): ChainTip | null {
   if (rec["type"] !== "tip") return null;
   const height = rec["height"];
   const hash = rec["hash"];
-  if (typeof height !== "number" || !Number.isInteger(height) || height < 0) return null;
+  if (typeof height !== "number" || !Number.isSafeInteger(height) || height < 0) return null;
   if (typeof hash !== "string" || !BLOCK_HASH.test(hash)) return null;
   return { height, hash };
 }

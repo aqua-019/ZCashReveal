@@ -134,21 +134,61 @@ export type IronwoodBirthFn = (
  */
 export interface Instruments {
   readonly turnstileResidual: TurnstileResidualFn | null;
+  /**
+   * WIRED AND NEVER CALLED THROUGH THIS SEAM, which is worth a sentence so a
+   * later reader does not assume the bundle controls window selection.
+   * `snapshot-builder` never reads this member; the real `orchardDrain` calls
+   * the real `selectWindow` internally, so injecting it changes nothing and
+   * `NO_INSTRUMENTS` cannot suppress it. It stays because the bundle mirrors the
+   * package's five exported functions and a gap would read as an omission.
+   */
   readonly selectWindow: SelectWindowFn | null;
   readonly orchardDrain: OrchardDrainFn | null;
   readonly migrationLens: MigrationLensFn | null;
   readonly ironwoodBirth: IronwoodBirthFn | null;
 }
 
+/* ------------------------------------------- the signatures are IDENTICAL */
+
+/**
+ * `true` only when `A` and `B` are the same type in both directions.
+ *
+ * WHY ASSIGNMENT IS NOT ENOUGH, WHICH IS A CORRECTION TO THIS FILE'S OWN
+ * EARLIER CLAIM (gate round 1, M4). This file used to say that assigning each
+ * function into a declared field "makes a signature change in
+ * `@zcashreveal/instruments` a `tsc` error HERE", and the commit that deleted
+ * the structural mirrors did so on the strength of that sentence. It is true
+ * for exactly ONE of the five ways a signature drifts. Measured: a parameter
+ * NARROWING errors under `strictFunctionTypes`; a widened parameter, an added
+ * OPTIONAL parameter, a required option field becoming optional, and an extra
+ * field on the return type all compile clean, because assignability is
+ * one-directional and identity is not. The added-optional-parameter case is the
+ * one with teeth - a future `network?: "mainnet" | "testnet"` on `migrationLens`
+ * would default silently at a call site that never learns it exists.
+ *
+ * So the claim is made TRUE rather than softened. The assertions below fail
+ * `pnpm typecheck` on any of the five shapes, which is the check the mirrors
+ * used to provide implicitly by being a second declaration somebody had to keep
+ * in step. They cost nothing at runtime.
+ */
+type Equals<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+
+/** Fails to compile unless its argument is exactly `true`. */
+type Assert<T extends true> = T;
+
+export type _SigTurnstileResidual = Assert<Equals<TurnstileResidualFn, typeof turnstileResidual>>;
+export type _SigSelectWindow = Assert<Equals<SelectWindowFn, typeof selectWindow>>;
+export type _SigOrchardDrain = Assert<Equals<OrchardDrainFn, typeof orchardDrain>>;
+export type _SigMigrationLens = Assert<Equals<MigrationLensFn, typeof migrationLens>>;
+export type _SigIronwoodBirth = Assert<Equals<IronwoodBirthFn, typeof ironwoodBirth>>;
+
 /**
  * The real estimators. **This is what the composition root passes.**
  *
- * Assigning each function into a field whose type is declared above is what
- * makes a signature change in `@zcashreveal/instruments` a `tsc` error HERE,
- * which is the check the old mirror could not have. It is deliberately an
- * annotated `Instruments` rather than an inferred object literal, for that
- * reason: an inferred literal would widen to whatever the package exports and
- * check nothing.
+ * Annotated `Instruments` rather than an inferred object literal, because an
+ * inferred literal would widen to whatever the package exports and check
+ * nothing. The identity assertions above are what make a signature change fail
+ * the build in all five drift shapes rather than only in the one.
  */
 export const REAL_INSTRUMENTS: Instruments = {
   turnstileResidual,

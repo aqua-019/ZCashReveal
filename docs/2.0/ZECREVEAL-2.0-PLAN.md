@@ -50,8 +50,8 @@ Verdicts: **KEEP** (port as-is, already tested), **EXTEND** (keep + grow for Iro
 | Area | Files | Verdict | Why |
 |---|---|---|---|
 | Formal model | `RESEARCH.md` (state tuple `S^p_h = (T, Roots, NFSet, Bal)`, `Cand_0(nf)`, filter stack, `H`, `N_eff = 2^H`, claim levels, turnstile flows, Orchard arity) | **KEEP → extend** | It is the spine. Add §Ironwood, §Turnstile accounting, §Migration lens (below). |
-| Entropy | `analysis/entropy.ts` (`entropyBitsUniform`, `effectiveSetSize`) | **KEEP** | Pure, tested, precision notes are correct. |
-| Claim levels | `analysis/claim-classifier.ts` (10 / 100 / 1000 thresholds, lower-inclusive) | **KEEP** | Coarse on purpose; do not retune without calibration data. |
+| Entropy | `@zcashreveal/instruments`' `entropy.ts` (`entropyBitsUniform`, `effectiveSetSize`) | **KEEP** | Pure, tested, precision notes are correct. |
+| Claim levels | `@zcashreveal/instruments`' `claim-classifier.ts` (10 / 100 / 1000 thresholds, lower-inclusive) | **KEEP** | Coarse on purpose; do not retune without calibration data. |
 | Raw candidate set | `analysis/candidate-set.ts` (`rawCandidateRange` from anchor `maxPosition`) | **KEEP** | The only universally-correct filter. |
 | Filter stack | `analysis/scoring.ts` (`applyFilters` with audit trail, `timeWindowFilter` anchored at `heightCreated`, `amountMatchFilter` two-sided interval intersection) | **KEEP** | Audit trail design is exactly what the Instrument's "inference chain" UI renders. |
 | Assessment | `analysis/assessment.ts` (`assessRaw`, `assessFiltered`, 0-count short-circuit) | **KEEP** | |
