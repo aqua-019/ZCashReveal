@@ -100,6 +100,15 @@ const A6_REQUIRED = [
   // its own. Deleting the shell test underneath it would have left the topic
   // green. `-gt 20 ]` closes a POSIX test and cannot occur in a sentence.
   { topic: "snapshot age alert", re: /-gt\s+20\s*\]/ },
+  // SECTION 7.1, AND BOTH CHANNELS RATHER THAN ONE (gate round 5). The section
+  // shipped unguarded, which the round-4 review had named as the reason it
+  // passed: publisher faults were not among the topics. It then shipped
+  // documenting ONE of the two production sinks while saying "the publisher logs
+  // each one" - so a row matching only the input channel would have certified
+  // exactly the half-coverage that was the finding. The quotes are part of each
+  // pattern because the bare words appear in the surrounding prose.
+  { topic: "publisher input faults", re: /grep\s+"an input query failed"/ },
+  { topic: "publisher panel faults", re: /grep\s+"analysis panel refused"/ },
   // Escaped as `\"method\":\"getblock\"` inside a shell double-quoted string in
   // the runbook, so the pattern must tolerate the backslashes. The first draft
   // did not and the PASS side caught it, which is what the self-test pair below
@@ -188,6 +197,8 @@ function selfTest() {
     ["migrations", "pnpm --filter @zcashreveal/indexer migrate"],
     ["migrations", "docker compose exec -T indexer node dist/migrate.js"],
     ["snapshot age alert", '[ $((TIP - INDEXED)) -gt 20 ] && echo "ALERT: the indexer is behind the node"'],
+    ["publisher input faults", 'docker compose logs publisher | grep "an input query failed"    # NOT expected'],
+    ["publisher panel faults", 'docker compose logs publisher | grep "analysis panel refused"   # NOT expected'],
     ["node subversion recorded", `python3 -c 'import sys,json; print(json.load(sys.stdin)["result"]["subversion"])'`],
     ["node subversion recorded", "jq -r .result.subversion"],
   ];
@@ -214,6 +225,10 @@ function selfTest() {
     // and its example was not; see HANDOFF-10 section 7.
     ["migrations", "You must migrate the database before starting the indexer."],
     ["snapshot age alert", "Alert when the published snapshot is more than 20 blocks behind the chain tip."],
+    // PROSE NAMING THE CHANNEL IS NOT A COMMAND FOR READING IT, which is the
+    // distinction every row in this table exists to draw.
+    ["publisher input faults", "Every line this returns means an input query failed on that panel."],
+    ["publisher panel faults", "The second channel fires when an analysis panel refused its inputs."],
     ["node subversion recorded", "| Height | Block hash | `subversion` observed | `vjoinsplit` present |"],
   ];
   for (const [topic, line] of shouldNotMatch) {

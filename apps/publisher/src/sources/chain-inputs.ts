@@ -617,11 +617,16 @@ export async function readSnapshotInputs(
         //
         // MEASURED AND EMPTY, NOT ABSENT (gate round 3). Returning `null` here
         // published the same `neffSeries: null` as "no Ironwood spend source",
-        // and SNAPSHOT.md section 8.1 makes that null render as "needs an
+        // and SNAPSHOT.md section 8.1 THEN made that null render as "needs an
         // Ironwood spend source (HANDOFF-09b)" - naming a handoff for an absence
-        // no handoff can close, on every block of an initial sync. That document
-        // draws the distinction against itself one line later: a CONDITION, not
-        // an owner, is what an absence of this kind names.
+        // no handoff can close, on every block of an initial sync. Gate round 4
+        // swept 8.1 so all four rows name a CONDITION and none names a handoff,
+        // so do not read the quoted string as current; gate round 5 found THIS
+        // restatement still in the present tense, and the sentence introducing
+        // that table still mandating an owner, in the file the sweeping commit
+        // had itself edited fifty lines higher. The rule 8.1 states is
+        // unchanged: a CONDITION, not an owner, is what an absence of this kind
+        // names.
         //
         // `[]` is also the answer `ironwoodBirth` documents as correct, which
         // the first version of this guard quoted and then made unreachable: "a

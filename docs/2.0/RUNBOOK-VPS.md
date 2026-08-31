@@ -505,30 +505,53 @@ freshness - that is what snapshot age is for.
 ### 7.1 Publisher input faults
 
 A panel is a second silent failure: the site keeps rendering, one chart says
-"not measured", and nothing pages. The publisher logs each one:
+"not measured", and nothing pages. The publisher logs each one, on TWO channels
+with different messages, because a lost INPUT and a refused ESTIMATOR are
+different faults:
 
 ```bash
-docker compose logs publisher | grep "an input query failed"   # NOT expected
+docker compose logs publisher | grep "an input query failed"    # NOT expected
+docker compose logs publisher | grep "analysis panel refused"   # NOT expected
 ```
 
-**No line on this channel is an expected one** - there is nothing here to
+**The second line was missing from this section until gate round 5, and the case
+it carries is the one this runbook is about.** `buildDrain` on an empty Orchard
+series - a database with `pool_snapshots` rows and no `blocks` rows, which is any
+005 before a backfill - reaches ONLY that channel, and it is the condition
+section 8.1 names for a null `drain`. The table below is the FIRST channel only.
+
+**No line on either channel is an expected one** - there is nothing here to
 filter, which is what makes the `grep` a triage step rather than a habit. But
 READ THE MESSAGE, because its CONSTANT half ("publishing that panel as a stated
-absence") is true of two of the four cases and false of the other two. The line carries
-a `panel` (`migrationHist`, `drain` or `neffSeries`) and a `height`, and the
-panel is absent for two of the four and present for the other two:
+absence") is true of three of the four cases and false of the last. The line
+carries a `panel` (`migrationHist`, `drain` or `neffSeries`) and a `height`, and
+the panel is absent for three and present only for the fourth:
+
+One caveat on "not expected", because the second row strains it: that row fires
+once per block on any 005 database before a backfill, which is the continuous
+kind of line this section's closing paragraph says trains an operator to filter.
+It is here rather than suppressed because it names a real gap that a backfill
+closes - unlike the pre-birth condition, which no work closes and which
+therefore reaches no log at all.
 
 | what the message means | panel | published? |
 | --- | --- | --- |
 | the query threw or the connection dropped | any of the three | absent - the stated absence the message names |
 | `... Ironwood spend(s) ... and none carries a resolvable anchor` | `neffSeries` | absent - the state of any database that applied 005 without a backfill |
-| `drain baseline at height N is Z, not positive` | `drain` | the series publishes with NO baseline; a ZIP 209 violation, escalate |
+| `drain baseline at height N is Z, not positive` | `drain` | absent - `buildDrain` returns null on a null baseline, so the WHOLE panel goes, series included; a ZIP 209 violation, escalate |
 | `N of M Ironwood spend(s) carry no resolvable anchor` | `neffSeries` | **PUBLISHES**, over fewer spends than the window holds |
 
-The last row is the one that clause does not fit at all: the panel is not a
+The last row is the only one that clause does not fit: the panel is not a
 stated absence, it is a measurement over FEWER spends than the window holds, and
 this log line is the only place that gap is stated - `buildNeffSeries` drops the
 audit record, so no reader of the document can see it.
+
+Gate round 5 measured this table against the real modules and found the third row
+INVERTED: it had said the series publishes without its baseline, and `buildDrain`
+returns null the moment the baseline is null, so the panel goes entirely. The row
+was written by enumerating the `fault()` CALL SITES without following what each
+one returns - half a measurement, in the section that exists to warn against
+reading half of one.
 
 For the first row the fix follows from the panel: all three read the database
 (section 4 - check the migrations are applied).

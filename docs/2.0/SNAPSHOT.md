@@ -323,14 +323,14 @@ spend has ever been anonymous enough to measure".
 
 So a renderer receiving `null` for a panel MUST NOT draw the panel's chrome around no data — no
 empty axes, no zero-height bars, no flat line at the baseline, no "0" in a figure slot. It renders
-a **named absence carrying its owner**:
+a **named absence stating the CONDITION that produced it** - never an owner, for the reason given below the table:
 
 | panel | what the site displays while unmeasured |
 | --- | --- |
 | `residual` | `unprovable residual: not measured — the node reported no supply` |
 | `migrationHist` | `migration histogram: not measured — no migration window was read` |
-| `drain` | `drain: not measured — no block time for this height` |
-| `neffSeries` | `N_eff series: not measured — the Ironwood spend query did not answer` |
+| `drain` | `drain: not measured — no block time or no baseline for this height` |
+| `neffSeries` | `N_eff series: not measured — no Ironwood spend in the window could be bounded` |
 
 **And a rule for `neffSeries` when it IS measured, because a panel can be present and still make a claim it cannot support.** Its `shares` are computed over `spendCount` — the spends whose anchor resolved — and `windowSpendCount` is how many Ironwood spends there were in the window. **A renderer must show the pair, never a share alone.** Four of five spends unbounded publishes `requires_disclosure: 1` over a single spend, and rendered as "100% require disclosure" that is a measurement of the window it was not taken over. `N_eff over 2 of 4 spends in the window` is the honest form; a bare percentage is not.
 
@@ -339,11 +339,18 @@ a **named absence carrying its owner**:
 | `neffSeries` condition | what the site displays |
 | --- | --- |
 | `null` | the named absence from the table above |
-| non-null, `height < birthHeight` | `N_eff series: the Ironwood pool does not exist at this height (born at <birthHeight>)` |
+| non-null, `height < birthHeight` | `N_eff series: the Ironwood pool does not exist at this height (born at <birthHeight>)` - attributed to the published `birthHeight`, never asserted of the chain, because that number is `SNAPSHOT_IRONWOOD_BIRTH_HEIGHT` and a misconfigured one is visible here and nowhere else |
 | non-null, `height >= birthHeight`, `windowSpendCount === 0` | a measured zero, rendered as one: `N_eff over 0 of 0 spends in the window` |
 | non-null, `height >= birthHeight`, `windowSpendCount > 0` | the pair rule above |
 
 **The publisher reports nothing on the fault channel for the second row, deliberately** (gate round 4, F-46-1): the pre-birth condition is not an input failure, and an ERROR line saying one occurred fires on every block of an initial sync. This table is where a renderer is told about the condition instead, and `apps/publisher/src/sources/chain-inputs.ts` points here from the branch that produces it. That pointer is load-bearing in both directions: the branch's own comment first argued the deletion on the grounds that "the document already carries it, at the surface that has readers", which was true of the FIELDS and false of the CONTRACT - `neffSeries` has no reader in `apps/web`, the gateway has no snapshot read path, and this section distinguished only null from non-null. The row is what makes that argument true rather than aspirational.
+
+**Each string names the DOMINANT cause, and gate round 5 corrected two that named a rarer one.**
+`neffSeries` is null on five paths and the query ANSWERED on three of them - the dominant one being
+rows returned with no resolvable anchor, which is the state of any database that applied 005 without
+a backfill. "The Ironwood spend query did not answer" would have told a visitor the query failed
+when it succeeded and nothing in it could be bounded, which is the same defect one layer down from
+the one this section had just fixed. `drain` gains "or no baseline" for the same reason.
 
 **All four name a CONDITION, and the first two did not until gate round 4.** Until HANDOFF-09b
 `drain` and `neffSeries` named a HANDOFF, correctly: the absence really was a gap in this project's

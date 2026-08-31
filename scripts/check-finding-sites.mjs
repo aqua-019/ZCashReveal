@@ -367,6 +367,28 @@ const FINDINGS = [
     antiProbe: "pnpm -r test 1058 passed, 1 skipped",
     sites: ["handoffs/HANDOFF-08-analysis-toolkit.md"],
   },
+  {
+    // FIFTH INSTANCE OF "A CORRECTED FACT LANDING AT SOME OF ITS SITES", AND THE
+    // FIFTH WAS COMMITTED INSIDE THE FIX FOR THE FOURTH (gate round 5). Round 4
+    // rewrote section 8.1's four rows so none names a handoff, wrote twenty-two
+    // lines of prose ending "a condition does not decay, which is why all four
+    // now name one", swept the integration test's comment to past tense - and
+    // left the sentence INTRODUCING the table three lines above it still
+    // mandating an owner, plus `chain-inputs.ts`'s restatement still in the
+    // present tense, in a file that same commit edited fifty lines higher.
+    // Its section 7 said "Swept:". The register row is what makes the next
+    // sweep's completeness a check rather than a claim.
+    id: "H09b-ABSENCE-CONDITION",
+    what: "a null panel renders as a named absence stating a CONDITION, never an owner - gate round 4 rewrote SNAPSHOT.md section 8.1's rows and left two sites still naming an owner",
+    absent: /named absence carrying its owner|8\.1 makes that null render as/,
+    probe: "It renders a **named absence carrying its owner**:",
+    antiProbe: "It renders a **named absence stating the CONDITION that produced it**:",
+    sites: [
+      "docs/2.0/SNAPSHOT.md",
+      "apps/publisher/src/sources/chain-inputs.ts",
+      "apps/publisher/src/__tests__/snapshot-inputs.integration.test.ts",
+    ],
+  },
 ];
 
 /**

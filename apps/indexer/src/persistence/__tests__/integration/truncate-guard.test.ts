@@ -112,6 +112,15 @@ describe.skipIf(!reachable)("truncateAll's schema guard", () => {
       await expect(truncateAll(stub as unknown as Sql)).resolves.toBeUndefined();
     });
     expect(statements, "the hatch must let exactly one statement through").toHaveLength(1);
-    expect(statements[0]).toMatch(/^TRUNCATE .*\bblocks\b.*RESTART IDENTITY$/);
+    // ALL SIX TABLES BY NAME (gate round 5). `_setup.ts`'s docblock says "SIX
+    // TABLES, NOT FOUR"; a pattern naming one of them is green for a
+    // `truncateAll` that lost the other five. Measured: dropping
+    // `pool_snapshots` from the statement left THIS file at 4 passed while the
+    // rest of the tree went red - so the file that exists to be this guard's
+    // transcript said nothing about it.
+    expect(statements[0]).toBe(
+      "TRUNCATE pool_commitments, pool_anchors, pool_nullifiers, pool_boundary_flows, " +
+        "pool_snapshots, blocks RESTART IDENTITY",
+    );
   });
 });
