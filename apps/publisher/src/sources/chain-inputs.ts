@@ -38,7 +38,7 @@
  * measurement".
  */
 
-import { asHex } from "@zcashreveal/types";
+import { asHex, type Pool } from "@zcashreveal/types";
 
 import type { PublisherConfig } from "../config.js";
 import type { Crossing } from "../instruments.js";
@@ -128,18 +128,31 @@ export function readChainValues(info: ChainValueReading, atHeight: number): Chai
   }));
 
   const supplyFromNode = info.chainSupply?.chainValueZat;
-  const reported = supplyFromNode ?? (sawAny ? accounted : null);
+  // A NON-POSITIVE `chainSupply` MUST NOT SUPPRESS THE `valuePools` FALLBACK
+  // (round 3, L3). `supplyFromNode ?? ...` resolves first, so a node reporting
+  // `chainSupply: 0n` alongside a complete five-lane reading dropped the whole
+  // residual panel even though `accounted` was a perfectly good sum. Each
+  // candidate is now tested for positivity in its own right.
+  const fromNode = supplyFromNode !== undefined && supplyFromNode > 0n ? supplyFromNode : null;
+  const fromPools = sawAny && accounted > 0n ? accounted : null;
+  const reported = fromNode ?? fromPools;
   // A NON-POSITIVE SUPPLY IS NOT A MEASUREMENT, IT IS A NON-ANSWER. `U/Supply`
   // is undefined at zero and `turnstileResidual` refuses it, and `?? ` does not
   // catch a `0n` because zero is not nullish. A regtest node, a node at genesis
   // or any reading that sums to zero produced a `supplyZat: 0n` that reached the
   // estimator. Routed to the same branch this module already means by "the node
   // did not answer" (gate round 1, M2).
-  const supplyZat = reported !== null && reported > 0n ? reported : null;
+  const supplyZat = reported;
+  // "not reported" AND "reported A NON-ANSWER" ARE DIFFERENT FACTS and the
+  // string used to conflate them: a node that answered `chainSupply: 0n` was
+  // described as not having answered. Never published - the residual is null
+  // whenever the supply is - but it is what a diagnostic log would carry.
   const supplySource =
     supplyZat === null
-      ? "not reported by the node"
-      : supplyFromNode !== undefined
+      ? supplyFromNode !== undefined || sawAny
+        ? `getblockchaininfo answered at height ${atHeight} with no positive supply, so none is claimed`
+        : "not reported by the node"
+      : fromNode !== null
         ? `getblockchaininfo chainSupply at height ${atHeight}`
         : `getblockchaininfo valuePools, summed over all six entries including the ZIP 271 lockbox, at height ${atHeight}`;
 
@@ -161,11 +174,17 @@ export function readChainValues(info: ChainValueReading, atHeight: number): Chai
     // headline figure from 0.95669 to 0.95803, in the wrong direction. It was
     // latent until HANDOFF-09a wired the real estimator; before that the panel
     // was null and nothing was claimed.
+    // The cast restores the key constraint `Object.fromEntries` erases: it
+    // infers `{ [k: string]: bigint }`, which is assignable to the target and no
+    // longer says anything about the key NAMES, so adding "transparent" to the
+    // array above would compile clean and put a non-`Pool` key in (round 3, L4).
+    // The `as const` array plus the annotated entries are what make the cast a
+    // statement rather than a hope.
     poolBalances: Object.fromEntries(
       (["sprout", "sapling", "orchard", "ironwood"] as const)
         .filter((lane) => reportedLanes.has(lane))
-        .map((lane) => [lane, byLane.get(lane) ?? 0n]),
-    ),
+        .map((lane): readonly [Pool, bigint] => [lane, byLane.get(lane) ?? 0n]),
+    ) as ChainValues["poolBalances"],
     supplyZat,
     supplySource,
   };

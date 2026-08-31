@@ -197,7 +197,10 @@ export function asFrame(raw: unknown): ZecFrame | null {
   }
 }
 
-const isHeight = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0;
+// SAFE integer: `Number.isInteger(1e300)` is true and a height that large is a
+// malformed frame, not a chain height (swept with `tip-source.ts`, round 3 L5).
+const isHeight = (v: unknown): v is number =>
+  typeof v === "number" && Number.isSafeInteger(v) && v >= 0;
 const isCount = isHeight;
 const isTxid = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f]{64}$/.test(v);
 const isText = (v: unknown): v is string => typeof v === "string" && v.length > 0;

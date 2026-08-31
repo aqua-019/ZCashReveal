@@ -196,6 +196,16 @@ export function newestReports(rows: ReadonlyArray<MempoolRow>): MempoolRow[] {
  */
 export type PanelFault = (panel: string, err: unknown) => void;
 
+/*
+ * NOTE ON THE DOCBLOCK ABOVE `buildSnapshot`, WHICH IS BELOW THIS TYPE. Gate
+ * round 2 inserted `PanelFault` and `panelOrNull` between that block and the
+ * function it documents, so for one commit the module's principal export had no
+ * doc comment and the block dangled over a type alias. Restored below, with the
+ * purity claim corrected: `buildSnapshot` is still pure in the sense the header
+ * means - no I/O, no clock, no mutation of its inputs - but it now CALLS a sink
+ * the caller supplies, so it is pure only when `onPanelFault` is.
+ */
+
 /**
  * One panel, or a stated absence when its estimator refuses its inputs.
  *
@@ -219,6 +229,15 @@ export type PanelFault = (panel: string, err: unknown) => void;
  * precisely the honest thing to say about a panel whose estimator would not
  * accept its inputs. The fault is not swallowed: `onFault` carries it to the
  * caller's log, so an absence always has a reason recorded beside it.
+ *
+ * IT CATCHES A PROGRAMMING ERROR TOO, and that is worth saying because the
+ * paragraphs above frame the catch as a refusal. A `TypeError` inside an
+ * estimator becomes a null panel and a logged fault, not a crash. In production
+ * the composition root logs it with the height and the stack, so it is loud; in
+ * a two-argument call it is not, which is what the assertions that pass a spy
+ * are for. The trade is deliberate: a bug in one estimator costing one panel is
+ * better than a bug in one estimator costing every document until someone
+ * notices, and it is the same trade the paragraph above makes for a refusal.
  */
 function panelOrNull<T>(panel: string, build: () => T, onFault: PanelFault): T | null {
   try {

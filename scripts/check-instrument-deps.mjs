@@ -238,13 +238,32 @@ export function bannedModuleImports(text, banned) {
     .replace(/(^|[^:])\/\/.*$/gm, "$1");
 
   const found = [];
-  const specifier =
-    /(?:^|[\s;])(?:import|export)(\s+type\b)?[^;]*?from\s*["']([^"']+)["']|(?:^|[\s;=(])require\s*\(\s*["']([^"']+)["']\s*\)|(?:^|[\s;])import\s*["']([^"']+)["']|(?:^|[\s;=(,:])import\s*\(\s*["']([^"']+)["']\s*\)/g;
-  let m;
-  while ((m = specifier.exec(code)) !== null) {
-    if (m[1] !== undefined) continue; // `import type` - erased, not a socket
-    const spec = m[2] ?? m[3] ?? m[4] ?? m[5];
-    if (banned.includes(spec)) found.push(spec);
+
+  // FOUR SEPARATE SCANS, NOT ONE ALTERNATION, and this is hole 12 - found by the
+  // review of the commit that fixed holes 1 to 11, which is why the fix commit
+  // is always reviewed as its own commit.
+  //
+  // One regex shares one `lastIndex`. The `from` branch's `[^;]*?` has to cross
+  // newlines, because a multi-line import clause is ordinary, so on a
+  // SEMICOLON-LESS bare `import "node:net"` it ran past the statement, matched
+  // the NEXT statement's `from`, reported that benign specifier, and consumed
+  // the banned one. Executed: `import "node:net"` followed by any `from` import,
+  // without semicolons, gave rc=0. This repository has no prettier config and no
+  // `semi` lint rule, so that spelling is lint-clean, tsc-clean and build-clean
+  // - nothing else in the six-command gate would have seen it either.
+  const scans = [
+    /(?:^|[\s;])(?:import|export)(\s+type\b)?[^;]*?from\s*["']([^"']+)["']/g,
+    /(?:^|[\s;=(])require\s*\(\s*["']([^"']+)["']\s*\)/g,
+    /(?:^|[\s;])import\s*["']([^"']+)["']/g,
+    /(?:^|[\s;=(,:])import\s*\(\s*["']([^"']+)["']\s*\)/g,
+  ];
+  for (const [i, re] of scans.entries()) {
+    let m;
+    while ((m = re.exec(code)) !== null) {
+      if (i === 0 && m[1] !== undefined) continue; // `import type` - erased
+      const spec = i === 0 ? m[2] : m[1];
+      if (banned.includes(spec)) found.push(spec);
+    }
   }
   return found;
 }
@@ -368,11 +387,19 @@ function selfTest() {
   // R2, EVERY banned specifier, generated from the array so a future entry
   // cannot arrive untested (hole 8). Four spellings each.
   for (const mod of BANNED_MODULES) {
+    // BOTH PUNCTUATIONS. The first version's four spellings all ended in `;`,
+    // which is precisely why it certified hole 12: the defect only appears when
+    // a statement does NOT terminate, and every probe terminated. The second
+    // line of each pair is the one that used to pass.
     const spellings = [
       `import { x } from "${mod}";`,
+      `import { x } from "${mod}"\nimport { y } from "./other.js"\n`,
       `const x = require("${mod}");`,
+      `const x = require("${mod}")\nimport { y } from "./other.js"\n`,
       `import "${mod}";`,
+      `import "${mod}"\nimport { y } from "./other.js"\n`,
       `const x = await import("${mod}");`,
+      `const x = await import("${mod}")\nimport { y } from "./other.js"\n`,
     ];
     for (const text of spellings) {
       if (!instrumentFindings(clean, [{ file: "x.ts", text }]).some((f) => f.includes("R2"))) {
@@ -473,10 +500,37 @@ if (!selfTest()) {
 
 const ROOT = process.cwd();
 
-// `legacy` is here because `pnpm-workspace.yaml` resolves `legacy/*` and the old
-// version did not (hole 9) - it read 8 manifests where pnpm resolves 9, and
-// printed that number on every clean run.
-const WORKSPACE_TOPS = ["packages", "apps", "legacy"];
+// READ FROM `pnpm-workspace.yaml` RATHER THAN LISTED, which is hole 13 and is
+// hole 9 again one level up. Hole 9 was that `legacy/*` was missing from a
+// hardcoded list; the first fix added `legacy` to the list, which corrects the
+// VALUE and leaves the RULE - a workspace that later adds `tools/*` is invisible
+// exactly as `legacy/*` was, with the same tell (a manifest count that disagrees
+// with pnpm). Executed on a tree with `tools/*`: an instruments -> chain-io ->
+// zeromq path through `tools/` gave rc=0, because an unscanned member is treated
+// as an npm leaf.
+function workspaceTops() {
+  const file = join(ROOT, "pnpm-workspace.yaml");
+  if (!existsSync(file)) return ["packages", "apps", "legacy"];
+  const tops = [];
+  // A deliberately small parser: `packages:` followed by `- "glob"` lines. The
+  // workspace file is three lines long and a yaml dependency for it would be a
+  // worse trade than this - but an unparsed file falls back to the list above
+  // rather than to an empty scan, which would pass vacuously.
+  let inPackages = false;
+  for (const raw of readFileSync(file, "utf8").split("\n")) {
+    const line = raw.trim();
+    if (/^packages\s*:/.test(line)) { inPackages = true; continue; }
+    if (inPackages) {
+      const m = /^-\s*["']?([^"'\s]+)["']?/.exec(line);
+      if (m === null) { if (line !== "" && !line.startsWith("#")) inPackages = false; continue; }
+      const top = m[1].split("/")[0];
+      if (top !== "" && top !== "." && !tops.includes(top)) tops.push(top);
+    }
+  }
+  return tops.length > 0 ? tops : ["packages", "apps", "legacy"];
+}
+
+const WORKSPACE_TOPS = workspaceTops();
 const WORKSPACE_DIRS = WORKSPACE_TOPS.flatMap((top) => {
   const dir = join(ROOT, top);
   if (!existsSync(dir)) return [];

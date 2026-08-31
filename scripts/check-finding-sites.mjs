@@ -106,6 +106,24 @@ const RECORD_FILES = [/^handoffs\/LEDGER\.md$/, /^handoffs\/prompts\//, /^handof
  */
 const FINDINGS = [
   {
+    id: "H09a-VITEST-ALIAS",
+    what: "every workspace dependency an app's vitest config does not alias resolves to that package's `dist`, so the suite asserts on a build artefact instead of the branch",
+    // `present` rather than `absent`: the defect is a MISSING line, and a
+    // missing line matches no pattern. Each site must name the package in its
+    // alias map. Registered after the same one-line omission was fixed in
+    // `apps/publisher` (gate round 2) and left standing in `apps/indexer`
+    // (round 3) - the move added the dependency to BOTH apps and only one alias
+    // list gained a line, which is exactly the shape this register exists for.
+    present: /"@zcashreveal\/instruments":\s*resolve\(/,
+    // A config that aliases the other packages and not this one - the real
+    // pre-fix state of `apps/indexer/vitest.config.ts`.
+    probe: 'alias: { "@zcashreveal/types": resolve(HERE, "../../packages/zec-types/src/index.ts") },',
+    sites: [
+      "apps/publisher/vitest.config.ts",
+      "apps/indexer/vitest.config.ts",
+    ],
+  },
+  {
     id: "H09-WALLET-BOUND",
     what: "the published wallet upper bound is `<= Sigma counts` (the crossing count), never the denomination-run count - two wallets crossing one denomination in adjacent blocks form ONE run, so the run count can fall BELOW the truth and tightens as evidence accumulates",
     // `present` AND NOT `absent`, which is the one judgement in this row and is

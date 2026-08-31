@@ -43,7 +43,12 @@ export const SNAPSHOT_KEYS = {
 
 /** The per-height snapshot, which carries a 24 h TTL. */
 export function snapshotKeyForHeight(height: number): string {
-  if (!Number.isInteger(height) || height < 0) {
+  // SAFE integer, not merely integer. `Number.isInteger(1e300)` is true, and
+  // this function NAMES A KEY IN A STORE SHARED WITH ANOTHER PROJECT: the key
+  // would be `zecreveal:snapshot:1e+300` - inside the owned prefix, so not a
+  // rule violation, and junk holding a 24 h TTL. Swept from `tip-source.ts`,
+  // where the same predicate let a malformed tip height through (round 3, L5).
+  if (!Number.isSafeInteger(height) || height < 0) {
     throw new Error(`snapshotKeyForHeight: ${height} is not a block height`);
   }
   return `${SNAPSHOT_KEY_PREFIX}snapshot:${height}`;

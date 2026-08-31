@@ -27,6 +27,22 @@ export default defineConfig({
       // Same reasoning for the RPC client package, which HANDOFF-05 moved out
       // of this app: the block-decoder suite imports `RpcBlock` from it.
       "@zcashreveal/zebra-rpc": resolve(HERE, "../../packages/zebra-rpc/src/index.ts"),
+      // AND THE ESTIMATORS, which HANDOFF-09a moved OUT of this app. Six suites
+      // here import `@zcashreveal/instruments`; without this line they resolve
+      // to `packages/zec-instruments/dist` and never load a source file from the
+      // branch. `pnpm -r test` does not run turbo, so nothing rebuilds that dist
+      // first and the suite asserts on whatever artefact is on disk.
+      //
+      // THIS IS THE SECOND SITE OF A ONE-SITE FIX. Gate round 2 found the same
+      // defect in `apps/publisher/vitest.config.ts` and fixed it there; the move
+      // added the dependency to BOTH apps and only one alias list gained a line.
+      // Proven: with `unprovableZat` mutated in the package source, the
+      // publisher suite went red and `audit-records.test.ts` here stayed at
+      // 5 passed - a file whose import block the same commit had just edited.
+      "@zcashreveal/instruments": resolve(HERE, "../../packages/zec-instruments/src/index.ts"),
+      // Same shape, pre-existing: `analysis/__tests__/toolkit.test.ts` imports
+      // this package and had no alias either.
+      "@zcashreveal/content": resolve(HERE, "../../packages/content/src/index.ts"),
     },
   },
   test: {

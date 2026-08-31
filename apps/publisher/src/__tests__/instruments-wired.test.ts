@@ -186,7 +186,16 @@ describe("A1 - the analysis panels are non-null on a published snapshot", () => 
       },
       { height: HEIGHT, hash: hashFor(HEIGHT), timeMs: fixtureTimeMs(HEIGHT) },
     );
-    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS);
+    const faults: string[] = [];
+    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, (panel) => faults.push(panel));
+
+    // THE TWO NULLS BELOW MUST BE THE INPUT LAYER, NOT A REFUSED ESTIMATOR, and
+    // without this line the title of this test is not what it checks. A panel
+    // whose estimator throws now produces the SAME null as a panel with no
+    // input, so `toBeNull()` alone stopped discriminating the moment gate round
+    // 2 made refusals into absences (round 3, M2). Before that the throw
+    // propagated and this test would have errored loudly.
+    expect(faults, "a panel was REFUSED rather than absent - re-read this test").toEqual([]);
 
     // Un-nulled by this handoff.
     expect(snapshot.residual, "residual should be measured on the production path").not.toBeNull();
@@ -308,9 +317,13 @@ describe("A6 - NO_INSTRUMENTS is no longer what the composition root ships", () 
     // than to the claim.
     expect(source).toMatch(/buildSnapshot\(\s*inputs,\s*REAL_INSTRUMENTS\b/);
     expect(source).not.toMatch(/buildSnapshot\(\s*inputs,\s*NO_INSTRUMENTS\b/);
-    // And the fault sink is wired, or a refused panel would publish as an
-    // absence with no recorded reason (gate round 1, H1).
-    expect(source).toMatch(/analysis panel refused its inputs/);
+    // And the fault sink is wired AS AN ARGUMENT, not merely mentioned. The
+    // first version matched the log message text, which a comment containing
+    // that phrase satisfies just as well - proven by deleting the callback and
+    // leaving the sentence in prose, whereupon all three regexes still passed.
+    // That is hole 10's shape inverted, in a test this same round rewrote to
+    // stop pinning punctuation.
+    expect(source).toMatch(/buildSnapshot\(\s*inputs,\s*REAL_INSTRUMENTS,\s*\(/);
   });
 });
 

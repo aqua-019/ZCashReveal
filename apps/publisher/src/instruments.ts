@@ -166,10 +166,27 @@ export interface Instruments {
  * one with teeth - a future `network?: "mainnet" | "testnet"` on `migrationLens`
  * would default silently at a call site that never learns it exists.
  *
- * So the claim is made TRUE rather than softened. The assertions below fail
- * `pnpm typecheck` on any of the five shapes, which is the check the mirrors
- * used to provide implicitly by being a second declaration somebody had to keep
- * in step. They cost nothing at runtime.
+ * So the claim is made true rather than softened - FOR FOUR OF THE FIVE. The
+ * assertions below were measured one shape at a time, rebuilding the package
+ * between each: a widened parameter, a narrowed parameter, an added OPTIONAL
+ * parameter and a required option field becoming optional all raise
+ * `TS2344: Type 'false' does not satisfy the constraint 'true'` here.
+ *
+ * THE FIFTH CANNOT BE CAUGHT AT THIS SEAM, BY CONSTRUCTION, and saying so is the
+ * point of this paragraph. An extra FIELD on a return type - `medianZat` added
+ * to `MigrationLens`, say - moves BOTH sides of the `Equals` at once, because
+ * `MigrationLensFn` returns the very type the package exports. The same holds
+ * for every named type in the five signatures: `Crossing`, `IronwoodSpend`,
+ * `PoolBalanceSample`, `TurnstileResidual`, `OrchardDrain`, `IronwoodBirth`,
+ * `WindowSelection`. `Equals` only sees what THIS file writes out itself.
+ *
+ * What does catch that fifth shape today is `src/__tests__/harness.ts`, whose
+ * stand-in instruments are hand-written object literals - the last surviving
+ * structural mirror, doing by accident the job the mirrors used to do on
+ * purpose. Measured: adding a return field turns the build red at
+ * `harness.ts:161`, not here. That is worth knowing before anyone deletes or
+ * generates that harness, which is why it is written down rather than left to be
+ * discovered when the cover disappears.
  */
 type Equals<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 
