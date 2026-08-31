@@ -93,17 +93,40 @@ export async function rollbackAllToHeight(
   anchors: number;
   nullifiers: number;
   boundaryFlows: number;
+  snapshots: number;
+  blocks: number;
 }> {
   return conn.begin(async (tx) => {
     const c = await tx`DELETE FROM pool_commitments    WHERE block_height   > ${height}`;
     const a = await tx`DELETE FROM pool_anchors        WHERE height_created > ${height}`;
     const n = await tx`DELETE FROM pool_nullifiers     WHERE spent_height   > ${height}`;
     const b = await tx`DELETE FROM pool_boundary_flows WHERE block_height   > ${height}`;
+    // SIX TABLES, NOT FOUR (gate round 1, HIGH). `pool_snapshots` and `blocks`
+    // gained writers in HANDOFF-09b and were not added here, so the tree's ONLY
+    // reorg primitive left both standing. Both new modules' docblocks assert
+    // that "the driver has already called" their rollbacks - and the one
+    // function a driver would call did not.
+    //
+    // What that produced, reproduced by the gate: after
+    // `rollbackAllToHeight(100)` and re-applying a competing chain at 101-103,
+    // three of four samples in the published drain series carried the ORPHANED
+    // chain's balance against the NEW chain's clock. The real drop over that
+    // span was 900 -> 300 ZEC and the series said 900 -> 870, as a measurement,
+    // with `sampleCount` reporting four samples and nothing signalling the mix.
+    //
+    // The return type widening is the point of the fix rather than a side
+    // effect: a caller that destructures four fields is unchanged, and a caller
+    // ASSERTING on the shape - `rollback.test.ts` did, on exactly four keys -
+    // is forced to acknowledge the two new tables.
+    const s = await tx`DELETE FROM pool_snapshots      WHERE height         > ${height}`;
+    const k = await tx`DELETE FROM blocks              WHERE height         > ${height}`;
     return {
       commitments: c.count,
       anchors: a.count,
       nullifiers: n.count,
       boundaryFlows: b.count,
+      snapshots: s.count,
+      blocks: k.count,
     };
   });
 }

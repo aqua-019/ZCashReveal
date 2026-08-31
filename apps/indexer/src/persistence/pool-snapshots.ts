@@ -31,13 +31,25 @@ import type { Pool, PoolStateSnapshot } from "@zcashreveal/types";
  * Write one pool's snapshot at one height. Idempotent on (pool, height) via
  * ON CONFLICT DO NOTHING.
  *
- * DO NOTHING RATHER THAN DO UPDATE, and the argument differs from `blocks`'s.
- * A snapshot is a pure function of the pool's state at a height, so re-deriving
- * it at the same (pool, height) can only produce the same row - unless the chain
- * reorganised, in which case the driver has already called
- * {@link rollbackPoolSnapshotsToHeight} and there is no row to conflict with.
- * A DO UPDATE would therefore never fire on a correct caller and would silently
- * paper over an incorrect one, which is the reverse of what this table is for.
+ * DO UPDATE, AGREEING WITH `writeBlock`, AND THE FIRST DRAFT DID NOT (gate round
+ * 1, HIGH). It used `DO NOTHING`, on the argument that a snapshot is a pure
+ * function of the pool's state at a height and the driver has already rolled
+ * back on a reorg. `blocks.ts` argued the opposite for the same event - that a
+ * height genuinely changes its block, so the row must refresh - and the two
+ * writers were therefore describing two different reorg protocols for one
+ * moment.
+ *
+ * What the disagreement produced, reproduced by the gate: replay one block
+ * without a rollback and `blocks` takes chain B's timestamp while
+ * `pool_snapshots` REFUSES chain B's balance and keeps chain A's. The publisher
+ * then joins them and publishes chain B's clock married to chain A's balance,
+ * as a measurement, with `sampleCount` reporting one sample and nothing saying
+ * the two halves came from different chains.
+ *
+ * So both writers now refresh. It is the only variant that is safe when the
+ * driver is wrong, and being wrong is precisely the case the ON CONFLICT clause
+ * exists for - a correct driver never reaches it, because
+ * {@link rollbackPoolSnapshotsToHeight} has already run.
  *
  * `balanceZat` and `commitmentCount` are `bigint` in `PoolStateSnapshot` and
  * `NUMERIC(20,0)` in the table, so both cross the boundary as strings - the same
@@ -60,7 +72,11 @@ export async function writePoolSnapshot<P extends Pool>(
       ${record.nullifierCount},
       ${record.anchorCount}
     )
-    ON CONFLICT (pool, height) DO NOTHING
+    ON CONFLICT (pool, height) DO UPDATE
+      SET balance_zat      = EXCLUDED.balance_zat,
+          commitment_count = EXCLUDED.commitment_count,
+          nullifier_count  = EXCLUDED.nullifier_count,
+          anchor_count     = EXCLUDED.anchor_count
   `;
 }
 

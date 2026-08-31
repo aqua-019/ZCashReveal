@@ -62,15 +62,39 @@ describe.skipIf(!reachable)("pool_snapshots persistence", () => {
     }
   });
 
-  it("is idempotent on (pool, height)", async () => {
+  it("re-writing (pool, height) REFRESHES the row, agreeing with writeBlock on a reorg", async () => {
     const record = snap({ pool: "orchard", height: 5, balanceZat: 100n });
     await writePoolSnapshot(record, sql);
     await writePoolSnapshot({ ...record, balanceZat: 999n }, sql);
-    // DO NOTHING, so the FIRST write stands. A snapshot is a pure function of the
-    // pool's state at a height, so a correct caller can only ever re-derive the
-    // same row; a reorg is handled by rolling back first, not by overwriting.
+    // THIS ASSERTION USED TO READ `toBe(100n)` AND WAS CORRECT BY ACCIDENT.
+    // The writer used `ON CONFLICT DO NOTHING` on the argument that a snapshot
+    // is a pure function of state at a height, so a correct caller re-derives
+    // the same row. `writeBlock` argued the OPPOSITE for the same event - a
+    // height genuinely changes its block across a reorg - and the disagreement
+    // published chain B's timestamp married to chain A's balance (gate round 1,
+    // HIGH). Both writers refresh now, so a driver that failed to roll back
+    // gets a consistent pair rather than a mixed one.
     const [row] = await readPoolSnapshots("orchard", 5, 5, sql);
-    expect(row?.balanceZat).toBe(100n);
+    expect(row?.balanceZat).toBe(999n);
+  });
+
+  it("a refresh rewrites every column, not only the one that changed", async () => {
+    // The ON CONFLICT clause names four columns by hand, so a fifth added to the
+    // table would be silently left stale. This is what would catch that.
+    await writePoolSnapshot(
+      snap({ pool: "orchard", height: 7, balanceZat: 1n, commitmentCount: 1n, nullifierCount: 1, anchorCount: 1 }),
+      sql,
+    );
+    const refreshed = snap({
+      pool: "orchard",
+      height: 7,
+      balanceZat: 2n,
+      commitmentCount: 3n,
+      nullifierCount: 4,
+      anchorCount: 5,
+    });
+    await writePoolSnapshot(refreshed, sql);
+    expect(await readPoolSnapshots("orchard", 7, 7, sql)).toEqual([refreshed]);
   });
 
   it("reads one pool through time, ascending, and does not see another pool's rows", async () => {

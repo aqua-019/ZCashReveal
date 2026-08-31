@@ -203,7 +203,19 @@ describe("A1 - the analysis panels are non-null on a published snapshot", () => 
           Promise.resolve({ height: 3_428_143, balance_zat: (900_000n * ZAT_PER_ZEC).toString() }),
         queryIronwoodSpends: () =>
           Promise.resolve([
-            { spent_txid: "cc".repeat(32), spent_height: HEIGHT - 10, max_position: "4095" },
+            {
+              spent_txid: "cc".repeat(32),
+              spent_height: HEIGHT - 10,
+              pool: "ironwood",
+              // 4090, NOT 4095, AND THE VALUE IS THE ASSERTION (gate round 1).
+              // 4095 is 2^12 - 1, the one number where `max_position + 1` is
+              // numerically indistinguishable from "round up to the next power
+              // of two" - and 4096 is exactly the constant a hardcoded
+              // implementation picks. Measured: with the fixture at 4095, a
+              // hardcoded `4096n` passed three of the four candidateCount
+              // assertions. At 4090 all three catch it.
+              max_position: "4090",
+            },
           ]),
         cfg: loadConfig({}),
         labelsVersion: "labels-9-2026-08-22",
@@ -250,10 +262,10 @@ describe("A1 - the analysis panels are non-null on a published snapshot", () => 
     const neff = snapshot.neffSeries;
     if (neff === null) throw new Error("neffSeries is null; the assertion above should have caught this");
     expect(neff.spendCount).toBe(1);
-    // Cand_0 = max_position + 1 = 4096, NOT 4095. Positions are 0-indexed
+    // Cand_0 = max_position + 1 = 4091, NOT 4090. Positions are 0-indexed
     // inclusive, and an off-by-one here would publish a claim level computed
     // over the wrong set size.
-    expect(neff.series[0]?.candidateCount).toBe(4096);
+    expect(neff.series[0]?.candidateCount).toBe(4091);
   });
 
   it("A1 A PANEL WHOSE ESTIMATOR REFUSES ITS INPUTS IS AN ABSENCE, NOT A LOST DOCUMENT", () => {

@@ -35,5 +35,31 @@ export default defineConfig({
     include: ["src/**/__tests__/**/*.test.ts"],
     environment: "node",
     globals: false,
+    // SCHEMA-PER-RUN, REUSING THE INDEXER'S GLOBAL SETUP, AND WITHOUT IT THIS
+    // PACKAGE TRUNCATES THE SHARED DATABASE (gate round 1, HIGH).
+    //
+    // `snapshot-inputs.integration.test.ts` TRUNCATEs `pool_snapshots`, `blocks`,
+    // `pool_nullifiers` and `pool_anchors` in `beforeEach`, and reads
+    // `ZR_TEST_SCHEMA` to scope itself. That variable is set by
+    // `apps/indexer/test/global-setup.ts` - which this config did not run - so
+    // the suite's comment claiming it matched the indexer's isolation was true
+    // of the READING code and false of the RUN: with no schema, `search_path`
+    // stayed at `public` and the TRUNCATEs hit the shared tables. Reproduced: a
+    // marker row in `public.blocks` was gone after `pnpm --filter
+    // @zcashreveal/publisher test`, and the fixture rows survived the run, so a
+    // locally-run publisher would then read five fabricated Orchard snapshots
+    // and publish a drain from them.
+    //
+    // That is LEDGER-06 Q6 reintroduced, through exactly the door
+    // `_setup.ts` names: "the one connection that forgot to opt in". The setup
+    // module creates a schema, applies all six migrations into it and drops it
+    // at teardown, so pointing this package at the same file makes the isolation
+    // a property of the run rather than of a comment.
+    globalSetup: ["../indexer/test/global-setup.ts"],
+    // The integration suite shares one database across files; concurrent
+    // `beforeEach` TRUNCATEs from different files race. Same reason, same
+    // setting, as apps/indexer.
+    fileParallelism: false,
+    testTimeout: 20_000,
   },
 });

@@ -4,6 +4,7 @@ import { getSql, isPostgresReachable, truncateAll } from "./_setup.js";
 import {
   writePoolNullifier,
   readAllPoolNullifiers,
+  readPoolNullifierAnchor,
   rollbackPoolNullifiersToHeight,
 } from "../../pool-nullifiers.js";
 
@@ -81,5 +82,48 @@ describe.skipIf(!reachable)("pool_nullifiers persistence", () => {
     const remaining = await readAllPoolNullifiers("sapling", sql);
     expect(remaining).toHaveLength(1);
     expect(remaining[0]?.spentHeight).toBe(100);
+  });
+  it("an anchor arriving AFTER the spend is recorded, and never overwrites one", async () => {
+    // MIGRATION 005 EXPLICITLY DESIGNS FOR THIS ORDERING - "the anchor may also
+    // arrive after the spend; an Ironwood root comes from `z_gettreestate`, a
+    // separate call" - and the first draft's `ON CONFLICT DO NOTHING` made it
+    // permanently unrecordable: the second write was refused, nothing else in
+    // the tree UPDATEs `anchor_root`, and the spend was dropped from
+    // `neffSeries` forever. On the page that is indistinguishable from an anchor
+    // that genuinely cannot be resolved (gate round 1, MEDIUM).
+    const rec = {
+      pool: "ironwood" as const,
+      nfId: h(0x11),
+      spentTxid: h(0xaa),
+      spentHeight: 500,
+    };
+    await writePoolNullifier(rec, sql);
+    expect(await readPoolNullifierAnchor("ironwood", h(0x11), sql)).toBeNull();
+
+    await writePoolNullifier(rec, sql, h(0xee));
+    expect(await readPoolNullifierAnchor("ironwood", h(0x11), sql)).toBe(h(0xee));
+
+    // AND A RECORDED ANCHOR STILL WINS. COALESCE fills a NULL in; it never
+    // overwrites an observation, which is the property the four pool writers
+    // share and which a bare DO UPDATE would have broken.
+    await writePoolNullifier(rec, sql, h(0xff));
+    expect(await readPoolNullifierAnchor("ironwood", h(0x11), sql)).toBe(h(0xee));
+  });
+
+  it("a re-write does not disturb the other columns", async () => {
+    const rec = {
+      pool: "ironwood" as const,
+      nfId: h(0x22),
+      spentTxid: h(0xbb),
+      spentHeight: 501,
+    };
+    await writePoolNullifier(rec, sql, h(0xee));
+    // A different txid and height for the same nullifier could only be a defect
+    // upstream; the writer must not let it through the conflict clause.
+    await writePoolNullifier({ ...rec, spentTxid: h(0xcc), spentHeight: 999 }, sql);
+    const rows = await readAllPoolNullifiers("ironwood", sql);
+    const found = rows.find((r) => r.nfId === h(0x22));
+    expect(found?.spentTxid).toBe(h(0xbb));
+    expect(found?.spentHeight).toBe(501);
   });
 });

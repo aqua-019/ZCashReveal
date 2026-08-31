@@ -48,7 +48,7 @@ import type { IronwoodSpend, PoolBalanceSample } from "@zcashreveal/instruments"
 
 import type { PublisherConfig } from "../config.js";
 import type { Crossing } from "../instruments.js";
-import type { LaneBalance, SnapshotInputs } from "../snapshot-builder.js";
+import type { HeightWindow, LaneBalance, SnapshotInputs } from "../snapshot-builder.js";
 import type { Tip } from "../publisher.js";
 
 /**
@@ -231,16 +231,35 @@ export interface OrchardSeriesRow {
   readonly time_s: string;
 }
 
-/** One Ironwood spend joined to the anchor that bounds it. */
+/**
+ * One Ironwood spend, LEFT-joined to the anchor that bounds it.
+ *
+ * `max_position` IS NULLABLE BECAUSE THE JOIN IS A LEFT JOIN, and that
+ * nullability is load-bearing: it is what distinguishes "no Ironwood spend
+ * happened in this window" from "spends happened and none could be bounded".
+ * See `queries.ts` for why an inner join made those two indistinguishable and
+ * published the second as a measurement of zero.
+ */
 export interface IronwoodSpendRow {
   readonly spent_txid: string;
   readonly spent_height: number;
+  /** Read from the row, never assumed - see `queries.ts`. */
+  readonly pool: string;
   /** `pool_anchors.max_position`, `NUMERIC(20,0)`, so a string. Cand_0 is this plus one. */
-  readonly max_position: string;
+  readonly max_position: string | null;
 }
 
-/** Milliseconds in a second. The one place this module converts the chain's unit. */
-const MS_PER_SECOND = 1000;
+/**
+ * Milliseconds in a second - the ONE declaration in this app.
+ *
+ * `index.ts` declared a second one of the same name and the same value for the
+ * tip header's conversion, and migration 005's comment then named the wrong one
+ * as the place `blocks.time_s` crosses the unit boundary (gate round 1, LOW).
+ * Two constants of one name in one app is how a later reader comes to believe a
+ * conversion happens somewhere it does not, so there is now one and `index.ts`
+ * imports it.
+ */
+export const MS_PER_SECOND = 1_000;
 
 /**
  * Turn joined rows into the samples `orchardDrain` reads.
@@ -284,12 +303,22 @@ export function orchardSeriesFromRows(
 export function ironwoodSpendsFromRows(
   rows: ReadonlyArray<IronwoodSpendRow>,
 ): IronwoodSpend[] {
-  return rows.map((r) => ({
-    txid: asHex(r.spent_txid),
-    height: r.spent_height,
-    pool: "ironwood" as const,
-    candidateCount: BigInt(r.max_position) + 1n,
-  }));
+  const out: IronwoodSpend[] = [];
+  for (const r of rows) {
+    // A ROW WITH NO ANCHOR IS DROPPED HERE RATHER THAN BY THE SQL, so the caller
+    // can still see how many spends there were. That count is the difference
+    // between a measurement of zero and a stated absence.
+    if (r.max_position === null) continue;
+    out.push({
+      txid: asHex(r.spent_txid),
+      height: r.spent_height,
+      // READ FROM THE ROW. Stamping `"ironwood"` here made `ironwoodBirth`'s
+      // first admission rule inert, because the value it tests was manufactured.
+      pool: r.pool as IronwoodSpend["pool"],
+      candidateCount: BigInt(r.max_position) + 1n,
+    });
+  }
+  return out;
 }
 
 /** Just enough of `postgres`'s `Sql` for this module, so a test needs no database. */
@@ -322,9 +351,21 @@ export type IronwoodSpendQuery = (
   highHeight: number,
 ) => Promise<ReadonlyArray<IronwoodSpendRow>>;
 
+/**
+ * Where an input-layer fault is reported.
+ *
+ * `panel` is the snapshot panel whose inputs were lost, so the log line names
+ * what the reader will not see. A missing sink means faults are swallowed, which
+ * is why `readSnapshotInputs` defaults it to a no-op ONLY for tests and the
+ * composition root always supplies one.
+ */
+export type InputFault = (panel: string, err: unknown) => void;
+
 export interface ChainInputsDeps {
   /** `getblockchaininfo`, already parsed. */
   readonly readChainInfo: () => Promise<ChainValueReading>;
+  /** Reports a query that failed, so a lost panel is never a silent absence. */
+  readonly onInputFault?: InputFault | undefined;
   /** The migration window query, or null when there is no database. */
   readonly queryMigrations: MigrationQuery | null;
   /** The drain's series query, or null when there is no database. */
@@ -355,68 +396,155 @@ export async function readSnapshotInputs(
   const info = await deps.readChainInfo();
   const values = readChainValues(info, tip.height);
 
-  const lowHeight = Math.max(0, tip.height - deps.cfg.SNAPSHOT_MIGRATION_WINDOW_BLOCKS + 1);
-  let crossings: Crossing[] = [];
-  let migrationWindow: { lowHeight: number; highHeight: number } | null = null;
-  if (deps.queryMigrations !== null) {
-    crossings = crossingsFromRows(await deps.queryMigrations(lowHeight, tip.height));
-    migrationWindow = { lowHeight, highHeight: tip.height };
+  // EVERY QUERY IS WRAPPED, AND UNTIL THE GATE NONE OF THEM WAS. This function's
+  // docblock has promised since HANDOFF-09 that "a failing migration query is an
+  // empty window and a logged fault, NOT a failed publish" - and there was no
+  // `try` anywhere in the body. Executed by the gate: a rejecting query
+  // PROPAGATED, `SnapshotPublisher` caught it as a build failure, and the tip
+  // published NOTHING - no document at all, so `pools`, `residual` and
+  // `lastReports` went with it. HANDOFF-09b went from one query to four under
+  // that promise, quadrupling the exposure, which is what makes it this
+  // handoff's to fix rather than an inherited defect to note.
+  //
+  // The row PARSES are inside the wrapper too, and that is the half a
+  // `try` around the await alone would miss. `BigInt` and `asHex` throw on a
+  // malformed value, and malformed values are reachable: `NUMERIC(20,0)` accepts
+  // `'NaN'`, and `max_position`'s `CHECK (>= 0)` does not exclude it because
+  // Postgres sorts NaN ABOVE every number - verified against a real Postgres 16,
+  // where the INSERT succeeds and `BigInt("NaN")` then throws a SyntaxError.
+  const fault: InputFault = deps.onInputFault ?? (() => undefined);
+  async function panelInputs<T>(panel: string, read: () => Promise<T>, absent: T): Promise<T> {
+    try {
+      return await read();
+    } catch (err) {
+      fault(panel, err);
+      return absent;
+    }
   }
+
+  const lowHeight = Math.max(0, tip.height - deps.cfg.SNAPSHOT_MIGRATION_WINDOW_BLOCKS + 1);
+  const migration = await panelInputs(
+    "migrationHist",
+    async (): Promise<{ crossings: Crossing[]; window: HeightWindow | null }> => {
+      if (deps.queryMigrations === null) return { crossings: [], window: null };
+      return {
+        crossings: crossingsFromRows(await deps.queryMigrations(lowHeight, tip.height)),
+        window: { lowHeight, highHeight: tip.height },
+      };
+    },
+    { crossings: [], window: null },
+  );
 
   // THE DRAIN. Both halves are required and neither substitutes for the other:
   // the SERIES carries the current balance and the two velocities, and the
   // BASELINE is the denominator of `D = 1 - current/baseline`. A series with no
   // baseline cannot form D, and a baseline with no series has no current
   // balance, so either being absent suppresses the panel rather than producing
-  // half of it. `buildDrain` reads `drainBaseline` for exactly that reason.
+  // half of it.
   const drainLow = Math.max(0, tip.height - deps.cfg.SNAPSHOT_DRAIN_WINDOW_BLOCKS + 1);
-  let orchardSeries: PoolBalanceSample[] = [];
-  let drainBaseline: { height: number; zat: bigint } | null = null;
-  if (deps.queryOrchardSeries !== null && deps.queryDrainBaseline !== null) {
-    orchardSeries = orchardSeriesFromRows(await deps.queryOrchardSeries(drainLow, tip.height));
-    const baseline = await deps.queryDrainBaseline(deps.cfg.SNAPSHOT_DRAIN_BASELINE_HEIGHT);
-    // A NON-POSITIVE BASELINE IS ROUTED TO `null` RATHER THAN PASSED ON.
-    // `orchardDrain` THROWS on `baselineZat <= 0n`, and a throw here would cost
-    // the whole document to lose one panel - the trade `readSnapshotInputs`
-    // already refuses for the migration query. A zero baseline is also not a
-    // measurement: it is a height at which the pool held nothing, and "the pool
-    // has drained 100 per cent" is a claim no reading supports.
-    drainBaseline =
-      baseline !== null && BigInt(baseline.balance_zat) > 0n
-        ? { height: baseline.height, zat: BigInt(baseline.balance_zat) }
-        : null;
-  }
+  const drain = await panelInputs(
+    "drain",
+    async (): Promise<{
+      series: PoolBalanceSample[];
+      baseline: { height: number; zat: bigint } | null;
+    }> => {
+      if (deps.queryOrchardSeries === null || deps.queryDrainBaseline === null) {
+        return { series: [], baseline: null };
+      }
+      const series = orchardSeriesFromRows(await deps.queryOrchardSeries(drainLow, tip.height));
+      const row = await deps.queryDrainBaseline(deps.cfg.SNAPSHOT_DRAIN_BASELINE_HEIGHT);
+      if (row === null) return { series, baseline: null };
+      const zat = BigInt(row.balance_zat);
+      // A NON-POSITIVE BASELINE IS AN ABSENCE **WITH A REASON**, not a silent
+      // one. `orchardDrain` throws on `baselineZat <= 0n` because
+      // `D = 1 - current/baseline` is undefined there. The first draft routed it
+      // to `null` and logged nothing, so a ZIP 209 violation - which
+      // `turnstileResidual` calls "our replay being wrong, never the chain" -
+      // vanished from the page with no trace anywhere.
+      if (zat <= 0n) {
+        fault("drain", new RangeError(`drain baseline at height ${row.height} is ${zat}, not positive`));
+        return { series, baseline: null };
+      }
+      return { series, baseline: { height: row.height, zat } };
+    },
+    { series: [], baseline: null },
+  );
 
-  // THE N_eff SERIES. The window is its own, not the migration lens's - see
-  // `SNAPSHOT_IRONWOOD_WINDOW_BLOCKS`. `ironwoodSpends` is `null` rather than
-  // `[]` when there is no database, because `buildNeffSeries` reads the null as
-  // "not measured" and an empty array as "measured, and no spend qualified" -
-  // two different claims, and SNAPSHOT.md section 8.1 turns on the difference.
-  const ironwoodLow = Math.max(0, tip.height - deps.cfg.SNAPSHOT_IRONWOOD_WINDOW_BLOCKS + 1);
-  let ironwoodSpends: IronwoodSpend[] | null = null;
-  let ironwoodWindow: { lowHeight: number; highHeight: number; birthHeight: number } | null = null;
-  if (deps.queryIronwoodSpends !== null) {
-    ironwoodSpends = ironwoodSpendsFromRows(
-      await deps.queryIronwoodSpends(ironwoodLow, tip.height),
-    );
-    // THE BIRTH HEIGHT IS ITS OWN CONFIGURED VALUE, NOT THE DRAIN BASELINE, even
-    // though both default to NU6.3 and coincide on mainnet. A first draft read
-    // the drain baseline here, arguing that one configured height is one thing
-    // to get right instead of two. That was wrong, and the failure it produces
-    // is silent: the drain baseline is a CHART ORIGIN an operator may
-    // legitimately re-base - `orchardDrain`'s docblock says so in as many words,
-    // "a chart re-based to a later height" - and a birth height is a CONSENSUS
-    // FACT that cannot be re-based at all. Sharing them means re-basing the
-    // drain chart also moves Ironwood's birth, `ironwoodBirth` then drops every
-    // spend below the new value, and `neffSeries` shortens into a real
-    // measurement of a window nobody asked for, with nothing on the page saying
-    // so. See `SNAPSHOT_IRONWOOD_BIRTH_HEIGHT` in config.ts.
-    ironwoodWindow = {
-      lowHeight: ironwoodLow,
-      highHeight: tip.height,
-      birthHeight: deps.cfg.SNAPSHOT_IRONWOOD_BIRTH_HEIGHT,
-    };
-  }
+  // THE N_eff SERIES, AND THE `null`/`[]` DISTINCTION IS THE WHOLE OF IT.
+  // `buildNeffSeries` reads `null` as "not measured" and `[]` as "measured, and
+  // no spend qualified" - two different claims, and SNAPSHOT.md section 8.1
+  // turns on the difference. The query LEFT-joins so both facts arrive: how many
+  // spends there were, and how many could be bounded.
+  // CLAMPED TO THE BIRTH HEIGHT, NOT JUST TO ZERO, and the fixture that exposed
+  // this is worth keeping in mind. `ironwoodBirth` admits a spend only at or
+  // above `birthHeight`, so for the first window-length of blocks after NU6.3 an
+  // unclamped low bound asks for spends from before the pool existed and the
+  // estimator drops them - silently, because `buildNeffSeries` discards the audit
+  // record that would carry `countIn - countOut`. That is the same shape as the
+  // birth-height conflation this file already refuses one paragraph down: a
+  // series that quietly narrows and still reads as a measurement. Clamping makes
+  // the published `ironwoodWindow.lowHeight` truthful about what was searched,
+  // and makes the query's row count and the series' point count agree.
+  const ironwoodLow = Math.max(
+    0,
+    deps.cfg.SNAPSHOT_IRONWOOD_BIRTH_HEIGHT,
+    tip.height - deps.cfg.SNAPSHOT_IRONWOOD_WINDOW_BLOCKS + 1,
+  );
+  const ironwood = await panelInputs(
+    "neffSeries",
+    async (): Promise<{
+      spends: IronwoodSpend[] | null;
+      window: (HeightWindow & { birthHeight: number }) | null;
+    }> => {
+      if (deps.queryIronwoodSpends === null) return { spends: null, window: null };
+      const rows = await deps.queryIronwoodSpends(ironwoodLow, tip.height);
+      const spends = ironwoodSpendsFromRows(rows);
+      const window = {
+        lowHeight: ironwoodLow,
+        highHeight: tip.height,
+        // THE BIRTH HEIGHT IS ITS OWN CONFIGURED VALUE, NOT THE DRAIN BASELINE,
+        // even though both default to NU6.3 and coincide on mainnet. The drain
+        // baseline is a CHART ORIGIN an operator may legitimately re-base -
+        // `orchardDrain`'s docblock says so, "a chart re-based to a later
+        // height" - and a birth height is a CONSENSUS FACT. Sharing them meant
+        // re-basing the drain chart silently shortened this series.
+        birthHeight: deps.cfg.SNAPSHOT_IRONWOOD_BIRTH_HEIGHT,
+      };
+      // SPENDS EXIST AND NONE COULD BE BOUNDED IS AN ABSENCE, NOT A ZERO. This
+      // is the state of every database that has just applied 005: `anchor_root`
+      // is nullable with no backfill, so every pre-existing spend resolves to no
+      // anchor. Publishing `[]` there makes `buildNeffSeries` emit
+      // `spendCount: 0` and `requires_disclosure: 0` - the site stating, as a
+      // measured finding, that no Ironwood spend requires disclosure. An empty
+      // WINDOW is a different matter and stays `[]`: nothing happened, and that
+      // really is a measurement of zero.
+      if (rows.length > 0 && spends.length === 0) {
+        fault(
+          "neffSeries",
+          new RangeError(
+            `${rows.length} Ironwood spend(s) in [${ironwoodLow}, ${tip.height}] and none carries a ` +
+              "resolvable anchor, so Cand_0 cannot be claimed for any of them",
+          ),
+        );
+        return { spends: null, window: null };
+      }
+      // A PARTIAL LOSS IS REPORTED THOUGH THE PANEL STILL PUBLISHES. The series
+      // is honest about what it measured, but `buildNeffSeries` drops
+      // `ironwoodBirth`'s audit record, so `countIn - countOut` reaches no
+      // reader; this log line is the only place the gap is stated.
+      if (spends.length < rows.length) {
+        fault(
+          "neffSeries",
+          new RangeError(
+            `${rows.length - spends.length} of ${rows.length} Ironwood spend(s) carry no resolvable ` +
+              "anchor and are excluded from the series",
+          ),
+        );
+      }
+      return { spends, window };
+    },
+    { spends: null, window: null },
+  );
 
   return {
     height: tip.height,
@@ -427,12 +555,12 @@ export async function readSnapshotInputs(
     supplyZat: values.supplyZat,
     supplySource: values.supplySource,
     poolBalances: values.poolBalances,
-    orchardSeries,
-    drainBaseline,
-    crossings,
-    migrationWindow,
-    ironwoodSpends,
-    ironwoodWindow,
+    orchardSeries: drain.series,
+    drainBaseline: drain.baseline,
+    crossings: migration.crossings,
+    migrationWindow: migration.window,
+    ironwoodSpends: ironwood.spends,
+    ironwoodWindow: ironwood.window,
     lastReports: [],
     labelsVersion: deps.labelsVersion,
   };

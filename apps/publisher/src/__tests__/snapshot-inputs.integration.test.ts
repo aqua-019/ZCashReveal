@@ -23,14 +23,8 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { loadConfig } from "../config.js";
 import { REAL_INSTRUMENTS } from "../instruments.js";
 import { buildSnapshot } from "../snapshot-builder.js";
-import {
-  readSnapshotInputs,
-  type DrainBaselineQuery,
-  type IronwoodSpendQuery,
-  type IronwoodSpendRow,
-  type OrchardSeriesQuery,
-  type OrchardSeriesRow,
-} from "../sources/chain-inputs.js";
+import { readSnapshotInputs } from "../sources/chain-inputs.js";
+import { makeChainQueries } from "../sources/queries.js";
 
 const DEFAULT_URL = "postgres://zcashreveal:zcashreveal@localhost:5432/zcashreveal";
 const url = process.env["DATABASE_URL"] ?? DEFAULT_URL;
@@ -64,45 +58,28 @@ const ZAT_PER_ZEC = 100_000_000n;
 const BASE_TIME_S = 1_780_000_000;
 /** When the indexer WROTE the rows: one burst, four seconds wide. */
 const BASE_WRITE_S = 1_780_200_000;
+/**
+ * The N_eff window's inclusive low bound.
+ *
+ * `tip - 1152 + 1` is 3,427,492, which is BELOW Ironwood's birth height, so the
+ * clamp in `readSnapshotInputs` raises it to the birth height. That is the case
+ * worth pinning: unclamped, the query returns spends from before the pool
+ * existed and `ironwoodBirth` drops them without a word.
+ */
+const IRONWOOD_LOW = Math.max(BASELINE_HEIGHT, TIP - 1152 + 1);
 const hashFor = (n: number) => n.toString(16).padStart(64, "0");
 
 describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", () => {
   const sql = postgres(url, { max: 2, idle_timeout: 5, ...connectionOptions });
 
-  /**
-   * The three real queries, character for character what `index.ts` composes.
-   * Duplicated deliberately and the duplication is the risk this suite carries:
-   * `apps/publisher/src/index.ts` opens Postgres, a Redis subscriber and the
-   * managed store at module scope, so importing it here would connect to all
-   * three. A2 of HANDOFF-09b's gate re-reads both copies against each other.
-   */
-  const queryOrchardSeries: OrchardSeriesQuery = (lowHeight, highHeight) =>
-    sql<OrchardSeriesRow[]>`
-      SELECT s.height, s.balance_zat, b.time_s
-      FROM pool_snapshots s
-      JOIN blocks b ON b.height = s.height
-      WHERE s.pool = 'orchard' AND s.height >= ${lowHeight} AND s.height <= ${highHeight}
-      ORDER BY s.height ASC
-    `;
-
-  const queryDrainBaseline: DrainBaselineQuery = async (baselineHeight) => {
-    const rows = await sql<Array<{ height: number; balance_zat: string }>>`
-      SELECT height, balance_zat FROM pool_snapshots
-      WHERE pool = 'orchard' AND height <= ${baselineHeight}
-      ORDER BY height DESC LIMIT 1
-    `;
-    return rows[0] ?? null;
-  };
-
-  const queryIronwoodSpends: IronwoodSpendQuery = (lowHeight, highHeight) =>
-    sql<IronwoodSpendRow[]>`
-      SELECT n.spent_txid, n.spent_height, a.max_position
-      FROM pool_nullifiers n
-      JOIN pool_anchors a ON a.pool = n.pool AND a.root = n.anchor_root
-      WHERE n.pool = 'ironwood'
-        AND n.spent_height >= ${lowHeight} AND n.spent_height <= ${highHeight}
-      ORDER BY n.spent_height ASC, n.nf_id ASC
-    `;
+  // THE REAL QUERIES, IMPORTED - not a hand copy. The first draft duplicated all
+  // three here and justified it by noting that importing `index.ts` opens
+  // Postgres, a Redis subscriber and the managed store at module scope. True of
+  // `index.ts`, and not a reason to duplicate: `sources/queries.ts` holds no
+  // connections, takes `sql` as a parameter, and is what `index.ts` itself now
+  // calls. The gate measured the cost of the copy - all three production queries
+  // broken at once, suite green.
+  const { queryOrchardSeries, queryDrainBaseline, queryIronwoodSpends } = makeChainQueries(sql);
 
   const chainInfo = () =>
     Promise.resolve({
@@ -157,7 +134,13 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
     // meant to measure. The estimator was right and the fixture was wrong.
     const samples: Array<[number, bigint, number, number]> = [
       // height, balance ZEC, block time, write time
-      [BASELINE_HEIGHT, 900_000n, BASE_TIME_S - 3600 * 30, BASE_WRITE_S],
+      // THE ORCHARD BASELINE SITS TEN BLOCKS BELOW THE CONFIGURED HEIGHT, so the
+      // baseline query's `<=` - "the indexer may not have written a snapshot at
+      // exactly the activation height" - is exercised rather than assumed, and
+      // so that a SAPLING row can be placed between the two. Without that row
+      // the baseline query's `pool = 'orchard'` predicate was not load-bearing:
+      // deleting it left the whole suite green.
+      [BASELINE_HEIGHT - 10, 900_000n, BASE_TIME_S - 3600 * 30, BASE_WRITE_S],
       [TIP - 144, 711_841n, BASE_TIME_S - 3600 * 3, BASE_WRITE_S + 1],
       [TIP - 96, 710_841n, BASE_TIME_S - 3600 * 2, BASE_WRITE_S + 2],
       [TIP - 48, 709_841n, BASE_TIME_S - 3600, BASE_WRITE_S + 3],
@@ -171,11 +154,58 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
       `;
     }
 
+    // SAPLING DECOYS, SO THE FOUR POOL PREDICATES ARE LOAD-BEARING (gate round 1,
+    // MEDIUM). Without these the fixture held only orchard snapshots and only
+    // ironwood spends, so deleting `s.pool = 'orchard'`, `n.pool = 'ironwood'`,
+    // `a.pool = n.pool` or the baseline's `pool = 'orchard'` - each on its own -
+    // left the whole suite green. Each decoy carries a value that would be
+    // WRONG if it leaked: a sapling balance the drain must not see, and a
+    // sapling anchor whose max_position differs from the ironwood one, so a
+    // leak changes a published number rather than merely a row count.
+    await sql`
+      INSERT INTO pool_snapshots (pool, height, balance_zat, commitment_count, nullifier_count, anchor_count, ts)
+      VALUES ('sapling', ${TIP}, ${(1_000_000n * ZAT_PER_ZEC).toString()}, 0, 0, 0, to_timestamp(${BASE_WRITE_S}))
+    `;
+    // BETWEEN THE ORCHARD BASELINE AND THE CONFIGURED BASELINE HEIGHT, so it is
+    // the row a baseline query missing its pool predicate would pick - and its
+    // balance differs, so the leak changes a published number rather than a row
+    // count.
+    await sql`
+      INSERT INTO pool_snapshots (pool, height, balance_zat, commitment_count, nullifier_count, anchor_count, ts)
+      VALUES ('sapling', ${BASELINE_HEIGHT - 5}, ${(1_234_000n * ZAT_PER_ZEC).toString()}, 0, 0, 0, to_timestamp(${BASE_WRITE_S}))
+    `;
+    await sql`
+      INSERT INTO pool_anchors (pool, root, height_created, max_position)
+      VALUES ('sapling', ${"ee".repeat(32)}, ${TIP - 20}, '77')
+    `;
+    await sql`
+      INSERT INTO pool_nullifiers (pool, nf_id, spent_txid, spent_height, anchor_root)
+      VALUES ('sapling', ${"44".repeat(32)}, ${"dd".repeat(32)}, ${TIP - 7}, ${"ee".repeat(32)})
+    `;
+
+    // WINDOW EDGES, so the low-bound arithmetic is exercised (gate round 1,
+    // LOW). Without these the spends sat at TIP-10/-9/-8, nowhere near an edge,
+    // and replacing BOTH low bounds with the literal 0, or dropping either `+1`,
+    // left the suite green. `ironwoodLow` is inclusive and `ironwoodLow - 1` is
+    // not; both anchors resolve, so admission is decided by the bound alone.
+    await sql`
+      INSERT INTO pool_anchors (pool, root, height_created, max_position)
+      VALUES ('ironwood', ${"cd".repeat(32)}, ${TIP - 2000}, '10')
+    `;
+    await sql`
+      INSERT INTO pool_nullifiers (pool, nf_id, spent_txid, spent_height, anchor_root)
+      VALUES ('ironwood', ${"55".repeat(32)}, ${"e5".repeat(32)}, ${IRONWOOD_LOW - 1}, ${"cd".repeat(32)})
+    `;
+    await sql`
+      INSERT INTO pool_nullifiers (pool, nf_id, spent_txid, spent_height, anchor_root)
+      VALUES ('ironwood', ${"66".repeat(32)}, ${"e6".repeat(32)}, ${IRONWOOD_LOW}, ${"cd".repeat(32)})
+    `;
+
     // ONE ANCHOR AND TWO IRONWOOD SPENDS. The second cites an anchor that is NOT
     // in pool_anchors, which is A5's fail side and must be excluded.
     await sql`
       INSERT INTO pool_anchors (pool, root, height_created, max_position)
-      VALUES ('ironwood', ${"ee".repeat(32)}, ${TIP - 20}, '4095')
+      VALUES ('ironwood', ${"ee".repeat(32)}, ${TIP - 20}, '4090')
     `;
     await sql`
       INSERT INTO pool_nullifiers (pool, nf_id, spent_txid, spent_height, anchor_root)
@@ -259,12 +289,20 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
     expect(drain.velocity7dZecPerHour).toBeCloseTo(-191_159 / 30, 6);
 
     // NOW THE SAME ROWS THROUGH THE CLOCK THIS MIGRATION EXISTS TO REPLACE.
-    // `pool_snapshots.ts` is the write time, and every row here was written by
-    // the same INSERT loop microseconds apart.
+    // `pool_snapshots.ts` is the write time, and the fixture wrote thirty hours
+    // of chain time in four seconds of it.
+    //
+    // THE HEIGHT BOUND MATCHES `drainLow` EXACTLY, and the first draft's did
+    // not: it read `TIP - 200` where the real series query opens at
+    // `TIP - 9215`, so the baseline row was in one series and absent from the
+    // other and the comment's claim of identical membership was false (gate
+    // round 1, LOW). The conclusion was unaffected - including the baseline
+    // widens the write-time span and makes the ratio larger, not smaller - but a
+    // later reader would have trusted the sentence.
     const writeTimeRows = await sql<Array<{ height: number; balance_zat: string; time_s: string }>>`
       SELECT height, balance_zat, EXTRACT(EPOCH FROM ts)::bigint AS time_s
       FROM pool_snapshots
-      WHERE pool = 'orchard' AND height >= ${TIP - 200} AND height <= ${TIP}
+      WHERE pool = 'orchard' AND height >= ${TIP - 9215} AND height <= ${TIP}
       ORDER BY height ASC
     `;
     const writeInputs = await readSnapshotInputs(
@@ -299,27 +337,68 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
     const spends = inputs.ironwoodSpends;
     if (spends === null) throw new Error("ironwoodSpends is null; A1 should have caught this");
 
-    // THREE SPENDS ARE ON DISK AND ONE IS ADMITTED. The other two are the
-    // exclusion set's two members: an anchor_root naming a root that is not in
-    // pool_anchors, and a null anchor_root. Both are dropped by the join rather
-    // than counted as zero - `candidateCount > 0n` is ironwoodBirth's admission
-    // rule, so a zero would exclude them while looking like a measurement.
+    // FIVE IRONWOOD SPENDS ARE ON DISK AND TWO ARE ADMITTED. Each of the three
+    // that are not is a distinct member of the exclusion set, so the assertion
+    // discriminates between the reasons rather than merely counting:
+    //   nf 22  anchor_root names a root that is not in pool_anchors
+    //   nf 33  anchor_root is NULL
+    //   nf 55  below the window's inclusive low bound
+    // The first two are dropped by the join rather than counted as zero -
+    // `candidateCount > 0n` is ironwoodBirth's admission rule, so a zero would
+    // exclude them while looking like a measurement.
     const onDisk = await sql<Array<{ n: string }>>`
       SELECT count(*)::text AS n FROM pool_nullifiers WHERE pool = 'ironwood'
     `;
-    expect(onDisk[0]?.n, "the fixture lost rows").toBe("3");
-    expect(spends).toHaveLength(1);
+    expect(onDisk[0]?.n, "the fixture lost rows").toBe("5");
+    expect(spends).toHaveLength(2);
 
-    // 4095 + 1. Positions are 0-indexed inclusive, so an off-by-one here would
+    const counts = spends.map((sp) => sp.candidateCount).sort((a, b) => Number(a - b));
+    // 4090 + 1. Positions are 0-indexed inclusive, so an off-by-one here would
     // publish a claim level computed over the wrong set size.
-    expect(spends[0]?.candidateCount).toBe(4096n);
-    expect(spends[0]?.pool).toBe("ironwood");
+    //
+    // THE FIXTURE VALUE IS ITSELF THE ASSERTION (gate round 1, MEDIUM). It was
+    // 4095 = 2^12 - 1, the one number where `max_position + 1` is numerically
+    // indistinguishable from "round up to the next power of two", and 4096 is
+    // exactly the constant a hardcoded implementation picks. Measured at 4095: a
+    // hardcoded `4096n` passed this assertion, the neffSeries one, and the same
+    // one in `instruments-wired.test.ts`; only the A5 fail side below caught it,
+    // and that test exists to prove something else. At 4090 all of them catch
+    // it, and so does a next-power-of-two implementation.
+    // Two DIFFERENT bounds, from two different anchors, so a single hardcoded
+    // constant cannot satisfy both.
+    expect(counts).toEqual([11n, 4091n]);
+    expect(spends.every((sp) => sp.pool === "ironwood")).toBe(true);
 
     const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, () => undefined);
     const neff = snapshot.neffSeries;
     if (neff === null) throw new Error("neffSeries is null; A1 should have caught this");
-    expect(neff.spendCount).toBe(1);
-    expect(neff.series[0]?.candidateCount).toBe(4096);
+    expect(neff.spendCount).toBe(2);
+    expect(neff.series.map((pt) => pt.candidateCount).sort((a, b) => a - b)).toEqual([11, 4091]);
+  });
+
+  it("A5 the window's low bound is INCLUSIVE, clamped to the birth height, and one block below it is not", async () => {
+    // THE ARITHMETIC WAS CORRECT AND ENTIRELY UNTESTED (gate round 1, LOW):
+    // replacing both low bounds with the literal 0, or dropping either `+1`,
+    // left the whole suite green because every fixture spend sat ten blocks
+    // below the tip. The two rows this pins straddle the edge and share an
+    // anchor, so admission is decided by the bound and nothing else.
+    //
+    // AND THE EDGE IS THE BIRTH HEIGHT, NOT `tip - window + 1`, which is what
+    // adding these rows exposed: the raw window opens 651 blocks BELOW Ironwood's
+    // birth, so without the clamp the query returned a spend that `ironwoodBirth`
+    // then dropped - `ironwoodSpends` had two entries and `neffSeries` published
+    // one, with nothing anywhere saying which.
+    const inputs = await readSnapshotInputs(deps(), tip);
+    expect(inputs.ironwoodWindow?.lowHeight, "the published window must be the clamped one").toBe(
+      BASELINE_HEIGHT,
+    );
+    const heights = (inputs.ironwoodSpends ?? []).map((sp) => sp.height);
+    expect(heights, "the row AT the low bound must be admitted").toContain(IRONWOOD_LOW);
+    expect(heights, "the row one block BELOW it must not be").not.toContain(IRONWOOD_LOW - 1);
+
+    // THE QUERY AND THE SERIES NOW AGREE, which is the property the clamp buys.
+    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, () => undefined);
+    expect(snapshot.neffSeries?.spendCount).toBe(heights.length);
   });
 
   it("A5 fail side: giving the orphaned spend a real anchor admits it, so the exclusion was the join", async () => {
@@ -334,13 +413,17 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
     `;
     const inputs = await readSnapshotInputs(deps(), tip);
     const spends = inputs.ironwoodSpends ?? [];
-    expect(spends).toHaveLength(2);
-    // max_position 9 -> Cand_0 = 10, a different bound from the first spend's,
-    // so the two cannot be confused for one another.
-    expect(spends.map((s) => s.candidateCount).sort((a, b) => Number(a - b))).toEqual([10n, 4096n]);
-    // The null-anchor spend is STILL excluded: this fail side moved exactly one
-    // of the two excluded rows, which is what makes it name a member rather than
-    // simply switching the join on.
+    expect(spends).toHaveLength(3);
+    // max_position 9 -> Cand_0 = 10, a third distinct bound, so no two spends in
+    // this assertion can be confused for one another.
+    expect(spends.map((sp) => sp.candidateCount).sort((a, b) => Number(a - b))).toEqual([
+      10n,
+      11n,
+      4091n,
+    ]);
+    // The null-anchor spend and the out-of-window one are STILL excluded: this
+    // fail side moved exactly ONE of the three excluded rows, which is what makes
+    // it name a member rather than simply switching the join on.
   });
 
   it("re-basing the DRAIN CHART does not move Ironwood's birth height", async () => {
@@ -363,10 +446,10 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
     const inputs = await readSnapshotInputs(deps({ cfg: rebased }), tip);
 
     expect(inputs.ironwoodWindow?.birthHeight).toBe(BASELINE_HEIGHT);
-    expect(inputs.ironwoodSpends).toHaveLength(1);
+    expect(inputs.ironwoodSpends).toHaveLength(2);
 
     const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, () => undefined);
-    expect(snapshot.neffSeries?.spendCount, "the spend was dropped by a re-based chart origin").toBe(1);
+    expect(snapshot.neffSeries?.spendCount, "a spend was dropped by a re-based chart origin").toBe(2);
 
     // AND THE FAIL SIDE, so the assertion above is evidence rather than a
     // restatement: the old conflation, reproduced by passing the re-based height
@@ -383,6 +466,135 @@ describe.skipIf(!up)("A1/A4/A5 - readSnapshotInputs against a real Postgres", ()
       oldSnapshot.neffSeries?.spendCount,
       "the conflation probe did not discriminate - it must drop the spend",
     ).toBe(0);
+  });
+
+  it("F6 spends exist and none can be bounded is an ABSENCE, not a measured zero", async () => {
+    // THE STATE OF EVERY DATABASE THAT HAS JUST APPLIED 005. `anchor_root` is
+    // nullable with no backfill, so every pre-existing Ironwood spend resolves
+    // to no anchor. With an INNER join that returned `[]`, and `buildNeffSeries`
+    // reads `[]` as "measured, and no spend qualified": it published
+    // `spendCount: 0` and `requires_disclosure: 0`, so the site would have
+    // stated, as a finding, that no Ironwood spend requires disclosure - for the
+    // whole interval between deploying 005 and the indexer recording anchors
+    // (gate round 1, HIGH). SNAPSHOT.md 8.1: "a null renders as an absence and a
+    // zero renders as a measurement."
+    await sql`UPDATE pool_nullifiers SET anchor_root = NULL WHERE pool = 'ironwood'`;
+
+    const faults: Array<{ panel: string; message: string }> = [];
+    const inputs = await readSnapshotInputs(
+      deps({ onInputFault: (panel, err) => faults.push({ panel, message: String(err) }) }),
+      tip,
+    );
+
+    // NULL, NOT []. The distinction is the whole finding.
+    expect(inputs.ironwoodSpends).toBeNull();
+    expect(inputs.ironwoodWindow).toBeNull();
+    // AND THE ABSENCE CARRIES ITS REASON, naming how many spends were seen - an
+    // absence with no logged cause is indistinguishable from a panel nobody
+    // wired, which is the argument the fault callback already exists for.
+    expect(faults.map((f) => f.panel)).toContain("neffSeries");
+    expect(faults.some((f) => /none carries a resolvable anchor/.test(f.message))).toBe(true);
+
+    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, () => undefined);
+    expect(snapshot.neffSeries, "an unbounded window must publish as an absence").toBeNull();
+    // The other panels are untouched: losing one input never costs the document.
+    expect(snapshot.residual).not.toBeNull();
+    expect(snapshot.drain).not.toBeNull();
+  });
+
+  it("F6 the other polarity: an EMPTY WINDOW really is a measured zero", async () => {
+    // THE FIX MUST NOT SWALLOW THE HONEST CASE. If no Ironwood spend happened in
+    // the window at all, we looked and found nothing - that is a measurement,
+    // and turning it into an absence would be the opposite error. The two cases
+    // are distinguished by the LEFT join returning rows-with-no-anchor versus no
+    // rows, which is exactly why the join is a left join.
+    await sql`DELETE FROM pool_nullifiers WHERE pool = 'ironwood'`;
+
+    const faults: string[] = [];
+    const inputs = await readSnapshotInputs(
+      deps({ onInputFault: (panel) => faults.push(panel) }),
+      tip,
+    );
+    expect(inputs.ironwoodSpends).toEqual([]);
+    expect(inputs.ironwoodWindow).not.toBeNull();
+    expect(faults, "an empty window is not a fault").toEqual([]);
+
+    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, () => undefined);
+    expect(snapshot.neffSeries?.spendCount).toBe(0);
+  });
+
+  it("F8 a rejecting query costs ONE panel and a logged fault, not the document", async () => {
+    // THE DOCBLOCK HAS PROMISED THIS IN CAPITALS SINCE HANDOFF-09 AND THE CODE
+    // HAD NO `try` ANYWHERE (gate round 1, HIGH). Executed then: a rejecting
+    // query propagated, `SnapshotPublisher` caught it as a build failure, and
+    // the tip published nothing at all - `pools`, `residual` and `lastReports`
+    // going with it. HANDOFF-09b took the query count from one to four under
+    // that promise.
+    const boom = () => Promise.reject(new Error("connection terminated unexpectedly"));
+    const faults: string[] = [];
+    const inputs = await readSnapshotInputs(
+      deps({
+        queryOrchardSeries: boom,
+        onInputFault: (panel) => faults.push(panel),
+      }),
+      tip,
+    );
+    expect(faults).toContain("drain");
+
+    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, () => undefined);
+    expect(snapshot.drain).toBeNull();
+    // THE DOCUMENT SURVIVES, which is the half that makes this worth having.
+    expect(snapshot.residual).not.toBeNull();
+    expect(snapshot.neffSeries).not.toBeNull();
+    expect(snapshot.pools.length).toBeGreaterThan(0);
+  });
+
+  it("F7 a malformed row costs ONE panel, and NaN is reachable through a live CHECK", async () => {
+    // `NUMERIC(20,0)` ACCEPTS `'NaN'`, AND `CHECK (max_position >= 0)` DOES NOT
+    // EXCLUDE IT, because Postgres sorts NaN above every number. Verified
+    // against this database rather than assumed. `BigInt("NaN")` then throws a
+    // SyntaxError, and before the fix that escaped `readSnapshotInputs` and cost
+    // the whole document.
+    await sql`
+      INSERT INTO pool_anchors (pool, root, height_created, max_position)
+      VALUES ('ironwood', ${"ab".repeat(32)}, ${TIP - 30}, 'NaN')
+    `;
+    await sql`
+      INSERT INTO pool_nullifiers (pool, nf_id, spent_txid, spent_height, anchor_root)
+      VALUES ('ironwood', ${"77".repeat(32)}, ${"e7".repeat(32)}, ${TIP - 5}, ${"ab".repeat(32)})
+    `;
+
+    const faults: string[] = [];
+    const inputs = await readSnapshotInputs(
+      deps({ onInputFault: (panel) => faults.push(panel) }),
+      tip,
+    );
+    expect(faults).toContain("neffSeries");
+
+    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, () => undefined);
+    expect(snapshot.neffSeries).toBeNull();
+    expect(snapshot.residual).not.toBeNull();
+    expect(snapshot.drain).not.toBeNull();
+  });
+
+  it("F7 a non-positive drain baseline is an absence WITH a reason, not a silent one", async () => {
+    // A negative Orchard balance is a ZIP 209 violation that `turnstileResidual`
+    // and `lanesWithShares` both throw on, calling it "our replay being wrong,
+    // never the chain". The first draft routed it to `null` and logged nothing,
+    // so the identical reading vanished from the page without a trace.
+    await sql`UPDATE pool_snapshots SET balance_zat = 0 WHERE pool = 'orchard' AND height = ${BASELINE_HEIGHT - 10}`;
+
+    const faults: string[] = [];
+    const inputs = await readSnapshotInputs(
+      deps({ onInputFault: (panel) => faults.push(panel) }),
+      tip,
+    );
+    expect(inputs.drainBaseline).toBeNull();
+    expect(faults, "a refused baseline must be logged").toContain("drain");
+
+    const snapshot = buildSnapshot(inputs, REAL_INSTRUMENTS, () => undefined);
+    expect(snapshot.drain).toBeNull();
+    expect(snapshot.residual).not.toBeNull();
   });
 
   it.runIf(!up)("A1 SKIPPED, WITH ITS REASON: no reachable Postgres with migration 005 applied", () => {

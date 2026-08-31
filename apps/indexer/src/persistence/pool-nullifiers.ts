@@ -35,6 +35,20 @@ import { asHex } from "@zcashreveal/types";
  * releases a set of untested branches. And `txSeq` sits in the middle because it
  * is REQUIRED; an optional parameter cannot, without making `conn` optional too.
  *
+ * THE CONFLICT CLAUSE FILLS IN A LATE ANCHOR AND NEVER OVERWRITES ONE (gate
+ * round 1, MEDIUM). The first draft kept `DO NOTHING` unchanged, which made the
+ * ordering migration 005 explicitly designs for - "the anchor may also arrive
+ * after the spend; an Ironwood root comes from `z_gettreestate`, a separate
+ * call" - permanently unrecordable: the second write was refused, no
+ * `UPDATE ... SET anchor_root` exists anywhere in the tree, and the spend was
+ * dropped from `neffSeries` forever. On the page that is indistinguishable from
+ * an anchor that genuinely cannot be resolved, which is the one thing the null
+ * is supposed to mean.
+ *
+ * `COALESCE(existing, incoming)` keeps the recorded value winning, so the "never
+ * overwrite an observation" property the four pool writers share survives: only
+ * a NULL is ever filled in.
+ *
  * DEFAULTING TO `null` IS THE HONEST DEFAULT AND IS NOT THE THING MIGRATION 005
  * ARGUES AGAINST. What 005 refuses is a `DEFAULT 0` on a derived COUNT, because
  * `candidateCount > 0n` is an admission predicate and a manufactured zero would
@@ -57,7 +71,8 @@ export async function writePoolNullifier<P extends Pool>(
       ${record.spentHeight},
       ${anchorRoot}
     )
-    ON CONFLICT (pool, nf_id) DO NOTHING
+    ON CONFLICT (pool, nf_id) DO UPDATE
+      SET anchor_root = COALESCE(pool_nullifiers.anchor_root, EXCLUDED.anchor_root)
   `;
 }
 

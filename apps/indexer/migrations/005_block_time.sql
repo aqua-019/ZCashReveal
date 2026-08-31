@@ -58,8 +58,12 @@
 --     third parameter on the writer, breaking the uniform `writeX(record, conn)`
 --     signature the other four pool writers share. The table shape needs
 --     neither, and `writePoolSnapshot` below takes no time argument at all.
---   * The mapping is reusable. `leak_reports`, `migrations_zip318` and
---     `pool_nullifiers` all carry a height and none of them can name a time.
+--   * The mapping is reusable. `migrations_zip318` and `pool_nullifiers` both
+--     carry a MINED height and neither can name a time. (`leak_reports` is NOT
+--     on that list, and the first draft put it there: its height column is
+--     `tip_height_at_seen`, the tip when a MEMPOOL transaction was observed, so
+--     joining `blocks` on it would answer a different question than it looks
+--     like it answers.)
 --   * `hash` on the same row lets a reader tell WHICH block a height meant, which
 --     a reorg makes a real question and which a column on `pool_snapshots`
 --     cannot answer without storing that four times too.
@@ -113,7 +117,12 @@
 -- with `Number(...)`, exactly as `crossingsFromRows` already parses `amount_zat`.
 
 CREATE TABLE IF NOT EXISTS blocks (
-  height  INTEGER NOT NULL PRIMARY KEY,
+  -- The CHECK is here for the reason `time_s`'s is: a negative height could only
+  -- be a decode fault on our side, never a chain observation, and
+  -- `pool_snapshots` already CHECKs three of its four numeric columns. The first
+  -- draft argued that case for `time_s` and left `height` unguarded.
+  height  INTEGER NOT NULL PRIMARY KEY
+    CONSTRAINT blocks_height_check CHECK (height >= 0),
   -- Unix SECONDS from the block header, as the chain states it. No default:
   -- see above. The CHECK refuses a zero or negative reading, which could only
   -- be a decode fault on our side - the genesis block's own time is positive.
@@ -123,11 +132,20 @@ CREATE TABLE IF NOT EXISTS blocks (
   hash    TEXT    NOT NULL
 );
 
+-- NO INDEX ON `hash`, AND THE FIRST DRAFT ADDED ONE ON A FALSE ARGUMENT (gate
+-- round 1). It claimed to serve "is the block I have at this height still the
+-- one on the chain" - but NO QUERY IN THIS TREE READS `blocks` BY HASH.
+-- `readBlockTimes` scans a height range, `rollbackBlocksToHeight` deletes by
+-- height, and the publisher's series query joins on height. Measured on a
+-- 400,000-row scratch database after running all three publisher queries five
+-- times: `blocks_hash_idx` had `idx_scan = 0`, dropping it left every plan
+-- identical, and at 64 hex characters in a btree it cost 48 MB against an 8.8 MB
+-- primary key - about 420 MB on the hot path at mainnet's height, written for
+-- nothing. `hash` stays ON THE ROW, because the reorg question is answered by
+-- reading it at a height the caller already has.
+--
 -- Readers scan a height RANGE - the drain's 7-day window is exactly that - and
--- the primary key already serves it. This index serves the other direction: "is
--- the block I have at this height still the one on the chain", which is the
--- question a reorg asks and the reason `hash` is on the row.
-CREATE INDEX IF NOT EXISTS blocks_hash_idx ON blocks (hash);
+-- the primary key already serves it.
 
 -- ---------------------------------------------------------------------------
 -- (b) pool_nullifiers.anchor_root: the missing (nullifier -> anchor) edge.
@@ -175,20 +193,37 @@ CREATE INDEX IF NOT EXISTS blocks_hash_idx ON blocks (hash);
 ALTER TABLE pool_nullifiers
   ADD COLUMN IF NOT EXISTS anchor_root TEXT;
 
--- The publisher joins spend -> anchor on (pool, anchor_root) for one height
--- window. Without this the join is a sequential scan of every spend ever
--- recorded, on every tip, three times a minute.
+-- PARTIAL, AND THE FIRST DRAFT'S JUSTIFICATION FOR IT WAS MEASURED AND FOUND
+-- FALSE (gate round 1). It claimed that without this index "the join is a
+-- sequential scan of every spend ever recorded, on every tip, three times a
+-- minute". Three of those clauses are wrong. `EXPLAIN ANALYZE` on the
+-- publisher's real query at 600,000 nullifiers shows the driving scan using
+-- `pool_nullifiers_height_idx (pool, spent_height)` - which migration 002 already
+-- shipped - and this index never appearing; the tip rate is about 0.8 a minute
+-- at the 75-second target, not three; and `blocks`, not `pool_nullifiers`, was
+-- the table the sentence's cost figure came from.
+--
+-- It is kept, PARTIAL, on a narrower argument that survives the measurement: the
+-- planner's choice depends on the anchor table's size, `anchor_root` is NULL for
+-- every row written before 005 and for every spend whose anchor never resolved,
+-- and indexing those NULLs costs storage for rows the join can never admit. The
+-- partial predicate is the same one the join applies.
 CREATE INDEX IF NOT EXISTS pool_nullifiers_anchor_idx
-  ON pool_nullifiers (pool, anchor_root);
+  ON pool_nullifiers (pool, anchor_root)
+  WHERE anchor_root IS NOT NULL;
 
 -- NO BACKFILL, AND THE ABSENCE OF ONE IS STRONGER HERE THAN IT WAS IN 004.
 -- 004 had to argue that its columns were new, so every pre-004 row was NULL from
 -- the moment they were added and already said "never examined" correctly. The
 -- same holds for `anchor_root`. For `blocks` there is not even that to argue:
--- `pool_snapshots` HAS NO PRODUCTION WRITER - there is no INSERT INTO
--- pool_snapshots anywhere outside one test probe, no confirmed-block driver, and
--- nothing in the tree constructs a PoolState (003's own closing comment says so,
--- and HANDOFF-12 section 4 commissions the driver). So there are no rows to
--- backfill ANYWHERE, not merely none on the VPS, and there never will be: the
--- first row this table ever joins against will be written by the writer that
--- ships in the same commit as this file.
+-- BEFORE THIS COMMIT `pool_snapshots` had no production writer at all - no
+-- INSERT outside one test probe, no confirmed-block driver, and nothing
+-- constructing a `PoolState` outside a conservation test (003's own closing
+-- comment says so, and HANDOFF-12 section 4 commissions the driver). So there
+-- are no rows to backfill ANYWHERE, not merely none on the VPS, and there never
+-- will be: the first row this table ever joins against is written by
+-- `persistence/pool-snapshots.ts`, which ships in the same commit as this file.
+-- (Stated in the past tense on purpose. The first draft said "there is no INSERT
+-- INTO pool_snapshots anywhere outside one test probe" in the PRESENT tense, in
+-- a commit that added one - the stale-prose shape this project keeps catching,
+-- committed inside the change that made it stale.)
