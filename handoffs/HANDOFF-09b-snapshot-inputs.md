@@ -262,7 +262,7 @@ NOT be executed is unchanged from previous handoffs and is listed under UNVERIFI
 | **A3** | migration 005 is re-runnable | applied twice; 418-line schema dump **byte-identical** between runs | **`ADD COLUMN` without `IF NOT EXISTS`** — errors on the second application, where 005's guarded form is a NOTICE and a skip |
 | **A4** | the velocities come from BLOCK time | -1000 ZEC/h over the three hourly samples; the 7d window separately reaches the baseline at -6371.97 | **"a series whose `timeMs` comes from `pool_snapshots.ts`"** — the same rows through the write clock give **-172,043,100 ZEC/h**, five orders of magnitude wrong; swapping the production join to `ts` turns A4 red |
 | **A5** | `candidateCount` is `max_position + 1`, unknown anchors excluded | 3 spends on disk, 1 admitted, `candidateCount` 4096 from `max_position` 4095 | **"a spend whose `anchor_root` is absent from `pool_anchors`"** — recording that anchor admits it with a DIFFERENT bound (10, from `max_position` 9), so the exclusion is shown to be the join and not the window, the pool filter or a typo. The null-anchor spend stays excluded, so the fail side moved exactly one of the two members |
-| **A6** | `pnpm -r test` unchanged in COUNT | **1220 -> 1240**, larger; split below | deleting a new integration file drops the total |
+| **A6** | `pnpm -r test` unchanged in COUNT | **1220 -> 1264**, larger; split below | deleting a new integration file drops the total |
 | **A7** | the retrofitted `check-instrument-deps.mjs` covers a third banned member | R1 now generates a direct and a transitive probe per member of `BANNED_DEPENDENCIES` | **"a banned name whose manifest-side detector is never driven"** — see the correction below; the discriminating probe is a detector that under-covers the list, rc=0 pre-fold and rc=2 post-fold |
 | **A8** | twelve guards, typecheck, lint, `content validate`, `pnpm build` | 12 guards rc=0, typecheck 13/13, lint 0, validate OK, `pnpm build` 9/9 | **the vacuous pass** — R4 driven over an opted-in §5 with no assertion bullet is reported as a finding rather than counted as a clean scan |
 
@@ -275,9 +275,9 @@ NOT be executed is unchanged from previous handoffs and is listed under UNVERIFI
 | `packages/zec-instruments` | 98 | 98 | — |
 | `apps/web` | 368 | 368 | — |
 | `apps/gateway` | 143 | 143 | — |
-| **`apps/publisher`** | 67 (66 + 1 skipped) | **74** (72 + 2 skipped) | +7: the A1/A4/A5 integration suite and the birth-height regression pin |
-| **`apps/indexer`** | 427 (426 + 1 skipped) | **440** (439 + 1 skipped) | +13: `blocks` and `pool_snapshots` persistence |
-| **total** | **1220** (1218 + 2) | **1240** (1237 + 3) | +20 |
+| **`apps/publisher`** | 67 (66 + 1 skipped) | **80** (78 + 2 skipped) | +13: the A1/A4/A5 integration suite, the birth-height pin, and gate round 1's F6/F7/F8 |
+| **`apps/indexer`** | 427 (426 + 1 skipped) | **444** (443 + 1 skipped) | +17: `blocks` and `pool_snapshots` persistence, plus the reorg and late-anchor pins |
+| **total** | **1220** (1218 + 2) | **1264** (1261 + 3) | +44 |
 
 **Both skips named, and now the third.** `decodeBlock - real mainnet fixture` (the operator's
 capture, seven handoffs old) and the two `runIf` markers, each of which fires only when its service
@@ -373,6 +373,68 @@ at one package. `assert-no-skipped-integration.mjs` now merges several reports a
 shapes; `ci.yml` emits a publisher report and checks both. **Shown to fail on the shape**: rc=1
 naming each skipped assertion, where the pre-widening guard on the same evidence prints "OK: every
 Postgres integration test executed" and exits 0.
+
+### The gate: round 1 fanned out to two reviewers, round 2 reviewed the fix commit
+
+**Budgets in the first line of each return, as LEDGER-05 Q5 requires: 28 candidates examined / 24
+verified by execution, and 16 / 14.** No finding was logged unread. Round 1 returned **three HIGH,
+one of them live on the published document**, and the fixes are in `96160c9`, reviewed as its own
+commit by round 2.
+
+**The publisher's integration suite was TRUNCATING the shared database.** It read `ZR_TEST_SCHEMA`
+to scope itself and `apps/publisher/vitest.config.ts` declared no `globalSetup`, so the variable was
+never set, `search_path` stayed at `public`, and `beforeEach` truncated four real tables.
+Reproduced: a marker row in `public.blocks` was gone after a test run, and the fixture rows
+**survived** it, so a locally-run publisher would then read five fabricated Orchard snapshots and
+publish a drain from them. That is LEDGER-06 Q6 arriving through the door `_setup.ts` names - "the
+one connection that forgot to opt in". Fixed and pinned: the marker now survives.
+
+**An empty join published `neffSeries` as a measurement of zero, and that was the state of every
+database that had just applied 005.** `anchor_root` is nullable with no backfill, so every
+pre-existing spend joined to nothing, the inner join returned `[]`, and `buildNeffSeries` reads `[]`
+as "measured, and no spend qualified" - the site stating, as a finding, that no Ironwood spend
+requires disclosure. Verified against the real database: three spends on disk, zero rows out. **This
+is the exact rule fold 3 had just written into `SNAPSHOT.md` §8.1, broken one level down in the same
+branch.** The join is now a LEFT join so one round trip carries both facts, and the two cases are
+separated: spends-with-no-anchor is a stated absence with a logged reason, an empty window stays an
+honest measured zero. Both polarities pinned.
+
+**`readSnapshotInputs` had no `try`/`catch` and its docblock said in capitals that it did.** The
+promise dates from HANDOFF-09; executed, a rejecting query propagated and the tip published nothing
+at all, `pools` and `residual` going with it. This handoff took the query count from one to four
+under that promise, which is what makes it this handoff's to fix rather than an inherited defect to
+note. The row PARSES are inside the wrapper too, and that half is not decorative: `NUMERIC(20,0)`
+accepts `'NaN'` and `CHECK (max_position >= 0)` does not exclude it, because Postgres sorts NaN
+above every number - so `BigInt` throws on a value a live constraint admits.
+
+**The three production queries had zero execution coverage.** They were written in `index.ts` and
+again by hand in the test, with a comment calling the duplication deliberate. Measured: breaking all
+three at once - the Ironwood join stripped of `a.pool = n.pool`, the pool predicate replaced by
+`1 = 1`, `blocks` joined on `s.nullifier_count`, the baseline's pool filter dropped - left the suite
+**green**. They now live in `sources/queries.ts`, imported by both, so the duplication is DELETED
+rather than policed (LEDGER-08 fold 6). Five mutations that were green are red.
+
+The rest of round 1, each reproduced: `rollbackAllToHeight` rolled back neither `blocks` nor
+`pool_snapshots`, so a reorg published three of four samples carrying the orphaned chain's balance
+against the new chain's clock; `writeBlock` refreshed on conflict while `writePoolSnapshot` refused,
+so the two writers described different reorg protocols for one event; `writePoolNullifier`'s
+`DO NOTHING` made the late-arriving anchor 005 explicitly designs for permanently unrecordable;
+`ironwoodLow` was not clamped to the birth height, so the query returned pre-birth spends that
+`ironwoodBirth` dropped without a word; and **the `candidateCount` fixture was 4095** - the one value
+where `max_position + 1` is indistinguishable from next-power-of-two, where a hardcoded `4096n`
+passed three of the four assertions. At 4090 all of them catch it.
+
+**`blocks_hash_idx` is deleted on a measurement rather than an argument:** `idx_scan = 0` after
+running all three publisher queries five times, no query in the tree reads `blocks` by hash, and at
+64 hex characters in a btree it cost 48 MB per 400,000 rows - about 420 MB on the hot path at
+mainnet's height, for nothing. Five prose claims in 005 were wrong about the tree the same commit
+changed, **including one written in the present tense inside the commit that made it stale**.
+
+**One finding is reported rather than fixed.** Migration 003's
+`UPDATE leak_reports SET fee_zat = NULL WHERE fee_zat = 0` is not a no-op on re-application and
+would reclassify a coinbase's MEASURED zero as an absence - the error 003 spends two paragraphs
+condemning, in reverse. It is unreachable through the current runner and it is another handoff's
+migration, so it goes to L2 in §8; 005 no longer claims to follow a contract 003 does not satisfy.
 
 ### The corrected fact, swept in one commit (LEDGER-03 Q3)
 
