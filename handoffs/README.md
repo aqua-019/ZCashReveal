@@ -24,7 +24,7 @@ Aqua Stack v4.1 session. Read CLAUDE.md, then handoffs/LEDGER.md, then execute t
 | 02 | [`packages/content` — zod schemas + research seeds](HANDOFF-02-content-package.md) | session-designated | Web | 00 | `closed` |
 | 03 | [The Record — Splash, Beware, Contradictions, Timeline, Network, Method, Flows, Sources](HANDOFF-03-record-pages.md) | session-designated | Web | 01, 02 | `closed` |
 | 04 | [ZEC Tracking UI in fixture mode — search, mempool, address, tx, pools, reveal](HANDOFF-04-tracking-ui.md) | session-designated | Web | 01, 02 (03 optional) | `closed` |
-| 04a | [The legibility pass, and the turnstile plane](HANDOFF-04a-legibility.md) | session-designated | Web | 01, 02, 03, 04, 09b (all closed) | `in-progress` |
+| 04a | [The legibility pass, and the turnstile plane](HANDOFF-04a-legibility.md) | `claude/legibility-pass-feedback-y5o07o` | Web | 01, 02, 03, 04, 09b (all closed) | `shipped` (PR opened) |
 | 05 | [Gateway REST read API v2 + hardening (Zebra address-index RPCs with a cache)](HANDOFF-05-gateway-api.md) | `claude/gateway-api-handoff-05-12ogr3` | Data | 00 (uses the DTOs from 04 if merged; otherwise defines them) | `closed` |
 | 06 | [Indexer: four pools + migration 003 + post-NU6.3 invariants](HANDOFF-06-four-pools.md) | `claude/new-session-s4er6f` | Data | 00 | `closed` |
 | 07 | [Indexer: v6 / Ironwood decoder (module 7A.2) + migration detection](HANDOFF-07-v6-decoder.md) | `claude/new-session-ux5kkt` | Data | 06 (closed) | `closed` |
