@@ -129,7 +129,7 @@ export default async function AddressPage({ params }: { params: Promise<{ addr: 
           </div>
 
           <Block idx="A" title="Shape" right="balance as a step - counterparties as a graph">
-            <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+            <div className="grid g-chart-even">
               <Glass>
                 <BalanceStep points={view.balances} />
               </Glass>

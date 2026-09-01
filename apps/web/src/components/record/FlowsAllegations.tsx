@@ -16,6 +16,13 @@ import { DataTable } from "@/components/ui/DataTable";
  * `unverified.json`, the supply-verification gap in `contradictions.json`, the
  * unlocated Arkham post - the row cites that record and prints its own words.
  * The rest are page-local `R-` claims carrying the research's sources.
+ *
+ * THIS TABLE IS NOT COLLAPSED, on the same reading as `FlowsRefusals`. R4 folds
+ * a raw table behind a disclosure, and by shape this is one; by content the
+ * fourth and fifth columns ARE the page's refusal - what evidence was offered,
+ * and what it actually supports. A reader who meets nine allegations behind a
+ * closed triangle has met the allegations and not the answer to them, which is
+ * how these travel in the first place.
  */
 
 interface Allegation {
@@ -190,6 +197,22 @@ function rows(): readonly Allegation[] {
       sources: arkham?.sources ?? ["S-coindesk-05-arthur-hayes-dumps-zcash-holdings-af"],
     },
   ];
+}
+
+/**
+ * What the claim beat at the top of the page reads.
+ *
+ * Functions rather than constants because `rows()` reads the quarantine, and a
+ * module-level constant would do that read at import time rather than at
+ * render. Both derive from `rows()` itself, so neither can disagree with the
+ * table below.
+ */
+export function allegationCount(): number {
+  return rows().length;
+}
+
+export function allegationSources(): readonly SourceRef[] {
+  return rows().flatMap((r) => r.sources);
 }
 
 export function FlowsAllegations() {

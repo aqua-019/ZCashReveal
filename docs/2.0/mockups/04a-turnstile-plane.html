@@ -84,10 +84,10 @@ svg#tank{display:block;width:100%;height:auto}
   </div>
 
   <div class="tiles">
-    <div class="tile"><span class="k">crossings</span><span class="v">17<span class="u">24h</span></span></div>
-    <div class="tile"><span class="k">crossed</span><span class="v">41,208<span class="u">zec</span></span></div>
+    <div class="tile"><span class="k">drawn</span><span class="v" id="tileCrossings">-<span class="u">marks</span></span></div>
+    <div class="tile"><span class="k">measured</span><span class="v" id="tileTotal">-<span class="u">crossings</span></span></div>
     <div class="tile acc"><span class="k">unprovable</span><span class="v">731,462<span class="u">zec</span></span></div>
-    <div class="tile"><span class="k">pending</span><span class="v">3<span class="u">mempool</span></span></div>
+    <div class="tile"><span class="k">pending</span><span class="v" id="tilePending">-<span class="u">mempool</span></span></div>
     <div class="tile"><span class="k">observable</span><span class="v">74.01<span class="u">% of supply</span></span></div>
   </div>
 
@@ -312,13 +312,13 @@ function fmtWin(sec){
 }
 function render(idx){
   STATE=build(idx); flows=STATE.flows;
+  var pend=flows.filter(function(f){return f.pending;}).length;
   flows.sort(function(p,q){return ((p.a.z+p.b.z)/2)-((q.a.z+q.b.z)/2);});
   var out=BASE.slice();
   flows.forEach(function(f){ out.push(arcSvg(f)); });
   var N=nodesSvg(flows);
   out=out.concat(N.svg);
   document.getElementById("tank").innerHTML=out.join("");
-  var pend=flows.filter(function(f){return f.pending;}).length;
   document.getElementById("legend").innerHTML =
     ORDER.map(function(k){var p=POOLS[k];
       return '<span class="lg"><span class="sw" style="background:'+p.c+';opacity:'+(p.veil?.72:1)+'"></span>'+
@@ -330,6 +330,9 @@ function render(idx){
     'showing the last <b>'+fmtWin(STATE.winS)+'</b> &middot; '+STATE.shown+' of '+STATE.total+' crossings'+
     (capped?' <span class="warn">&middot; window shrinking to hold density</span>':' <span class="warn">&middot; whole window fits</span>');
   document.getElementById("rateLab").textContent = STATE.rate.n+" - "+STATE.total+"/day";
+  document.getElementById("tilePending").firstChild.nodeValue = String(pend);
+  document.getElementById("tileCrossings").firstChild.nodeValue = String(STATE.shown);
+  document.getElementById("tileTotal").firstChild.nodeValue = STATE.total.toLocaleString("en");
 }
 render(1);
 var rIn=document.getElementById("rateIn");

@@ -24,13 +24,14 @@ import {
 } from "@/components/record/FlowsAmount";
 import { FlowsClaim } from "@/components/record/FlowsClaim";
 import { FlowsEnd } from "@/components/record/FlowsLabels";
+import { Working } from "@/components/record/Working";
 import { Chip } from "@/components/ui/Chip";
 import { DataTable } from "@/components/ui/DataTable";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Glass } from "@/components/ui/Glass";
 import { KV } from "@/components/ui/KV";
 import { Pill } from "@/components/ui/Pill";
-import { Reason } from "@/components/ui/Reason";
+import { Reason, type ReasonStep } from "@/components/ui/Reason";
 
 /**
  * The dated transfers table and the reconstruction of 2 January 2026.
@@ -49,10 +50,33 @@ import { Reason } from "@/components/ui/Reason";
  * not a figure the chain can produce - and the research's refusal in the last
  * column. Dropping them would leave a table of what the chain shows with no
  * trace of what was claimed, which is the failure mode this page documents.
+ *
+ * WHAT HANDOFF-04b COLLAPSED HERE, AND WHAT IT DID NOT (R4). Three disclosures:
+ * the raw transfer table, the fixed-width ledger and the eight-step round-trip
+ * inference. All three are the working - a raw table, a derivation and a method
+ * walk-through, which is the rule's own list. Everything that states a result
+ * stayed open: the totals the ledger sums to, the case verdict, the
+ * plain-language statement of what the round trip means, and every citation's
+ * confidence and date. A reader who opens nothing on this file still meets each
+ * finding, its grade and its limit; what they have to ask for is the arithmetic
+ * behind it.
  */
 
 const POOL = "shielded pool";
 const LADDER: Record<Confidence, number> = { high: 0, med: 1, low: 2 };
+
+/**
+ * A step of the round-trip argument, and what kind of statement it is.
+ *
+ * `Reason` takes `{ n, text }` and renders both kinds identically, which is
+ * right: the step itself says "Fact." or "Inference, medium-high." in its own
+ * first words. The extra field exists so the disclosure that folds these eight
+ * can COUNT them - five facts, one inference, two bounds - rather than carry a
+ * number typed beside a list it does not read.
+ */
+interface RoundTripStep extends ReasonStep {
+  readonly kind: "fact" | "inference" | "bound";
+}
 
 function weaker(a: Confidence, b: Confidence): Confidence {
   return LADDER[a] >= LADDER[b] ? a : b;
@@ -202,6 +226,14 @@ export function FlowsTransfersTable() {
   const rows: readonly Row[] = [...chainRows(), ...claimedRows()].sort((a, b) =>
     a.time.localeCompare(b.time),
   );
+  // ON CHAIN, NOT "VERIFIED". The summary first read "14 verified on chain",
+  // and rendering it showed why that was wrong: fourteen rows are chain events
+  // but only thirteen carry a txid, and the `verified` chip - which is what the
+  // paragraph above means by the word - renders only where one exists.
+  // `K-202076-unshield` has a step the corpus has no transaction id for. The
+  // three counts now close on the row total and none of them claims more than
+  // the cell beneath it does.
+  const onChain = rows.filter((r) => r.kind === "chain").length;
 
   return (
     <>
@@ -211,119 +243,130 @@ export function FlowsTransfersTable() {
         trust it. Times are UTC. Three rows carry no transaction at all - they are claims, and they are here so the
         comparison is visible.
       </p>
+      {/* THE RAW TABLE, COLLAPSED (R4). Thirteen rows of transaction ids,
+          block heights and per-row citations are the evidence in its raw
+          form; the paragraph above states what the table shows and stays
+          open, and the summary carries the row counts so a reader knows what
+          is inside before deciding to open it. The counts are derived from
+          the same array the table maps, so the two cannot disagree. */}
       <div className="fl-gap-m">
-        <DataTable
-          caption="Large ZEC transfers and the claims made about them, 24 November 2025 to 5 June 2026"
-          columns={[
-            {
-              key: "when",
-              head: "Date and time, UTC",
-              mono: true,
-              cell: (r: Row) =>
-                r.kind === "chain" ? (
-                  <>
-                    {utc(r.step.time)}
-                    {heightOf(r.step)}
-                  </>
-                ) : (
-                  <>
-                    {r.when}
-                    <span className="fl-attrib">no block; not a chain event</span>
-                  </>
-                ),
-            },
-            {
-              key: "zec",
-              head: "ZEC",
-              mono: true,
-              cell: (r: Row) =>
-                r.kind === "chain" ? (
-                  <>
-                    <Pill kind="exact" /> {groupZec(r.step.amount)}
-                    {r.step.from === POOL || r.step.to === POOL ? (
-                      <span className="fl-attrib">
-                        crosses the shielded-pool boundary: the amount is public, the party on the pool side is not
-                      </span>
-                    ) : null}
-                  </>
-                ) : (
-                  <>
-                    <Pill kind="undefined" /> {r.claimed}
-                    <span className="fl-attrib">not derivable from public chain data</span>
-                  </>
-                ),
-            },
-            {
-              key: "from",
-              head: "From",
-              cell: (r: Row) =>
-                r.kind === "chain" ? <FlowsEnd value={r.step.from} /> : <span className="cp">{r.from}</span>,
-            },
-            {
-              key: "to",
-              head: "To",
-              cell: (r: Row) =>
-                r.kind === "chain" ? <FlowsEnd value={r.step.to} /> : <span className="cp">{r.to}</span>,
-            },
-            {
-              key: "source",
-              head: "Source",
-              mono: true,
-              cell: (r: Row) =>
-                r.kind === "chain" ? (
-                  <>
-                    {r.step.txid === undefined ? (
-                      <span className="fl-attrib">no transaction id in the corpus for this step</span>
-                    ) : (
-                      <>
-                        <span className="fl-addr">tx {shortTxid(r.step.txid)}</span>
-                        <Chip tone="ok">verified</Chip>
-                      </>
-                    )}
-                    <span className="fl-attrib">{r.caseIds.join(" · ")}</span>
-                  </>
-                ) : (
-                  <Chip tone="danger">claim only</Chip>
-                ),
-            },
-            {
-              key: "proves",
-              head: "Proves, and does not prove",
-              cell: (r: Row) => (
-                <>
-                  <span className="cp">{r.kind === "chain" ? r.step.note : r.assessment}</span>
-                  {r.kind === "chain" ? (
-                    <FlowsClaim
-                      id={r.caseIds[0] ?? "K-2026-01-02"}
-                      {...(r.caseIds.length > 1 ? { also: r.caseIds.slice(1) } : {})}
-                      confidence={r.confidence}
-                      lastVerified={r.lastVerified}
-                      sources={r.sources}
-                    />
+        <Working
+          title="Every dated transfer, and the claim made about each"
+          finding={`${rows.length} rows, ${onChain} on chain, ${rows.length - onChain} claim only`}
+        >
+          <DataTable
+            caption="Large ZEC transfers and the claims made about them, 24 November 2025 to 5 June 2026"
+            columns={[
+              {
+                key: "when",
+                head: "Date and time, UTC",
+                mono: true,
+                cell: (r: Row) =>
+                  r.kind === "chain" ? (
+                    <>
+                      {utc(r.step.time)}
+                      {heightOf(r.step)}
+                    </>
                   ) : (
-                    <FlowsClaim
-                      id={r.id}
-                      href={r.href}
-                      confidence={r.confidence}
-                      lastVerified={r.lastVerified}
-                      sources={r.sources}
-                      unbound={r.id.startsWith("R-")}
-                    />
-                  )}
-                </>
-              ),
-            },
-          ]}
-          rows={rows}
-          rowKey={(r) => r.key}
-        />
+                    <>
+                      {r.when}
+                      <span className="fl-attrib">no block; not a chain event</span>
+                    </>
+                  ),
+              },
+              {
+                key: "zec",
+                head: "ZEC",
+                mono: true,
+                cell: (r: Row) =>
+                  r.kind === "chain" ? (
+                    <>
+                      <Pill kind="exact" /> {groupZec(r.step.amount)}
+                      {r.step.from === POOL || r.step.to === POOL ? (
+                        <span className="fl-attrib">
+                          crosses the shielded-pool boundary: the amount is public, the party on the pool side is not
+                        </span>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <Pill kind="undefined" /> {r.claimed}
+                      <span className="fl-attrib">not derivable from public chain data</span>
+                    </>
+                  ),
+              },
+              {
+                key: "from",
+                head: "From",
+                cell: (r: Row) =>
+                  r.kind === "chain" ? <FlowsEnd value={r.step.from} /> : <span className="cp">{r.from}</span>,
+              },
+              {
+                key: "to",
+                head: "To",
+                cell: (r: Row) =>
+                  r.kind === "chain" ? <FlowsEnd value={r.step.to} /> : <span className="cp">{r.to}</span>,
+              },
+              {
+                key: "source",
+                head: "Source",
+                mono: true,
+                cell: (r: Row) =>
+                  r.kind === "chain" ? (
+                    <>
+                      {r.step.txid === undefined ? (
+                        <span className="fl-attrib">no transaction id in the corpus for this step</span>
+                      ) : (
+                        <>
+                          <span className="fl-addr">tx {shortTxid(r.step.txid)}</span>
+                          <Chip tone="ok">verified</Chip>
+                        </>
+                      )}
+                      <span className="fl-attrib">{r.caseIds.join(" · ")}</span>
+                    </>
+                  ) : (
+                    <Chip tone="danger">claim only</Chip>
+                  ),
+              },
+              {
+                key: "proves",
+                head: "Proves, and does not prove",
+                cell: (r: Row) => (
+                  <>
+                    <span className="cp">{r.kind === "chain" ? r.step.note : r.assessment}</span>
+                    {r.kind === "chain" ? (
+                      <FlowsClaim
+                        id={r.caseIds[0] ?? "K-2026-01-02"}
+                        {...(r.caseIds.length > 1 ? { also: r.caseIds.slice(1) } : {})}
+                        confidence={r.confidence}
+                        lastVerified={r.lastVerified}
+                        sources={r.sources}
+                      />
+                    ) : (
+                      <FlowsClaim
+                        id={r.id}
+                        href={r.href}
+                        confidence={r.confidence}
+                        lastVerified={r.lastVerified}
+                        sources={r.sources}
+                        unbound={r.id.startsWith("R-")}
+                      />
+                    )}
+                  </>
+                ),
+              },
+            ]}
+            rows={rows}
+            rowKey={(r) => r.key}
+          />
+        <p className="note fl-gap-s measure">
+          The full transaction ids are in the citation on every row, and each resolves at{" "}
+          <code className="mono">api.blockchair.com/zcash</code>. Research 04 makes publishing them a condition of the
+          page: every on-chain claim here is reproducible against a public API, and that reproducibility is the only
+          credibility the page has.
+        </p>
+        </Working>
       </div>
-      <p className="note fl-gap-s measure">
-        The full transaction ids are in the citation on every row, and each resolves at{" "}
-        <code className="mono">api.blockchair.com/zcash</code>. Research 04 makes publishing them a condition of the
-        page: every on-chain claim here is reproducible against a public API, and that reproducibility is the only
-        credibility the page has.
-      </p>
     </>
   );
 }
@@ -413,15 +456,124 @@ export function FlowsReconstruction() {
       ? undefined
       : minutesBetween(shielding.time, emergence.time);
 
+  /**
+   * THE ROUND TRIP, AS EIGHT LABELLED STEPS.
+   *
+   * `kind` is not decoration: the disclosure below states what the reader is
+   * about to open - five facts, one inference and two bounds on it - and it
+   * counts them from this array rather than restating a number beside it. The
+   * distinction the field carries is the page's whole discipline: steps 01 to
+   * 05 are chain records, 06 is the inference they support at medium-high, and
+   * 07 and 08 are why it is neither higher nor lower.
+   */
+  const roundTrip: readonly RoundTripStep[] = [
+    {
+      n: "01",
+      kind: "fact",
+      text: (
+        <>
+          <b>Fact.</b> The fresh address received exactly 49,999.97 ZEC from the hot wallet on 24 and 25 December
+          2025, and its balance is 50,000.96 ZEC. The 0.99 ZEC difference is arithmetic; the corpus records no
+          fourth withdrawal, so what it was is not established. Calling it a funding seed would be a behavioural
+          read, and this step is labelled a fact.
+        </>
+      ),
+    },
+    {
+      n: "02",
+      kind: "fact",
+      text: (
+        <>
+          <b>Fact.</b> On 2 January 2026 at 18:01:43 it spent all four of its outputs into a transaction with zero
+          transparent outputs, shielding the entire balance.
+        </>
+      ),
+    },
+    {
+      n: "03",
+      kind: "fact",
+      text: (
+        <>
+          <b>Fact.</b> {gap === undefined ? "Fifty-two" : gap} minutes later, a transaction with zero transparent
+          inputs created a single output of 50,000.5541 ZEC.
+        </>
+      ),
+    },
+    {
+      n: "04",
+      kind: "fact",
+      text: (
+        <>
+          <b>Fact.</b> The difference is {delta === undefined ? "0.4059" : formatZatoshi(delta)} ZEC, 0.0008 per
+          cent of the principal.
+        </>
+      ),
+    },
+    {
+      n: "05",
+      kind: "fact",
+      text: (
+        <>
+          <b>Fact.</b> That output was consolidated with a 24,000.9781 ZEC unshielding and sent to the hot wallet.
+        </>
+      ),
+    },
+    {
+      n: "06",
+      kind: "inference",
+      text: (
+        <>
+          <b>Inference, medium-high.</b> The same party shielded and immediately unshielded about 50,000 ZEC to
+          break the transparent link before returning it. <Pill kind="bounded" /> Not a fact, and not provable.
+        </>
+      ),
+    },
+    {
+      n: "07",
+      kind: "bound",
+      text: (
+        <>
+          <b>Why not higher.</b> The shielded pool held roughly 4.9M ZEC at the time and is specifically
+          engineered so that an output cannot be linked to an input. A coincidental near-match is not impossible.
+        </>
+      ),
+    },
+    {
+      n: "08",
+      kind: "bound",
+      text: (
+        <>
+          <b>Why not lower.</b> Four independent alignments: amount agreement to four decimal places, the
+          fifty-two-minute proximity, the fresh address shielding its entire balance and never appearing again,
+          and the emergent value being routed straight back to the wallet the coins came from.
+        </>
+      ),
+    },
+  ];
+  const facts = roundTrip.filter((step) => step.kind === "fact").length;
+  const inferences = roundTrip.filter((step) => step.kind === "inference").length;
+
   return (
     <div className="fl-stack">
       <Glass>
         <Eyebrow idx="2.1 the 2 january 2026 event, reconstructed">every line verified on chain</Eyebrow>
-        <p className="fl-attrib">
-          Fixed-width ledger. Each line is one transaction: time in UTC, the signed amount, and the two ends. The rule
-          marks the December subtotal.
-        </p>
-        <pre className="code fl-code fl-gap-s">{buildLedger(kase)}</pre>
+        {/* THE DERIVATION, COLLAPSED; THE TOTALS IT SUMS TO, OPEN (R4). The
+            ledger is how the three figures below were arrived at, line by
+            line - the rule's "derivation", exactly. The summary counts the
+            lines from the case's own steps, so a case gaining a step moves the
+            summary with the ledger rather than leaving it stale. */}
+        <div className="fl-gap-s">
+          <Working
+            title="The fixed-width ledger, every line a transaction"
+            finding={`${kase.steps.length} transactions, ${exits.length} leaving the pool`}
+          >
+            <p className="fl-attrib fl-gap-s">
+              Each line is one transaction: time in UTC, the signed amount, and the two ends. The rule marks the
+              December subtotal.
+            </p>
+            <pre className="code fl-code fl-gap-s">{buildLedger(kase)}</pre>
+          </Working>
+        </div>
         <div className="fl-gap-s">
           <KV
             entries={[
@@ -483,85 +635,17 @@ export function FlowsReconstruction() {
         <div className="hair fl-gap-m" />
         <div className="fl-gap-m" />
         <Eyebrow idx="the round trip, stated precisely">the most consequential inference on this page</Eyebrow>
-        <Reason
-          label="The round-trip inference, step by step"
-          steps={[
-            {
-              n: "01",
-              text: (
-                <>
-                  <b>Fact.</b> The fresh address received exactly 49,999.97 ZEC from the hot wallet on 24 and 25 December
-                  2025, and its balance is 50,000.96 ZEC. The 0.99 ZEC difference is arithmetic; the corpus records no
-                  fourth withdrawal, so what it was is not established. Calling it a funding seed would be a behavioural
-                  read, and this step is labelled a fact.
-                </>
-              ),
-            },
-            {
-              n: "02",
-              text: (
-                <>
-                  <b>Fact.</b> On 2 January 2026 at 18:01:43 it spent all four of its outputs into a transaction with zero
-                  transparent outputs, shielding the entire balance.
-                </>
-              ),
-            },
-            {
-              n: "03",
-              text: (
-                <>
-                  <b>Fact.</b> {gap === undefined ? "Fifty-two" : gap} minutes later, a transaction with zero transparent
-                  inputs created a single output of 50,000.5541 ZEC.
-                </>
-              ),
-            },
-            {
-              n: "04",
-              text: (
-                <>
-                  <b>Fact.</b> The difference is {delta === undefined ? "0.4059" : formatZatoshi(delta)} ZEC, 0.0008 per
-                  cent of the principal.
-                </>
-              ),
-            },
-            {
-              n: "05",
-              text: (
-                <>
-                  <b>Fact.</b> That output was consolidated with a 24,000.9781 ZEC unshielding and sent to the hot wallet.
-                </>
-              ),
-            },
-            {
-              n: "06",
-              text: (
-                <>
-                  <b>Inference, medium-high.</b> The same party shielded and immediately unshielded about 50,000 ZEC to
-                  break the transparent link before returning it. <Pill kind="bounded" /> Not a fact, and not provable.
-                </>
-              ),
-            },
-            {
-              n: "07",
-              text: (
-                <>
-                  <b>Why not higher.</b> The shielded pool held roughly 4.9M ZEC at the time and is specifically
-                  engineered so that an output cannot be linked to an input. A coincidental near-match is not impossible.
-                </>
-              ),
-            },
-            {
-              n: "08",
-              text: (
-                <>
-                  <b>Why not lower.</b> Four independent alignments: amount agreement to four decimal places, the
-                  fifty-two-minute proximity, the fresh address shielding its entire balance and never appearing again,
-                  and the emergent value being routed straight back to the wallet the coins came from.
-                </>
-              ),
-            },
-          ]}
-        />
+        {/* THE DERIVATION, COLLAPSED; THE CONCLUSION, NOT (R4). Eight numbered
+            steps are a walk-through, which is exactly what the collapse rule
+            folds. The verdict above it and the plain-language statement below
+            it are the finding and both stay open, so a reader who never opens
+            this still meets the claim, its confidence and its limit. */}
+        <Working
+          title="The round-trip inference, step by step"
+          finding={`${roundTrip.length} steps, ${facts} facts, ${inferences} inference`}
+        >
+          <Reason label="The round-trip inference, step by step" steps={roundTrip} />
+        </Working>
         <p className="quote fl-gap-m" style={{ fontSize: 18 }}>
           On-chain records show about 50,000 ZEC leaving this exchange wallet in late December, being fully shielded on 2
           January, and a near-identical amount emerging from shielding fifty-two minutes later and returning to the same
@@ -598,4 +682,23 @@ export function FlowsReconstruction() {
       )}
     </div>
   );
+}
+
+/* -------------------------------------------------------------------------- */
+/* What the claim beat at the top of the page reads                           */
+/* -------------------------------------------------------------------------- */
+
+/** Rows in the dated transfer table. Derived from the same builders it renders. */
+export function transferRowCount(): number {
+  return chainRows().length + claimedRows().length;
+}
+
+/**
+ * The sources the three claim-only rows carry. The chain rows' sources belong
+ * to the cases in `packages/content` and the page totals those from the records
+ * themselves, so counting them here would be counting them twice - which a Set
+ * absorbs, but which would also hide it if one of the two ever stopped.
+ */
+export function transferSources(): readonly SourceRef[] {
+  return claimedRows().flatMap((r) => r.sources);
 }

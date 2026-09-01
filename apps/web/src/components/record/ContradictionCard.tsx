@@ -1,7 +1,6 @@
 import { requirePermalink, resolveSources, type Contradiction } from "@zcashreveal/content";
 
 import { Cite } from "@/components/record/Cite";
-import { Conf } from "@/components/ui/Conf";
 
 /**
  * One contradiction: what was said, and what the record shows.
@@ -20,6 +19,15 @@ import { Conf } from "@/components/ui/Conf";
  * The id is on the article, so `/contradictions#C9` lands on the whole pairing
  * rather than on its heading. `Glass` cannot carry an id, so the two classes it
  * would have applied are written out.
+ *
+ * THE FOOT CARRIES WHAT THE CLOSED CITATION DOES NOT (HANDOFF-04b, rule R4).
+ * It used to print the publishers, the confidence AND the last-verified date,
+ * and `Cite`'s summary one line below prints the confidence and the date again
+ * with the panel still shut - so a reader met the same two facts twice, inches
+ * apart, and neither instance was the citation. The duplicates are gone and the
+ * facts are not: the grade and the date are read once, off the citation that
+ * owns them. What stays here is the one thing the closed citation cannot show -
+ * WHO published the evidence, where the citation carries only how many.
  */
 export function ContradictionCard({ entry }: { readonly entry: Contradiction }) {
   const sources = resolveSources(entry.sources);
@@ -40,8 +48,6 @@ export function ContradictionCard({ entry }: { readonly entry: Contradiction }) 
 
       <div className="cx-foot">
         <span className="src">{sources.map((s) => s.publisher).join(" · ")}</span>
-        <Conf level={entry.confidence} />
-        <span className="src">last verified {entry.lastVerified}</span>
       </div>
 
       <div className="claim">

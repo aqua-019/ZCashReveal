@@ -20,6 +20,15 @@ import { FlowsClaim } from "@/components/record/FlowsClaim";
  * of the allegations table above and are not repeated here; the other ten are
  * refusals attached to findings rather than to allegations, and this is their
  * home. Each anchors to the finding it qualifies.
+ *
+ * NOTHING IN THIS FILE IS COLLAPSED, and that is a decision rather than an
+ * omission. HANDOFF-04b's R4 collapses the derivation, the raw table, the
+ * method walk-through and the full source list, and this page's tables and
+ * ledgers went behind disclosures accordingly. These did not: the argument of
+ * /flows is that the evidence does NOT support the claims in circulation, so
+ * the refusals ARE the finding and a page that folds its refusals into a
+ * triangle has reversed the point of the exercise. The counts below are
+ * exported so the claim beat's own summary reads the same arrays these render.
  */
 
 /** Every status in the quarantine means "not publishable as fact", so all of them read low. */
@@ -210,8 +219,19 @@ const FLOWS_QUARANTINE: readonly string[] = [
   "U-fr-withdrawals-linkable-headline",
 ];
 
+/**
+ * The four records, RESOLVED, so a count taken elsewhere counts what renders.
+ * The list above is ids; the page's claim beat says how many quarantine records
+ * are on the page, and if one of these ids ever stopped resolving the list
+ * would shorten while a literal beside it would not. Same rule as a `<summary>`
+ * deriving its finding from the rows it discloses.
+ */
+export function flowsQuarantineRecords(): readonly Unverified[] {
+  return getUnverified().filter((u) => FLOWS_QUARANTINE.includes(u.id));
+}
+
 export function FlowsQuarantine() {
-  const records = getUnverified().filter((u) => FLOWS_QUARANTINE.includes(u.id));
+  const records = flowsQuarantineRecords();
   return (
     <>
       <p className="note measure">
@@ -245,6 +265,24 @@ export function FlowsQuarantine() {
 /* -------------------------------------------------------------------------- */
 /* The thirteen open gaps                                                     */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * The places that were searched, cited by the gaps claim below.
+ *
+ * Named rather than inlined because the claim beat at the top of /flows states
+ * how many distinct sources the whole page rests on, and it computes that from
+ * the same arrays the claims render. A source list that exists only inside a
+ * JSX attribute cannot be counted without being copied, and a copy is a second
+ * place for the same fact to be stated differently.
+ */
+const GAPS_SOURCES: readonly SourceRef[] = [
+  "S-intel-arkm-com-token-zcash",
+  "S-sec-edgar-000172026526000006-zcsh-20260630",
+  "S-stocktitan-cyph-10-q-cypherpunk-technologies-inc",
+  "S-whale-alert-faq",
+  "S-usenix-usenixsecurity18-sec18-kappos",
+  "S-cryptoquant-com-exchange-flows-exchange-reserve",
+];
 
 /** Research 04 section 7, numbered as the research numbers them. */
 const GAPS: readonly string[] = [
@@ -284,14 +322,7 @@ export function FlowsGaps() {
         href="/flows#R-gaps"
         confidence="high"
         lastVerified="2026-08-22"
-        sources={[
-          "S-intel-arkm-com-token-zcash",
-          "S-sec-edgar-000172026526000006-zcsh-20260630",
-          "S-stocktitan-cyph-10-q-cypherpunk-technologies-inc",
-          "S-whale-alert-faq",
-          "S-usenix-usenixsecurity18-sec18-kappos",
-          "S-cryptoquant-com-exchange-flows-exchange-reserve",
-        ]}
+        sources={GAPS_SOURCES}
         unbound
       />
       <p className="note fl-gap-s measure">
@@ -300,4 +331,23 @@ export function FlowsGaps() {
       </p>
     </>
   );
+}
+
+/* -------------------------------------------------------------------------- */
+/* What the claim beat at the top of the page reads                           */
+/* -------------------------------------------------------------------------- */
+
+/** Refusals attached to findings. Derived from the array that renders them. */
+export const REFUSAL_COUNT = ATTACHED.length;
+
+/** Open questions. Derived from the array that renders them. */
+export const GAP_COUNT = GAPS.length;
+
+/**
+ * Every source this file's page-local claims rest on. The quarantine records'
+ * own sources are not here: those come from `packages/content` and the page
+ * totals them from the records themselves.
+ */
+export function flowsRefusalSources(): readonly SourceRef[] {
+  return [...ATTACHED.flatMap((r) => r.sources), ...GAPS_SOURCES];
 }

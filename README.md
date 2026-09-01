@@ -86,7 +86,7 @@ pnpm build          # turbo, topological
 pnpm typecheck      # all packages
 pnpm lint           # eslint flat config; Math.random is banned repo-wide
 pnpm -r test        # every workspace suite
-pnpm check          # the thirteen static guards CI runs: no emoji, Vercel config,
+pnpm check          # the fourteen static guards CI runs: no emoji, Vercel config,
                     # shared-Redis safety (docs/2.0/SNAPSHOT.md - the managed
                     # store holds another production project's live data),
                     # no stale two-pool unions (the pool model is four pools),
@@ -105,7 +105,12 @@ pnpm check          # the thirteen static guards CI runs: no emoji, Vercel confi
                     # LEDGER.md's heading-to-fence structure, and every
                     # user-facing static route under apps/web/src/app carrying
                     # a nav entry or a named exclusion (/pools and /reveal were
-                    # top-level pages with no entry for four handoffs)
+                    # top-level pages with no entry for four handoffs), and no
+                    # SVG <text> in apps/web outside a register carrying its own
+                    # measurement - text in a scaled viewBox paints at
+                    # declared x min(sx, sy), so no declared value clears the
+                    # 12px floor at every supported width and the labels are
+                    # HTML positioned over the drawing
 ```
 
 60 of the indexer's tests are Postgres-backed integration tests (37 before HANDOFF-06, 56 before HANDOFF-07). They gate themselves on a

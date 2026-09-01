@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getContradictions, type Confidence } from "@zcashreveal/content";
 
 import { ContradictionCard } from "@/components/record/ContradictionCard";
+import { PageClaim } from "@/components/record/PageClaim";
 import { RecordHead } from "@/components/shell/RecordHead";
 import { Block } from "@/components/ui/Block";
 import { Conf } from "@/components/ui/Conf";
@@ -37,6 +38,15 @@ export const metadata: Metadata = {
  * The mockup shows eight cards and captions itself "8 of 16 shown". That was a
  * mockup's economy; all sixteen ship, in the order the corpus numbers them.
  *
+ * THE CLAIM IS THE FIRST THING UNDER THE MASTHEAD (HANDOFF-04b, rule R5). It
+ * used to be the dek's THIRD sentence, behind a count and a concession, and the
+ * reader's complaint was about that order rather than about the volume: "we get
+ * vibes, cryptographic terminology, vibes, huge number, tiny explanation,
+ * vibes". Nothing was cut to answer it. The dek keeps the sentence that states
+ * the page's scope; the concession and the claim moved DOWN into the claim
+ * beat, where the claim leads and the concession explains it, and the evidence
+ * - the sixteen pairs - follows both.
+ *
  * Zero motion: one hover verb, no animation, nothing that arrives.
  */
 
@@ -54,6 +64,30 @@ export default function ContradictionsPage() {
   const notHigh = entries.filter((c) => c.confidence !== "high");
   const verified = [...new Set(entries.map((c) => c.lastVerified))].sort();
 
+  /**
+   * THE EPISTEMIC STRIP BESIDE THE CLAIM, and what this page can honestly put
+   * in it.
+   *
+   * `lastVerified` is the SAME expression the aside prints rather than a second
+   * derivation of the same fact, so the two cannot disagree. The sixteen share
+   * one date today and it renders as one; a second date would appear in both
+   * places at once.
+   *
+   * `sourceCount` counts DISTINCT source ids across the sixteen, so a source
+   * three pairs cite counts once. Each pair's own count stays in its citation,
+   * where it counts that pair's evidence rather than the page's.
+   *
+   * NO PAGE-LEVEL CONFIDENCE, and it is omitted rather than derived. The corpus
+   * grades each PAIR - the tally is in the aside, counted from the cards - and
+   * it grades no sentence like the claim above, which is this page's reading OF
+   * the sixteen. A single chip there would be a grade invented for a sentence
+   * nothing graded, which is `docs/2.0/SNAPSHOT.md` section 8.1's rule about
+   * absences applied to epistemic status. Nothing is hidden by leaving it out:
+   * the distribution is in the open beside the title, and each pair's own grade
+   * is in the open on its own card.
+   */
+  const sourceCount = new Set(entries.flatMap((c) => c.sources)).size;
+
   return (
     <>
       <RecordHead
@@ -64,10 +98,7 @@ export default function ContradictionsPage() {
         dek={
           <>
             {entries.length} public claims set beside what the chain, the filings and the disclosure history actually
-            record. The point is not that the claims are lies - most are defensible with a qualifier that was left off,
-            and several of these entries grant it in their own words. <b>The qualifier is the subject.</b> Every pair
-            carries the claim as the corpus recorded it, the record it collides with, at least one source, a confidence
-            and a last-verified date.
+            record.
           </>
         }
         aside={
@@ -90,6 +121,30 @@ export default function ContradictionsPage() {
             </p>
           </Glass>
         }
+      />
+
+      {/* The claim, then the explanation, then the evidence. The claim is
+          LIFTED, not invented: both sentences were already on this page, as the
+          second and third of the dek, and the page's own material - sixteen
+          pairs, several of which grant the missing qualifier in their own text
+          - is what supports them. */}
+      <PageClaim
+        claim={
+          <>
+            Most of these {entries.length} public claims are defensible - with a qualifier that was left off. The
+            qualifier is the subject.
+          </>
+        }
+        explain={
+          <>
+            The point is not that the claims are lies, and several of these entries grant the missing qualifier in their
+            own words. What the page collects is where the qualifier went: each pair below sets the claim as the corpus
+            recorded it against the record it collides with, and carries its own grade, its own last-verified date and
+            at least one source.
+          </>
+        }
+        lastVerified={verified.join(" · ")}
+        sourceCount={sourceCount}
       />
 
       <Block

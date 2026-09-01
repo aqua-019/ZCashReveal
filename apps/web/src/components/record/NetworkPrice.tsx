@@ -1,8 +1,9 @@
 import { getStats, getTimeline, resolveSources, type TimelineEvent } from "@zcashreveal/content";
 
 import { Chart, ChartTable } from "@/components/record/Chart";
+import { ChartLabels } from "@/components/record/ChartLabels";
 import { Cite } from "@/components/record/Cite";
-import { PLOT, Axes, Plot, decades, linear, log10, path } from "@/components/record/Plot";
+import { PLOT, Axes, Plot, axesLabels, decades, linear, log10, path } from "@/components/record/Plot";
 import { ZEC_PRICE, ZEC_PRICE_MARKS, day, type PriceMark } from "@/lib/series";
 
 /**
@@ -109,6 +110,11 @@ export function NetworkPrice() {
   // soonest, which is the least bad of the four collisions available.
   const taken = new Array<number>(LANES).fill(Number.NEGATIVE_INFINITY);
   const edgeOf = (lane: number): number => taken[lane] ?? Number.NEGATIVE_INFINITY;
+  // One tick list for the marks and the labels both, so a rule and its number
+  // cannot drift apart when either is edited.
+  const xTicks = X_TICKS.map((d) => ({ at: day(d), label: d.slice(0, 7) }));
+  const yTicks = Y_TICKS.map((v) => ({ at: v, label: `$${v.toLocaleString("en-GB")}` }));
+
   const placed = marks.map(({ mark, event }) => {
     const at = x(day(event.date));
     const w = mark.label.length * CHAR;
@@ -140,6 +146,52 @@ export function NetworkPrice() {
           ]}
         />
       }
+      labels={
+        <ChartLabels
+          vw={PLOT.width}
+          vh={PLOT.height}
+          items={[
+            ...axesLabels({ x, y, xTicks, yTicks, yLabel: "USD, log scale" }),
+            ...placed.map((p) => ({
+              key: p.event.id,
+              x: p.at,
+              y: LANE_Y(p.lane),
+              text: p.mark.label,
+              className: "nw-mark-label halo",
+              anchor: p.anchor,
+              dx: p.anchor === "start" ? 5 : -5,
+            })),
+            ...(cycleHigh === undefined
+              ? []
+              : [
+                  {
+                    key: "cycle-high",
+                    x: x(day(cycleHigh.date)),
+                    y: y(cycleHigh.value),
+                    text: `$${String(cycleHigh.value)} cycle high`,
+                    className: "mark-label halo",
+                    anchor: "end" as const,
+                    dx: -8,
+                    dy: -6,
+                  },
+                ]),
+            ...(latest === undefined
+              ? []
+              : [
+                  {
+                    key: "latest",
+                    x: x(day(latest.date)),
+                    y: y(latest.value),
+                    text: `$${String(latest.value)} - ${latest.when}`,
+                    className: "mark-label halo",
+                    anchor: "end" as const,
+                    dx: -8,
+                    dy: -6,
+                  },
+                ]),
+          ]}
+        />
+      }
       note={
         <>
           The vertical axis is <b>logarithmic</b>, and it has to be: the series runs from $39.75 to $784, so on a linear axis
@@ -158,27 +210,13 @@ export function NetworkPrice() {
       }
     >
       <Plot>
-        <Axes
-          x={x}
-          y={y}
-          xTicks={X_TICKS.map((d) => ({ at: day(d), label: d.slice(0, 7) }))}
-          yTicks={Y_TICKS.map((v) => ({ at: v, label: `$${v.toLocaleString("en-GB")}` }))}
-          yLabel="USD, log scale"
-        />
+        <Axes x={x} y={y} xTicks={xTicks} yTicks={yTicks} />
 
         {/* The statements: a rule from the label down to the floor. Drawn before
             the series so the price line and its points sit on top of them. */}
         {placed.map((p) => (
           <g key={p.event.id}>
             <line x1={p.at} x2={p.at} y1={LANE_Y(p.lane) + 5} y2={floor} className="nw-mark-rule" />
-            <text
-              x={p.anchor === "start" ? p.at + 6 : p.at - 6}
-              y={LANE_Y(p.lane)}
-              className="nw-mark-label"
-              textAnchor={p.anchor}
-            >
-              {p.mark.label}
-            </text>
           </g>
         ))}
 
@@ -187,21 +225,6 @@ export function NetworkPrice() {
           <circle key={ZEC_PRICE[i]?.date ?? i} cx={pt[0]} cy={pt[1]} r={3} fill="var(--ink)" className="point" />
         ))}
 
-        {cycleHigh === undefined ? null : (
-          <text
-            x={x(day(cycleHigh.date)) - 10}
-            y={y(cycleHigh.value) - 10}
-            className="mark-label"
-            textAnchor="end"
-          >
-            ${cycleHigh.value} cycle high
-          </text>
-        )}
-        {latest === undefined ? null : (
-          <text x={x(day(latest.date)) - 8} y={y(latest.value) - 10} className="mark-label" textAnchor="end">
-            ${latest.value} - {latest.when}
-          </text>
-        )}
       </Plot>
     </Chart>
   );

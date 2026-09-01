@@ -1,18 +1,43 @@
 import type { Metadata } from "next";
 
-import { getCase, getLabels, getNetwork, getStats, getUnverified } from "@zcashreveal/content";
+import {
+  getCase,
+  getCases,
+  getLabels,
+  getNetwork,
+  getStats,
+  getUnverified,
+  getUnverifiedFor,
+  type SourceRef,
+} from "@zcashreveal/content";
 
 import { formatZatoshi, groupZec, percent, toZatoshi } from "@/components/record/FlowsAmount";
-import { FlowsAllegations } from "@/components/record/FlowsAllegations";
+import { allegationCount, allegationSources, FlowsAllegations } from "@/components/record/FlowsAllegations";
 import { FlowsClaim } from "@/components/record/FlowsClaim";
 import {
+  flowsLabelSources,
   FlowsFalseInference,
   FlowsLabellingInfrastructure,
   FlowsLabelsTable,
   FlowsRichList,
 } from "@/components/record/FlowsLabels";
-import { FlowsDoesNotSupport, FlowsGaps, FlowsQuarantine } from "@/components/record/FlowsRefusals";
-import { FlowsReconstruction, FlowsTransfersTable } from "@/components/record/FlowsTransfers";
+import {
+  flowsQuarantineRecords,
+  flowsRefusalSources,
+  FlowsDoesNotSupport,
+  FlowsGaps,
+  FlowsQuarantine,
+  GAP_COUNT,
+  REFUSAL_COUNT,
+} from "@/components/record/FlowsRefusals";
+import {
+  FlowsReconstruction,
+  FlowsTransfersTable,
+  transferRowCount,
+  transferSources,
+} from "@/components/record/FlowsTransfers";
+import { PageClaim } from "@/components/record/PageClaim";
+import { Working } from "@/components/record/Working";
 import { RecordHead } from "@/components/shell/RecordHead";
 import { Block } from "@/components/ui/Block";
 import { Chip } from "@/components/ui/Chip";
@@ -64,7 +89,189 @@ export const metadata: Metadata = {
  * SVG and no plotted axis: it argues with tables, key/value grids and one
  * preformatted ledger, and the 26.8 / 73.2 split it turns on is the one figure
  * the research insists should be readable as text.
+ *
+ * ============================================================================
+ * THE ORDER IS THE FIX (HANDOFF-04b, rules R5 and R4)
+ * ============================================================================
+ * The reader's diagnosis of the whole redesign, verbatim: "instead of claim,
+ * explanation, evidence, visualization, we get vibes, cryptographic
+ * terminology, vibes, huge number, tiny explanation, vibes". HANDOFF-04a
+ * answered it on the splash and said in its own section 7 that it had not
+ * reached the other seven Record pages. This is that answer here, and it is an
+ * ORDER change: not one figure, table, refusal or source was removed.
+ *
+ * WHAT THIS PAGE OPENED ON, and it was the worst case of the eight. The first
+ * thing under the masthead was a LEGEND for the page's own notation - four
+ * pills and two chips, explaining marks the reader had not met yet - while the
+ * page's finding sat in the head's aside, beside the h1 instead of under it,
+ * turned sideways into a pull quote. The dek describes a PROCEDURE ("every
+ * claim on this page is split four ways"), which is a fine dek and is not a
+ * claim. So the page's best sentence, which was already written, moved to where
+ * a claim belongs, the legend followed it, and the aside emptied.
+ *
+ * WHAT IS BEHIND A DISCLOSURE NOW, and it is the rule's own list rather than a
+ * judgement about length: the raw transfer table, the fixed-width ledger, the
+ * eight-step round-trip walk-through, the rich list, the vendor survey, the
+ * provider survey and the Grayscale filing series. Seven derivations and raw
+ * tables. Every summary carries a count read from the array it discloses.
+ *
+ * WHAT IS NOT, and this is the half that matters more on this page than
+ * anywhere else on the site:
+ *   - the claim, and the epistemic strip under it;
+ *   - block 09 whole - ten refusals, four quarantine records, thirteen open
+ *     questions - because a page arguing that the evidence does NOT support the
+ *     claims in circulation cannot fold the refusal into a triangle and still
+ *     be making that argument;
+ *   - the allegations table, whose fourth and fifth columns are that same
+ *     refusal in table form;
+ *   - the label registry, because CLAUDE.md requires the labeller precedence to
+ *     be always displayed and a method one click away is a method not
+ *     displayed. `FlowsLabels.tsx` records that ruling where the table is.
  */
+
+/**
+ * THE PAGE-LOCAL RESEARCH SOURCES, IN ONE OBJECT.
+ *
+ * A minority of what /flows argues is carried by docs/2.0/research/04 rather
+ * than by a schema-validated record, and those claims used to list their
+ * sources inline in the attribute that rendered them. The claim beat at the top
+ * of this page now states how many distinct sources the whole page rests on,
+ * and it computes that number by iterating this object and the corpus records
+ * beside it. A list that exists only inside a JSX attribute cannot be totalled
+ * without being copied, and the copy is where the total and the page start
+ * disagreeing - which is the same defect as a `<summary>` carrying a count that
+ * does not read the rows it summarises.
+ *
+ * Iterating the object rather than a second list of the arrays is the point:
+ * a key added here is counted by construction, and a key that is misspelled at
+ * a call site is a compile error rather than an empty citation.
+ */
+const RESEARCH = {
+  arkhamCoverage: [
+    "S-arkham-announcements-zcash-is-live-on-arkham",
+    "S-arkham-research-how-to-track-zcash-transactions",
+    "S-the-defiant-blockchains-arkham-zcash-activity-tr",
+  ],
+  januaryUnshielding: ["S-blockchair-api-transaction-hash", "S-beincrypto-zec-supply-unshielded-in-early-2026"],
+  roundTrip: ["S-blockchair-api-transaction-hash", "S-blockchain-news-flashnews-zec-whale-deposits-74"],
+  lockbox: ["S-zcash-improvement-proposals-zip-0271", "S-blockchair-api-transaction-hash"],
+  custody: [
+    "S-sec-edgar-000172026526000006-zcsh-20260630",
+    "S-stocktitan-cyph-10-q-cypherpunk-technologies-inc",
+  ],
+  sponsorFee: ["S-sec-edgar-000172026526000006-zcsh-20260630"],
+  /** Only reached if the quarantine record ever stops resolving; see the 1.7 card. */
+  techleaksFallback: ["S-techleaks24-substack-com-why-zcash-should-be-con"],
+  whaleAlert: ["S-whale-alert-faq"],
+  reserveProviders: [
+    "S-cryptoquant-com-exchange-flows-exchange-reserve",
+    "S-coinglass-com-balance",
+    "S-zec-stats-zecstats-com",
+  ],
+  reserves44: ["S-yahoo-finance-zcash-price-prepares-500-exchanges"],
+  /** Added to `stats.sources` at the supply card, not used alone. */
+  geminiAddresses: ["S-support-gemini-com-en-us-31670107364891-what-typ"],
+  explorerArithmetic: ["S-blockchair-api-zcash-stats"],
+  devFundPositions: [
+    "S-zcash-foundation-05-zcash-foundation-q1-2026",
+    "S-electric-coin-company-04-transparency-report-mar",
+    "S-openzcash-zcg-disbursements",
+  ],
+  grayscaleLedger: [
+    "S-sec-edgar-000172026526000006-zcsh-20260630",
+    "S-sec-edgar-000119312525298561-zcsh-20251126",
+    "S-stocktitan-zcsh-s-3-a-grayscale-zcash-trust-zec",
+  ],
+  form144: [
+    "S-sec-edgar-xsl144x01-primary-doc",
+    "S-sec-edgar-xsl144x01-primary-doc-2",
+    "S-sec-edgar-submissions-cik0001652536",
+    "S-stocktitan-zcsh-s-3-a-grayscale-zcash-trust-zec",
+  ],
+  cypherpunk: [
+    "S-stocktitan-cyph-10-q-cypherpunk-technologies-inc",
+    "S-crypto-news-cypherpunk-becomes-largest-zcash-min",
+    "S-support-gemini-com-en-us-31670107364891-what-typ",
+  ],
+} satisfies Record<string, readonly SourceRef[]>;
+
+/**
+ * THE PROVIDER SURVEY AND THE GRAYSCALE SERIES, LIFTED OUT OF THE JSX.
+ *
+ * Both were row literals inside a `DataTable` attribute, and both are now
+ * behind a disclosure (HANDOFF-04b R4). A `<summary>` has to carry its finding
+ * and the finding has to be DERIVED from the rows it discloses - a count typed
+ * beside a list is a second place for the same quantity to be stated - and a
+ * row literal inside an attribute has no name to count. Nothing about either
+ * table's content changed.
+ */
+interface ProviderRow {
+  readonly provider: string;
+  readonly series: string;
+  readonly verified: string;
+}
+
+const RESERVE_PROVIDERS: readonly ProviderRow[] = [
+  {
+    provider: "CryptoQuant",
+    series: "An endpoint exists and its page metadata describes an exchange-reserve chart.",
+    verified:
+      "Values unreadable: a Cloudflare interstitial, and the API needs a key. The endpoint existing is suggestive; the series may be empty.",
+  },
+  {
+    provider: "Glassnode",
+    series: "The balance-on-exchanges metric exists.",
+    verified: "ZEC coverage unconfirmed; the endpoint list requires authentication and returned 401.",
+  },
+  {
+    provider: "CoinGlass",
+    series: "An exchange-balance tracker exists.",
+    verified: "ZEC is not present on it. CoinGlass ZEC coverage is derivatives, liquidations and funding only.",
+  },
+  {
+    provider: "Nansen",
+    series: "Cited as the chart source in a January 2026 article.",
+    verified: "Not independently verifiable; Nansen ZEC coverage is not documented publicly.",
+  },
+  {
+    provider: "ZEC Stats",
+    series: "No.",
+    verified: "Confirmed: it publishes pool, supply and derivatives data and explicitly no exchange reserves.",
+  },
+  { provider: "IntoTheBlock", series: "Not found.", verified: "No ZEC exchange-flow product located." },
+];
+
+interface FilingRow {
+  readonly date: string;
+  readonly held: string;
+  readonly value: string;
+  readonly event: string;
+}
+
+const GRAYSCALE_FILINGS: readonly FilingRow[] = [
+  { date: "2024-12-31", held: "392,723.58934327", value: "$22,040k", event: "" },
+  {
+    date: "H1 2025",
+    held: "",
+    value: "",
+    event: "4,888.23272520 ZEC contributed; 4,883.12100169 distributed for the Sponsor's Fee.",
+  },
+  { date: "2025-06-30", held: "392,728.70106678", value: "$15,324k", event: "" },
+  { date: "2025-12-31", held: "393,522.33134026", value: "$200,441k", event: "Cost basis $47,911k." },
+  {
+    date: "H1 2026",
+    held: "",
+    value: "",
+    event: "ZEC contributed: nil. 4,848.64774083 distributed for the Sponsor's Fee.",
+  },
+  {
+    date: "2026-06-30",
+    held: "388,673.68359943",
+    value: "$155,252k",
+    event: "Cost basis $47,320k. NAV per share $32.15, against $41.51 at 31 December 2025. 4,829,300 shares outstanding.",
+  },
+];
+
 export default function FlowsPage() {
   const stats = getStats();
   const network = getNetwork();
@@ -107,6 +314,66 @@ export default function FlowsPage() {
   const lockboxMinted = lockbox?.steps[0]?.amount ?? "78750.00";
   const lockboxRemaining = multisig?.balanceZec ?? null;
 
+  /**
+   * The share of the lockbox that has NOT moved, from the same two bigints
+   * block 07 divides. The sentence in the claim beat used to carry "99.28 per
+   * cent" as a literal beside a block computing 0.72 from the steps, which is
+   * two sources for one quantity: the day a step is added, one of them changes.
+   * Null where the case is absent, and the sentence is then not made at all -
+   * this site does not state a figure it has no record for.
+   */
+  const lockboxUntouched =
+    lockbox === undefined
+      ? null
+      : percent(toZatoshi(lockboxMinted) - lockboxOut, toZatoshi(lockboxMinted), 2);
+
+  /**
+   * THE CLAIM BEAT'S EPISTEMIC STRIP, DERIVED FROM WHAT THE PAGE RENDERS.
+   *
+   * `lastVerified` and the source count read the records themselves - every
+   * case, every address label, every quarantined claim this surface owns, and
+   * the pool stats - plus the page-local research claims, which reach the total
+   * through the `RESEARCH` object above and the four `flows*Sources()`
+   * accessors rather than through a copy of their lists. Neither figure can
+   * disagree with the page because neither is typed beside it.
+   *
+   * THE FIVE NETWORK ENTITIES AND THREE EDGES THIS PAGE NAMES ARE NOT IN THE
+   * SET, and leaving them out is the correction rather than the omission. The
+   * page prints their `exposure` and `amount` strings, so they look like
+   * records it rests on; but every card that prints one cites the research
+   * sources beside it and anchors the entity id to /network, where the entity's
+   * own sources are. Counting them made the strip read 66 while the rendered
+   * DOM carried 51 distinct source links - fifteen sources a reader could not
+   * reach from this page. Found by counting `ol.cite-sources > li > a` on the
+   * served page against the strip, which is the only instrument that can catch
+   * it: both numbers typecheck, and reading either one alone looks right.
+   *
+   * NO PAGE-LEVEL CONFIDENCE, and it is omitted rather than derived. The corpus
+   * grades each RECORD; it grades no sentence like the claim above, which is
+   * this page's reading OF those records. Taking the weakest of forty grades,
+   * or the modal one, would state a grade no row makes, on a page that names
+   * living people and reports allegations against them - `docs/2.0/SNAPSHOT.md`
+   * section 8.1's rule about absences, applied to epistemic status. Nothing is
+   * hidden by leaving it out: every claim below prints its own grade beside its
+   * id, outside the citation's disclosure, and the paragraph under the strip
+   * says so.
+   */
+  const cited: readonly { readonly sources: readonly SourceRef[]; readonly lastVerified: string }[] = [
+    ...getCases(),
+    ...getLabels(),
+    ...getUnverifiedFor("/flows"),
+    stats,
+  ];
+  const sourceCount = new Set<SourceRef>([
+    ...cited.flatMap((r) => r.sources),
+    ...Object.values(RESEARCH).flatMap((refs) => refs),
+    ...flowsLabelSources(),
+    ...flowsRefusalSources(),
+    ...allegationSources(),
+    ...transferSources(),
+  ]).size;
+  const verified = [...new Set(cited.map((r) => r.lastVerified))].sort();
+
   return (
     <>
       <RecordHead
@@ -117,24 +384,83 @@ export default function FlowsPage() {
         dek={
           <>
             Every claim on this page is split four ways: <b>(a)</b> what the chain shows, reproducible from public block
-            data; <b>(b)</b> who labelled it and how; <b>(c)</b> inference against fact; <b>(d)</b> confidence. No
+            data; <b>(b)</b> who labelled it and how;{" "}
+            {/* MANROPE LIGATES `(c)` INTO A COPYRIGHT GLYPH, so the dek has read
+                "(a) ... (b) ... (c) inference against fact" as "... © inference
+                against fact" since HANDOFF-03. Measured on the served page, on
+                these four elements themselves rather than on a stand-in: the DOM
+                text node is "(c)", and with ligatures on the element boxes are
+                23 / 23 / 15 / 23 CSS px - three glyphs collapsed into one in the
+                third. With `none` on the third it is 21, in line with its
+                siblings. Setting the property back to `normal` on the live
+                element returns it to 15, which is the fail side.
+
+                Found by rendering, and findable no other way: typecheck, lint
+                and the build are all green on it, because a font substitution is
+                not a fact about the source. Scoped to this one marker rather
+                than to `.dek`, which is the type layer and another owner's file
+                - the durable fix belongs there and is reported with this
+                branch. */}
+            <b style={{ fontVariantLigatures: "none" }}>(c)</b> inference against fact; <b>(d)</b> confidence. No
             identity is asserted from chain data alone. Where an entity name sits beside an address it is{" "}
             <i>someone else&apos;s label</i>, attributed, with the confidence reflecting <i>their</i> evidence and not
             ours.
           </>
         }
-        aside={
-          <Glass>
-            <Eyebrow idx="in one line">the finding</Eyebrow>
-            <p className="quote fl-gap-s" style={{ fontSize: 19 }}>
-              Custody is documented; addresses are not. The largest unshielding of the cycle mostly never reached an
-              exchange. The dev fund is 99.28 per cent untouched and untraceable by design. Nobody has produced on-chain
-              evidence of insider selling, and the allegations in circulation cite no addresses, no transactions and no
-              supply audit.
-            </p>
-          </Glass>
-        }
       />
+
+      {/* CLAIM, THEN EXPLANATION, THEN EVIDENCE, THEN THE WORKING (R5).
+          THE SENTENCE IS LIFTED, NOT WRITTEN. It was already on this page, in
+          the masthead's aside - beside the h1 rather than under it - under an
+          eyebrow that called it "the finding" and then set it sideways. What
+          the reader met first instead was a LEGEND for the page's notation, and
+          a legend is not a claim: "instead of claim, explanation, evidence,
+          visualization, we get vibes, cryptographic terminology, vibes, huge
+          number, tiny explanation, vibes". The four sentences moved under the
+          head, unedited, and split where the assertion stops and its support
+          starts. The aside went with them because the finding was all it held;
+          the legend follows the claim rather than preceding it, and keeps the
+          full width its two-column grid was designed for. */}
+      <PageClaim
+        claim={
+          <>
+            Custody is documented; addresses are not. The largest unshielding of the cycle mostly never reached an
+            exchange.
+          </>
+        }
+        explain={
+          <>
+            {lockboxUntouched === null ? null : (
+              <>The dev fund is {lockboxUntouched} per cent untouched and untraceable by design. </>
+            )}
+            Nobody has produced on-chain evidence of insider selling, and the allegations in circulation cite no
+            addresses, no transactions and no supply audit. What follows is the evidence - the dated transfers, the 2
+            January reconstruction, the label registry and the custody filings - and then, at the same weight and never
+            behind a disclosure, what none of it supports.
+          </>
+        }
+        lastVerified={verified.join(" · ")}
+        sourceCount={sourceCount}
+      >
+        {/* THE PAGE'S SCALE, NOW UNDER THE CLAIM IT IS EVIDENCE FOR. Every one
+            of these is the length of the array that renders the thing it
+            counts, imported from the component that owns it, so a row added
+            anywhere below moves the figure here with it. */}
+        <p className="note" style={{ marginTop: 18 }}>
+          {transferRowCount()} dated transfers, {getLabels().length} labelled addresses, {allegationCount()} allegations
+          set against the evidence actually offered for them, {REFUSAL_COUNT} refusals attached to findings,{" "}
+          {flowsQuarantineRecords().length} quarantine records and {GAP_COUNT} questions the research could not answer.
+        </p>
+        {/* THE GRADE, IN THE OPEN, INCLUDING THE FACT THAT THIS PAGE HAS NONE.
+            The strip above carries the date and the source count; the one thing
+            it cannot honestly carry is a confidence for the sentence above it,
+            and a reader is told that here rather than left to notice a gap. */}
+        <p className="note" style={{ marginTop: 10 }}>
+          The corpus grades every record on this page and none of the sentence above, so the strip states no page-level
+          confidence. Every claim below prints its own grade next to its id, in the open, beside the date it was last
+          checked.
+        </p>
+      </PageClaim>
 
       <Glass className="fl-gap-m">
         <Eyebrow idx="how to read the marks">four kinds of number, and one chip</Eyebrow>
@@ -180,11 +506,7 @@ export default function FlowsPage() {
               href="/flows#R-arkham-coverage"
               confidence="high"
               lastVerified={stats.asOf}
-              sources={[
-                "S-arkham-announcements-zcash-is-live-on-arkham",
-                "S-arkham-research-how-to-track-zcash-transactions",
-                "S-the-defiant-blockchains-arkham-zcash-activity-tr",
-              ]}
+              sources={RESEARCH.arkhamCoverage}
               unbound
             />
           </Glass>
@@ -202,7 +524,7 @@ export default function FlowsPage() {
               id="K-2026-01-02"
               confidence="high"
               lastVerified={stats.asOf}
-              sources={["S-blockchair-api-transaction-hash", "S-beincrypto-zec-supply-unshielded-in-early-2026"]}
+              sources={RESEARCH.januaryUnshielding}
             />
           </Glass>
 
@@ -219,7 +541,7 @@ export default function FlowsPage() {
               id="K-2026-01-02"
               confidence="med"
               lastVerified={stats.asOf}
-              sources={["S-blockchair-api-transaction-hash", "S-blockchain-news-flashnews-zec-whale-deposits-74"]}
+              sources={RESEARCH.roundTrip}
             />
           </Glass>
 
@@ -237,7 +559,7 @@ export default function FlowsPage() {
               also={["L-t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo"]}
               confidence="high"
               lastVerified={stats.asOf}
-              sources={["S-zcash-improvement-proposals-zip-0271", "S-blockchair-api-transaction-hash"]}
+              sources={RESEARCH.lockbox}
             />
           </Glass>
 
@@ -264,10 +586,7 @@ export default function FlowsPage() {
               also={["N-cypherpunk-technologies"]}
               confidence="med"
               lastVerified={stats.asOf}
-              sources={[
-                "S-sec-edgar-000172026526000006-zcsh-20260630",
-                "S-stocktitan-cyph-10-q-cypherpunk-technologies-inc",
-              ]}
+              sources={RESEARCH.custody}
             />
           </Glass>
 
@@ -284,7 +603,7 @@ export default function FlowsPage() {
               href="/flows#R-sponsor-fee"
               confidence="high"
               lastVerified={stats.asOf}
-              sources={["S-sec-edgar-000172026526000006-zcsh-20260630"]}
+              sources={RESEARCH.sponsorFee}
               unbound
             />
           </Glass>
@@ -301,7 +620,7 @@ export default function FlowsPage() {
               id={techleaks?.id ?? "U-techleaks24-exploiter-migration-theory"}
               confidence="low"
               lastVerified={techleaks?.lastVerified ?? stats.asOf}
-              sources={techleaks?.sources ?? ["S-techleaks24-substack-com-why-zcash-should-be-con"]}
+              sources={techleaks?.sources ?? RESEARCH.techleaksFallback}
             />
           </Glass>
 
@@ -318,7 +637,7 @@ export default function FlowsPage() {
               href="/flows#R-whale-alert"
               confidence="high"
               lastVerified={stats.asOf}
-              sources={["S-whale-alert-faq"]}
+              sources={RESEARCH.whaleAlert}
               unbound
             />
           </Glass>
@@ -367,6 +686,15 @@ export default function FlowsPage() {
       >
         <div className="grid g2">
           <div id="R-reserve-providers">
+            {/* THE SURVEY, COLLAPSED; THE GAP IT ESTABLISHES, NOT (R4). Six
+                providers and what each one turned out to hold is the working
+                behind one sentence, and the sentence - that there is no free,
+                public, verifiable ZEC exchange-reserve series - stays open
+                below it. The count comes from the array the table maps. */}
+            <Working
+              title="Every provider checked, and what could be read"
+              finding={`${RESERVE_PROVIDERS.length} providers checked`}
+            >
             <DataTable
               caption="Every provider checked for a ZEC exchange-reserve series, and what could be read"
               columns={[
@@ -382,37 +710,10 @@ export default function FlowsPage() {
                   cell: (r: { readonly verified: string }) => <span className="cp">{r.verified}</span>,
                 },
               ]}
-              rows={[
-                {
-                  provider: "CryptoQuant",
-                  series: "An endpoint exists and its page metadata describes an exchange-reserve chart.",
-                  verified:
-                    "Values unreadable: a Cloudflare interstitial, and the API needs a key. The endpoint existing is suggestive; the series may be empty.",
-                },
-                {
-                  provider: "Glassnode",
-                  series: "The balance-on-exchanges metric exists.",
-                  verified: "ZEC coverage unconfirmed; the endpoint list requires authentication and returned 401.",
-                },
-                {
-                  provider: "CoinGlass",
-                  series: "An exchange-balance tracker exists.",
-                  verified: "ZEC is not present on it. CoinGlass ZEC coverage is derivatives, liquidations and funding only.",
-                },
-                {
-                  provider: "Nansen",
-                  series: "Cited as the chart source in a January 2026 article.",
-                  verified: "Not independently verifiable; Nansen ZEC coverage is not documented publicly.",
-                },
-                {
-                  provider: "ZEC Stats",
-                  series: "No.",
-                  verified: "Confirmed: it publishes pool, supply and derivatives data and explicitly no exchange reserves.",
-                },
-                { provider: "IntoTheBlock", series: "Not found.", verified: "No ZEC exchange-flow product located." },
-              ]}
+              rows={RESERVE_PROVIDERS}
               rowKey={(r) => r.provider}
             />
+            </Working>
             <p className="note fl-gap-s">
               This is a genuine data gap, and the page says so plainly rather than reprinting a percentage from an
               aggregator.
@@ -422,11 +723,7 @@ export default function FlowsPage() {
               href="/flows#R-reserve-providers"
               confidence="high"
               lastVerified={stats.asOf}
-              sources={[
-                "S-cryptoquant-com-exchange-flows-exchange-reserve",
-                "S-coinglass-com-balance",
-                "S-zec-stats-zecstats-com",
-              ]}
+              sources={RESEARCH.reserveProviders}
               unbound
             />
           </div>
@@ -446,7 +743,7 @@ export default function FlowsPage() {
                 href="/flows#R-reserves-44pct"
                 confidence="low"
                 lastVerified={stats.asOf}
-                sources={["S-yahoo-finance-zcash-price-prepares-500-exchanges"]}
+                sources={RESEARCH.reserves44}
                 unbound
               />
               <div className="hair" />
@@ -493,7 +790,7 @@ export default function FlowsPage() {
                 href="/flows#R-supply-distribution"
                 confidence={stats.confidence}
                 lastVerified={stats.lastVerified}
-                sources={[...stats.sources, "S-support-gemini-com-en-us-31670107364891-what-typ"]}
+                sources={[...stats.sources, ...RESEARCH.geminiAddresses]}
               />
             </Glass>
 
@@ -509,7 +806,7 @@ export default function FlowsPage() {
                 href="/flows#R-explorer-arithmetic"
                 confidence="high"
                 lastVerified={stats.asOf}
-                sources={["S-blockchair-api-zcash-stats"]}
+                sources={RESEARCH.explorerArithmetic}
                 unbound
               />
             </div>
@@ -623,11 +920,7 @@ export default function FlowsPage() {
               also={["N-zcash-foundation", "N-electric-coin-company", "N-zcash-community-grants"]}
               confidence="med"
               lastVerified={stats.asOf}
-              sources={[
-                "S-zcash-foundation-05-zcash-foundation-q1-2026",
-                "S-electric-coin-company-04-transparency-report-mar",
-                "S-openzcash-zcg-disbursements",
-              ]}
+              sources={RESEARCH.devFundPositions}
               unbound
             />
           </Glass>
@@ -636,6 +929,15 @@ export default function FlowsPage() {
             <Eyebrow idx="5.4 grayscale zcash trust">
                 SEC EDGAR - the only fully documented recurring institutional outflow
               </Eyebrow>
+            {/* THE FILING SERIES, COLLAPSED; THE READING OF IT, NOT (R4). The
+                table is the raw record - six dated lines out of the 10-Q and
+                the S-3 - and the paragraph under it is what the page says about
+                them, including the mis-pairing it exists to correct. A reader
+                who opens nothing still meets that correction. */}
+            <Working
+              title="The filings, line by line"
+              finding={`${GRAYSCALE_FILINGS.length} filing lines, 2024 to 2026`}
+            >
             <DataTable
               caption="Grayscale Zcash Trust, ZEC held and fair value, from the filings"
               columns={[
@@ -648,31 +950,10 @@ export default function FlowsPage() {
                   cell: (r: { readonly event: string }) => <span className="cp">{r.event}</span>,
                 },
               ]}
-              rows={[
-                { date: "2024-12-31", held: "392,723.58934327", value: "$22,040k", event: "" },
-                {
-                  date: "H1 2025",
-                  held: "",
-                  value: "",
-                  event: "4,888.23272520 ZEC contributed; 4,883.12100169 distributed for the Sponsor's Fee.",
-                },
-                { date: "2025-06-30", held: "392,728.70106678", value: "$15,324k", event: "" },
-                { date: "2025-12-31", held: "393,522.33134026", value: "$200,441k", event: "Cost basis $47,911k." },
-                {
-                  date: "H1 2026",
-                  held: "",
-                  value: "",
-                  event: "ZEC contributed: nil. 4,848.64774083 distributed for the Sponsor's Fee.",
-                },
-                {
-                  date: "2026-06-30",
-                  held: "388,673.68359943",
-                  value: "$155,252k",
-                  event: "Cost basis $47,320k. NAV per share $32.15, against $41.51 at 31 December 2025. 4,829,300 shares outstanding.",
-                },
-              ]}
+              rows={GRAYSCALE_FILINGS}
               rowKey={(r) => r.date}
             />
+            </Working>
             <p className="note">
               The 393,522.33 figure is the <b>31 December 2025</b> line, not the Q2 position: the two are routinely
               mis-paired. Custodian: Coinbase Custody Trust Company, LLC, with Coinbase, Inc. as prime broker and the
@@ -685,11 +966,7 @@ export default function FlowsPage() {
               also={["N-grayscale-zcash-trust"]}
               confidence="high"
               lastVerified={stats.asOf}
-              sources={[
-                "S-sec-edgar-000172026526000006-zcsh-20260630",
-                "S-sec-edgar-000119312525298561-zcsh-20251126",
-                "S-stocktitan-zcsh-s-3-a-grayscale-zcash-trust-zec",
-              ]}
+              sources={RESEARCH.grayscaleLedger}
               unbound
             />
           </Glass>
@@ -733,12 +1010,7 @@ export default function FlowsPage() {
               also={["N-barry-silbert", "N-edge-dcg-contributes-etf"]}
               confidence="high"
               lastVerified={stats.asOf}
-              sources={[
-                "S-sec-edgar-xsl144x01-primary-doc",
-                "S-sec-edgar-xsl144x01-primary-doc-2",
-                "S-sec-edgar-submissions-cik0001652536",
-                "S-stocktitan-zcsh-s-3-a-grayscale-zcash-trust-zec",
-              ]}
+              sources={RESEARCH.form144}
               unbound
             />
             <div className="hair" />
@@ -764,11 +1036,7 @@ export default function FlowsPage() {
               also={["N-cypherpunk-technologies", "N-edge-winklevoss-capital-sells-mining-fleet"]}
               confidence="med"
               lastVerified={stats.asOf}
-              sources={[
-                "S-stocktitan-cyph-10-q-cypherpunk-technologies-inc",
-                "S-crypto-news-cypherpunk-becomes-largest-zcash-min",
-                "S-support-gemini-com-en-us-31670107364891-what-typ",
-              ]}
+              sources={RESEARCH.cypherpunk}
               unbound
             />
           </Glass>

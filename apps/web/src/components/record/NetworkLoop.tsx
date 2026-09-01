@@ -3,7 +3,8 @@ import { getNetwork, resolveSources, type Confidence, type NetworkEdge } from "@
 import { Cite } from "@/components/record/Cite";
 
 import { Chart, ChartTable, LegendItem } from "@/components/record/Chart";
-import { Plot } from "@/components/record/Plot";
+import { ChartLabels } from "@/components/record/ChartLabels";
+import { PLOT, Plot } from "@/components/record/Plot";
 
 /**
  * The loop: nine disclosed parties and eleven disclosed transfers between them.
@@ -192,9 +193,38 @@ export function NetworkLoop() {
     },
   );
 
+  /**
+   * THE EDGE GEOMETRY, COMPUTED ONCE. The path and its label are two renderings
+   * of one placement, so they come from one expression rather than from two
+   * copies of it - assertion A1's rule, applied to a diagram rather than to a
+   * number. Before HANDOFF-04b the label was an SVG `<text>` inside the same
+   * `<g>` as its path, which made that automatic; now the label lives in the
+   * HTML layer, so keeping the two from drifting has to be deliberate.
+   */
+  const laid = drawn.map((d) => {
+    const off = d.off ?? 0;
+    const a = port(d.from, d.to, off);
+    const b = port(d.to, d.from, off);
+    // The one arc: Winklevoss Capital into ZODL, which shares both of its
+    // endpoints' rows with a straight edge already, so a second straight line
+    // would sit on top of the first two.
+    const apex = Math.min(d.from.y, d.to.y) - BOX.h / 2 - ARC_LIFT;
+    return {
+      d,
+      money: d.kind === "money",
+      path:
+        d.arc === true
+          ? `M${String(d.from.x)},${String(d.from.y - BOX.h / 2)} C${String(d.from.x)},${String(apex)} ${String(d.to.x)},${String(apex)} ${String(d.to.x)},${String(d.to.y - BOX.h / 2)}`
+          : `M${a[0].toFixed(2)},${a[1].toFixed(2)} L${b[0].toFixed(2)},${b[1].toFixed(2)}`,
+      lx: d.arc === true ? (d.from.x + d.to.x) / 2 : a[0] + (b[0] - a[0]) * d.at,
+      ly: (d.arc === true ? apex + 15 : a[1] + (b[1] - a[1]) * d.at) + BASELINE,
+    };
+  });
+
   return (
     <Chart
       id="network-loop"
+      dense
       caption="The disclosed loop: nine parties, eleven transfers"
       legend={
         <>
@@ -214,6 +244,42 @@ export function NetworkLoop() {
             d.edge.date,
             d.edge.confidence,
           ])}
+        />
+      }
+      labels={
+        <ChartLabels
+          vw={PLOT.width}
+          vh={H}
+          items={[
+            ...laid.map((e) => ({
+              key: `e-${e.d.id}`,
+              x: e.lx,
+              y: e.ly,
+              text: e.d.label,
+              className: "edge-label halo",
+              anchor: "middle" as const,
+            })),
+            ...NODES.flatMap((n) => [
+              {
+                key: `n-${n.id}`,
+                x: n.x,
+                y: n.y - 7,
+                text: n.name,
+                className: "node-label halo",
+                anchor: "middle" as const,
+                baseline: "middle" as const,
+              },
+              {
+                key: `s-${n.id}`,
+                x: n.x,
+                y: n.y + 13,
+                text: n.sub,
+                className: "nw-sub halo",
+                anchor: "middle" as const,
+                baseline: "middle" as const,
+              },
+            ]),
+          ]}
         />
       }
       note={
@@ -238,47 +304,19 @@ export function NetworkLoop() {
 
         {/* Lines first, boxes second: the rects are opaque, so drawing them last
             lets them occlude anything routed behind them. */}
-        {drawn.map((d) => {
-          const off = d.off ?? 0;
-          const a = port(d.from, d.to, off);
-          const b = port(d.to, d.from, off);
-          const money = d.kind === "money";
-          const stroke = money ? "var(--gold-dim)" : "var(--p-orchard)";
-          const marker = money ? "url(#nw-arrow-money)" : "url(#nw-arrow-people)";
-          // The one arc: Winklevoss Capital into ZODL, which shares both of its
-          // endpoints' rows with a straight edge already, so a second straight
-          // line would sit on top of the first two.
-          const apex = Math.min(d.from.y, d.to.y) - BOX.h / 2 - ARC_LIFT;
-          const lx = d.arc === true ? (d.from.x + d.to.x) / 2 : a[0] + (b[0] - a[0]) * d.at;
-          const ly = (d.arc === true ? apex + 15 : a[1] + (b[1] - a[1]) * d.at) + BASELINE;
-          return (
-            <g key={d.id}>
-              <path
-                d={
-                  d.arc === true
-                    ? `M${d.from.x},${d.from.y - BOX.h / 2} C${d.from.x},${apex} ${d.to.x},${apex} ${d.to.x},${d.to.y - BOX.h / 2}`
-                    : `M${a[0].toFixed(2)},${a[1].toFixed(2)} L${b[0].toFixed(2)},${b[1].toFixed(2)}`
-                }
-                className={money ? "edge" : "edge nw-edge-people"}
-                stroke={stroke}
-                markerEnd={marker}
-              />
-              <text x={lx.toFixed(2)} y={ly.toFixed(2)} className="edge-label">
-                {d.label}
-              </text>
-            </g>
-          );
-        })}
+        {laid.map((e) => (
+          <path
+            key={e.d.id}
+            d={e.path}
+            className={e.money ? "edge" : "edge nw-edge-people"}
+            stroke={e.money ? "var(--gold-dim)" : "var(--p-orchard)"}
+            markerEnd={e.money ? "url(#nw-arrow-money)" : "url(#nw-arrow-people)"}
+          />
+        ))}
 
         {NODES.map((n) => (
           <g key={n.id}>
             <rect x={n.x - BOX.w / 2} y={n.y - BOX.h / 2} width={BOX.w} height={BOX.h} rx={3} className="node" />
-            <text x={n.x} y={n.y - 7} className="node-label">
-              {n.name}
-            </text>
-            <text x={n.x} y={n.y + 13} className="nw-sub">
-              {n.sub}
-            </text>
           </g>
         ))}
       </Plot>

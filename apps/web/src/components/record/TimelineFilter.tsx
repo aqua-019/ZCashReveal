@@ -20,6 +20,16 @@ import { useCallback, useRef, useState, type ReactNode } from "react";
  * `hidden` attribute the server set. One attribute, one meaning, no second
  * mechanism to disagree with the first.
  *
+ * THE COUNT LINE IS INSIDE THE ISLAND, AND THAT IS A DEFECT FIX RATHER THAN A
+ * RELOCATION. It used to be a server-rendered paragraph above this component,
+ * reading the same `category` parameter the server read. But the whole point of
+ * the island is that a chip click does NOT go back to the server, so after the
+ * first click the sentence said "Showing all of them" over a spine showing 24
+ * rows: two renderers for one piece of state, and the one that could not
+ * re-render was the one making the claim. Here it is derived from `active` and
+ * from the options' own counts, so the sentence and the visible rows cannot
+ * disagree. Found by rendering the page and clicking a chip.
+ *
  * Year headings are never hidden. That is the mockup's behaviour and it is the
  * right one: a year whose rows are all filtered out still prints its numeral,
  * so the gaps in a strand stay visible. Filtering to LEAD and finding 2021
@@ -76,8 +86,26 @@ export function TimelineFilter({
     }
   }, []);
 
+  // Every figure in the line below comes from the same `options` array the
+  // chips are built from, so a count in the sentence and the count on a chip
+  // are the same number read twice rather than two numbers that agree today.
+  const total = options.find((o) => o.value === ALL)?.count ?? 0;
+  const current = options.find((o) => o.value === active);
+  const strands = options.filter((o) => o.value !== ALL).length;
+
   return (
     <>
+      <p className="note" style={{ marginTop: 26 }}>
+        {total} dated entries, {strands} strands.{" "}
+        {active === ALL || current === undefined ? (
+          <>Showing all of them.</>
+        ) : (
+          <>
+            Showing the {current.count} <b>{current.label}</b> rows; the year numerals stay, so a strand&apos;s silent
+            years remain visible.
+          </>
+        )}
+      </p>
       <div className="tl-filters" role="group" aria-label="Filter the record by strand">
         {options.map((o) => (
           <a

@@ -12,10 +12,30 @@
  * NOTHING HERE ANIMATES and nothing here is random. Positions are pure
  * functions of the data; the only interaction is the Sankey's hover, which is
  * the site's one hover verb (dim the rest) expressed in CSS and nowhere else.
+ *
+ * NO CHART HERE CONTAINS A `<text>`, and that is a measurement rather than a
+ * preference. A `<text>` in a scaled viewBox paints at
+ * `declared x (renderedCssWidth / viewBoxWidth)`, and these seven viewBoxes are
+ * the narrowest boxes on the site: the Sankey's 660 units render at 263px at a
+ * 760px viewport, so its 12-unit labels painted at 4.79px, and the two /address
+ * charts render at 130px at 390px, painting at 2.79px, against a 12px floor. No
+ * declared value fixes that, because there is no width at which the scaling
+ * stops. So every label is an HTML element in a `<ChartLabels>` layer stacked on
+ * the drawing, sized by the ordinary cascade in real pixels; the full argument,
+ * with the table of measurements, is in `components/record/ChartLabels.tsx`.
+ *
+ * WHAT THAT COSTS THE CODE, and why the geometry below is laid out in arrays
+ * that did not exist before. A label used to sit inside the same `<g>` as its
+ * mark, so the two shared one `transform` and could not drift apart. They are in
+ * different element trees now, so every coordinate a mark and its label both
+ * need is computed ONCE, above the JSX, and the array is mapped twice -
+ * assertion A1. A `<g>` whose only job was to pair a mark with its text goes
+ * with the text.
  */
 import type { BalancePoint, PoolsView } from "@zcashreveal/types";
 
 import { Chart, ChartTable } from "@/components/record/Chart";
+import { ChartLabels } from "@/components/record/ChartLabels";
 import { POOL_SW, type PoolKey } from "@/lib/chain";
 import { fmtInt, zatToZecGrouped } from "@/lib/format";
 
@@ -61,6 +81,8 @@ export function BalanceStep({ points }: { readonly points: readonly BalancePoint
   const ceiling = zecOf(max) * 1.08;
   const X = (i: number): number => pl + (i / (points.length - 1)) * (W - pl - pr);
   const Y = (zat: bigint): number => pt + (1 - zecOf(zat) / ceiling) * (H - pt - pb);
+  /** The zero rule, and the row the date labels hang from. */
+  const floor = H - pb;
 
   let d = `M${X(0)},${Y(points[0]?.balanceZat ?? 0n)}`;
   for (let i = 1; i < points.length; i += 1) {
@@ -77,6 +99,22 @@ export function BalanceStep({ points }: { readonly points: readonly BalancePoint
   const gridLines: number[] = [];
   for (let g = 0; g < ceiling; g += step) gridLines.push(g);
 
+  // `Y(BigInt(Math.round(g * 1e8)))` was written three times inside one `<g>` -
+  // twice for the rule, once for its number. The number is in a different
+  // element tree now, so one array is the only thing keeping them on one row.
+  const grid = gridLines.map((g) => ({
+    key: String(g),
+    y: Y(BigInt(Math.round(g * 1e8))),
+    text: `${String(Math.round(g / 1000))}k`,
+  }));
+
+  // The x axis names two readings and no others: the first and the last.
+  const ends = points.flatMap((p, i) =>
+    i === 0 || i === points.length - 1
+      ? [{ key: `x${String(p.height)}`, x: X(i), text: p.stamp.text.slice(0, 10), first: i === 0 }]
+      : [],
+  );
+
   return (
     <Chart
       id="tk-balance"
@@ -92,16 +130,39 @@ export function BalanceStep({ points }: { readonly points: readonly BalancePoint
           rows={points.map((p) => [p.stamp.text, fmtInt(p.height), zatToZecGrouped(p.balanceZat, 4), p.event ?? "no movement"])}
         />
       }
+      labels={
+        <ChartLabels
+          vw={W}
+          vh={H}
+          items={[
+            ...grid.map((g) => ({
+              key: `g${g.key}`,
+              x: pl,
+              y: g.y,
+              text: g.text,
+              className: "axis",
+              anchor: "end" as const,
+              baseline: "middle" as const,
+              dx: -5,
+            })),
+            ...ends.map((e) => ({
+              key: e.key,
+              x: e.x,
+              y: floor,
+              text: e.text,
+              className: "axis",
+              anchor: e.first ? ("start" as const) : ("end" as const),
+              baseline: "hanging" as const,
+              dy: 5,
+            })),
+          ]}
+        />
+      }
     >
       <svg viewBox={`0 0 ${W} ${H}`} className="tk-svg" role="img" aria-label="Lockbox balance over time, drawn as a step">
         <g className="grid">
-          {gridLines.map((g) => (
-            <g key={g}>
-              <line x1={pl} x2={W - pr} y1={Y(BigInt(Math.round(g * 1e8)))} y2={Y(BigInt(Math.round(g * 1e8)))} />
-              <text x={pl - 6} y={Y(BigInt(Math.round(g * 1e8))) + 3} textAnchor="end" className="axis">
-                {`${Math.round(g / 1000)}k`}
-              </text>
-            </g>
+          {grid.map((g) => (
+            <line key={g.key} x1={pl} x2={W - pr} y1={g.y} y2={g.y} />
           ))}
         </g>
         {/* The series is a TRANSPARENT address's balance, so it is drawn in the
@@ -126,13 +187,6 @@ export function BalanceStep({ points }: { readonly points: readonly BalancePoint
               strokeWidth="2"
             />
           ),
-        )}
-        {points.map((p, i) =>
-          i === 0 || i === points.length - 1 ? (
-            <text key={`x${p.height}`} x={X(i)} y={H - 6} textAnchor={i === 0 ? "start" : "end"} className="axis">
-              {p.stamp.text.slice(0, 10)}
-            </text>
-          ) : null,
         )}
       </svg>
     </Chart>
@@ -171,6 +225,50 @@ const LEGEND = [
   </li>,
 ];
 
+/** The graph's own coordinate space, read by the viewBox and by the label layer. */
+const IG = { W: 560, H: 200, boxH: 42, textY: 18 } as const;
+
+/**
+ * The three boxes, as a table rather than as three `<g transform>` blocks.
+ *
+ * The rect and its two lines of text used to share one `translate`, which made
+ * them one placement by construction. The text is HTML now and sits outside the
+ * `<g>`, so the translate cannot reach it and the box's own coordinates are the
+ * single source both halves read.
+ */
+const IG_NODES: readonly {
+  readonly key: string;
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly name: string;
+  readonly sub: string;
+}[] = [
+  { key: "coinbase", x: 14, y: 20, w: 126, name: "NU6.1 coinbase", sub: "block 3,146,400" },
+  { key: "lockbox", x: 215, y: 82, w: 140, name: "t3ev37Q2...UwYo", sub: "lockbox" },
+  { key: "orchard", x: 428, y: 74, w: 116, name: "Orchard pool", sub: "opaque - exit only" },
+];
+
+/**
+ * Where each edge's label sits, by the index of the interaction it names.
+ *
+ * Both pool edges leave the address on the right. Their labels sit clear of the
+ * node boxes rather than across them: the first above the upper curve, the
+ * second below the lower one, both anchored at the end so they grow leftward
+ * into empty space instead of into the pool node.
+ */
+const IG_EDGE_LABELS: readonly {
+  readonly key: string;
+  readonly i: number;
+  readonly x: number;
+  readonly y: number;
+  readonly anchor: "start" | "end";
+}[] = [
+  { key: "e-coinbase", i: 0, x: 152, y: 64, anchor: "start" },
+  { key: "e-pool-out", i: 1, x: 424, y: 36, anchor: "end" },
+  { key: "e-pool-in", i: 2, x: 424, y: 146, anchor: "end" },
+];
+
 export function InteractionGraph({
   interactions,
   note,
@@ -183,6 +281,7 @@ export function InteractionGraph({
   return (
     <Chart
       id="tk-interactions"
+      dense
       caption={
         <>
           <b>interactions</b> - edge width proportional to the square root of value
@@ -197,52 +296,43 @@ export function InteractionGraph({
           rows={interactions.map((e) => [e.from, e.to, e.label, zatToZecGrouped(e.valueZat, 4)])}
         />
       }
+      labels={
+        <ChartLabels
+          vw={IG.W}
+          vh={IG.H}
+          items={[
+            ...IG_EDGE_LABELS.map((l) => ({
+              key: l.key,
+              x: l.x,
+              y: l.y,
+              text: interactions[l.i]?.label ?? "",
+              // The halo the SVG drew with `paint-order: stroke` in the SURFACE
+              // colour, not the page background: these labels cross the edges
+              // and sit against the panel the graph is inset in.
+              className: "el halo-surface",
+              anchor: l.anchor,
+            })),
+            // The second line is one line below the first, in pixels, and that
+            // is the whole reason the pair reads: 14 user units of separation
+            // was 16px at a 1440 viewport and 7.6px at 760, and two 12px lines
+            // 7.6px apart are one smudge.
+            ...IG_NODES.flatMap((n) => [
+              { key: `n-${n.key}`, x: n.x, y: n.y + IG.textY, text: n.name, className: "ig-n", dx: 8 },
+              { key: `s-${n.key}`, x: n.x, y: n.y + IG.textY, text: n.sub, className: "ig-s", dx: 8, dy: 12 },
+            ]),
+          ]}
+        />
+      }
     >
-      <svg viewBox="0 0 560 200" className="tk-svg tk-ig" role="img" aria-label="Interaction graph for this address">
+      <svg viewBox={`0 0 ${IG.W} ${IG.H}`} className="tk-svg tk-ig" role="img" aria-label="Interaction graph for this address">
         <path className="e cb" d="M140,44 L215,102" strokeWidth={widthFor(interactions[0]?.valueZat ?? 0n)} />
-        <text className="el" x="152" y="64">
-          {interactions[0]?.label ?? ""}
-        </text>
-        {/* Both pool edges leave the address on the right. Their labels sit
-            clear of the node boxes rather than across them: the first above the
-            upper curve, the second below the lower one, both anchored at the
-            end so they grow leftward into empty space instead of into the pool
-            node. */}
         <path className="e pool" d="M355,96 C392,96 392,50 428,50" strokeWidth={widthFor(interactions[1]?.valueZat ?? 0n)} />
-        <text className="el" x="424" y="36" textAnchor="end">
-          {interactions[1]?.label ?? ""}
-        </text>
         <path className="e pool" d="M428,62 C392,62 392,124 355,124" strokeWidth={widthFor(interactions[2]?.valueZat ?? 0n)} />
-        <text className="el" x="424" y="146" textAnchor="end">
-          {interactions[2]?.label ?? ""}
-        </text>
-        <g className="n" transform="translate(14,20)">
-          <rect width="126" height="42" rx="3" />
-          <text x="10" y="18">
-            NU6.1 coinbase
-          </text>
-          <text x="10" y="32" className="s">
-            block 3,146,400
-          </text>
-        </g>
-        <g className="n" transform="translate(215,82)">
-          <rect width="140" height="42" rx="3" />
-          <text x="10" y="18">
-            t3ev37Q2...UwYo
-          </text>
-          <text x="10" y="32" className="s">
-            lockbox
-          </text>
-        </g>
-        <g className="n" transform="translate(428,74)">
-          <rect width="116" height="42" rx="3" />
-          <text x="10" y="18">
-            Orchard pool
-          </text>
-          <text x="10" y="32" className="s">
-            opaque - exit only
-          </text>
-        </g>
+        {IG_NODES.map((n) => (
+          <g className="n" key={n.key}>
+            <rect x={n.x} y={n.y} width={n.w} height={IG.boxH} rx="3" />
+          </g>
+        ))}
       </svg>
     </Chart>
   );
@@ -328,9 +418,18 @@ export function PoolSankey({ view }: { readonly view: PoolsView }) {
   }, 0);
   const scale = usable / summax;
 
+  // The node's vertical centre. Both rects and all four of its labels are hung
+  // off it, and it used to be recomputed inside the JSX map that drew them.
+  const nodes = order.flatMap((k) => {
+    const l = left.get(k);
+    const r = right.get(k);
+    return l === undefined || r === undefined ? [] : [{ k, l, r, cy: l.y + Math.max(l.h, r.h) / 2 }];
+  });
+
   return (
     <Chart
       id="tk-sankey"
+      dense
       caption={
         <>
           <b>between the pools</b> - {view.flowWindow} - value crossing each boundary, public by construction
@@ -342,6 +441,42 @@ export function PoolSankey({ view }: { readonly view: PoolsView }) {
           caption={`Value crossing each pool boundary, ${view.flowWindow}`}
           columns={["From", "To", "ZEC"]}
           rows={view.flows.map((f) => [LANE_NAME[f.from] ?? f.from, LANE_NAME[f.to] ?? f.to, zatToZecGrouped(f.zat, 0)])}
+        />
+      }
+      labels={
+        <ChartLabels
+          vw={SANKEY.W}
+          vh={SANKEY.H}
+          items={nodes.flatMap(({ k, cy }) => [
+            // Each side's two lines are centred on the node AS A PAIR, half a
+            // line either side of `cy`, because `cy` is the node's own centre.
+            // The `<text>` did it with `cy + 1` and `cy + 13`, which was 15px of
+            // separation at a 1440 viewport and 5.2px at 760 - the two lines ran
+            // into each other at exactly the width the label was smallest.
+            { key: `ln-${k}`, x: SANKEY.lx, y: cy, text: LANE_NAME[k], className: "sk-n", anchor: "end" as const, baseline: "middle" as const, dx: -6, dy: -6 },
+            {
+              key: `lv-${k}`,
+              x: SANKEY.lx,
+              y: cy,
+              text: `out ${zatToZecGrouped(outs.get(k) ?? 0n, 0)}`,
+              className: "sk-v",
+              anchor: "end" as const,
+              baseline: "middle" as const,
+              dx: -6,
+              dy: 6,
+            },
+            { key: `rn-${k}`, x: SANKEY.rx + SANKEY.nodeW, y: cy, text: LANE_NAME[k], className: "sk-n", baseline: "middle" as const, dx: 6, dy: -6 },
+            {
+              key: `rv-${k}`,
+              x: SANKEY.rx + SANKEY.nodeW,
+              y: cy,
+              text: `in ${zatToZecGrouped(ins.get(k) ?? 0n, 0)}`,
+              className: "sk-v",
+              baseline: "middle" as const,
+              dx: 6,
+              dy: 6,
+            },
+          ])}
         />
       }
     >
@@ -367,34 +502,16 @@ export function PoolSankey({ view }: { readonly view: PoolsView }) {
             </path>
           );
         })}
-        {order.map((k) => {
-          const l = left.get(k);
-          const r = right.get(k);
-          if (l === undefined || r === undefined) return null;
-          const cy = l.y + Math.max(l.h, r.h) / 2;
-          return (
-            <g key={k}>
-              <g className="node">
-                <rect x={SANKEY.lx} y={l.y} width={SANKEY.nodeW} height={l.h} fill={LANE_VAR[k]} data-lane={k} data-side="out" />
-                <text x={SANKEY.lx - 8} y={cy + 1} textAnchor="end">
-                  {LANE_NAME[k]}
-                </text>
-                <text x={SANKEY.lx - 8} y={cy + 13} textAnchor="end" className="v">
-                  {`out ${zatToZecGrouped(outs.get(k) ?? 0n, 0)}`}
-                </text>
-              </g>
-              <g className="node">
-                <rect x={SANKEY.rx} y={r.y} width={SANKEY.nodeW} height={r.h} fill={LANE_VAR[k]} data-lane={k} data-side="in" />
-                <text x={SANKEY.rx + SANKEY.nodeW + 8} y={cy + 1}>
-                  {LANE_NAME[k]}
-                </text>
-                <text x={SANKEY.rx + SANKEY.nodeW + 8} y={cy + 13} className="v">
-                  {`in ${zatToZecGrouped(ins.get(k) ?? 0n, 0)}`}
-                </text>
-              </g>
+        {nodes.map(({ k, l, r }) => (
+          <g key={k}>
+            <g className="node">
+              <rect x={SANKEY.lx} y={l.y} width={SANKEY.nodeW} height={l.h} fill={LANE_VAR[k]} data-lane={k} data-side="out" />
             </g>
-          );
-        })}
+            <g className="node">
+              <rect x={SANKEY.rx} y={r.y} width={SANKEY.nodeW} height={r.h} fill={LANE_VAR[k]} data-lane={k} data-side="in" />
+            </g>
+          </g>
+        ))}
       </svg>
     </Chart>
   );
@@ -445,6 +562,15 @@ export function PoolHistory({ view }: { readonly view: PoolsView }) {
   const supplyNow = view.balances.reduce((a, b) => a + zecOf(b.zat), 0);
   const shieldedShare = supplyNow === 0 ? 0 : (shieldedNow / supplyNow) * 100;
 
+  const grid = [1e6, 2e6, 3e6, 4e6, 5e6].map((g) => ({ key: String(g), y: Y(g), text: `${String(g / 1e6)}M` }));
+  const years = [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
+
+  // The band's top edge is the rect's `y` and the label's anchor both, so it is
+  // named once. The rect starts 18 units above the plot so the label has a lane
+  // of its own above the stack.
+  const bandTop = pt - 18;
+  const bands = view.unsoundBands.map((b) => ({ label: b.label, x: X(b.from), w: X(b.to) - X(b.from) }));
+
   return (
     <Chart
       id="tk-poolhist"
@@ -467,39 +593,81 @@ export function PoolHistory({ view }: { readonly view: PoolsView }) {
           rows={view.history.map((p) => [p.when, zatToZecGrouped(p.sprout, 0), zatToZecGrouped(p.sapling, 0), zatToZecGrouped(p.orchard, 0), zatToZecGrouped(p.ironwood, 0)])}
         />
       }
+      labels={
+        <ChartLabels
+          vw={W}
+          vh={H}
+          items={[
+            ...grid.map((g) => ({
+              key: `g${g.key}`,
+              x: pl,
+              y: g.y,
+              text: g.text,
+              className: "axis",
+              anchor: "end" as const,
+              baseline: "middle" as const,
+              dx: -5,
+            })),
+            ...years.map((yr) => ({
+              key: `y${String(yr)}`,
+              x: X(yr),
+              y: H - pb,
+              text: String(yr),
+              className: "axis",
+              anchor: "middle" as const,
+              baseline: "hanging" as const,
+              dy: 5,
+            })),
+            // The band label hangs from the band's own top edge rather than
+            // sitting at a fixed depth into it: 12 user units of headroom was
+            // 14.6px at a 1440 viewport and 3.4px at 390, so at every width
+            // below about 1100 the words rode out through the top of the band.
+            ...bands.map((b) => ({
+              key: b.label,
+              x: b.x,
+              y: bandTop,
+              text: b.label,
+              className: "band-label",
+              baseline: "hanging" as const,
+              dx: 3,
+              dy: 2,
+            })),
+            // -3 rather than the -6 a direct label usually takes, against the 2
+            // above rather than a 3, and the four pixels between those two pairs
+            // of numbers are the whole reason: the band label is pinned to the
+            // FRAME and this mark to a VALUE near the top of the axis, so they
+            // converge as the viewport narrows rather than as it widens. The
+            // 44.8 user units between them are 55px at 1440 and 27px at 760, and
+            // two 12px labels with their gaps need 26. Measured on the served
+            // build: they overlapped by 3.9px at 760 before the four moved.
+            {
+              key: "shielded-now",
+              x: X(2026.64),
+              y: Y(shieldedNow),
+              text: `${(shieldedNow / 1e6).toFixed(2)}M shielded - ${shieldedShare.toFixed(0)} percent`,
+              className: "mark",
+              anchor: "end" as const,
+              dx: -5,
+              dy: -3,
+            },
+          ]}
+        />
+      }
     >
       <svg viewBox={`0 0 ${W} ${H}`} className="tk-svg" role="img" aria-label="Shielded pool balances from 2016 to 2026, an indicative reconstruction">
         <g className="grid">
-          {[1e6, 2e6, 3e6, 4e6, 5e6].map((g) => (
-            <g key={g}>
-              <line x1={pl} x2={W - pr} y1={Y(g)} y2={Y(g)} />
-              <text x={pl - 6} y={Y(g) + 3} textAnchor="end" className="axis">
-                {`${g / 1e6}M`}
-              </text>
-            </g>
+          {grid.map((g) => (
+            <line key={g.key} x1={pl} x2={W - pr} y1={g.y} y2={g.y} />
           ))}
         </g>
         {layers.map((l) => (
           <path key={l.key} d={l.d} fill={LANE_VAR[l.key]} fillOpacity="0.55" stroke="var(--bg)" strokeWidth="1.5" />
         ))}
         <g className="tk-band">
-          {view.unsoundBands.map((b) => (
-            <g key={b.label}>
-              <rect x={X(b.from)} y={pt - 18} width={X(b.to) - X(b.from)} height={H - pt - pb + 18} />
-              <text x={X(b.from) + 4} y={pt - 6}>
-                {b.label}
-              </text>
-            </g>
+          {bands.map((b) => (
+            <rect key={b.label} x={b.x} y={bandTop} width={b.w} height={H - pt - pb + 18} />
           ))}
         </g>
-        {[2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026].map((y) => (
-          <text key={y} x={X(y)} y={H - 6} textAnchor="middle" className="axis">
-            {y}
-          </text>
-        ))}
-        <text x={X(2026.64) - 6} y={Y(shieldedNow) - 8} textAnchor="end" className="mark">
-          {`${(shieldedNow / 1e6).toFixed(2)}M shielded - ${shieldedShare.toFixed(0)} percent`}
-        </text>
       </svg>
     </Chart>
   );
@@ -521,6 +689,7 @@ export function OrchardDrain({ view }: { readonly view: PoolsView }) {
   const X = (i: number): number => pl + (i / n) * (W - pl - pr);
   const Y = (v: number): number => pt + (1 - v / ymax) * (H - pt - pb);
   const pts = view.drain.points.map((p) => `${X(p.i)},${Y(zecOf(p.zat))}`).join(" ");
+  const grid = [1e6, 2e6, 3e6].map((g) => ({ key: String(g), y: Y(g), text: `${String(g / 1e6)}M` }));
 
   return (
     <Chart
@@ -538,32 +707,61 @@ export function OrchardDrain({ view }: { readonly view: PoolsView }) {
           rows={view.drain.points.map((p) => [`day ${p.i}`, zatToZecGrouped(p.zat, 0)])}
         />
       }
+      labels={
+        <ChartLabels
+          vw={W}
+          vh={H}
+          items={[
+            ...grid.map((g) => ({
+              key: `g${g.key}`,
+              x: pl,
+              y: g.y,
+              text: g.text,
+              className: "axis",
+              anchor: "end" as const,
+              baseline: "middle" as const,
+              dx: -4,
+            })),
+            ...view.drain.marks.map((m) => ({
+              key: m.text,
+              x: X(m.i),
+              y: H - pb,
+              text: m.text,
+              className: "axis",
+              anchor: m.i === 0 ? ("start" as const) : m.i === n ? ("end" as const) : ("middle" as const),
+              baseline: "hanging" as const,
+              dy: 5,
+            })),
+          ]}
+        />
+      }
     >
       <svg viewBox={`0 0 ${W} ${H}`} className="tk-svg" role="img" aria-label="Orchard pool balance since Ironwood activation">
         <g className="grid">
-          {[1e6, 2e6, 3e6].map((g) => (
-            <g key={g}>
-              <line x1={pl} x2={W - pr} y1={Y(g)} y2={Y(g)} />
-              <text x={pl - 5} y={Y(g) + 3} textAnchor="end" className="axis">
-                {`${g / 1e6}M`}
-              </text>
-            </g>
+          {grid.map((g) => (
+            <line key={g.key} x1={pl} x2={W - pr} y1={g.y} y2={g.y} />
           ))}
         </g>
         <polyline points={pts} fill="none" stroke="var(--p-orchard)" strokeWidth="2" strokeLinejoin="round" />
         <circle cx={X(n)} cy={Y(zecOf(view.drain.nowZat))} r="4" fill="var(--p-orchard)" stroke="var(--surface)" strokeWidth="2" />
-        {view.drain.marks.map((m) => (
-          <text key={m.text} x={X(m.i)} y={H - 5} textAnchor={m.i === 0 ? "start" : m.i === n ? "end" : "middle"} className="axis">
-            {m.text}
-          </text>
-        ))}
       </svg>
     </Chart>
   );
 }
 
+/** The histogram's own coordinate space: `floor` is the rule the bars stand on. */
+const MLENS = { W: 320, H: 120, floor: 96, barH: 86 } as const;
+
 export function MigrationLens({ view }: { readonly view: PoolsView }) {
   const max = view.denominations.rows.reduce((a, r) => (r.count > a ? r.count : a), 1);
+  // One column width for the bar and for the label under it. It was computed
+  // inside the JSX map, where the rect used `i * w + 1.5` and the label used
+  // `i * w + w / 2` - two readings of one column.
+  const w = MLENS.W / view.denominations.rows.length;
+  const bars = view.denominations.rows.map((r, i) => {
+    const h = (r.count / max) * MLENS.barH;
+    return { label: r.label, x: i * w + 1.5, w: w - 3, y: MLENS.floor - h, h: Math.max(2, h), cx: i * w + w / 2 };
+  });
   return (
     <Chart
       id="tk-denoms"
@@ -580,28 +778,38 @@ export function MigrationLens({ view }: { readonly view: PoolsView }) {
           rows={view.denominations.rows.map((r) => [r.label, String(r.count)])}
         />
       }
+      labels={
+        <ChartLabels
+          vw={MLENS.W}
+          vh={MLENS.H}
+          items={bars.map((b) => ({
+            key: b.label,
+            x: b.cx,
+            y: MLENS.floor,
+            text: b.label,
+            className: "axis",
+            anchor: "middle" as const,
+            baseline: "hanging" as const,
+            dy: 5,
+          }))}
+        />
+      }
     >
       {/* One <svg> per chart is the contract A3 checks, so the histogram is an
           svg rather than the mockup's flex row of divs. It also means the bars
           scale with the frame instead of with the font. */}
-      <svg viewBox="0 0 320 120" className="tk-svg" role="img" aria-label="Migration crossings by canonical denomination">
-        {view.denominations.rows.map((r, i) => {
-          const w = 320 / view.denominations.rows.length;
-          const h = (r.count / max) * 86;
-          return (
-            <g key={r.label}>
-              <rect x={i * w + 1.5} y={96 - h} width={w - 3} height={Math.max(2, h)} fill="var(--p-ironwood)" rx="2" data-denom={r.label} />
-              <text x={i * w + w / 2} y={112} textAnchor="middle" className="axis">
-                {r.label}
-              </text>
-            </g>
-          );
-        })}
-        <line x1="0" x2="320" y1="96" y2="96" stroke="var(--line-strong)" strokeWidth="1" />
+      <svg viewBox={`0 0 ${MLENS.W} ${MLENS.H}`} className="tk-svg" role="img" aria-label="Migration crossings by canonical denomination">
+        {bars.map((b) => (
+          <rect key={b.label} x={b.x} y={b.y} width={b.w} height={b.h} fill="var(--p-ironwood)" rx="2" data-denom={b.label} />
+        ))}
+        <line x1="0" x2={MLENS.W} y1={MLENS.floor} y2={MLENS.floor} stroke="var(--line-strong)" strokeWidth="1" />
       </svg>
     </Chart>
   );
 }
+
+/** The ladder's own coordinate space: one row every `pitch` units. */
+const CLAIM = { W: 320, H: 128, pitch: 31, barTop: 15, barH: 12 } as const;
 
 export function ClaimDistribution({ view }: { readonly view: PoolsView }) {
   /**
@@ -621,6 +829,13 @@ export function ClaimDistribution({ view }: { readonly view: PoolsView }) {
     broad_candidate_set: "var(--ink-dim)",
     aggregate_only: "var(--ok)",
   };
+  // The row's top edge, read by the two rects and by the label above them.
+  const bars = view.neff.rows.map((r, i) => ({
+    claim: r.claim,
+    text: `${r.label} - ${r.pct} percent`,
+    y: i * CLAIM.pitch + CLAIM.barTop,
+    w: (r.pct / 100) * CLAIM.W,
+  }));
   return (
     <Chart
       id="tk-neff"
@@ -637,19 +852,25 @@ export function ClaimDistribution({ view }: { readonly view: PoolsView }) {
           rows={view.neff.rows.map((r) => [r.label, `${r.pct} percent`])}
         />
       }
+      labels={
+        <ChartLabels
+          vw={CLAIM.W}
+          vh={CLAIM.H}
+          // The label sits ABOVE its bar, and the first row's used to be clipped
+          // by the top of the viewBox - at y = 4 the strongest claim level on
+          // the chart was the one a reader could not read, and y = 10 was the
+          // repair. Neither is load-bearing now: the label is an HTML sibling of
+          // the drawing, the layer is `overflow: visible`, and a 5px gap above
+          // the bar is a 5px gap at every width the site supports.
+          items={bars.map((b) => ({ key: b.claim, x: 0, y: b.y, text: b.text, className: "axis", dy: -5 }))}
+        />
+      }
     >
-      {/* The label sits ABOVE its bar, so the first row's baseline has to clear
-          the top of the frame - at y = 4 it was clipped by the viewBox and the
-          strongest claim level on the chart was the one a reader could not
-          read. */}
-      <svg viewBox="0 0 320 128" className="tk-svg" role="img" aria-label="Distribution of claim levels for Ironwood spends since activation">
-        {view.neff.rows.map((r, i) => (
-          <g key={r.claim}>
-            <text x="0" y={i * 31 + 10} className="axis">
-              {`${r.label} - ${r.pct} percent`}
-            </text>
-            <rect x="0" y={i * 31 + 15} width="320" height="12" fill="var(--surface-2)" />
-            <rect x="0" y={i * 31 + 15} width={(r.pct / 100) * 320} height="12" fill={TONE[r.claim]} data-claim={r.claim} />
+      <svg viewBox={`0 0 ${CLAIM.W} ${CLAIM.H}`} className="tk-svg" role="img" aria-label="Distribution of claim levels for Ironwood spends since activation">
+        {bars.map((b) => (
+          <g key={b.claim}>
+            <rect x="0" y={b.y} width={CLAIM.W} height={CLAIM.barH} fill="var(--surface-2)" />
+            <rect x="0" y={b.y} width={b.w} height={CLAIM.barH} fill={TONE[b.claim]} data-claim={b.claim} />
           </g>
         ))}
       </svg>

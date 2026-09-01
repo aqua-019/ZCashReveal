@@ -7,6 +7,7 @@ import { MethodGoldenCases } from "@/components/record/MethodGoldenCases";
 import { ClaimLadder, ClaimLadderRefusals } from "@/components/record/MethodLadder";
 import { MethodPosterior, MethodTaint } from "@/components/record/MethodPosterior";
 import { MethodQueryTable } from "@/components/record/MethodQueryTable";
+import { PageClaim } from "@/components/record/PageClaim";
 import { RecordHead } from "@/components/shell/RecordHead";
 import { Block } from "@/components/ui/Block";
 import { Eyebrow } from "@/components/ui/Eyebrow";
@@ -66,6 +67,42 @@ export const metadata: Metadata = {
  * Zero motion, zero client JavaScript, no charts. The whole argument is carried
  * by tables and prose; the one drawing this method implies - the taint graph -
  * belongs on /flows, where the edges have real weights behind them.
+ *
+ * ============================================================================
+ * CLAIM ORDER (HANDOFF-04b R5), AND WHY THIS PAGE INVERTS THE COLLAPSE RULE
+ * ============================================================================
+ * The reader's diagnosis - "instead of claim, explanation, evidence,
+ * visualization, we get vibes, cryptographic terminology, vibes, huge number,
+ * tiny explanation, vibes" - did NOT describe this page. Its dek already opened
+ * on a falsifiable sentence, which is why the claim beat below is LIFTED from
+ * that dek word for word rather than written: the work here is making the
+ * grammar the same as the other seven Record pages, not repairing a defect.
+ * The dek's remaining two sentences became the explanation under it, and the
+ * dek itself is now `NAV_ENTRIES`' own description of this surface, so the
+ * masthead and the site index cannot disagree about what /method is for.
+ *
+ * THE THREE THAT ARE NEVER COLLAPSED DO NOT EXIST HERE, DELIBERATELY, and the
+ * claim beat says so rather than filling them. Material from `packages/content`
+ * - the address labels in block 01, the case files in blocks 01 and 06 - is an
+ * external claim and carries the full apparatus on its own row, in the open, in
+ * every `Cite` summary. Material from docs/2.0/TRACKING-MATH.md is
+ * documentation of this site's own procedure; it gets a name and a path and no
+ * `sources[]`, and fabricating one would be the precise defect this page exists
+ * to argue against. So `PageClaim` takes `status`, which states that condition,
+ * and not the three - `docs/2.0/SNAPSHOT.md` section 8.1's rule about absences,
+ * applied to epistemic status.
+ *
+ * AND THE COLLAPSE RULE INVERTS ON THIS SURFACE. It says to collapse the method
+ * walk-through; on /method the method walk-through IS the claim, so applying it
+ * literally would fold the page's whole argument behind shut triangles. The
+ * line drawn instead is REFERENCE against ARGUMENT. Collapsed, in place rather
+ * than swept to a working section at the foot of the page, because each one is
+ * only legible beside the block that introduces it: the eleven-row estimator
+ * table (02-03), the query grid (00) and the posterior's three lines of
+ * notation with their symbol table (04). Open: every refusal, every claim
+ * level, the hard-to-soft split, the clustering cards, the ceremony and the
+ * four golden cases. Each disclosure's summary carries a count derived from the
+ * object it is closed over, so the closed state still states the finding.
  */
 export default function MethodPage() {
   return (
@@ -75,15 +112,13 @@ export default function MethodPage() {
         kicker="what is exact - what is bounded - what is never claimed"
         title="How the tracking"
         titleAccent="works"
-        dek={
-          <>
-            Every number on the Tracking pages is either <b>exact and public</b> or a{" "}
-            <b>bound with its assumptions printed beside it</b>, and the two are never allowed to blur into each other. This
-            page is the contract. It sets out the per-pool state machine, the anchor-bounded candidate sets, the
-            process-of-elimination toolkit, the posterior and the viewing-key mode - and it says, in plain terms, what no
-            method here can return.
-          </>
-        }
+        // The dek is the nav entry's own description of this surface, the same
+        // string `metadata.description` already sends. The two sentences that
+        // used to be here have not gone: the first is the claim below, the
+        // second and third are its explanation. Reading both from one source
+        // means the masthead, the site index and the page description cannot
+        // drift into three descriptions of one page.
+        dek={S?.dek ?? ""}
         aside={
           <Glass>
             <Eyebrow className="mt-card-eyebrow" idx="the four claim levels">
@@ -91,6 +126,37 @@ export default function MethodPage() {
             </Eyebrow>
             <ClaimLadder />
           </Glass>
+        }
+      />
+
+      {/* The claim, then the explanation, then the evidence. Both are the dek's
+          own sentences, moved rather than rewritten: this page already led with
+          an assertion, and a handoff that moves sentences does not restate
+          facts. */}
+      <PageClaim
+        claim={
+          <>
+            Every number on the Tracking pages is either <b>exact and public</b> or a{" "}
+            <b>bound with its assumptions printed beside it</b>, and the two are never allowed to blur into each other.
+          </>
+        }
+        explain={
+          <>
+            This page is the contract. It sets out the per-pool state machine, the anchor-bounded candidate sets, the
+            process-of-elimination toolkit, the posterior and the viewing-key mode - and it says, in plain terms, what no
+            method here can return.
+          </>
+        }
+        status={
+          <>
+            This page states no confidence, no last-verified date and no source count of its own, and the absence is the
+            argument rather than a gap. Procedure: <span className="mono">docs/2.0/TRACKING-MATH.md</span>, sections 0 to
+            6. Thresholds and the claim-level union: <span className="mono">packages/zec-types/src/analysis.ts</span>.
+            Neither is an external source and neither is cited as one - both document this site&apos;s own procedure, and
+            fabricating an apparatus for them would be the precise defect this page exists to argue against. The external
+            claims this page does render - the address labels, the withdrawal case and the four golden cases below - each
+            carry their own confidence, last-verified date and source count in the open, on the row.
+          </>
         }
       />
 
@@ -105,10 +171,13 @@ export default function MethodPage() {
           they are not retuned without calibration data.
         </p>
         <ClaimLadderRefusals />
-        <p className="src" style={{ marginTop: 12 }}>
-          Procedure: docs/2.0/TRACKING-MATH.md, sections 0 to 6. Thresholds and the claim-level union:
-          packages/zec-types/src/analysis.ts. Neither is an external source, and neither is cited as one.
-        </p>
+        {/* The provenance line that stood here has MOVED to the claim beat's
+            status strip, verbatim in substance. It was always the answer to
+            "where do these thresholds come from and why is there no citation",
+            which is the epistemic-status question - and epistemic status
+            belongs beside the claim, in the open, not four hundred pixels below
+            it where a reader who has already decided the page is unsourced will
+            never reach it. */}
       </Glass>
 
       <Block idx="00" title="What a query can honestly return" right="the address is the unit a reader thinks in; the chain is not built that way">

@@ -1,7 +1,7 @@
 ---
 handoff: 04a
 title: The legibility pass, and the turnstile plane
-status: shipped
+status: closed
 branch: the session-designated branch (name it `feat/v2-04a-legibility` if you may choose)
 track: Web
 depends_on: 01, 02, 03, 04, 09b

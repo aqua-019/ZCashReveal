@@ -14,30 +14,60 @@ import type { ReactNode } from "react";
  * both makes a screen reader read the same numbers twice, once as a shape. The
  * caption is visible and names the chart for everyone; the table carries the
  * values.
+ *
+ * `labels` IS THE CHART'S TEXT, AND IT IS NOT INSIDE THE `<svg>`. HANDOFF-04b
+ * measured that a `<text>` in a scaled viewBox paints at `declared x scale`, so
+ * a floor stated in CSS pixels cannot be satisfied by any declared value at
+ * every supported width. The drawing keeps its geometry; the words are HTML,
+ * stacked on it by the grid in `globals.css`. Both are DIRECT children of the
+ * figure, because A3 counts `figure[data-chart] > svg` and a wrapper would take
+ * the drawing out of that selector - the argument in full is in
+ * `ChartLabels.tsx`.
  */
 export function Chart({
   id,
+  dense,
   caption,
   note,
   legend,
   table,
+  labels,
   children,
 }: {
   /** Stable id, also the `data-chart` value the assertion selects on. */
   readonly id: string;
+  /**
+   * A DENSE diagram: it gives up its label overlay one breakpoint earlier.
+   *
+   * Every chart hands its labels to the table twin below 900, because a 12px
+   * word does not shrink with the drawing under it. Three do it at 1100
+   * instead, and which three was MEASURED rather than judged - a sweep of five
+   * routes at twelve widths found overlapping label pairs at 1024 on exactly
+   * `network-loop` (9 nodes, 11 edges, all hand-placed), `tk-sankey` (ten node
+   * labels in two columns) and `tk-interactions` (three nodes and three edge
+   * labels in a 560-unit box that renders at 435px). Every other chart was
+   * clean at 1024 and stays on 900.
+   */
+  readonly dense?: boolean;
   readonly caption: ReactNode;
   /** Optional line under the chart: what the reader should not conclude from it. */
   readonly note?: ReactNode;
   readonly legend?: ReactNode;
   /** The twin. Rows only - `ChartTable` supplies the element. */
   readonly table: ReactNode;
+  /**
+   * The chart's text, as an HTML layer over the drawing. One `<ChartLabels>`,
+   * or nothing for a chart that carries no words.
+   */
+  readonly labels?: ReactNode;
   /** The inline SVG. Exactly one `<svg>` element. */
   readonly children: ReactNode;
 }) {
   return (
-    <figure className="chart" data-chart={id}>
+    <figure className="chart" data-chart={id} {...(dense === true ? { "data-dense": "true" } : {})}>
       <figcaption className="chart-cap">{caption}</figcaption>
       {children}
+      {labels === undefined ? null : labels}
       {table}
       {legend === undefined ? null : <ul className="legend">{legend}</ul>}
       {note === undefined ? null : <p className="note chart-note">{note}</p>}

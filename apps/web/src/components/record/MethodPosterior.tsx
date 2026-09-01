@@ -1,3 +1,4 @@
+import { Working } from "@/components/record/Working";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Glass } from "@/components/ui/Glass";
 
@@ -52,6 +53,16 @@ const TERMS: readonly Term[] = [
   },
 ];
 
+/**
+ * The derivation's own two counts, read off the objects the panel renders.
+ *
+ * The line count comes from splitting `POSTERIOR` rather than from a literal
+ * `3`: the constant is a template literal a later editor will add a line to,
+ * and a summary that then said three over four lines would be the one thing a
+ * closed panel must never be, which is wrong about what it is closed over.
+ */
+const POSTERIOR_LINES = POSTERIOR.split("\n").length;
+
 export function MethodPosterior() {
   return (
     <Glass>
@@ -59,20 +70,34 @@ export function MethodPosterior() {
         four likelihoods, one distribution, one number
       </Eyebrow>
 
-      <pre className="code">{POSTERIOR}</pre>
+      {/* THE ARITHMETIC IS COLLAPSED AND THE REFUSAL IS NOT (HANDOFF-04b R4).
+          `H = - sum over j of p_j log2 p_j` is the literal instance of the
+          reader's "cryptographic terminology" beat - three lines of notation
+          arriving before any sentence saying what the number is for - and the
+          symbol table is the same material one layer down, so the two travel
+          together rather than leaving a reader with definitions for formulas
+          they can no longer see. What stays in the open is the paragraph naming
+          the five things every transaction page prints beside the number, and
+          the refusal below it, because those are the argument. */}
+      <Working
+        title="The posterior, line by line"
+        finding={`${POSTERIOR_LINES} lines, ${TERMS.length} likelihood terms`}
+      >
+        <pre className="code">{POSTERIOR}</pre>
 
-      <dl className="kv mt-ladder" style={{ marginTop: 12 }}>
-        {TERMS.map((t) => (
-          <div key={t.term} style={{ display: "contents" }}>
-            <dt className="k">{t.term}</dt>
-            <dd className="v" style={{ margin: 0 }}>
-              <span>
-                {t.value} <span className="src">{t.tunable}</span>
-              </span>
-            </dd>
-          </div>
-        ))}
-      </dl>
+        <dl className="kv mt-ladder" style={{ marginTop: 12 }}>
+          {TERMS.map((t) => (
+            <div key={t.term} style={{ display: "contents" }}>
+              <dt className="k">{t.term}</dt>
+              <dd className="v" style={{ margin: 0 }}>
+                <span>
+                  {t.value} <span className="src">{t.tunable}</span>
+                </span>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </Working>
 
       <p className="note" style={{ marginTop: 12 }}>
         Every transaction page prints the same five things beside the number: the candidate count before and after each
