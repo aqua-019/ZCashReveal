@@ -1,8 +1,9 @@
 import { getStats, resolveSources } from "@zcashreveal/content";
 
 import { Chart, ChartTable } from "@/components/record/Chart";
+import { ChartLabels } from "@/components/record/ChartLabels";
 import { Cite } from "@/components/record/Cite";
-import { PLOT, Axes, Plot, linear, path } from "@/components/record/Plot";
+import { PLOT, Axes, Plot, axesLabels, linear, path } from "@/components/record/Plot";
 import { SHIELDED_SHARE, SHIELDED_SHARE_LAST_T } from "@/lib/series";
 
 /**
@@ -27,6 +28,9 @@ import { SHIELDED_SHARE, SHIELDED_SHARE_LAST_T } from "@/lib/series";
 
 const X_DOMAIN = [2018, 2027] as const;
 const Y_DOMAIN = [0, 35] as const;
+/** One tick list, read by the marks and by the labels, so the two cannot drift. */
+const X_TICKS = [2018, 2020, 2022, 2024, 2026].map((t) => ({ at: t, label: String(t) }));
+const Y_TICKS = [0, 10, 20, 30].map((v) => ({ at: v, label: `${String(v)}%` }));
 
 export function ShieldedShare() {
   const stats = getStats();
@@ -67,6 +71,41 @@ export function ShieldedShare() {
           ]}
         />
       }
+      labels={
+        <ChartLabels
+          vw={PLOT.width}
+          vh={PLOT.height}
+          items={[
+            ...axesLabels({
+              x,
+              y,
+              xTicks: X_TICKS,
+              yTicks: Y_TICKS,
+              yLabel: "share of supply",
+            }),
+            {
+              key: "peak",
+              x: x(peak.t),
+              y: y(peak.value),
+              text: `peak ${String(peak.value)}% - ${peak.when}`,
+              className: "mark-label halo",
+              anchor: "end",
+              dx: -8,
+              dy: -6,
+            },
+            {
+              key: "band",
+              x: bandX,
+              y: bandBottom,
+              text: `${String(low)} to ${String(high)}% - ${stats.asOf}`,
+              className: "mark-label halo",
+              anchor: "end",
+              dx: -10,
+              dy: 14,
+            },
+          ]}
+        />
+      }
       note={
         <>
           Nine and a half years after mainnet, the shielded share peaked at 30 per cent and fell back. The final reading is a
@@ -77,13 +116,7 @@ export function ShieldedShare() {
       }
     >
       <Plot>
-        <Axes
-          x={x}
-          y={y}
-          xTicks={[2018, 2020, 2022, 2024, 2026].map((t) => ({ at: t, label: String(t) }))}
-          yTicks={[0, 10, 20, 30].map((v) => ({ at: v, label: `${v}%` }))}
-          yLabel="share of supply"
-        />
+        <Axes x={x} y={y} xTicks={X_TICKS} yTicks={Y_TICKS} />
         <path d={area} className="band" />
         <path d={line} className="series" stroke="var(--ink-dim)" />
         {points.map((p, i) => (
@@ -95,12 +128,6 @@ export function ShieldedShare() {
         <line x1={bandX - 9} x2={bandX + 9} y1={bandTop} y2={bandTop} className="band-edge" />
         <line x1={bandX - 9} x2={bandX + 9} y1={bandBottom} y2={bandBottom} className="band-edge" />
 
-        <text x={x(peak.t) - 10} y={y(peak.value) - 10} className="mark-label" textAnchor="end">
-          peak {peak.value}% - {peak.when}
-        </text>
-        <text x={bandX - 12} y={bandBottom + 20} className="mark-label" textAnchor="end">
-          {low} to {high}% - {stats.asOf}
-        </text>
       </Plot>
     </Chart>
   );

@@ -676,6 +676,32 @@ p {
   grid-template-columns: repeat(5, 1fr);
 }
 
+/* A GRID WHOSE COLUMNS HOLD A CHART, AND IT COLLAPSES EARLIER THAN `.g2`.
+   A column of text reflows; a column holding a `viewBox` SCALES, and since
+   HANDOFF-04b the labels over it do not scale with it. So the two fail in
+   opposite directions and cannot share a breakpoint: prose at 340px is narrow,
+   a 660-unit Sankey at 263px is five 12px labels in 39px of vertical room each.
+   Measured on /pools at a 760 viewport before this class existed - the left
+   column read "outSapling", two node labels printed over one another - and the
+   cause was an INLINE `grid-template-columns` that carried no collapse at all,
+   so `@media (max-width: 720px)` never reached it. At one column the same chart
+   renders 662px and the labels clear. 900 rather than 720 because that is where
+   `.record-head` already collapses, so a page does not change shape twice. */
+.g-chart {
+  grid-template-columns: 1.4fr 1fr;
+}
+
+.g-chart-even {
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 900px) {
+  .g-chart,
+  .g-chart-even {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 1100px) {
   .g3,
   .g4,
@@ -1900,6 +1926,247 @@ canvas[data-ui="fog"] {
    table announced alongside the table is the same numbers read twice. */
 .chart {
   margin: 0;
+  /* THE STACK, AND WHY IT IS A GRID RATHER THAN A WRAPPER. The HTML label layer
+     has to sit exactly on the drawing's box, and the drawing's box is not
+     knowable from the source - it is whatever the layout gives it. A wrapper
+     around the two would make that trivial and would take the `<svg>` out of
+     `figure[data-chart] > svg`, which is the selector assertion A3 counts. So
+     the svg and the layer are BOTH direct children, placed in the same grid
+     area: the row's height is the drawing's height, the layer stretches to it,
+     and A3's structure is untouched. Named areas rather than row numbers
+     because the legend and the note are optional and an auto-placed layer would
+     land in a different row on charts that omit them. */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "cap" "plot" "twin" "legend" "note";
+}
+
+.chart > .chart-cap {
+  grid-area: cap;
+}
+
+.chart > svg {
+  grid-area: plot;
+}
+
+.chart > table {
+  grid-area: twin;
+}
+
+.chart > .legend {
+  grid-area: legend;
+}
+
+.chart > .chart-note {
+  grid-area: note;
+}
+
+/* ---------- the label layer ----------
+   Every chart label on this site is an HTML element positioned over the SVG in
+   PERCENTAGES of the viewBox, never an SVG `<text>`. The argument, with the
+   measurements, is in `components/record/ChartLabels.tsx`; the short form is
+   that a `<text>` in a scaled viewBox paints at `declared x scale` and the
+   floor is a rule about CSS pixels, so no declared value satisfies it at every
+   supported width. `scripts/check-svg-text-floor.mjs` is the guard. */
+.plotlabels {
+  grid-area: plot;
+  position: relative;
+  /* The drawing is the target of the site's one hover verb; the labels must not
+     intercept it, and they carry no interaction of their own. */
+  pointer-events: none;
+  /* Charts draw marks outside their viewBox on purpose (`.plot` is
+     `overflow: visible`), and a label on such a mark must not be clipped. */
+  overflow: visible;
+}
+
+.plabel {
+  position: absolute;
+  white-space: nowrap;
+  font-family: var(--f-mono);
+  font-size: var(--t-label);
+  line-height: 1;
+  color: var(--ink-mute);
+  /* Two axes of placement, composed through custom properties rather than
+     through two `transform` declarations - a second `transform` rule would
+     REPLACE the first rather than add to it, so anchor and baseline would fight
+     and the loser would be whichever rule the cascade put second. */
+  /* EVERY ONE OF THESE FOUR IS A LENGTH, AND THE `px` ON A ZERO IS LOAD-BEARING.
+     `calc(<number> + <length>)` is INVALID CSS. A bare `0` is a number, so
+     `translate(calc(0 + 6px), ...)` fails to parse and the browser drops the
+     WHOLE `transform` declaration - taking the anchor, the baseline and both
+     nudges with it. Measured on the served build before the two characters were
+     added: 86 of the site's 155 labels resolved `transform: none`, including 34
+     on charts this branch had already converted and screenshotted. Typecheck,
+     lint, the build and the floor guard were all green on it.
+     THIS IS F-04a-7's SHAPE EXACTLY - `var(o)`, syntactically valid CSS that
+     resolves to nothing - and it was found the same way, by rendering and
+     reading the CSSOM rather than by reading the file. */
+  --plabel-tx: 0px;
+  --plabel-ty: -0.82em;
+  /* The pixel-space nudge, composed into the same transform. Anchor and
+     baseline are about the DRAWING and scale with it; a gap between a tick and
+     its number is about the reader's eye and does not. See `ChartLabels.tsx`. */
+  --plabel-dx: 0px;
+  --plabel-dy: 0px;
+  transform: translate(calc(var(--plabel-tx) + var(--plabel-dx)), calc(var(--plabel-ty) + var(--plabel-dy)));
+}
+
+/* `x` is the anchor point, exactly as `text-anchor` meant it in the SVG. */
+.plabel[data-anchor="middle"] {
+  --plabel-tx: -50%;
+}
+
+.plabel[data-anchor="end"] {
+  --plabel-tx: -100%;
+}
+
+/* `y` is the alphabetic baseline by default, because that is what every
+   converted `<text>` carried; -0.82em lifts the box so the glyphs sit where the
+   baseline did. `middle` and `hanging` mirror the SVG keywords. */
+.plabel[data-baseline="middle"] {
+  --plabel-ty: -50%;
+}
+
+.plabel[data-baseline="hanging"] {
+  --plabel-ty: 0px;
+}
+
+/* ---------- below 900 the drawing stops carrying its own labels ----------
+
+   THE COST OF THE REGIME, PAID WHERE IT FALLS. A label that no longer scales
+   with its drawing is legible at every width - that is the whole point - and it
+   also no longer gets out of its neighbour's way. Measured across five routes
+   and twelve widths after the conversion: 0 overlapping label pairs at 1440 and
+   above, 5 at 1024, 18 at 760 and 100 at 320. The drawing does not have room
+   for twelve-pixel words on a phone, and it never will.
+
+   THE ANSWER IS THE ONE ALREADY IN THIS TREE. `TurnstilePlane` hides its HTML
+   label overlay below 760 and says why in its own comment - "five absolutely-
+   positioned blocks on a 390px board collide into unreadable mush" - and makes
+   its LEGEND carry the whole per-lane reading rather than an abbreviation of it.
+   Every chart here already has that carrier: `figure[data-chart]` contains a
+   real `<table>` twin, built by `ChartTable`, holding every value the drawing
+   plots. It is `sr-only` because at a readable width the picture is the better
+   rendering of the same numbers.
+
+   So below 900 the overlay goes and the twin comes out of `sr-only`. A table
+   REFLOWS and a viewBox does not, which is the whole reason one of them works on
+   a phone. Nothing is lost and nothing is hidden: the reader gets the drawing as
+   a shape and the numbers as a table, instead of the numbers printed on top of
+   each other. 900 is where `.record-head` and `.g-chart` already collapse, so a
+   page changes shape once. */
+/* THREE DIAGRAMS GIVE THEIRS UP ONE BREAKPOINT EARLIER, and which three was
+   measured rather than judged: a sweep of five routes at twelve widths found
+   overlapping label pairs at 1024 on exactly `network-loop`, `tk-sankey` and
+   `tk-interactions`, and on nothing else. They carry `data-dense` from
+   `Chart`'s `dense` prop. The declarations are the same as the 900 block below;
+   only the width differs, and they are written out rather than shared because a
+   media query cannot read a custom property. */
+@media (max-width: 1100px) {
+  .chart[data-dense] > .plotlabels {
+    display: none;
+  }
+
+  .chart[data-dense] > table.sr-only {
+    position: static;
+    width: 100%;
+    height: auto;
+    margin: 12px 0 0;
+    padding: 0;
+    overflow-x: auto;
+    clip-path: none;
+    white-space: normal;
+    border-collapse: collapse;
+    font-family: var(--f-mono);
+    font-size: var(--t-label);
+    color: var(--ink-dim);
+    display: block;
+  }
+
+  .chart[data-dense] > table.sr-only caption {
+    text-align: left;
+    padding-bottom: 8px;
+    color: var(--ink-mute);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .chart[data-dense] > table.sr-only th,
+  .chart[data-dense] > table.sr-only td {
+    text-align: left;
+    padding: 4px 10px 4px 0;
+    border-bottom: 1px solid var(--line-faint);
+    vertical-align: top;
+  }
+
+  .chart[data-dense] > table.sr-only thead th {
+    color: var(--ink-mute);
+  }
+}
+
+@media (max-width: 900px) {
+  .chart > .plotlabels {
+    display: none;
+  }
+
+  /* Un-`sr-only`, in the same declarations that hid it, so a reader of either
+     rule sees the other. */
+  .chart > table.sr-only {
+    position: static;
+    width: 100%;
+    height: auto;
+    margin: 12px 0 0;
+    padding: 0;
+    overflow-x: auto;
+    clip-path: none;
+    white-space: normal;
+    border-collapse: collapse;
+    font-family: var(--f-mono);
+    font-size: var(--t-label);
+    color: var(--ink-dim);
+    display: block;
+  }
+
+  .chart > table.sr-only caption {
+    text-align: left;
+    padding-bottom: 8px;
+    color: var(--ink-mute);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .chart > table.sr-only th,
+  .chart > table.sr-only td {
+    text-align: left;
+    padding: 4px 10px 4px 0;
+    border-bottom: 1px solid var(--line-faint);
+    vertical-align: top;
+  }
+
+  .chart > table.sr-only thead th {
+    color: var(--ink-mute);
+  }
+}
+
+/* The halo the SVG drew with `paint-order: stroke`, in the one form HTML has.
+   Four offsets rather than a blur, so a label crossing a 1px gridline stays
+   readable without a box around it and without softening the glyph edges. */
+.plabel.halo {
+  text-shadow:
+    0 1px 0 var(--bg),
+    0 -1px 0 var(--bg),
+    1px 0 0 var(--bg),
+    -1px 0 0 var(--bg),
+    0 0 3px var(--bg);
+}
+
+.plabel.halo-surface {
+  text-shadow:
+    0 1px 0 var(--surface),
+    0 -1px 0 var(--surface),
+    1px 0 0 var(--surface),
+    -1px 0 0 var(--surface),
+    0 0 3px var(--surface);
 }
 
 .chart-cap {
@@ -1942,10 +2209,8 @@ canvas[data-ui="fog"] {
 }
 
 /* Text in ink tokens, never in a series colour. */
-.plot .tick {
-  font-family: var(--f-mono);
-  font-size: var(--t-label);
-  fill: var(--ink-mute);
+.plotlabels .tick {
+  color: var(--ink-mute);
 }
 
 .plot .tick-y {
@@ -1957,12 +2222,10 @@ canvas[data-ui="fog"] {
   text-anchor: middle;
 }
 
-.plot .axis-label {
-  font-family: var(--f-mono);
-  font-size: var(--t-label);
+.plotlabels .axis-label {
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  fill: var(--ink-mute);
+  color: var(--ink-mute);
 }
 
 .plot .axis-label-x {
@@ -1987,14 +2250,8 @@ canvas[data-ui="fog"] {
 
 /* Sparing direct labels, set in ink over a halo of the ground so a label that
    crosses a mark stays readable without a box around it. */
-.plot .mark-label {
-  font-family: var(--f-mono);
-  font-size: var(--t-label);
-  fill: var(--ink-dim);
-  paint-order: stroke;
-  stroke: var(--bg);
-  stroke-width: 3.5;
-  stroke-linejoin: round;
+.plotlabels .mark-label {
+  color: var(--ink-dim);
 }
 
 .plot .band {
@@ -2044,16 +2301,8 @@ canvas[data-ui="fog"] {
   stroke-width: 1;
 }
 
-.plot .node-label {
-  font-family: var(--f-mono);
-  font-size: var(--t-label);
-  fill: var(--ink);
-  text-anchor: middle;
-  dominant-baseline: middle;
-  paint-order: stroke;
-  stroke: var(--bg);
-  stroke-width: 4;
-  stroke-linejoin: round;
+.plotlabels .node-label {
+  color: var(--ink);
 }
 
 .plot .edge {
@@ -2075,15 +2324,8 @@ canvas[data-ui="fog"] {
    so the space cannot grow for this one. Registered as a named exclusion in
    test/unit/type-scale.test.ts, with the follow-up - HTML labels over the
    SVG, as the turnstile plane already does - recorded in section 8. */
-.plot .edge-label {
-  font-family: var(--f-mono);
-  font-size: 9.5px;
-  fill: var(--ink-mute);
-  text-anchor: middle;
-  paint-order: stroke;
-  stroke: var(--bg);
-  stroke-width: 3.5;
-  stroke-linejoin: round;
+.plotlabels .edge-label {
+  color: var(--ink-mute);
 }
 
 /* ---------- the timeline ----------
@@ -2753,8 +2995,12 @@ canvas[data-ui="fog"] {
   color: var(--ink);
 }
 
-/* Sources, confidence and last-verified on one line, in the quiet register:
-   the pairing above is the content, this is its apparatus. */
+/* THE PUBLISHERS, in the quiet register: the pairing above is the content, this
+   is its apparatus. It carried the confidence and the last-verified date too
+   until HANDOFF-04b, and both were already one line below inside the citation's
+   own closed summary - so a reader met each of them twice on every card. The
+   publishers stay because they are the one fact the closed citation does NOT
+   carry; it carries the count. */
 .cx-foot {
   margin-top: 12px;
   display: flex;
@@ -2815,19 +3061,9 @@ canvas[data-ui="fog"] {
    put both lines on the same rung, the second line then overflowed its box,
    and it went back. The exception is named and measured rather than silent -
    see `.plot .edge-label` below. */
-.plot .nw-sub {
-  font-family: var(--f-mono);
-  /* 9.5 user units, for the reason set out on `.plot .edge-label` above: at 12
-     this second line measured 223 units against a 200-unit box. */
-  font-size: 9.5px;
+.plotlabels .nw-sub {
   letter-spacing: 0.06em;
-  fill: var(--ink-mute);
-  text-anchor: middle;
-  dominant-baseline: middle;
-  paint-order: stroke;
-  stroke: var(--bg);
-  stroke-width: 4;
-  stroke-linejoin: round;
+  color: var(--ink-mute);
 }
 
 /* Two edge kinds and exactly two, distinguished twice over: money is a solid
@@ -2859,14 +3095,8 @@ canvas[data-ui="fog"] {
   stroke-width: 1;
 }
 
-.plot .nw-mark-label {
-  font-family: var(--f-mono);
-  font-size: var(--t-label);
-  fill: var(--ink-dim);
-  paint-order: stroke;
-  stroke: var(--bg);
-  stroke-width: 3.5;
-  stroke-linejoin: round;
+.plotlabels .nw-mark-label {
+  color: var(--ink-dim);
 }
 
 /* ---------- the phrase catalogue ----------
@@ -3838,7 +4068,17 @@ canvas[data-ui="fog"] {
 }
 
 /* ---------- charts ---------- */
-.tk-svg svg {
+/* `.tk-svg` is on the `<svg>` ITSELF (all seven sites in `track/Charts.tsx`),
+   so the rule that stood here - `.tk-svg svg` - selected a NESTED svg and
+   matched nothing in this application. It was inert rather than harmful,
+   because the UA default for an outermost `<svg>` carrying a viewBox is already
+   a 100%-wide box with a ratio-derived height, which is why nothing ever looked
+   wrong. It is corrected rather than deleted because the painted-size regime
+   now depends on this being explicit: the label layer maps user units to
+   percentages of the drawing's box, and that mapping is only exact while the
+   box keeps the viewBox's aspect ratio. Found by a reader comparing it against
+   `.tplane-svg` and `.chart .plot`, which both get the selector right. */
+.tk-svg {
   width: 100%;
   height: auto;
   display: block;
@@ -3849,16 +4089,12 @@ canvas[data-ui="fog"] {
   stroke-width: 1;
 }
 
-.tk-svg .axis {
-  fill: var(--ink-mute);
-  font-family: var(--f-mono);
-  font-size: var(--t-label);
+.plotlabels .axis {
+  color: var(--ink-mute);
 }
 
-.tk-svg .mark {
-  fill: var(--ink);
-  font-family: var(--f-mono);
-  font-size: var(--t-label);
+.plotlabels .mark {
+  color: var(--ink);
 }
 
 /* The interaction graph. */
@@ -3867,15 +4103,12 @@ canvas[data-ui="fog"] {
   stroke: var(--line-strong);
 }
 
-.tk-ig .n text {
-  fill: var(--ink);
-  font-family: var(--f-mono);
-  font-size: var(--t-label);
+.plotlabels .ig-n {
+  color: var(--ink);
 }
 
-.tk-ig .n .s {
-  fill: var(--ink-mute);
-  font-size: var(--t-label);
+.plotlabels .ig-s {
+  color: var(--ink-mute);
 }
 
 /* The base stroke is the transparent pool hue, not gold. Every edge the
@@ -3897,14 +4130,8 @@ canvas[data-ui="fog"] {
   stroke: var(--p-sprout);
 }
 
-.tk-ig .el {
-  fill: var(--ink-dim);
-  font-family: var(--f-mono);
-  font-size: var(--t-label);
-  paint-order: stroke;
-  stroke: var(--surface);
-  stroke-width: 6px;
-  stroke-linejoin: round;
+.plotlabels .el {
+  color: var(--ink-dim);
 }
 
 /* The Sankey. */
@@ -3912,15 +4139,12 @@ canvas[data-ui="fog"] {
   stroke: none;
 }
 
-.tk-sankey .node text {
-  fill: var(--ink);
-  font-family: var(--f-mono);
-  font-size: var(--t-label);
+.plotlabels .sk-n {
+  color: var(--ink);
 }
 
-.tk-sankey .node .v {
-  fill: var(--ink-mute);
-  font-size: var(--t-label);
+.plotlabels .sk-v {
+  color: var(--ink-mute);
 }
 
 .tk-sankey .flow {
@@ -3944,10 +4168,8 @@ canvas[data-ui="fog"] {
   fill-opacity: 0.07;
 }
 
-.tk-band text {
-  fill: var(--danger);
-  font-family: var(--f-mono);
-  font-size: var(--t-label);
+.plotlabels .band-label {
+  color: var(--danger);
 }
 
 /* The migration histogram. */
@@ -4696,6 +4918,94 @@ canvas[data-ui="fog"] {
   position: relative;
   z-index: 2;
   padding: 44px 48px 40px;
+}
+
+/* ---------- the claim beat on a Record page ----------
+   The splash's claim beat is a full-bleed panel with the fog behind it, because
+   it is the first thing anyone sees on the site. A Record page already has a
+   masthead above it, so the same GRAMMAR - the beat tag, the claim, then the
+   explanation - is set without the panel: the reader should meet a claim, not a
+   second front door. `components/record/PageClaim.tsx` carries the argument. */
+.pageclaim {
+  border: 0;
+  padding: 0;
+  margin: 26px 0 0;
+  max-width: var(--measure);
+  /* AND THE PANEL, RESET. `.beat-claim` paints the splash's card - `--bg-deep`,
+     a radius and `overflow: hidden` - and `.pageclaim` inherits all three from
+     it. On a Record page that renders the claim as a black card the width of
+     the measure with the sentence against its edges and a hard edge mid-
+     paragraph: the "second front door" the comment above says this block exists
+     to prevent, produced by the block itself. Measured on /contradictions at
+     1440 and 760 - `background rgb(12, 11, 10)`, `border-radius 3px`,
+     `overflow hidden` - by a worker that rendered the page and looked at it. */
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.pc-claim {
+  font-family: var(--f-display);
+  font-size: clamp(21px, 2.1vw, 27px);
+  line-height: 1.28;
+  color: var(--ink);
+  margin: 0;
+}
+
+.pc-explain {
+  margin-top: 12px;
+}
+
+/* THE EPISTEMIC STRIP, IN THE OPEN. A row, at label size, immediately under the
+   claim - not an aside, not a footer, and never inside a `<details>`. The
+   collapse rule's hardest clause is that epistemic status behind a toggle is
+   the null-panel-renders-as-zero defect in a nicer coat. */
+.pc-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  font-family: var(--f-mono);
+  font-size: var(--t-label);
+  letter-spacing: 0.06em;
+  color: var(--ink-mute);
+}
+
+.pc-date,
+.pc-src {
+  position: relative;
+  padding-left: 12px;
+}
+
+.pc-date::before,
+.pc-src::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 1px;
+  height: 11px;
+  transform: translateY(-50%);
+  background: var(--line);
+}
+
+/* The divider separates two chips, so it must not open the row. A page with no
+   page-level grade starts the strip on the date, and the rule would then hang to
+   the left of it with nothing on the other side. */
+.pc-status > :first-child::before {
+  content: none;
+}
+
+/* A page whose data carries no confidence and no last-verified says so, and the
+   sentence is set as prose rather than as a chip: a chip in this row would read
+   as a value, and the point is that there is no value to read. */
+.pc-status-absent {
+  display: block;
+  letter-spacing: 0;
+  font-family: var(--f-sans);
+  font-size: var(--t-sm);
+  max-width: var(--measure);
 }
 
 /* The claim is one sentence and it is falsifiable. It is also the largest

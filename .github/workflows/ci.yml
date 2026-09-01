@@ -92,7 +92,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      # THE THIRTEEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose. None of
+      # THE FOURTEEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose. None of
       # them needs node_modules or a build - they are bash, grep and dependency-free
       # node - and putting them after meant a PR whose build broke never got its
       # verdict on any of them. The Redis one in particular protects another
@@ -228,6 +228,9 @@ jobs:
       # finding over the real tree.
       - name: Nav routes (every static route has a nav entry)
         run: node scripts/check-nav-routes.mjs
+
+      - name: SVG text floor (no <text> in a scaled viewBox)
+        run: node scripts/check-svg-text-floor.mjs
 
       - name: Install
         run: pnpm install --frozen-lockfile

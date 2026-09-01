@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { getSource, requirePermalink, type SourceRef } from "@zcashreveal/content";
 
+import { Working } from "@/components/record/Working";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { Pill } from "@/components/ui/Pill";
 
@@ -36,6 +37,16 @@ import { Pill } from "@/components/ui/Pill";
  * subscripts: `Cand_0`, `N_eff`, `Bal^p`, `10^-4`. It reads correctly aloud,
  * which assertion A4 cares about, and it is the same string a reader will find
  * in the specification and in the indexer's source.
+ *
+ * THE TABLE IS COLLAPSED; THE SPLIT IT ENCODES IS NOT (HANDOFF-04b R4). This is
+ * the largest object on /method - eleven rows, each a paragraph of formula and a
+ * paragraph of refusal - and it is the raw table the collapse rule names. What
+ * stays open is the sentence beneath it in `app/method/page.tsx`, which reads
+ * the same `ESTIMATOR_COUNTS` this summary does: seven hold unconditionally,
+ * four are behavioural priors a reader is free to reject. A reader who never
+ * opens the panel has still been told the hard-to-soft split, which is the one
+ * thing the Kind column exists to say; a reader who wants row 3.5's byte term
+ * opens it. Collapsing MOVED the table and removed nothing from it.
  */
 
 /**
@@ -407,12 +418,17 @@ const COLUMNS: readonly Column<Estimator>[] = [
 
 export function MethodEstimators() {
   return (
-    <DataTable
-      caption="The eleven estimators, their kind, and the claim each one will not make"
-      columns={COLUMNS}
-      rows={ESTIMATORS}
-      rowKey={(r) => r.n}
-    />
+    <Working
+      title="The estimators, row by row"
+      finding={`${ESTIMATOR_COUNTS.total} estimators - ${ESTIMATOR_COUNTS.hard} hard, ${ESTIMATOR_COUNTS.soft} soft`}
+    >
+      <DataTable
+        caption="The eleven estimators, their kind, and the claim each one will not make"
+        columns={COLUMNS}
+        rows={ESTIMATORS}
+        rowKey={(r) => r.n}
+      />
+    </Working>
   );
 }
 

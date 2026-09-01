@@ -32,6 +32,17 @@ import { Conf } from "@/components/ui/Conf";
  * quarantined record that renders on no page. The id then renders as plain
  * text rather than as an anchor - the record is still cited, with its sources
  * and its confidence, but nothing pretends there is a place to go and read it.
+ *
+ * AND THE SOURCELESS ARM CARRIES THE DATE, which it did not until HANDOFF-04b.
+ * The `Cite` arm prints `verified <date>` in its own summary; the no-source arm
+ * replaced the whole of `Cite` with a sentence, so `lastVerified` DISAPPEARED
+ * for exactly the two records on this page that have no source to weigh -
+ * `U-nu6-lockbox-current-balance` and `U-zooko-sold-for-taxes`. An epistemic
+ * value that vanishes when a list is empty is the null-panel-renders-as-zero
+ * shape, and the collapse rule's "never collapse `lastVerified`" has to hold in
+ * the arm that has no toggle at all. The date printed is the record's own -
+ * `unverifiedSchema` requires one on every record, so there is no absent case
+ * to name here - and nothing about the missing sources is softened.
  */
 export function FlowsClaim({
   id,
@@ -79,7 +90,7 @@ export function FlowsClaim({
         // sources and resolves none still goes through `Cite` and still gets
         // that warning, because there it would be true.
         <span className="fl-attrib">
-          no source: nothing could be located to cite, which is why the record is quarantined
+          verified {lastVerified} · no source: nothing could be located to cite, which is why the record is quarantined
         </span>
       ) : (
         <Cite

@@ -1,6 +1,7 @@
 import { getBeware, resolveSources } from "@zcashreveal/content";
 
 import { Chart, ChartTable } from "@/components/record/Chart";
+import { ChartLabels } from "@/components/record/ChartLabels";
 import { Cite } from "@/components/record/Cite";
 import { PLOT, Plot, linear } from "@/components/record/Plot";
 
@@ -109,6 +110,33 @@ export function TwoWindows() {
           rows={BANDS.map((b) => [b.name, b.sound ? "yes" : "no", String(days(b)), b.detail])}
         />
       }
+      labels={
+        <ChartLabels
+          vw={width}
+          vh={height}
+          items={[
+            ...YEARS.map((yr) => ({
+              key: `y${String(yr)}`,
+              x: x(yr),
+              y: barY + barH + 6,
+              text: String(yr),
+              className: "tick tick-x",
+              anchor: "middle" as const,
+              baseline: "hanging" as const,
+              dy: 4,
+            })),
+            ...BANDS.filter((b) => b.label !== undefined).map((b) => ({
+              key: b.name,
+              x: x(b.from),
+              y: barY,
+              text: b.label as string,
+              className: "mark-label halo",
+              dx: 4,
+              dy: -7,
+            })),
+          ]}
+        />
+      }
       note={
         <>
           About {sharePct} per cent of the chain&apos;s life to date falls inside a window in which the property that would
@@ -134,12 +162,7 @@ export function TwoWindows() {
 
         <line x1={pad.left} x2={width - pad.right} y1={barY + barH} y2={barY + barH} className="axisline" />
         {YEARS.map((yr) => (
-          <g key={yr}>
-            <line x1={x(yr)} x2={x(yr)} y1={barY + barH} y2={barY + barH + 6} className="era-tick" />
-            <text x={x(yr)} y={barY + barH + 22} className="tick tick-x">
-              {yr}
-            </text>
-          </g>
+          <line key={yr} x1={x(yr)} x2={x(yr)} y1={barY + barH} y2={barY + barH + 6} className="era-tick" />
         ))}
 
         {BANDS.map((b) => (
@@ -154,12 +177,6 @@ export function TwoWindows() {
             stroke={b.sound ? "var(--line)" : "rgba(228, 85, 63, 0.7)"}
             strokeWidth={1}
           />
-        ))}
-
-        {BANDS.filter((b) => b.label !== undefined).map((b) => (
-          <text key={b.name} x={x(b.from) + 4} y={barY - 12} className="mark-label">
-            {b.label}
-          </text>
         ))}
       </Plot>
     </Chart>

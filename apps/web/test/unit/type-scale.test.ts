@@ -19,10 +19,20 @@
  * WHY THE BUILT CSS AND NOT THE SOURCE. `globals.css` names sizes as
  * `var(--t-label)`; the value lives in `tokens.css`. Reading only the source
  * would check that a token was USED, which is the shape of check this project
- * has shipped three times and had come back green on a hole. Reading the built
- * output would be better still, and is what A3's e2e half does; here the two
- * files are resolved against each other, which catches the case a build cannot:
- * a rung declared at a value under the floor.
+ * has shipped three times and had come back green on a hole. Here the two files
+ * are resolved against each other, which catches the case a rendering cannot: a
+ * rung declared at a value under the floor.
+ *
+ * A SENTENCE THAT STOOD HERE WAS FALSE, AND HANDOFF-04b MADE IT TRUE RATHER
+ * THAN DELETING IT. It read "Reading the built output would be better still,
+ * and is what A3's e2e half does". There was no e2e half: `test/e2e` contained
+ * zero references to `fontSize`, `font-size`, `getPropertyValue` or `getBBox`
+ * across sixteen spec files, and no `setViewportSize` call anywhere, so nothing
+ * in the tree measured a rendered size at any width. That is a sentence making
+ * a checkable claim about runtime behaviour, checkable by executing it, and
+ * wrong - the clause (ii)(c) shape. `test/e2e/painted-floor.spec.ts` now carries
+ * the real thing: computed styles and screen CTMs in a browser at every
+ * supported width, which is the only instrument that can see PAINTED size.
  */
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -156,9 +166,17 @@ const RUNGS = ["--t-label", "--t-micro", "--t-data", "--t-dek", "--t-sm", "--t-b
  * distinguish a declaration inside a comment from one that ships, and the
  * stylesheet's comments quote sizes constantly - including the seven this
  * handoff removed.
+ *
+ * IT TAKES ITS SOURCE AS A PARAMETER, and that is the fix for a weakness in the
+ * fail sides below rather than a convenience. Closing over the module-level
+ * `CSS` meant a probe could not point the real parser at a mutated string, so
+ * the 9.75px fail side re-implemented the mask and the sweep inline and drove a
+ * COPY of the parser. A fail side that re-implements the check proves nothing
+ * about the check that ran on the pass side; the same function now runs on both
+ * polarities.
  */
-function declaredSizes(): readonly { readonly raw: string; readonly line: number }[] {
-  const masked = CSS.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
+function declaredSizes(source: string = CSS): readonly { readonly raw: string; readonly line: number }[] {
+  const masked = source.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
   const out: { raw: string; line: number }[] = [];
   for (const m of masked.matchAll(/font-size:\s*([^;]+);/g)) {
     const line = masked.slice(0, m.index).split("\n").length;
@@ -180,45 +198,33 @@ function resolvePx(raw: string): number | null {
 }
 
 /**
- * THE TWO DECLARATIONS BELOW THE FLOOR, EACH WITH A REASON, AND THE SELF-TEST
- * ITERATES THIS LIST.
+ * THE REGISTER, AND IT IS NOW EMPTY.
  *
- * SVG text inside a scaled `viewBox` is not CSS pixels, and that is measured
- * rather than argued. The loop diagram's viewBox is 1000 units wide and renders
- * at 1384 CSS px on a 1440 px viewport, so the scale is 1.384 and a declared
- * 9.5 paints at 13.1 CSS px. At 1024 px the scale is 0.968; at 760 px and below
- * it is 0.72, where a declared 12 paints at 8.6 - UNDER THE FLOOR, at any
- * declared value. The floor is a rule about CSS pixels and cannot be satisfied
- * here by choosing a bigger number.
+ * HANDOFF-04a carried two rows here - `.plot .edge-label` and `.plot .nw-sub`,
+ * both at 9.5 user units - with the measurement as the reason and an honest
+ * note that the real fix was HTML labels over the SVG. HANDOFF-04b did that.
+ * Every chart label on the site is now an HTML element in a `ChartLabels`
+ * layer, sized by the ordinary cascade in real CSS pixels, so there is no
+ * sub-floor declaration left to register.
  *
- * What a bigger number DID do was break the layout. Both of these labels sit in
- * a hand-positioned diagram whose coordinate space is `PLOT.width`, shared by
- * every chart on the site so a stroke width means the same thing on all of
- * them, and so not available to widen for one of them. At 12 units the node
- * sub-line measured 223 units against a 200-unit box and the edge label 173
- * units into a 150-unit gap; both rendered straight through the boxes.
+ * THE EMPTY LIST IS NOT THE SAME AS A DELETED CHECK, and the difference is the
+ * defect this file's own predecessor shipped. 04a's section 8 records
+ * `css-dedup.test.ts`: its register named `font-size: 11px`, no rule declared
+ * 11px any more, and the check "would have gone VACUOUS rather than failed -
+ * `[]` never equals `[\".cp\"]`, so it failed on the equality and not on the
+ * emptiness". So the count test below asserts against `SVG_EXCLUSIONS.length`
+ * rather than against a literal zero, the loop over the rows is kept so a row
+ * added later arrives tested, and BOTH fail sides splice a real sub-floor value
+ * into the real parser - which is what keeps a green run here evidence about
+ * the stylesheet rather than evidence that the list is short.
  *
- * So the exception is REGISTERED rather than silently survived, the reason is a
- * measurement, and the real fix - HTML labels positioned over the SVG, which is
- * what the turnstile plane does and why - is named in section 8 as work rather
- * than pretended away here.
+ * The construct itself is now banned rather than measured:
+ * `scripts/check-svg-text-floor.mjs` fails on any SVG `<text>` in `apps/web`
+ * outside its own register, because no declared value clears the floor at every
+ * supported width. This list is about CSS declarations; that guard is about
+ * elements; `test/e2e/painted-floor.spec.ts` measures what is actually painted.
  */
-const SVG_EXCLUSIONS: readonly { readonly selector: string; readonly px: number; readonly reason: string }[] = [
-  {
-    selector: ".plot .edge-label",
-    px: 9.5,
-    reason:
-      "SVG text in a shared 1000-unit viewBox; at 12 units '$33.33M fleet, in equity' is 173 units " +
-      "into a 150-unit gap between two hand-positioned columns",
-  },
-  {
-    selector: ".plot .nw-sub",
-    px: 9.5,
-    reason:
-      "SVG text in the same viewBox; at 12 units 'ZODL CEO - paid CYPH advisor' is 223 units against " +
-      "a 200-unit box",
-  },
-];
+const SVG_EXCLUSIONS: readonly { readonly selector: string; readonly px: number; readonly reason: string }[] = [];
 
 describe("A3: nothing rendered as text is below the floor", () => {
   const FLOOR = pxToken("--t-floor");
@@ -248,20 +254,40 @@ describe("A3: nothing rendered as text is below the floor", () => {
   });
 
   it("has exactly as many sub-floor declarations as the register accounts for", () => {
-    // The exemption above is by VALUE, which would let a third 9.5px
-    // declaration arrive unregistered and be waved through with the two that
-    // are named. This is the count that closes that: the stylesheet may carry
-    // exactly as many sub-floor declarations as SVG_EXCLUSIONS has rows.
+    // The exemption is by VALUE, which would let an unregistered declaration at
+    // an already-exempted size be waved through with the ones that are named.
+    // This is the count that closes it: the stylesheet may carry exactly as many
+    // sub-floor declarations as SVG_EXCLUSIONS has rows - zero, today.
     const under = declaredSizes()
       .map((s) => resolvePx(s.raw))
       .filter((px) => px !== null && px < FLOOR);
     expect(under).toHaveLength(SVG_EXCLUSIONS.length);
   });
 
+  it("the register's own machinery works, on a row the register does not have", () => {
+    // AN EMPTY LOOP IS A GREEN TEST THAT CHECKS NOTHING, and this file's own
+    // predecessor shipped exactly that shape (see the register's docblock). The
+    // register is empty today, so the row-checking logic below would iterate
+    // zero times and report success on no input. This drives the same three
+    // predicates over a SYNTHETIC row instead, so the machinery a future row
+    // will meet is exercised now rather than the first time someone adds one.
+    const synthetic = { selector: ".plot .never-declared", px: 9.5, reason: "x" };
+    const rule = new RegExp(
+      `${synthetic.selector.replace(/[.\s]/g, (c) => (c === "." ? "\\." : "\\s+"))}\\s*\\{([^}]*)\\}`,
+    ).exec(CSS);
+    expect(rule, "a selector no stylesheet rule declares must not resolve").toBeNull();
+    expect(synthetic.reason.length, "a one-character reason must not clear the length bar").toBeLessThan(40);
+    expect(synthetic.px, "9.5 must still read as below the floor, or the row test cannot fire").toBeLessThan(FLOOR);
+    // And the register really is empty, stated rather than implied, so a reader
+    // of a green run knows which of the two facts they are looking at.
+    expect(SVG_EXCLUSIONS).toHaveLength(0);
+  });
+
   it("registers every sub-floor declaration at the selector and value it claims", () => {
     // THE LOOP OVER THE RULE'S OWN DATA STRUCTURE. A row added later cannot
     // arrive untested: it has to name a selector that exists, carry the size it
-    // claims, and give a reason.
+    // claims, and give a reason. Empty today - the test above is what keeps
+    // that from being a silent pass.
     for (const e of SVG_EXCLUSIONS) {
       const rule = new RegExp(`${e.selector.replace(/[.\s]/g, (c) => (c === "." ? "\\." : "\\s+"))}\\s*\\{([^}]*)\\}`).exec(CSS);
       expect(rule, `${e.selector} has no rule in globals.css`).not.toBeNull();
@@ -292,15 +318,28 @@ describe("A3: nothing rendered as text is below the floor", () => {
     // set that the register does NOT name is the member this must catch.
     const mutated = CSS.replace("font-size: var(--t-label);", "font-size: 9.75px;");
     expect(mutated, "the splice did not apply; this probe would prove nothing").not.toBe(CSS);
-    const masked = mutated.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "));
-    const under = [...masked.matchAll(/font-size:\s*([^;]+);/g)]
-      .map((m) => resolvePx((m[1] as string).trim()))
+    // THE REAL PARSER, POINTED AT THE MUTATED TEXT. It used to re-implement the
+    // mask and the sweep inline, which drove a copy: a fail side that
+    // re-implements the check proves nothing about the check that ran on the
+    // pass side. `declaredSizes` now takes its source, so both polarities run
+    // through the same function.
+    const under = declaredSizes(mutated)
+      .map((s) => resolvePx(s.raw))
       .filter((px) => px !== null && px < FLOOR);
     const excluded = new Set(SVG_EXCLUSIONS.map((e) => e.px));
     expect(
       under.filter((px) => px !== null && !excluded.has(px)),
       "9.75px was spliced into the stylesheet and the floor check did not see it",
     ).toEqual([9.75]);
+    // ANTI-PROBE on the same instrument: unmutated, the same call is silent. A
+    // detector that reported 9.75 on the real stylesheet too would satisfy the
+    // line above and mean nothing.
+    expect(
+      declaredSizes(CSS)
+        .map((s) => resolvePx(s.raw))
+        .filter((px) => px !== null && px < FLOOR),
+      "the real stylesheet carries a sub-floor declaration, so the probe above does not discriminate",
+    ).toEqual([]);
   });
 
   it("the fail side: a rung redefined under the floor is caught", () => {

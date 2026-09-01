@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { Working } from "@/components/record/Working";
 import { DataTable, type Column } from "@/components/ui/DataTable";
 import { Pill } from "@/components/ui/Pill";
 
@@ -25,6 +26,18 @@ import { Pill } from "@/components/ui/Pill";
  * document specifies this site's own procedure and is not an external source,
  * so it is attributed by name and path and carries no `sources[]` entry -
  * inventing one would be the exact defect this page exists to argue against.
+ *
+ * THE GRID IS COLLAPSED AND THE REFUSAL BELOW IT IS NOT (HANDOFF-04b R4), and
+ * on this page the split needed deciding rather than applying. A naive reading
+ * of the collapse rule - "collapse the method walk-through" - would fold /method
+ * into a page of shut triangles, because the method walk-through IS this page's
+ * claim. So the line drawn here is REFERENCE against ARGUMENT: the four-by-four
+ * grid is reference, a lookup a reader consults for the row they arrived with,
+ * and the three sentences under it - a sender or recipient inside the pool, a
+ * balance without a key, an owner from behaviour - are the argument and stay in
+ * the open. The grid's summary carries both counts, so a reader who never opens
+ * it still learns that one of the four query kinds is answered "undefined by
+ * construction", which is the row the whole page turns on.
  */
 
 /**
@@ -143,15 +156,39 @@ const COLUMNS: readonly Column<QueryRow>[] = [
   },
 ];
 
+/**
+ * The rows whose Exactness column carries an `undefined` verdict, kept as the
+ * ROWS THEMSELVES rather than as a number.
+ *
+ * Both halves of the summary below then read `.length` off an array the table
+ * also renders, so a summary saying "4 kinds" over a table of five is not
+ * reachable. The second count is the one worth carrying in the closed state:
+ * exactly one of the four kinds - a shielded address, in Mode B - is answered
+ * "undefined by construction", and that is the row the page turns on.
+ *
+ * The first draft of this held a `QUERY_COUNTS` object of two numbers, and
+ * `test/unit/summary-findings.test.ts` rejected it: its predicate accepts a
+ * literal digit or an interpolation naming `length`, `count`, `total` or
+ * `size`, and `QUERY_COUNTS.kinds` is none of those. Widening the checker was
+ * the wrong repair - it reads the call site precisely because a summary's
+ * finding is a prop it cannot otherwise see - so the call site names the array.
+ */
+const UNDEFINED_ROWS = ROWS.filter((r) => r.exactness.some((e) => e.kind === "undefined"));
+
 export function MethodQueryTable() {
   return (
     <>
-      <DataTable
-        caption="What each kind of query can honestly return"
-        columns={COLUMNS}
-        rows={ROWS}
-        rowKey={(r) => r.key}
-      />
+      <Working
+        title="What each query kind can honestly return"
+        finding={`${ROWS.length} kinds, ${UNDEFINED_ROWS.length} undefined by construction`}
+      >
+        <DataTable
+          caption="What each kind of query can honestly return"
+          columns={COLUMNS}
+          rows={ROWS}
+          rowKey={(r) => r.key}
+        />
+      </Working>
       <div className="refuses" style={{ marginTop: 12 }}>
         <b>never returned</b>
         <span>

@@ -1,6 +1,7 @@
 import { requirePermalink, resolveSources, type BewareEntry, type TimelineEvent } from "@zcashreveal/content";
 
 import { Cite } from "@/components/record/Cite";
+import { Working } from "@/components/record/Working";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Glass } from "@/components/ui/Glass";
 
@@ -20,6 +21,15 @@ import { Glass } from "@/components/ui/Glass";
  * description rather than copied from the upstream commit, and the card says
  * so in as many words. The nine steps, by contrast, are real timeline rows,
  * each with its own id, confidence and citation.
+ *
+ * BOTH ARE THE WORKING, SO BOTH ARE COLLAPSED (HANDOFF-04b R4). A diff and a
+ * nine-row register are a derivation and a method walk-through - the two things
+ * the collapse rule names - and they were the first thing under this block's
+ * heading, which is the "huge number, tiny explanation" order the redesign was
+ * commissioned to fix. What is NOT collapsed is the argument beside them: what a
+ * turnstile bounds, and B2's own confidence, date, sources and citation. Each
+ * summary carries a count derived from the array it discloses, so a summary
+ * cannot disagree with the body under it.
  */
 
 /** The file and lines `B2.rootCause` names. Not a separate corpus field. */
@@ -53,30 +63,42 @@ export function BewareDeepDive({
   readonly steps: readonly TimelineEvent[];
 }) {
   const sources = resolveSources(entry.sources);
+  // Counted from `PATCH` rather than typed beside it: the summary states how
+  // many lines the panel holds while it is shut, and a literal there could
+  // disagree with the array under it.
+  const removed = PATCH.filter((l) => l.kind === "del").length;
+  const added = PATCH.filter((l) => l.kind === "add").length;
 
   return (
     <div className="bw-detail">
       <Glass>
         <Eyebrow idx="root cause">{SITE}</Eyebrow>
 
-        {/* tabIndex only, and no aria-label: the block scrolls sideways, so it
-            needs a tab stop (axe: scrollable-region-focusable), and the eyebrow
-            above already names it. aria-label on an element with no role is
-            prohibited, and repeating the name would announce it twice. */}
-        <pre className="code" style={{ marginTop: 10 }} tabIndex={0}>
-          {PATCH.map((line) => (
-            <span className={`bw-${line.kind}`} key={line.text}>
-              {line.text}
-              {"\n"}
-            </span>
-          ))}
-        </pre>
+        <div style={{ marginTop: 10 }}>
+          <Working
+            title="The missing constraint, as a diff"
+            finding={`${PATCH.length} lines, ${removed} removed`}
+          >
+            {/* tabIndex only, and no aria-label: the block scrolls sideways, so it
+                needs a tab stop (axe: scrollable-region-focusable), and the summary
+                above already names it. aria-label on an element with no role is
+                prohibited, and repeating the name would announce it twice. */}
+            <pre className="code" style={{ marginTop: 14 }} tabIndex={0}>
+              {PATCH.map((line) => (
+                <span className={`bw-${line.kind}`} key={line.text}>
+                  {line.text}
+                  {"\n"}
+                </span>
+              ))}
+            </pre>
 
-        <p className="note" style={{ marginTop: 12 }}>
-          The two removed lines are the assignment the root cause names, at the file and lines it names. The three added
-          lines are the <i>shape</i> of the constraint that was missing, reconstructed from that description rather than
-          copied from the upstream commit.
-        </p>
+            <p className="note">
+              The {removed} removed lines are the assignment the root cause names, at the file and lines it names. The{" "}
+              {added} added lines are the <i>shape</i> of the constraint that was missing, reconstructed from that
+              description rather than copied from the upstream commit.
+            </p>
+          </Working>
+        </div>
 
         <p className="note" style={{ marginTop: 12 }}>
           ZIP 209 rejects any block that would drive a pool&apos;s balance below zero, so what a pool can pay out is
@@ -100,46 +122,55 @@ export function BewareDeepDive({
             confidence={entry.confidence}
             sources={sources}
           />
-          <span className="src">last verified {entry.lastVerified}</span>
         </div>
       </Glass>
 
       <Glass>
         <Eyebrow idx="timeline">patched before it was told</Eyebrow>
 
-        <div className="bw-steps" style={{ marginTop: 6 }}>
-          {steps.map((step) => {
-            // The corpus prints its own dates and this renders them verbatim:
-            // `date` is a sort key, and two of these nine rows are ranges the
-            // research does not resolve to a day (HANDOFF-03, assertion A11).
-            const loud = step.category === "EXPLOIT";
-            return (
-              <div className="bw-step" key={step.id}>
-                <span className="bw-w">{loud ? <b>{step.dateText}</b> : step.dateText}</span>
-                <span>
-                  <b>{step.title}</b>
-                  {step.summary === step.title ? null : <> {step.summary}</>}
-                  <span className="claim">
-                    <a className="anchor" href={requirePermalink(step.id)}>
-                      {step.id}
-                    </a>
-                    <Cite
-                      id={step.id}
-                      lastVerified={step.lastVerified}
-                      confidence={step.confidence}
-                      sources={resolveSources(step.sources)}
-                    />
+        <Working title="How it was found and patched" finding={`${steps.length} steps, each cited`}>
+          <div className="bw-steps" style={{ marginTop: 6 }}>
+            {steps.map((step) => {
+              // The corpus prints its own dates and this renders them verbatim:
+              // `date` is a sort key, and two of these nine rows are ranges the
+              // research does not resolve to a day (HANDOFF-03, assertion A11).
+              const loud = step.category === "EXPLOIT";
+              return (
+                <div className="bw-step" key={step.id}>
+                  <span className="bw-w">{loud ? <b>{step.dateText}</b> : step.dateText}</span>
+                  <span>
+                    <b>{step.title}</b>
+                    {step.summary === step.title ? null : <> {step.summary}</>}
+                    <span className="claim">
+                      <a className="anchor" href={requirePermalink(step.id)}>
+                        {step.id}
+                      </a>
+                      <Cite
+                        id={step.id}
+                        lastVerified={step.lastVerified}
+                        confidence={step.confidence}
+                        sources={resolveSources(step.sources)}
+                      />
+                    </span>
                   </span>
-                </span>
-              </div>
-            );
-          })}
-        </div>
+                </div>
+              );
+            })}
+          </div>
 
-        <p className="note" style={{ marginTop: 12 }}>
-          The confirmation on 30 May and the private coordination with miners and exchanges on 31 May are not separate
-          rows in the corpus timeline; they are recorded inside B2&apos;s own account, opposite. Block heights appear
-          here in the rows&apos; own wording because the timeline&apos;s height field is unset on all nine of them.
+        </Working>
+
+        {/* OUTSIDE the disclosure, and that is the point: this paragraph states
+            what the corpus does NOT carry. An absence behind a toggle is the
+            null-panel-renders-as-zero defect in a nicer coat, the same clause
+            that keeps confidence and last-verified in the open - so the reader
+            learns what the register omits without having to open it, and the
+            closed control is not the only thing in this card. */}
+        <p className="note" style={{ marginTop: 14 }}>
+          The register holds the corpus&apos;s own timeline rows for this window and nothing else: the confirmation on
+          30 May and the private coordination with miners and exchanges on 31 May are not separate rows in it - they are
+          recorded inside B2&apos;s own account, opposite. Block heights appear inside the {steps.length} steps in the
+          rows&apos; own wording, because the timeline&apos;s height field is unset on all of them.
         </p>
       </Glass>
     </div>

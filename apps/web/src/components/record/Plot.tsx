@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import type { ChartLabel } from "@/components/record/ChartLabels";
+
 /**
  * The plotting primitives: thin marks, computed coordinates, no library.
  *
@@ -82,61 +84,123 @@ export function path(points: readonly (readonly [number, number])[]): string {
 }
 
 /**
- * The plot frame: the axes, their ticks and their labels. Every chart draws
- * this first so the rules, the type size and the tick length are identical
- * across the site.
+ * The plot frame: the axes and their tick MARKS. Every chart draws this first
+ * so the rules and the tick length are identical across the site.
+ *
+ * THE TEXT IS NOT HERE. It comes from `axesLabels` below, as data, and is
+ * rendered as HTML over the drawing - the reason is measured in
+ * `ChartLabels.tsx`. The two halves take the same scales and the same `height`
+ * so a tick line and its label cannot drift apart; `height` is a parameter on
+ * BOTH for that reason, because a caller that overrode it on one and not the
+ * other would silently put the x labels on a different row from their ticks.
  */
 export function Axes({
   x,
   y,
   xTicks,
   yTicks,
-  xLabel,
+  height = PLOT.height,
+}: {
+  readonly x: Scale;
+  readonly y: Scale;
+  readonly xTicks: readonly { readonly at: number; readonly label: string }[];
+  readonly yTicks: readonly { readonly at: number; readonly label: string }[];
+  /** The chart's viewBox height, when it overrides the shared one. */
+  readonly height?: number;
+}) {
+  const { width, pad } = PLOT;
+  const x0 = pad.left;
+  const x1 = width - pad.right;
+  const y0 = height - pad.bottom;
+  return (
+    <g className="axes" aria-hidden="true">
+      {yTicks.map((t) => (
+        <line key={`y${t.at}`} x1={x0} x2={x1} y1={y(t.at)} y2={y(t.at)} className="gridline" />
+      ))}
+      {xTicks.map((t) => (
+        <line key={`x${t.at}`} x1={x(t.at)} x2={x(t.at)} y1={y0} y2={y0 + 4} className="axisline" />
+      ))}
+      <line x1={x0} x2={x1} y1={y0} y2={y0} className="axisline" />
+    </g>
+  );
+}
+
+/**
+ * The other half of `Axes`: its text, as DATA rather than as `<text>`.
+ *
+ * The coordinates are the ones the `<text>` elements carried, unchanged - the
+ * label moves out of the drawing, not out of its place. `ChartLabels` maps them
+ * to percentages of the viewBox and the ordinary cascade sizes them in real CSS
+ * pixels, which is the whole of HANDOFF-04b deliverable 1.
+ *
+ * A chart calls this and passes the result to `Chart`'s `labels` prop; the two
+ * halves take the same scales, so a tick line and its label cannot drift apart.
+ */
+export function axesLabels({
+  x,
+  y,
+  xTicks,
+  yTicks,
+  height = PLOT.height,
   yLabel,
 }: {
   readonly x: Scale;
   readonly y: Scale;
   readonly xTicks: readonly { readonly at: number; readonly label: string }[];
   readonly yTicks: readonly { readonly at: number; readonly label: string }[];
-  readonly xLabel?: string;
+  /** The chart's viewBox height, when it overrides the shared one. */
+  readonly height?: number;
   readonly yLabel?: string;
-}) {
-  const { width, height, pad } = PLOT;
+}): ChartLabel[] {
+  const { pad } = PLOT;
   const x0 = pad.left;
-  const x1 = width - pad.right;
   const y0 = height - pad.bottom;
   const y1 = pad.top;
-  return (
-    <g className="axes" aria-hidden="true">
-      {yTicks.map((t) => (
-        <g key={`y${t.at}`}>
-          <line x1={x0} x2={x1} y1={y(t.at)} y2={y(t.at)} className="gridline" />
-          <text x={x0 - 8} y={y(t.at)} className="tick tick-y">
-            {t.label}
-          </text>
-        </g>
-      ))}
-      {xTicks.map((t) => (
-        <g key={`x${t.at}`}>
-          <line x1={x(t.at)} x2={x(t.at)} y1={y0} y2={y0 + 4} className="axisline" />
-          <text x={x(t.at)} y={y0 + 17} className="tick tick-x">
-            {t.label}
-          </text>
-        </g>
-      ))}
-      <line x1={x0} x2={x1} y1={y0} y2={y0} className="axisline" />
-      {xLabel === undefined ? null : (
-        <text x={x1} y={height - 4} className="axis-label axis-label-x">
-          {xLabel}
-        </text>
-      )}
-      {yLabel === undefined ? null : (
-        <text x={x0 - 8} y={y1 - 6} className="axis-label axis-label-y">
-          {yLabel}
-        </text>
-      )}
-    </g>
-  );
+  const out: ChartLabel[] = [];
+  // THE ANCHOR IS THE AXIS; THE GAP IS IN PIXELS. Each label sits ON the line
+  // it names and is nudged clear of it by `dx`/`dy` in CSS pixels, because the
+  // gap is about the glyph and the glyph no longer scales. The `<text>` these
+  // replace used user-unit offsets - 8 units left of the axis, 17 units below
+  // it - which were ~4px and ~8.4px of clearance for 5.95px text on a 1440px
+  // timeline. Kept as user units they put the "0%" tick and the "2018" tick on
+  // top of each other at 12px, which is what the first render showed.
+  for (const t of yTicks) {
+    out.push({
+      key: `y${String(t.at)}`,
+      x: x0,
+      y: y(t.at),
+      text: t.label,
+      className: "tick tick-y",
+      anchor: "end",
+      baseline: "middle",
+      dx: -8,
+    });
+  }
+  for (const t of xTicks) {
+    out.push({
+      key: `x${String(t.at)}`,
+      x: x(t.at),
+      y: y0,
+      text: t.label,
+      className: "tick tick-x",
+      anchor: "middle",
+      baseline: "hanging",
+      dy: 9,
+    });
+  }
+  if (yLabel !== undefined) {
+    out.push({
+      key: "ylabel",
+      x: x0,
+      y: y1,
+      text: yLabel,
+      className: "axis-label",
+      anchor: "start",
+      dx: -8,
+      dy: -8,
+    });
+  }
+  return out;
 }
 
 /**

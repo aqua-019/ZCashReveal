@@ -3,10 +3,12 @@ import {
   LABELLER_PRECEDENCE,
   type AddressLabel,
   type Labeller,
+  type SourceRef,
 } from "@zcashreveal/content";
 
 import { groupZec, shortAddress } from "@/components/record/FlowsAmount";
 import { FlowsClaim } from "@/components/record/FlowsClaim";
+import { Working } from "@/components/record/Working";
 import { Chip } from "@/components/ui/Chip";
 import { Conf } from "@/components/ui/Conf";
 import { DataTable } from "@/components/ui/DataTable";
@@ -38,6 +40,17 @@ import { Pill } from "@/components/ui/Pill";
  * and the box that refuses that inference is rendered beside the table rather
  * than beneath it, because a warning a reader reaches after they have already
  * drawn the conclusion is not a warning.
+ *
+ * THE REGISTRY IS THE ONE TABLE ON /flows THAT HANDOFF-04b DID NOT COLLAPSE,
+ * and refusing to collapse it is the paragraph above enforced rather than
+ * restated. R4 folds a raw table behind a disclosure; CLAUDE.md requires the
+ * labeller precedence to be "always displayed", and the docblock above commits
+ * this component to printing every method "unabridged and unexpanded - no
+ * disclosure, no truncation, no tooltip". A label whose method is one click
+ * away is a label whose method is not displayed, and an attribution shown
+ * without the method that produced it is an identity claim. The two rules meet
+ * here and the standing one wins; the rich list and the vendor survey below are
+ * collapsed, because neither carries an attribution.
  */
 
 const POOL = "shielded pool";
@@ -311,9 +324,55 @@ const RICH_LIST: readonly RichRow[] = [
   },
 ];
 
+/**
+ * The sources the three page-local claims in this file rest on.
+ *
+ * Hoisted out of the JSX because the claim beat at the top of /flows states how
+ * many distinct sources the whole page rests on and computes it from the arrays
+ * the claims render. A list that exists only inside an attribute cannot be
+ * totalled without being copied, and a copy is a second place for the same fact
+ * to be stated differently.
+ */
+const RICHLIST_SOURCES: readonly SourceRef[] = [
+  "S-blockchair-api-zcash-addresses",
+  "S-blockchair-api-address-addr",
+];
+
+const FALSE_INFERENCE_SOURCES: readonly SourceRef[] = [
+  "S-blockchair-api-zcash-addresses",
+  "S-sec-edgar-000172026526000006-zcsh-20260630",
+  "S-stocktitan-cyph-10-q-cypherpunk-technologies-inc",
+];
+
+const LABELLING_SOURCES: readonly SourceRef[] = [
+  "S-blockchair-api-address-addr",
+  "S-coincarp-zcash-richlist",
+  "S-coincarp-zcash-exchange-wallets",
+  "S-bitinfocharts-top-100-richest-zcash-addresses",
+  "S-cipherscan-cipherscan-app",
+  "S-zec-stats-zecstats-com",
+  "S-intel-arkm-com-token-zcash",
+  "S-whale-alert-faq",
+];
+
+/** Every source the page-local claims in this file cite, for the page's total. */
+export function flowsLabelSources(): readonly SourceRef[] {
+  return [...RICHLIST_SOURCES, ...FALSE_INFERENCE_SOURCES, ...LABELLING_SOURCES];
+}
+
 export function FlowsRichList() {
   return (
     <div>
+      {/* THE RAW TABLE, COLLAPSED; THE REFUSAL UNDER IT, NOT (R4). The rows are
+          twenty-five ranks of balance, script type and first-seen date, which
+          is a raw table by any reading. The sentence below - a large balance is
+          not evidence of anything - is the finding the table exists to support,
+          and it stays open, because a page that folds its refusal behind a
+          triangle has published the temptation and hidden the answer. */}
+      <Working
+        title="The rich list, rank by rank"
+        finding={`${RICH_LIST.length} rows, ranks 1 to 25`}
+      >
       <DataTable
         caption="Largest transparent holders, Blockchair rich list read 22 August 2026, all unattributed"
         columns={[
@@ -345,6 +404,7 @@ export function FlowsRichList() {
         rows={RICH_LIST}
         rowKey={(r) => r.rank}
       />
+      </Working>
       <p className="note fl-gap-s" id="R-richlist">
         A large balance is <b>not evidence of anything</b>. It is not evidence of an exchange, a custodian, a fund, an
         insider or a seller. Nine-figure ZEC positions sit in addresses that no public labeller has attributed, and the
@@ -357,7 +417,7 @@ export function FlowsRichList() {
         href="/flows#R-richlist"
         confidence="high"
         lastVerified="2026-08-22"
-        sources={["S-blockchair-api-zcash-addresses", "S-blockchair-api-address-addr"]}
+        sources={RICHLIST_SOURCES}
         unbound
       />
     </div>
@@ -389,11 +449,7 @@ export function FlowsFalseInference() {
         href="/flows#R-false-inference"
         confidence="high"
         lastVerified="2026-08-22"
-        sources={[
-          "S-blockchair-api-zcash-addresses",
-          "S-sec-edgar-000172026526000006-zcsh-20260630",
-          "S-stocktitan-cyph-10-q-cypherpunk-technologies-inc",
-        ]}
+        sources={FALSE_INFERENCE_SOURCES}
         unbound
       />
     </div>
@@ -438,9 +494,19 @@ export function FlowsLabellingInfrastructure() {
   return (
     <Glass className="fl-stack" id="R-labelling">
       <Eyebrow idx="what labelling infrastructure exists for zcash">surveyed 22 August 2026</Eyebrow>
-      <div className="fl-kv-prose">
-        <KV stack entries={INFRASTRUCTURE.map((row) => ({ k: row.k, v: row.v }))} />
-      </div>
+      {/* THE SURVEY, COLLAPSED; ITS ANSWER, NOT (R4). Eight vendors and what
+          each one turned out to hold is the working behind one sentence, and
+          the sentence is below the disclosure rather than inside it. The count
+          is `INFRASTRUCTURE.length`, so a vendor added later moves the summary
+          with the list. */}
+      <Working
+        title="Every public ZEC labelling source, and what it holds"
+        finding={`${INFRASTRUCTURE.length} vendors surveyed`}
+      >
+        <div className="fl-kv-prose">
+          <KV stack entries={INFRASTRUCTURE.map((row) => ({ k: row.k, v: row.v }))} />
+        </div>
+      </Working>
       <p className="note">
         One vendor labels Zcash entities at all, and its pages are gated. That is the whole of the public labelling
         infrastructure for this chain, and it is why every attribution on this page names the party who made it.
@@ -450,16 +516,7 @@ export function FlowsLabellingInfrastructure() {
         href="/flows#R-labelling"
         confidence="high"
         lastVerified="2026-08-22"
-        sources={[
-          "S-blockchair-api-address-addr",
-          "S-coincarp-zcash-richlist",
-          "S-coincarp-zcash-exchange-wallets",
-          "S-bitinfocharts-top-100-richest-zcash-addresses",
-          "S-cipherscan-cipherscan-app",
-          "S-zec-stats-zecstats-com",
-          "S-intel-arkm-com-token-zcash",
-          "S-whale-alert-faq",
-        ]}
+        sources={LABELLING_SOURCES}
         unbound
       />
     </Glass>

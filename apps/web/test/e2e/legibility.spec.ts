@@ -776,11 +776,34 @@ const SUMMARY_ROUTES: readonly { readonly route: string; readonly floor: number 
 
 /** Every summary on the page whose rendered text carries no digit. */
 async function digitlessSummaries(page: Page): Promise<string[]> {
-  return page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>("summary")]
+  // A SUMMARY INSIDE A CLOSED `<details>` RENDERS NO TEXT, so its `innerText` is
+  // the empty string and it reads as digitless. "Not on screen" and "says
+  // nothing" produce the same output, which is precisely the reading this
+  // project's rule about probes forbids - a probe that does not discriminate and
+  // a page that is wrong are indistinguishable from the result alone.
+  //
+  // It was latent until HANDOFF-04b: no page nested one disclosure inside
+  // another, so every summary was rendered when the sweep ran. /beware now puts
+  // nine citation disclosures inside the collapsed B2 register, and the pass
+  // state would have reported nine empty strings for summaries that all carry
+  // their finding. Found by a worker measuring its own page rather than by this
+  // suite failing, and reported against the PROBE rather than repaired quietly.
+  //
+  // Every disclosure is opened, read, and restored to the state it was found in
+  // - the sweep must not leave the page in a configuration a later assertion
+  // reads as the shipped one.
+  return page.evaluate(() => {
+    const details = [...document.querySelectorAll("details")];
+    const wasOpen = details.map((d) => d.open);
+    for (const d of details) d.open = true;
+    const found = [...document.querySelectorAll<HTMLElement>("summary")]
       .map((s) => s.innerText.replace(/\s+/g, " ").trim())
-      .filter((text) => !/[0-9]/.test(text)),
-  );
+      .filter((text) => !/[0-9]/.test(text));
+    details.forEach((d, i) => {
+      d.open = wasOpen[i] ?? false;
+    });
+    return found;
+  });
 }
 
 async function countSummaries(page: Page): Promise<number> {

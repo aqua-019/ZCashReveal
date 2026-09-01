@@ -43,7 +43,7 @@ export default async function PoolsPage() {
       <TrackNav path="/pools" />
 
       <Block idx="A" title="Between the pools" right={`${view.flowWindow} - value crossing each boundary, public by construction`}>
-        <div className="grid" style={{ gridTemplateColumns: "1.4fr 1fr", gap: 14 }}>
+        <div className="grid g-chart">
           <Glass className="tk-sankey-card">
             <PoolSankey view={view} />
           </Glass>
