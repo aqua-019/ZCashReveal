@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import type { MempoolRow, MempoolView } from "@zcashreveal/types";
+import type { MempoolRow } from "@zcashreveal/types";
 
 import { Sev } from "@/components/track/Amount";
 import { Glass } from "@/components/ui/Glass";
@@ -85,8 +85,25 @@ const STATE_TEXT: Readonly<Record<SocketState, string>> = {
  * updating is worse than one that says so. The badge is the same argument as
  * the snapshot-age line in the footer.
  */
-export function MempoolPanel({ initial }: { readonly initial: MempoolView }) {
-  const [view, setView] = useState<MempoolView>(initial);
+/**
+ * What the panel actually reads, which is less than a `MempoolView`.
+ *
+ * NARROWED IN HANDOFF-11, AND THE NARROWING IS WHAT MAKES THE SNAPSHOT FALLBACK
+ * HONEST. This took a whole `MempoolView`, summary included, and read exactly
+ * two fields of it - the summary belongs to the PAGE, which renders the metric
+ * row. So a caller with rows and a height but no summary had to invent one, and
+ * a `MempoolSummary` of zeros renders as a measurement: "0.0 kB", "0 findings",
+ * "0 of 0 priced pay it". `SnapshotV1.lastReports` is exactly such a caller -
+ * fifty real rows and no summary - and section 3 says the island hydrates from
+ * it. Asking for only what is read means the fallback needs no fiction.
+ */
+export interface MempoolBaseline {
+  readonly tipHeight: number;
+  readonly entries: readonly MempoolRow[];
+}
+
+export function MempoolPanel({ initial }: { readonly initial: MempoolBaseline }) {
+  const [view, setView] = useState<MempoolBaseline>(initial);
   const [state, setState] = useState<SocketState>("connecting");
   const [selected, setSelected] = useState<string>(initial.entries[0]?.txid ?? "");
 

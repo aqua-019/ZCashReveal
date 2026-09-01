@@ -336,6 +336,23 @@ DELIVERABLE 0 - THE RECONCILE, AND THE TEN ASSERTIONS THAT CHANGED.
   polarities by HANDOFF-04a's `timeline-filter.spec.ts`, with its coverage
   restated honestly as "the one route that calls it".
 
+ONE CONTRACT LINE WAS NEARLY SHIPPED UNDELIVERED, AND IT WAS A 500.
+  Section 3: "the mempool island hydrates from `snapshot.lastReports` then
+  subscribes to WS". `/track` did `await zec.getMempool()` with nothing around
+  it - correct while `api()` was always the fixture, and a 500 the moment this
+  handoff made `api()` return `HttpApi` and the gateway did not answer. The page
+  that exists so the site can never render empty was the one page that could not
+  render at all. Found by re-reading section 3 against what had actually been
+  built, after every assertion was already green.
+  The rows fall back and the SUMMARY DOES NOT, which is the honest split:
+  `lastReports` is fifty real `MempoolRow`s, and it carries no aggregate, while
+  the metric row states bytes, a fee weather, a crossing total and a findings
+  count - none derivable from fifty rows and all of which render as a
+  measurement if invented. The tiles become a named absence stating the
+  condition. `MempoolPanel`'s prop narrowed from `MempoolView` to the two fields
+  it actually reads, so the fallback needs no fictional summary to satisfy a
+  type - which is the same move as `NotMeasured` having nowhere to put an owner.
+
 EVIDENCE (per assertion; Executed unless labelled):
   A1 eleven routes, no pageerror  PASS Executed: `snapshot.spec.ts` walks
     NAV_ENTRIES (11), all 200, zero pageerror and zero console error.

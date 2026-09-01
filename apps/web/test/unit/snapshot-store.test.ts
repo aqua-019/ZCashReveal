@@ -18,6 +18,9 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { SNAPSHOT_MAX_REPORTS } from "@zcashreveal/types";
+
+import type { MempoolBaseline } from "@/components/track/MempoolPanel";
 import { fixtureSnapshot } from "@/lib/api/fixtures/snapshot";
 
 const REST_URL = "SNAPSHOT_REDIS_KV_REST_API_URL";
@@ -328,5 +331,33 @@ describe("A10 - reads are counted, and the count is per window rather than per r
       vi.spyOn(Date, "now").mockRestore();
     }
     expect(store.managedStoreReadCount()).toBe(2);
+  });
+});
+
+describe("the snapshot's lastReports is a mempool baseline, which is what section 3's fallback rests on", () => {
+  it("PASS STATE: a baseline built from the document satisfies the panel's prop, with NO summary", () => {
+    // Section 3: "the mempool island hydrates from `snapshot.lastReports` then
+    // subscribes to WS". `/track` used to `await zec.getMempool()` with nothing
+    // around it - a 500 once `api()` became `HttpApi` and the gateway did not
+    // answer, on the one page that exists so the site can never render empty.
+    //
+    // THE TYPE IS THE ASSERTION. `MempoolPanel` took a whole `MempoolView` and
+    // read two fields of it, so a caller with rows and no aggregate had to
+    // invent a `MempoolSummary` - and a summary of zeros renders as a
+    // MEASUREMENT: "0.0 kB", "0 findings", "0 of 0 priced pay it". Narrowing
+    // the prop to what is read is what makes the fallback need no fiction, and
+    // this case fails to compile if that narrowing is undone.
+    const doc = fixtureSnapshot();
+    const baseline: MempoolBaseline = { tipHeight: doc.height, entries: doc.lastReports };
+
+    expect(baseline.tipHeight).toBe(doc.height);
+    expect(Array.isArray(baseline.entries)).toBe(true);
+    // A `MempoolSummary` is not on it, and there is nowhere to put one.
+    expect(baseline).not.toHaveProperty("summary");
+  });
+
+  it("the document caps its rows, so the fallback cannot grow without bound", () => {
+    const doc = fixtureSnapshot();
+    expect(doc.lastReports.length).toBeLessThanOrEqual(SNAPSHOT_MAX_REPORTS);
   });
 });
