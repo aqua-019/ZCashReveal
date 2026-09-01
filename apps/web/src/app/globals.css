@@ -574,6 +574,70 @@ p {
   color: var(--ink-mute);
 }
 
+/* ---------- the staleness indicator (HANDOFF-11, fold 2) ----------
+   In the system bar beside the epoch clock, because it is a property of the
+   DOCUMENT rather than of any panel, and the bar is the one surface every route
+   carries. Nothing here goes below --t-floor: it inherits .clock's
+   var(--t-label), which IS the floor, and declares no size of its own. */
+.clock .stale {
+  color: var(--ink-mute);
+  white-space: nowrap;
+}
+
+/* A configured rung that did not answer. `--danger` is reserved for Beware
+   severity and gold has four licensed jobs, none of them this, so a fault is
+   marked by WEIGHT and full ink rather than by colour: it is a statement about
+   what this page could read, not a finding about Zcash. */
+.clock .stale-fault {
+  color: var(--ink);
+  font-weight: 500;
+  white-space: normal;
+}
+
+/* On a phone the bar has no room for the source, the faults, the seed and the
+   tip time at once. The AGE and the SOURCE survive at every width, because they
+   are the two halves of the sentence a reader needs; the seed and the tip time
+   are provenance the footer ledger also carries. */
+@media (max-width: 900px) {
+  .clock .age {
+    display: none;
+  }
+}
+
+/* ---------- the UNVERIFIED chip (HANDOFF-11, fold 2) ----------
+   In the chip row beside the claim, never inside a <details>. Epistemic status
+   behind a toggle is the null-panel-renders-as-zero defect in a nicer coat. */
+.unverified {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.unverified-why {
+  font-family: var(--f-mono);
+  font-size: var(--t-label);
+  color: var(--ink-mute);
+}
+
+/* ---------- a named absence (docs/2.0/SNAPSHOT.md section 8.1) ----------
+   Deliberately NOT a chart, an axis or a figure slot. The rule is that a
+   renderer receiving null must not draw the panel's chrome around no data,
+   because an empty chart renders as a measurement of zero. */
+.notmeasured {
+  font-family: var(--f-mono);
+  font-size: var(--t-label);
+  color: var(--ink-mute);
+  line-height: 1.5;
+  margin: 0;
+  padding: 14px 0;
+}
+
+.notmeasured b {
+  color: var(--ink-dim);
+  font-weight: 500;
+}
+
 /* ---------- the one ceremony: block arrival ----------
    A slow luminance tide. Under prefers-reduced-motion the component is never
    constructed, so `.on` is never applied and this transition never runs. */

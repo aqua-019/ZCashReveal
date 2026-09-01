@@ -4,49 +4,121 @@ import { useEffect, useState } from "react";
 
 import type { ChainTip } from "@/lib/chain";
 import { fmtTipTime } from "@/lib/chain";
-import { fmtBlockAge, fmtInt } from "@/lib/format";
+import { DATA_MODE } from "@/lib/env";
+import { fmtInt, fmtSnapshotAge } from "@/lib/format";
 import { seedLabel } from "@/lib/seed";
+import { subscribeFrames } from "@/lib/api/stream";
+import {
+  snapshotAgeBlocks,
+  SNAPSHOT_FALLBACK_MARKER,
+  type SnapshotFault,
+  type SnapshotSource,
+} from "@/lib/snapshot/source";
 
 /**
- * The epoch clock: the site keeps time in blocks, not in seconds.
+ * The epoch clock, and beside it the staleness indicator.
  *
- * Height advancing is *information*, so it is not gated on reduced motion - a
- * reader who suppresses animation still needs to know the chain moved. The
- * ceremony that accompanies it (the luminance tide) is the part that is gated,
- * and it lives in components/ambience/Tide.tsx.
+ * The site keeps time in blocks, not in seconds. Height advancing is
+ * *information*, so it is not gated on reduced motion - a reader who suppresses
+ * animation still needs to know the chain moved. The ceremony that accompanies
+ * it (the luminance tide) is the part that is gated, and it lives in
+ * components/ambience/Tide.tsx.
  *
- * `blockIntervalMs` stands in for the block feed until HANDOFF-11 wires the
- * WebSocket; the component's contract does not change when it does.
+ * THE FAKE ADVANCE IS GONE, AND DELETING IT IS A CORRECTION RATHER THAN A
+ * REMOVAL. This component used to increment the height on a local 75-second
+ * interval - `blockIntervalMs`, described in its own docblock as standing in
+ * "for the block feed until HANDOFF-11 wires the WebSocket". Against a fixture
+ * that is a manufactured measurement: the clock told every visitor the chain
+ * had advanced when no block had arrived and no feed existed. The height now
+ * moves only when a `tip` frame says so, which in fixture mode is never, and
+ * the `aria-live` this component's own comment promised "once the event is
+ * real" is on the height span because the event now is.
+ *
+ * THE STALENESS INDICATOR IS HERE BECAUSE FOLD 2 OF THE L2 RESOLUTION FOR
+ * HANDOFF-04b PUTS IT HERE: "the system bar, beside the epoch clock. It is a
+ * property of the DOCUMENT, not of any panel, and the bar is the one surface
+ * every route carries." It is in this component rather than a sibling so that
+ * the bar holds ONE client island with ONE frame subscription: the age is the
+ * difference between the tip the clock knows and the height the document
+ * describes, so a second island would need the same subscription to compute it.
  */
-export function EpochClock({ tip, blockIntervalMs = 75_000 }: { readonly tip: ChainTip; readonly blockIntervalMs?: number }) {
+export function EpochClock({
+  tip,
+  status,
+}: {
+  readonly tip: ChainTip;
+  readonly status: { readonly source: SnapshotSource; readonly faults: readonly SnapshotFault[] };
+}) {
   const [height, setHeight] = useState(tip.height);
 
   useEffect(() => {
     setHeight(tip.height);
-    const id = setInterval(() => {
-      setHeight((h) => h + 1);
-    }, blockIntervalMs);
-    return () => {
-      clearInterval(id);
-    };
-  }, [tip.height, blockIntervalMs]);
+    // NO SUBSCRIPTION OUTSIDE LIVE MODE. `subscribeFrames` falls back to the
+    // committed FixtureStream when the WebSocket is not configured, and that
+    // stream emits no `tip` frame at all - so subscribing in fixture mode would
+    // open a socket, replay a mempool and move nothing. The clock stands still
+    // against a fixture, which is the honest reading of a fixture.
+    if (DATA_MODE !== "live") return;
+    return subscribeFrames((frame) => {
+      // ONLY FORWARD. A `tip` frame naming a lower height is a reorg or a
+      // late-delivered frame, and letting the clock run backwards would render
+      // a chain reorganisation as a clock fault. The snapshot age clamps at
+      // zero for the same reason, one layer down.
+      if (frame.type !== "tip") return;
+      setHeight((h) => (frame.height > h ? frame.height : h));
+    });
+    // `height` IS DELIBERATELY NOT A DEPENDENCY. The updater above reads the
+    // current value through setState's function form, so the effect does not
+    // need it - and listing it would tear down and re-open the subscription on
+    // every block, which is a reconnect per tip.
+  }, [tip.height]);
+
+  const age = snapshotAgeBlocks(tip.height, height);
 
   return (
-    // No aria-live yet. The height advances on a local interval against a
-    // fixture, so announcing it would tell a screen-reader user that the chain
-    // moved when no block arrived and no feed exists. HANDOFF-11 puts
-    // aria-live="polite" on the height span alone, once the event is real.
     <div className="clock" data-primitive="EpochClock" data-ui="epochclock">
       <span className="dot" aria-hidden="true" />
       <span>
         block{" "}
-        <span className="h" data-testid="epoch-height">
+        <span className="h" data-testid="epoch-height" aria-live="polite">
           {fmtInt(height)}
         </span>
       </span>
-      <span className="age">
-        {fmtBlockAge(tip.snapshotAgeBlocks)} · seed {seedLabel(tip.hash)}
+      {/*
+        THE STALENESS INDICATOR. `data-marker` is what carries
+        SNAPSHOT_FALLBACK_MARKER into the client bundle, which is what the
+        post-deploy smoke job greps for: the marker and the machinery ship
+        together or neither does.
+
+        `data-source` is the machine-readable half of the same statement the
+        text makes, so an assertion reads an attribute rather than parsing prose
+        - and the text is still there, because a reader is owed the sentence.
+      */}
+      <span
+        className="stale"
+        data-ui="staleness"
+        data-source={status.source}
+        data-marker={SNAPSHOT_FALLBACK_MARKER}
+        data-faults={status.faults.length}
+      >
+        {fmtSnapshotAge(age)} · source: {status.source}
+        {status.faults.length > 0 ? (
+          // A CONFIGURED RUNG THAT DID NOT ANSWER IS NAMED, WHICH IS ASSERTION
+          // A13. Section 3: an assertion here "must fail when the FIRST source
+          // is unreachable, not merely when the last one is". A resolution that
+          // walked past a configured managed store and rendered `source:
+          // fixture` with no further word is a stale site that renders and
+          // reports no fault - the failure this whole read path exists against.
+          <>
+            {" · "}
+            <b className="stale-fault">
+              {status.faults.length} source{status.faults.length === 1 ? "" : "s"} did not answer:{" "}
+              {status.faults.map((f) => `${f.rung} - ${f.reason}`).join("; ")}
+            </b>
+          </>
+        ) : null}
       </span>
+      <span className="age">seed {seedLabel(tip.hash)}</span>
       <span className="age">{fmtTipTime(tip.timeMs)}</span>
     </div>
   );

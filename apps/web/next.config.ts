@@ -62,6 +62,23 @@ function contentSecurityPolicy(): string {
 }
 
 const nextConfig: NextConfig = {
+  /*
+   * `ioredis` IS A SERVER PACKAGE AND IS NOT BUNDLED.
+   *
+   * The `redis` rung of the SnapshotStore opens a TCP socket, which only the
+   * Node runtime has an API for. Leaving it in webpack's graph makes the
+   * bundler try to resolve its optional native transports and its `dns` and
+   * `net` imports for an environment that has neither, which fails the build
+   * for a rung most deployments never take - on Vercel the REST pair is
+   * injected alongside the TCP URL, so rung 1 answers and this one never runs.
+   *
+   * The import in `lib/snapshot/store.ts` is dynamic for the same reason from
+   * the other side: it is evaluated only when the TCP URL is configured AND the
+   * REST rung did not answer, so the module is not loaded on the common path at
+   * all. Externalising it is what makes that dynamic import resolve to the real
+   * package at run time rather than to a bundled copy.
+   */
+  serverExternalPackages: ["ioredis"],
   /**
    * `Referrer-Policy: no-referrer` is not routine hardening here; it is the
    * other half of the argument `TrackSearch` makes when it refuses to navigate

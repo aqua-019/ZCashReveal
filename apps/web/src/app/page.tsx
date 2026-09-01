@@ -13,8 +13,8 @@ import { Pill } from "@/components/ui/Pill";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { Glass } from "@/components/ui/Glass";
 import { Metric, MetricRow } from "@/components/ui/Metric";
-import { fixtureSnapshot } from "@/lib/api/fixtures/snapshot";
-import { FIXTURE_TIP, POOL_LABEL, POOL_ORDER, POOL_SW } from "@/lib/chain";
+import { resolveSnapshot } from "@/lib/snapshot/store";
+import { POOL_LABEL, POOL_ORDER, POOL_SW } from "@/lib/chain";
 import { fmtInt, fmtPct } from "@/lib/format";
 import { NAV_ENTRIES } from "@/lib/nav";
 
@@ -106,7 +106,25 @@ const LIMITS: readonly string[] = [
   "It cannot tell you a bound is tight - only that it holds.",
 ];
 
-export default function SplashPage() {
+/**
+ * ISR at sixty seconds, which is HANDOFF-11 section 3's window and the same
+ * number `SNAPSHOT_TTL_MS` uses in the store.
+ *
+ * THE TWO NUMBERS ARE ONE POLICY AND MUST NOT DRIFT. A memo shorter than this
+ * window spends managed-store reads the window has already paid for; a memo
+ * longer than it serves a document older than the page claims to be. Sixty
+ * seconds is also roughly one block at the 75-second target interval, so a
+ * reader is at worst one tip behind and the system bar says by how much.
+ *
+ * THIS ROUTE HAD NO `revalidate` BEFORE AND WAS PRERENDERED ONCE AT BUILD TIME,
+ * which is why assertion A10's read count was zero rather than one: there was
+ * no render to attach a read to. That is stated here rather than in the ledger
+ * because it is the fact that makes the number in `docs/2.0/SNAPSHOT.md`
+ * section 5 mean anything.
+ */
+export const revalidate = 60;
+
+export default async function SplashPage() {
   const stats = getStats();
   const zec = poolZec(stats);
   const supply = POOL_ORDER.reduce((a, k) => a + (zec[k] ?? 0), 0);
@@ -145,19 +163,31 @@ export default function SplashPage() {
   /**
    * The document the plane is a pure function of.
    *
-   * Fixture mode: `apps/web` has no snapshot read path and this handoff does
-   * not add one - that is HANDOFF-11's, and it is out of scope here. What
-   * matters is the TYPE. The plane takes a `SnapshotV1`, so it structurally
-   * cannot reach for the fixture `PoolsView.flows` field that would draw a
-   * five-edge picture the published document could never supply.
+   * THE READ PATH ARRIVED IN HANDOFF-11 AND THIS LINE IS THE WHOLE OF THE
+   * CHANGE, which is what 04a's decision to take a `SnapshotV1` bought. The
+   * plane structurally cannot reach for the fixture `PoolsView.flows` field
+   * that would draw a five-edge picture the published document could never
+   * supply, so an honest picture stayed honest across the cutover instead of
+   * going quietly dishonest at it. `resolveSnapshot()` returns the bundled
+   * document as its last rung, so fixture mode renders exactly what it did.
    */
-  const snapshot = fixtureSnapshot();
+  const resolved = await resolveSnapshot();
+  const snapshot = resolved.doc;
 
   return (
     <>
       {/* ---------------- 1. CLAIM ---------------- */}
       <section className="beat beat-claim">
-        <FogCanvas seed={FIXTURE_TIP.hash} />
+        {/*
+          SEEDED BY THE RESOLVED DOCUMENT'S HASH, not by the fixture's. The
+          footer ledger states "AMBIENCE seeded by tip hash", and until this
+          line changed that sentence became false the moment the store answered
+          from anywhere but the fixture: the fog was a pure function of a
+          committed constant while the page beside it rendered a real block.
+          CLAUDE.md's rule is that the whole page is a pure function of the tip
+          hash, and this is the page where it was not.
+        */}
+        <FogCanvas seed={snapshot.hash} />
         <div className="veil" aria-hidden="true" />
         <div className="beat-claim-in">
           <span className="beattag">Claim</span>

@@ -4,7 +4,8 @@ import localFont from "next/font/local";
 import "./globals.css";
 
 import { Shell } from "@/components/shell/Shell";
-import { FIXTURE_TIP } from "@/lib/chain";
+import { tipFromSnapshot } from "@/lib/chain";
+import { resolveSnapshot } from "@/lib/snapshot/store";
 
 /**
  * Four families, four roles (CLAUDE.md, Design system):
@@ -129,13 +130,34 @@ export const viewport: Viewport = {
   colorScheme: "dark",
 };
 
-export default function RootLayout({ children }: { readonly children: React.ReactNode }) {
+/**
+ * THE ONE PLACE `FIXTURE_TIP` WAS REPLACED, which is what `lib/chain.ts`
+ * predicted: "every consumer already takes a `ChainTip`, so nothing else
+ * changes when it does."
+ *
+ * The layout is now async and resolves the snapshot once per render. Once, for
+ * the whole document, at module scope inside the store - `docs/2.0/SNAPSHOT.md`
+ * section 5's rule about the read side, which is the half the publisher's
+ * budget does not bound. Every route renders inside this layout, so every route
+ * gets the same document, the same tip and the same staleness reading from one
+ * resolution rather than one per page.
+ *
+ * IT CANNOT THROW AND IT CANNOT RETURN NOTHING. `resolveSnapshot` falls through
+ * to the bundled document as its last rung, so a layout that could not reach
+ * the managed store, the gateway or anything else still renders - and says so,
+ * because every configured rung that failed travels with the result and is
+ * named in the system bar.
+ */
+export default async function RootLayout({ children }: { readonly children: React.ReactNode }) {
   const fontVars = [instrumentSerif.variable, fraunces.variable, jetbrainsMono.variable, manrope.variable].join(" ");
+  const snapshot = await resolveSnapshot();
 
   return (
     <html lang="en" className={fontVars}>
       <body>
-        <Shell tip={FIXTURE_TIP}>{children}</Shell>
+        <Shell tip={tipFromSnapshot(snapshot.doc)} status={{ source: snapshot.source, faults: snapshot.faults }}>
+          {children}
+        </Shell>
       </body>
     </html>
   );

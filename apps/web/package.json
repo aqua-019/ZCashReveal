@@ -21,6 +21,7 @@
   "dependencies": {
     "@zcashreveal/content": "workspace:*",
     "@zcashreveal/types": "workspace:*",
+    "ioredis": "^5.4.1",
     "next": "15.5.23",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
