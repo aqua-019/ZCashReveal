@@ -122,7 +122,7 @@ const LIMITS: readonly string[] = [
  * because it is the fact that makes the number in `docs/2.0/SNAPSHOT.md`
  * section 5 mean anything.
  */
-export const revalidate = 60;
+export const revalidate = 120;
 
 export default async function SplashPage() {
   const stats = getStats();

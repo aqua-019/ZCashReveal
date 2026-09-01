@@ -235,6 +235,31 @@ jobs:
       - name: SVG text floor (no <text> in a scaled viewBox)
         run: node scripts/check-svg-text-floor.mjs
 
+      # A capture is the one artifact in this repository the suite treats as
+      # GROUND TRUTH: block-decoder.test.ts asserts the decoder against it, so a
+      # capture that is quietly wrong makes every assertion built on it wrong in
+      # the same direction, and nothing else in the tree can notice. Except that
+      # a block carries its own checksum - the header's merkleroot over its own
+      # txids - so the question is answerable and is answered here.
+      #
+      # It also reports HOW MANY captures it examined, which the suite cannot:
+      # block-decoder.test.ts loops every capture inside ONE `it`, so one and
+      # two captures both print "11 passed" and a second capture failing to load
+      # would be invisible in the test output. This step is the only place the
+      # count is stated.
+      - name: Capture consistency (every mainnet-*.json is internally consistent)
+        run: node scripts/check-capture-consistency.mjs
+
+      # HANDOFF-11 noticed that the compose pin clears the 6.3.0 floor with ZERO
+      # headroom and that nothing in `pnpm check` would catch a tag moved one
+      # patch down. It could only state it; this checks it. The tag is extracted
+      # before comparison, because parseZebraVersion reads a node's subversion
+      # and returns null for an image ref by design. Three outcomes, and an
+      # unreadable pin such as :latest FAILS - an unknown floor is not a
+      # satisfied one.
+      - name: Compose Zebra tag (the pinned image clears the declared floor)
+        run: node scripts/check-compose-zebra-tag.mjs
+
       - name: Install
         run: pnpm install --frozen-lockfile
 
@@ -290,6 +315,29 @@ jobs:
           pnpm --filter @zcashreveal/publisher exec
           vitest run --reporter=default --reporter=json --outputFile=../../publisher-results.json
 
+      # THE JSON REPORT IS HALF OF A FIX AND MUST NOT LAND ALONE (F-49-1).
+      # A11's live leg skips itself on every runner - no node answers here - and
+      # until this report existed the skip guard could not see it, so a package
+      # whose one live assertion never ran reported the same green tick as a
+      # package where it did. Instance four of "a green CI is not evidence a
+      # package ran", and instance one was also packages/zebra-rpc.
+      #
+      # The other half is the ALLOWED_SKIPS entry in
+      # scripts/assert-no-skipped-integration.mjs. Wiring this report in without
+      # it turns CI red on every correctly configured runner, which is why the
+      # two edits are one commit.
+      - name: Test - packages/zebra-rpc (vitest run)
+        run: >-
+          pnpm --filter @zcashreveal/zebra-rpc exec
+          vitest run --reporter=default --reporter=json --outputFile=../../zebra-rpc-results.json
+
+      # AND IT SITS HERE, NOT WITH THE OTHER PACKAGE SUITES, BECAUSE THE GUARD
+      # BELOW READS THE FILE IT WRITES. A missing report is a hard failure in
+      # that script by design - it parses every path it is given - so leaving
+      # this step in its old position further down the file would have made the
+      # guard read a file that did not exist yet and turned CI red on the
+      # ENOENT. The two edits F-49-1 names are necessary and were not
+      # sufficient; this ordering is the third.
       # vitest exits 0 when the integration suites skip themselves, so a broken
       # DATABASE_URL would otherwise produce a green run with the Postgres coverage
       # silently gone. See A5, and A1 in HANDOFF-06, whose fail side is exactly
@@ -298,7 +346,7 @@ jobs:
       - name: Assert Postgres integration tests actually ran
         run: >-
           node scripts/assert-no-skipped-integration.mjs
-          indexer-results.json publisher-results.json
+          indexer-results.json publisher-results.json zebra-rpc-results.json
 
       # apps/web arrives in HANDOFF-01. Its unit suite covers the seeded RNG,
       # the zatoshi formatters and assertion A2's token check, and none of it
@@ -323,9 +371,6 @@ jobs:
       # `finalironwoodroot` and typing `trees`. A boundary change landing with no
       # CI coverage is the same shape as the fixture that agreed with the
       # interface and disagreed with the wire.
-      - name: Test - packages/zebra-rpc (vitest run)
-        run: pnpm --filter @zcashreveal/zebra-rpc exec vitest run
-
       - name: Test - packages/content (vitest run)
         run: pnpm --filter @zcashreveal/content exec vitest run
 
@@ -368,4 +413,5 @@ jobs:
           path: |
             indexer-results.json
             publisher-results.json
+            zebra-rpc-results.json
           if-no-files-found: ignore

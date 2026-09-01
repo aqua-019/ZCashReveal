@@ -28,7 +28,7 @@ import { fmtInt, fmtPct, zatToZecGrouped } from "@/lib/format";
  * because it is the fact that makes the number in `docs/2.0/SNAPSHOT.md`
  * section 5 mean anything.
  */
-export const revalidate = 60;
+export const revalidate = 120;
 
 export const metadata: Metadata = {
   title: "Pools",

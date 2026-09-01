@@ -18,7 +18,7 @@ import { onTip } from "@/lib/api/tip-bus";
  * WITHOUT THIS THE CLAIM WOULD BE FALSE, and stating it without a mechanism is
  * precisely the defect the stopping rule's clause (ii) points at: a sentence
  * making a checkable claim about runtime behaviour, checked by EXECUTING the
- * behaviour rather than by reading the sentence. `revalidate = 60` is a clock,
+ * behaviour rather than by reading the sentence. `revalidate = 120` is a clock,
  * not a block: it bounds how stale a cached render may be and does nothing at
  * the moment a block lands.
  *
@@ -30,7 +30,7 @@ import { onTip } from "@/lib/api/tip-bus";
  *
  * IT IS BOUNDED BY ISR AND NOT BY THE NUMBER OF VIEWERS. `router.refresh()`
  * re-requests this route's payload from the server; for a route with
- * `revalidate = 60` the server answers from its cached render until the window
+ * `revalidate = 120` the server answers from its cached render until the window
  * expires. So a thousand browsers refreshing on one block do not become a
  * thousand snapshot reads - they become at most one per window per instance,
  * which is the same bound the store's module-scope memo already enforces.
