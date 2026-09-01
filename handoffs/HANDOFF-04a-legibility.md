@@ -594,7 +594,62 @@ unconfirmed crossings in words, saying they are counted in the readings and not 
 
 ### 7.8 ASSERTIONS
 
-*(transcripts filled in at the gate, below)*
+**Verification budget, first line, per LEDGER-05 Q5: every one of the thirteen was executed in
+both polarities, and no finding was carried unread.** The fail side named for each is the one §5
+registered; where it is a DATA mutation the member is named, and where a code mutation was used
+instead that is said rather than glossed.
+
+| # | pass side | fail side, and which member of the exclusion set |
+|---|---|---|
+| **A1** | `plane.test.ts` - the per-lane OUT sum equals the reading's `countedCrossings` at eight counts from 0 to 5,200, and `drawnMarks` equals `marks.length` at every one. `legibility.spec.ts` - the rendered header, both traffic lines, all five legend rows and the `.tmark` count parsed from the page and compared, nothing hardcoded. | DATA. A legend rebuilt from a STALE count (17) beside a board built from the document (1,284) - F-04a-7(b)'s own member - and the sum-against-reading comparison names the pair. On the page: one legend row's count bumped by one, and the same comparison reports `orchard: legend says ... and its label says ...`. |
+| **A2** | `type-scale.test.ts` - twelve (ink, ground) pairs computed from the tokens, all >= 4.5:1; the five stated ratios reproduced to two decimals. | DATA. `#7c7366`, the mockup's own `--ink-mute`, computed at **4.04:1** and required to fail. Plus the reservation: `--ink-faint` must paint no text anywhere, asserted over the stylesheet. |
+| **A3** | `type-scale.test.ts` - every `font-size` in `globals.css` resolved through the token layer, none under 12px but the two registered; the register iterated, each row driven against the real rule it names; the monotone property over the whole map. | DATA, three ways. `9.75px` spliced into the real stylesheet - a value the register does NOT name, so it cannot be waved through on the exempted one - and caught. A register row pointed at `.plot .no-such-thing`: caught. A third sub-floor declaration (`.eyebrow` at 9.5px) spliced into the real file: caught by the count check. All three restored and re-run green. |
+| **A4** | `summary-findings.test.ts` over the source, and `legibility.spec.ts` over `/`, `/beware` and `/track`. | DATA. The rule's own counter-example, the bare word `Sources`, and a REAL summary from the tree with its count stripped - `{LIMITS.length} limits, stated` reduced to `limits, stated` in `app/page.tsx`, which the sweep names by file. Restored. |
+| **A5** | `legibility.spec.ts` - eleven `.screendek` nodes, one per `NAV_ENTRIES` member, each carrying that member's exact text, and the first asserted VISIBLE rather than merely attached (the panel is a zero-height `overflow:hidden` box, so a text-only check would pass against a bar that never opens). | CODE, and stated as such. The dek nodes stripped from the DOM and the same query re-run, required to report every entry. |
+| **A6** | `check-nav-routes.mjs` rc=0: 16 page files, 11 carried by `NAV_ENTRIES`, 5 excluded by name with a reason, 0 unaccounted for. | DATA, over the REAL tree. `apps/web/src/app/__probe/page.tsx` created, guard rc=1 naming `/__probe`, file deleted, rc=0 again. And each `EXCLUSIONS` row removed in turn, each time making its own route a finding. |
+| **A7** | `legibility.spec.ts`, five sub-tests. Resting `0px` with the bar still reading `00 Splash`; pointer 585.969px; keyboard - a bounded eight-press walk showing focus reaching the toggle with the panel still at `0px` and then a panel link opening it, so `:focus-within` on the PANEL is doing the work; button open with `aria-expanded="true"`; Escape closed with the pointer deliberately left on the toggle, so it must beat `:hover` as well as `:focus-within`. Touch in a real touch context: `(hover: hover)` false, fresh load `0px`, tap 1073px, second tap `0px`. | DATA. The pre-fix rule planted back as a stylesheet after Escape: the same rows probe goes to `1fr` **while `aria-expanded` still reads `false` and `data-closed` is still present** - the measured defect, and the direct proof that an attribute-only assertion would have been green on it. Plus an emptied `here-label`, and the toggle buried under an interceptor so `tap()` throws, which is how the touch defect was found. |
+| **A8** | `plane.test.ts`, seven tests. Four states rendered: crossings measured; a null `migrationHist` (no marks, no reading, a condition and no owner); a window whose count is zero (a MEASURED zero, `closed - 0 crossings in window`); and a lane outside the relation (`not measured`, asserted to contain no `0` at all). Plus a sweep over all states at once, and a lane the document omits drawn not at all rather than empty. | DATA, drawn from the SPECIFICATION rather than invented: `closed - 0 crossings in window` is what the approved study prints under `sprout` for a relation its own `EDGES` table does not contain. `trafficLine` must give that answer for `measured-zero` and must not give it for `not-measured`. |
+| **A9** | `plane.test.ts`, five tests. Capped at 42 marks with `countedCrossings` still 1,284 and the two required to differ; the cap note naming both numbers; no cap claimed at count 9; the window inclusive of both ends, checked on a one-block window where an off-by-one would be invisible on 1,152. | DATA. Two chains, 1,284 and 42, drawing the SAME number of marks - so the reading is the only thing that tells them apart, and it is asserted to differ. **This is A9 on the derivable quantity rather than as §5 worded it; the substitution is argued in §7.3 and put to L2 as Q2.** |
+| **A10** | `legibility.spec.ts` under `reducedMotion: reduce` - `document.getAnimations()` empty at rest and after all three opening paths, with the panel confirmed open at each; `window.__zr.rafCalls` 0 and `constructed` empty. | DATA and code, both. A planted `element.animate(...)` reported by the same probe. And, better, the preference flipped to `no-preference`, where the same immediate sample returns three `CSSTransition`s - so the zero is a fact about the stylesheet and not about the sampling moment. |
+| **A11** | `plane.test.ts`, four tests. Every mark's key set is exactly the seven fields; opacity strictly decreasing in age with both ends pinned at 0 and 1; every mark between the two measured lanes; every non-position field constant across the board. | CODE, and the structural half is the stronger one: the mark type has nowhere to put an amount, so a per-mark amount is unreachable rather than merely absent. |
+| **A12** | `plane.test.ts`, four tests. Byte-identical geometry from two builds of the same snapshot. | DATA. A snapshot differing only in `hash` must produce a DIFFERENT plane - the discriminating half, since a `buildPlane` ignoring its input entirely would satisfy the equality. Plus the clock moved to 2100 (the plane must not move) and the platform generator replaced with a thrower (the plane must not call it). |
+| **A13** | Measured below. | A deleted test file would move the total and be visible as a fall rather than absorbed by an addition elsewhere. |
+
+**A13 - THE SUITE, AND THE BASELINE WAS RE-MEASURED RATHER THAN TAKEN ON TRUST.** L2's figure was
+taken on `e1a39f7` in another environment, so this session measured it again in a `git worktree`
+at the fork point `452d586`, with the same real Postgres 16 and real local Redis. **It reproduces
+exactly: 1276 total, 1273 passed, 3 skipped.**
+
+| package | baseline (`452d586`) | this branch | delta |
+|---|---|---|---|
+| packages/content | 67 | 67 | - |
+| packages/zebra-rpc | 50 | 50 | - |
+| packages/zec-instruments | 98 | 98 | - |
+| **apps/web** | **368** | **438** | **+70** |
+| apps/gateway | 143 | 143 | - |
+| apps/publisher | 99 + 2 skipped | 99 + 2 skipped | - |
+| apps/indexer | 448 + 1 skipped | 448 + 1 skipped | - |
+| **total** | **1276 (1273 passed, 3 skipped)** | **1346 (1343 passed, 3 skipped)** | **+70** |
+
+**The +70, itemised**, all in `apps/web` and all additions - no test was deleted, renamed or
+weakened, and the skip count is unchanged at 3:
+
+| file | tests | what it is |
+|---|---|---|
+| `test/unit/plane.test.ts` | 28 | new. A1, A8, A9, A11, A12. |
+| `test/unit/type-scale.test.ts` | 24 | new. A2, A3, and the SVG register. |
+| `test/unit/summary-findings.test.ts` | 5 | new. A4 over the source. |
+| `test/unit/nav.test.ts` | 18 -> 31 | +13. `VIEWS`, `NAV_ENTRIES`, `NAV_GROUPS`, and the two `isActive` cases F-04a-3 opened. |
+
+`test/unit/css-dedup.test.ts` stays at 12: two literals moved to the rung tokens the scale now
+names, and one CHROME entry followed the system bar's row from `.sysbar` to `.sysbar-in`. No
+assertion was relaxed - the compact-cell register is still required to be exactly one rule, and
+had the literal not been updated the check would have gone VACUOUS rather than failed, since no
+rule declares 11px any more and `[]` never equals `[".cp"]`. That is how it announced itself.
+
+**The other gates.** `pnpm check` rc=0, thirteen guards. `pnpm typecheck` 13/13. `pnpm lint` 0
+problems. `pnpm --filter @zcashreveal/content validate` OK. `pnpm build` rc=0, all routes
+prerendered.
 
 ### 7.9 POST-FAN-OUT SWEEPS
 
