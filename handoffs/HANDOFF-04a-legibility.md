@@ -665,14 +665,21 @@ adds them - A5, A7, A10, and the rendered halves of A1 and A4 - each pass side p
 side that plants the defect and re-runs the SAME named function, so "no problems" cannot also be
 what a probe matching nothing returns.
 
-**Two runs of it are on the record and the difference between them is worth stating.** The first
+**Final run: 150 passed, 0 failed, 3.3 minutes, rc=0.**
+
+**Three runs are on the record and the differences between them are worth stating.** The first
 reported four failures; **three were self-inflicted and one was real.** The three: `pnpm build`
 was run while the suite was in flight, which rewrote `.next` under the server the suite was
-using, so every test after that point was reading a half-written build. That is a measurement
-error, it was recognised as one rather than investigated as a defect, and the suite was re-run
-without touching the tree. **The real one was A6**, in §7.7 above. The clean re-run found one
-further failure, `track.spec.ts`'s family assertion, which was pinning the contract F-04a-3
-deliberately changed; it is now a stricter table.
+using, so every test after that point was reading a half-written build. That is a MEASUREMENT
+ERROR, it was recognised as one rather than investigated as a defect, and the suite was re-run
+without touching the tree. **The real one was A6**, in §7.7. The clean second run returned
+149 passed / 1 failed, and that one was `track.spec.ts`'s family assertion pinning the contract
+F-04a-3 deliberately changed; it is now a stricter per-route table. The third run is the figure
+above.
+
+Recorded rather than smoothed over, because "the suite is green" is a claim about the last run
+and the first two are what make it worth anything: a green run reached by rebuilding under a
+running server would have been green for the wrong reason.
 
 **The other gates.** `pnpm check` rc=0, thirteen guards. `pnpm typecheck` 13 tasks, 13
 successful. `pnpm lint` 0 problems. `pnpm --filter @zcashreveal/content validate` OK.
