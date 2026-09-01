@@ -133,7 +133,7 @@ At roughly 1,150 blocks a day (the 75-second target interval gives 1,152):
 | publisher commands **on the wire**, per tip | 5 (`MULTI` + 3 x `SET` + `EXEC`) |
 | publisher commands charged, per day | ~5,750 |
 | publisher commands charged, per month | ~172,500 |
-| **`apps/web` reads, per month** | **~129,600 warm / ~259,200 cold** — measured by HANDOFF-11, derivation below |
+| **`apps/web` reads, per month** | **~64,800 warm / ~129,600 cold** — derivation below; halved by HANDOFF-12 moving `revalidate` to 120 s |
 | publisher's share of the 500K allowance | ~35%, **before reads and before the other project's usage** |
 
 The counter is charged the **wire** count of five, not the write count of three — see §8.6. The
@@ -144,8 +144,8 @@ numbers measure different things.
 what the publisher writes. Every server-side render in `apps/web` that resolves to the `redis-rest`
 source issues at least one `GET`, and that side scales with traffic, with the number of Vercel
 regions serving the page, and with how often the page revalidates — none of which the publisher
-controls. One `GET` per 60-second revalidation in three regions is already ~4,320/day — about three
-quarters of everything the publisher spends in a day (~5,750), and unlike the publisher's side it is
+controls. One `GET` per 120-second revalidation in three regions is ~2,160/day — a bit under
+two fifths of what the publisher spends in a day (~5,750), and unlike the publisher's side it is
 bounded by nothing. *(That sentence read "MORE than the publisher's whole budget" until 31 Aug 2026,
 which was true while the publisher was charged 3 commands per tip and became false when it began
 charging the wire count of 5. LEDGER-09 Q2, fold 2.)* Two rules follow, and HANDOFF-11 owns both: the snapshot is
@@ -153,30 +153,52 @@ fetched **once per render at module scope, never once per component or once per 
 resolution order must prefer a cached value over a fresh `GET` whenever the cached one is inside
 its staleness window. **HANDOFF-11 STATED THE FIGURE, AND IT IS TWO FIGURES BECAUSE ONE ASSUMPTION DECIDES WHICH.** The
 read side is now built: `apps/web/src/lib/snapshot/store.ts` resolves the snapshot once per render at
-module scope, and `/` and `/pools` carry `revalidate = 60`. So the arithmetic is a revalidation
-count, not a traffic count:
+module scope, and `/` and `/pools` carry `revalidate = 120` (HANDOFF-12, LEDGER-11 Q4). So the
+arithmetic is a revalidation count, not a traffic count. A day holds 720 windows of 120 s:
 
 | | per day | per month | assumption |
 | --- | --- | --- | --- |
-| one warm instance, both pages | 1,440 | ~43,200 | the module-scope memo survives between renders, so two pages in one 60 s window are ONE `GET` |
-| three regions, warm | 4,320 | **~129,600** | the figure this table's row carries. Three regions is the same number the paragraph above uses |
-| three regions, every render on a COLD instance | 8,640 | **~259,200** | the memo is empty on a cold start, so each route's revalidation is its own `GET` |
+| one warm instance, both pages | 720 | ~21,600 | the module-scope memo holds, so two pages revalidating close together are ONE `GET`. See the TTL caveat below - this is the row the change weakened |
+| three regions, warm | 2,160 | **~64,800** | the figure this table's row carries. Three regions is the same number the paragraph above uses |
+| three regions, every render on a COLD instance | 4,320 | **~129,600** | the memo is empty on a cold start, so each route's revalidation is its own `GET` |
+| **five regions, cold** | 7,200 | **~216,000** | the same cold assumption at a region count nobody here can rule out |
 
-**Combined with the publisher's ~172,500, that is ~302,100 (60%) warm and ~431,700 (86%) cold, of a
-500,000 allowance shared with another project.** The cold figure is the one to plan against: it is
-an upper bound rather than a prediction, and it leaves 14% of headroom for a project that never
-agreed to run alongside us.
+**Combined with the publisher's ~172,500, that is ~237,300 (47%) warm and ~302,100 (60%) cold, of a
+500,000 allowance shared with another project — and ~388,500 (78%) at five regions cold.** The cold
+figure is the one to plan against: it is an upper bound rather than a prediction, and at three
+regions it leaves 40% of headroom for a project that never agreed to run alongside us.
+
+**THE FIVE-REGION ROW IS THE POINT OF THE CHANGE AND A THREE-REGION TABLE HID IT.** The region count
+is the multiplier nobody in this repository can read, and it is the only term in the whole
+calculation that can move without anybody editing anything: a Vercel setting, or a plan change,
+multiplies this side directly. At the OLD 60 s revalidation, five regions cold would have been
+~432,000 reads against a ~172,500 write side - 604,500 commands, over the whole shared 500,000
+allowance, on a store holding another project's production data. Moving to 120 s is what buys the
+margin that makes a region count nobody controls survivable; it is not a tidy-up.
+
+**AND ONE THING THE CHANGE COST, STATED BECAUSE THE WARM ROW NOW RESTS ON LESS.**
+`SNAPSHOT_TTL_MS` is 60,000 (`apps/web/src/lib/snapshot/store.ts:52`) and was equal to the old
+`revalidate`, so any two revalidations inside one window necessarily shared a memo. At 120 s they
+are no longer equal: the memo now covers only the first half of each revalidation period, so the
+warm row holds when the two routes revalidate within 60 s of each other and degrades toward the cold
+row when they drift apart. The warm row is therefore a lower bound and the cold row an upper bound,
+which is how they should have been read before and now must be. Raising `SNAPSHOT_TTL_MS` to 120,000
+would restore the equality at the cost of doubling the worst-case staleness of a rendered page; that
+is a trade for the operator and is recorded as LEDGER-12's question rather than taken here.
 
 **What is measured and what is derived, kept apart.** Measured, by
 `apps/web/test/unit/snapshot-store.test.ts`: two resolutions inside one window issue exactly ONE
 `GET`; ten concurrent callers share ONE in-flight read; a resolution past `SNAPSHOT_TTL_MS` issues a
-second. Derived from those: everything in the table, by multiplying by the number of 60 s windows in
-a day and by a region count. **The region count is an assumption and not a reading** - no session can
+second. **Those three are MEASURED and are unchanged by this section's rewrite** - they are facts
+about the memo, whose 60,000 ms window HANDOFF-12 did not touch. Derived from them: everything in
+the table, by multiplying by the number of 120 s windows in a day (720) and by a region count. **The region count is an assumption and not a reading** - no session can
 see how many regions Vercel serves this project from - so it is named in the table rather than
 folded into the total.
 
-**The lever, if the combined total approaches the allowance, is `revalidate` and not the code.**
-Doubling it to 120 s halves this side. The exit condition in section 6 is the other lever and is the
+**The lever, if the combined total approaches the allowance, WAS `revalidate` and it has now been
+pulled.** It stood at 60 s and is 120 s as of HANDOFF-12, which halved this side; the figures above
+are post-pull, so this lever is spent and pulling it again costs staleness a reader can see. The
+exit condition in section 6 - this project's own database - is the remaining lever and is the
 operator's.
 
 Four consequences, none optional:

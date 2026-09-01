@@ -250,6 +250,16 @@ jobs:
       - name: Capture consistency (every mainnet-*.json is internally consistent)
         run: node scripts/check-capture-consistency.mjs
 
+      # HANDOFF-11 noticed that the compose pin clears the 6.3.0 floor with ZERO
+      # headroom and that nothing in `pnpm check` would catch a tag moved one
+      # patch down. It could only state it; this checks it. The tag is extracted
+      # before comparison, because parseZebraVersion reads a node's subversion
+      # and returns null for an image ref by design. Three outcomes, and an
+      # unreadable pin such as :latest FAILS - an unknown floor is not a
+      # satisfied one.
+      - name: Compose Zebra tag (the pinned image clears the declared floor)
+        run: node scripts/check-compose-zebra-tag.mjs
+
       - name: Install
         run: pnpm install --frozen-lockfile
 

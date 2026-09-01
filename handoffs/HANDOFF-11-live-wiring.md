@@ -487,6 +487,16 @@ NOTICED (outside scope, not acted on):
   - `apps/web/tsconfig.json` has no `include` committed; `next build` writes one
     on every run, so a build dirties the working tree. Pre-existing on main.
     It is why the two-build Playwright design was abandoned - see UNVERIFIED.
+    **CORRECTED BY HANDOFF-12, AND THE PREMISE IS FALSE (F-49-2).** The file
+    HAS a committed `include`, containing `.next/types/**/*.ts`, and has since
+    `dd2395a` - the HANDOFF-01 scaffold commit that created it. One commit has
+    ever changed its content; blob `c82604a` is identical at `dd2395a`, at
+    `origin/main` and in the worktree. `next build` writes that entry only when
+    it is MISSING, which is why Q1's custom-`distDir` run triggers it and the
+    default build does not. The sentence above is left standing rather than
+    edited because it is a record of what that session believed; the correction
+    is appended to `LEDGER.md` under the same rule. Q1's mechanism is
+    unaffected and remains the reason the two-build design was abandoned.
   - The compose pin `zfnd/zebra:6.3.0` clears the 6.3.0 floor with ZERO
     headroom, and nothing in `pnpm check` would catch a tag moved one patch
     down. Stated by a test rather than guarded; a guard would have to extract

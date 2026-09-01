@@ -671,16 +671,89 @@ docker compose exec -T zebrad curl -s http://127.0.0.1:8232 \
 
 ### Capture log
 
-Fill in a row per capture. Empty is the honest current state.
+Fill in a row per capture.
 
 | Height | Block hash | `subversion` observed | `vjoinsplit` present | Captured |
 |---|---|---|---|---|
-| _none yet_ | | | | |
+| 3,432,130 | `000000000009eb351a746b531aac6125982b93161529b5e68821d74034230ddd` | `/Zebra:6.2.1/` | yes, empty on all 5 tx | 1 Sep 2026 |
+| 3,441,955 | `000000000054b709857869a65b4db13bbc723123584b18edd4637ae3d3780791` | `/Zebra:6.2.1/` | yes, empty on all 10 tx | 1 Sep 2026 |
 
-The `vjoinsplit` column is deliverable 2b and is the point of the exercise:
-`packages/zebra-rpc/src/sprout-field.ts` reports the field's absence as
-INDETERMINATE rather than as zero, and this table is where "indeterminate"
-becomes "observed".
+Both were taken by L2 (Cowork) against the public endpoint
+`https://zcash-mainnet-zebrad.gateway.tatum.io/` rather than against this VPS,
+because the VPS is not yet provisioned and the standing request had by then
+survived four handoffs (LEDGER-10 Q4). The `subversion` is L2's reading of
+`getnetworkinfo` at capture time and is **not** recoverable from the files -
+a `getblock` result carries no node identity - so it is recorded here on L2's
+report rather than as something a later reader can re-measure from the tree.
+Everything else in these two rows was measured from the committed files.
+
+**THE `vjoinsplit` COLUMN IS DELIVERABLE 2b AND THESE TWO CAPTURES CLOSE HALF
+OF IT.** `packages/zebra-rpc/src/sprout-field.ts` reports the field's absence
+as INDETERMINATE rather than as zero, and this table is where "indeterminate"
+becomes "observed". Executed against both captures:
+
+```
+tx0(v6)=OBSERVED  tx1(v5)=OBSERVED  tx2(v5)=OBSERVED  tx3(v6)=OBSERVED  tx4(v5)=OBSERVED
+tx0(v6)=OBSERVED  tx1(v4)=OBSERVED  tx2(v6)=OBSERVED  tx3(v4)=OBSERVED  tx4(v5)=OBSERVED
+tx5(v4)=OBSERVED  tx6(v4)=OBSERVED  tx7(v6)=OBSERVED  tx8(v4)=OBSERVED  tx9(v6)=OBSERVED
+control, a v4 tx with NO vjoinsplit key: ABSENT_INDETERMINATE
+```
+
+Every transaction carries the key, empty. The four **v4** transactions in
+3,441,955 are what make that a result rather than a formality: v4 is a version
+that COULD carry JoinSplits, so on a v4 the missing key is exactly the
+`ABSENT_INDETERMINATE` the control shows - and this is the first time this
+repository has held a node's answer for one. Zebra emits `vjoinsplit` on the
+verbosity-2 `getblock` path.
+
+**What is still open is the other half: a NON-EMPTY JoinSplit.** L2 scanned 130
+post-Ironwood blocks (heights 3,428,200 to 3,445,099) and found Sprout
+JoinSplits in 0 of 130. The pool holds about 22,591 ZEC and is dormant, so
+sampling recent heights will not produce one at any sample size worth running;
+finding one needs a targeted historical search, which is a different job.
+`sproutValueBalanceZat` has still never met bytes a node produced.
+
+### The node version, and why these captures are usable below the 6.3.0 floor
+
+`checkZebraVersionFloor("/Zebra:6.2.1/")` returns `below-floor`. That is not
+disqualifying here and the distinction is worth stating, because getting it
+wrong in either direction is expensive: `version-floor.ts` and A11 govern **the
+node the running stack talks to**, whereas a capture is a historical artifact
+whose `subversion` this README asks to be RECORDED. Applying a live-operation
+rule to an artifact would have thrown away two usable captures.
+
+What 6.2.1 actually risks is ZcashFoundation/zebra issue **#10550**, fixed in
+6.2.2: `getblock` resolved the caller's hash-or-height a second time for
+`get_block_header` and bound the Sapling-tree and depth reads to it, so a reorg
+or tip advance between those reads could mix one block's header with another's
+contents, or return a Sapling tree from a different block at the same height.
+The same release stopped hardcoding `in_active_chain: true`.
+
+**So it is checked rather than assumed, and a block carries its own checksum.**
+`scripts/check-capture-consistency.mjs` recomputes each capture's merkle root
+from its own txids and compares it to the header - a header and a transaction
+list from different blocks cannot agree - and checks `nTx`, per-transaction
+blockhash and height, and the best-chain flag. It runs in `pnpm check` and in
+CI. Every field #10550 could corrupt is clean on both captures:
+
+```
+[capture-consistency] OK: 2 capture(s) in apps/indexer/test/fixtures/blocks are
+internally consistent (merkle root recomputed from txids; nTx; per-tx blockhash
+and height; best-chain flag; 0 note-commitment tree delta(s) checked against the
+blocks' own outputs and actions), with 2 check(s) reported above as NOT RUN.
+```
+
+**The two NOT RUN lines are the honest part and are not a pass.** The
+note-commitment `trees` delta arm needs the block before the one it is
+checking, and neither height 3,432,129 nor 3,441,954 is committed here, so that
+arm did not run for either capture. It is reported as not run rather than
+counted as checked. Committing the two predecessors would make it reproducible
+at a cost of about 549 KB and 305 KB; that trade is recorded in LEDGER-12 and
+is the operator's, not a session's - no session can fetch them.
+
+**Re-capturing height 3,432,130 from a 6.3.x node and diffing settles the
+version question permanently.** Byte-identical closes it; different is itself a
+finding, and a more interesting one than the original doubt.
 
 ---
 

@@ -7073,3 +7073,64 @@ console.log(
     `${checked === 0 ? " - with no captures present it is driven by the self-test alone" : ""}.`,
 );
 ```
+
+## HANDOFF-12 fold 1 - LEDGER-11 Q2 corrected, by appending (L3, 1 Sep 2026)
+
+```
+F-49-2. LEDGER-11 Q2 STATES A FALSE PREMISE, AND ITS OWN BLOCK REFUTES IT FOUR
+PARAGRAPHS EARLIER.
+
+Q2 (this file, line 6597) reads: "`apps/web/tsconfig.json` IS REWRITTEN BY EVERY
+BUILD, ON MAIN TOO. It has no `include` committed and `next build` writes one.
+So `pnpm build` dirties the working tree, and has since HANDOFF-01."
+
+MEASURED, Executed, on this branch at 4a604f8:
+
+  $ git show origin/main:apps/web/tsconfig.json | sed -n '22,27p'
+    "include": [
+      "next-env.d.ts",
+      "**/*.ts",
+      "**/*.tsx",
+      ".next/types/**/*.ts"
+    ],
+  $ git log --oneline --follow -- apps/web/tsconfig.json | wc -l
+  1
+  $ git rev-parse dd2395a:apps/web/tsconfig.json origin/main:apps/web/tsconfig.json
+  c82604aae446f7c7123048df925c84273b94db88
+  c82604aae446f7c7123048df925c84273b94db88
+  $ git hash-object apps/web/tsconfig.json
+  c82604aae446f7c7123048df925c84273b94db88
+
+The `include` IS committed, it DOES contain `.next/types/**/*.ts`, and one blob
+has stood since `dd2395a` - which is itself the HANDOFF-01 scaffold commit, so
+the clause "and has since HANDOFF-01" is false at its own origin.
+
+Q1's MECHANISM IS UNAFFECTED AND IS THE REASON THE DEFAULT BUILD IS CLEAN. Next
+appends that entry only when it is MISSING. A build with the default `distDir`
+finds it present and writes nothing; a build with a CUSTOM `distDir` finds no
+`<distDir>/types/**/*.ts` entry and appends one, which is exactly Q1's
+observation and exactly why the two-build Playwright design was abandoned. Q1 is
+right about the mechanism; Q2 states the same fact about the wrong object.
+
+THIS IS APPENDED RATHER THAN EDITED, AND THAT IS THE INSTRUCTION READ IN THE
+PROJECT'S OWN TERMS. Fold 1 says "correct LEDGER-11 Q2 in place". CLAUDE.md says
+this file is append-only - "never rewrite an earlier block, including L2's" -
+and the project has ruled on the collision twice already: commit 75fd8b0
+corrected two claims in an earlier block and its message says "Appended rather
+than edited - the earlier block was accurate when written", and LEDGER-04 Q6
+reads "thank you for putting it in the right place rather than editing an
+append-only file". So "in place" is honoured as "at the ledger, against Q2 by
+name" rather than as a rewrite of line 6597.
+
+THE SWEEP (LEDGER-03 Q3). Two sites in the tree state the premise:
+  handoffs/LEDGER.md:6597          - corrected by this block
+  handoffs/HANDOFF-11-live-wiring.md:487 - annotated in place in the same commit
+Both were found by `grep -rn "no \`include\` committed\|IS REWRITTEN BY EVERY BUILD"`
+over the tree. The HANDOFF-11 site keeps its original sentence with the
+measurement beneath it, for the same reason as above: it is a record of what
+that session believed, and a correction that erases the belief also erases why
+the correction was needed. Four further sites state Q1's custom-`distDir`
+mechanism and were checked and left alone, because that mechanism is true:
+LEDGER.md:6580-6582, HANDOFF-11-live-wiring.md:516-518,
+apps/web/test/e2e/snapshot.spec.ts:70-72, LOG.md:27.
+```
