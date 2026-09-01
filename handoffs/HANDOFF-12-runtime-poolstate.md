@@ -1,7 +1,7 @@
 ---
 handoff: 12
 title: 7B / 7C runtime wiring — PoolState replay, confirmed-block driver, assessments on the live path
-status: in-progress
+status: shipped
 branch: the session-designated branch (name it `feat/v2-12-runtime-poolstate` if you may choose)
 track: Integration
 depends_on: 06, 07, 08
@@ -156,16 +156,302 @@ Make the live indexer maintain `PoolState` for all four pools from chain data (r
 ## §7 REPORT — written by L3 before the PR opens (docs-scribe keeps it)
 
 ```
-STATUS: DONE | DONE-WITH-ASSUMPTIONS | BLOCKED | OUT-OF-DEPTH | NOT CONVERGING
-BRANCH / PR:
+STATUS: PARTIAL - DELIVERABLE 0 AND FOLDS 1-10 DONE; §4 DELIVERABLES 1-3 NOT DELIVERED.
+
+  Stated as a split rather than as one word because one word would be false either
+  way. Everything the L2 RESOLUTION asked for is landed and driven. The handoff's
+  own §4 - the runtime wiring, the reorg path and the Ironwood anchor via
+  z_gettreestate - is NOT built, beyond removing the blocker that made A1
+  unreachable. L2's scope note anticipated exactly this and prescribed the
+  ordering used here: "land folds 1-10 and the §4 runtime work in separate
+  commits in that order, so a partial branch still carries the closed findings."
+  The reason is budget, not a technical block: a verifier died mid-run on the
+  account's weekly usage limit (recorded under GATE ROUNDS), and the remaining
+  headroom was spent on the reconcile and the folds rather than started on a
+  runtime rewrite that could not have been finished or gated.
+
+BRANCH / PR: claude/handoff-12-poolstate-reconcile-oyhra0 - PR opened as draft, stops there.
+
 DIRECTORS SPAWNED (lead names each + spawn mode proven):
+  Spawn mode: MULTI-AGENT, PROVEN BEFORE ANY WORK. An `Explore` subagent was
+  dispatched as the first action and returned live `git log` output plus SPAWN-OK.
+  The lead ran the handoff directly rather than through directors: this session's
+  work is a reconcile plus ten mechanical folds, each needing measurement against
+  one tree, and a director layer over that adds handoffs between agents without
+  adding reach. One fan-out was used where breadth paid - eight read-only
+  verifiers over the eight claim clusters of L2's reconnaissance:
+    verify:f49-2-tsconfig · verify:f49-1-skipguard · verify:q3-compose-tag
+    verify:q4-revalidate · verify:a1-a2-poolstate · verify:a3-a4-a5-live-path
+    verify:fold8-fixtures · verify:fold9-guard-style (DIED - weekly usage limit)
+  POST-FAN-OUT SWEEP: `git status --porcelain` run after the fan-out returned and
+  before the next commit, per CLAUDE.md. It showed five paths, all intended
+  (RUNBOOK-VPS.md, package.json, the two captures, the capture guard). NO stray
+  write by any of the eight read-only workers. Reported because the rule requires
+  the sweep to be reported whether or not it found anything.
+
 FILES (created / modified / moved):
+  created  scripts/check-capture-consistency.mjs          (fifteenth guard)
+  created  scripts/check-compose-zebra-tag.mjs            (sixteenth guard)
+  created  apps/indexer/test/fixtures/blocks/mainnet-3432130-000000.json  (cp, cmp-verified)
+  created  apps/indexer/test/fixtures/blocks/mainnet-3441955-000000.json  (cp, cmp-verified)
+  created  apps/indexer/src/decoder/__tests__/value-pools-conservation.test.ts
+  created  handoffs/prompts/PROMPT-12.md
+  modified packages/zebra-rpc/src/types.ts, client.ts     (valuePools forwarded)
+  modified .github/workflows/ci.yml                       (zebra-rpc JSON report; step order; two guards)
+  modified scripts/assert-no-skipped-integration.mjs      (A11 added, mainnet-fixture entry removed)
+  modified .gitignore, package.json
+  modified apps/web/src/app/page.tsx, pools/page.tsx, components/ambience/BlockArrival.tsx
+  modified docs/2.0/SNAPSHOT.md, docs/2.0/RUNBOOK-VPS.md
+  modified CLAUDE.md
+  modified handoffs/{README,LEDGER,LOG,HANDOFF-11,HANDOFF-12,HANDOFF-13}.md
+
 EVIDENCE (per §5 assertion: pass transcript + fail transcript, provenance Executed/Read/UNVERIFIED):
-ASSUMPTIONS (each: ACCEPTED / CORRECTED / DEFERRED — reason):
-NOTICED (outside scope, not acted on):
+
+  A1 - RESTATED, AND PARTLY DELIVERED. Executed.
+    The restatement is recorded in §5 above with the reason, per L2's instruction
+    not to quietly satisfy the old wording. What is delivered is the BLOCKER's
+    removal plus the conservation law over both captures; what is NOT delivered
+    is a replay comparing computed deltas against them, because the replay driver
+    is §4 work.
+    PASS  8 passed - valuePools survives `rpc.getBlock()` on both captures, all
+          six entries in order, chainValueZat and valueDeltaZat both bigint; the
+          six deltas sum to 156,250,000 zat on both, exactly the subsidy.
+    FAIL  forwarding reverted to the state at 4515825 -> 8 failed, first message
+          "valuePools was dropped at the client boundary: expected undefined to
+          be defined". This is the pre-fix tree, so the fail side is the defect
+          itself rather than a synthetic break.
+    FAIL SIDE, BY DATA, from inside the stated exclusion set: one pool's
+          `valueDeltaZat` altered by ONE zatoshi - the smallest member - and the
+          sum moves by exactly one. Asserted in the suite, not just run once.
+    AND THE LOCKBOX PRECISION, pinned as its own test: the sum balances only over
+          the SIX wire entries; over `LedgerLane`'s five it is short by exactly
+          the lockbox delta, 18,750,000, on both captures.
+    L2's narrower fee claim, checked: in 3,432,130 orchard -5,015,000 and
+          ironwood +5,000,000 differ by 15,000 and that IS the crossing's fee,
+          because exactly ONE transaction touches those pools. In 3,441,955 TWO
+          do and the same subtraction gives -264,225,000, which is not a fee.
+          Both Executed. The precondition is real and is recorded in §5.
+
+  A2 - NOT DELIVERED. The assertion is sound and was verified as being about code
+    this handoff writes: `zmq.start()` at index.ts:95, poll fallback at :99,
+    `replayInto` at replay.ts:36, and index.ts imports neither it nor any state/
+    module. Read. No spy-order test exists because no replay call exists to order.
+    Recorded for the next session: replayInto's only callers are two
+    Postgres-gated integration files, so A2's test must NOT live in that gate or
+    it passes vacuously on a runner without a database.
+
+  A3 - NOT DELIVERED, AND ONE DEFECT IT WOULD HAVE SHIPPED IS ALREADY CLOSED IN
+    THE RECORD. Executed.
+    `assessRaw`/`assessFiltered` present at :63/:87; `SpendAnnotation.assessment`
+    and `LinkRecord.assessment` already exist and are already optional, so A3
+    needs population and no type change; `AnalyzeContext` has no chainState.
+    `UNKNOWN_ANCHOR` EXISTS NOWHERE - its only occurrence in the tree is A3's own
+    sentence - and the handoff does not say whether it is a FindingCode or a log
+    string, which decides whether A3's fail side is observable at all.
+    THE SEAM, MEASURED BEFORE THE CODE WAS WRITTEN: the indexer's
+    `serializeReport` stringifies EVERY bigint by value; `reviveWireZatoshi`
+    revives only keys matching /Zat$/; `ClaimAssessment` carries rawCount,
+    effectiveSetSize, countIn and countOut - four bigints, none Zat-suffixed. Run
+    through the real serialiser and the real reviver:
+        spend.valueZat                     string(5000000) -> bigint(5000000)
+        spend.assessment.rawCount          string(1234)    -> string(1234)
+        spend.assessment.effectiveSetSize  string(57)      -> string(57)
+        appliedFilters[0].countIn          string(1234)    -> string(1234)
+        appliedFilters[0].countOut         string(57)      -> string(57)
+        ROUND TRIP BROKEN on 4 of 5 fields; the declared type says bigint on
+        every one, and the `as T` cast means the compiler never objects.
+    A3 is therefore not complete without making that round trip symmetric. The
+    instrument that found it is fold 6's own, pointed at code that does not exist
+    yet, which is the first time on this project that shape has been caught
+    BEFORE it shipped rather than one commit after.
+
+  A4 - NOT DELIVERED. fast-check ^4.8.0 is available to apps/indexer;
+    pool-state.test.ts:116 is the style model. Rollback exists only at the
+    persistence layer - rollbackAllToHeight at replay.ts:88 plus six per-table
+    deleters - and is called from NOTHING in production. `h_split` appears
+    nowhere in source; it is this handoff's own vocabulary. Read. §5 now carries
+    the named worked case the property-test rule requires.
+
+  A5 - DECIDED, NOT YET EXECUTED. Read, every particular confirmed:
+    index.ts:146 publishes to the literal "zcashreveal:links" under
+    `if (newLinks.length > 0)` at :140; server.ts:140 subscribes to
+    REDIS_CHANNELS.mempool and .tip only; REDIS_CHANNELS declares no links key.
+    A producer with no consumer. The decision and its reason are in §8.
+
+  THE TWO GUARDS, BOTH DRIVEN RATHER THAN TRUSTED. Executed.
+    check-capture-consistency.mjs, adopted from L2's Appendix A and then
+    strengthened - see NOTICED for what driving it found. Ten mutations, every
+    one caught by name.
+    check-compose-zebra-tag.mjs, written to Q3's specification. Ten mutations,
+    every one caught by name, and two of them only after the guard was changed:
+    see NOTICED.
+
+  FOLD 2, both polarities, Executed against reports generated by CI's own commands:
+    report wired in, A11 not yet allowed -> rc=1 naming the A11 fullName verbatim
+    A11 allowed                          -> rc=0, 605 tests, 3 allowed skips
+    mainnet entry removed, captures present -> rc=0
+    mainnet entry removed, captures ABSENT  -> rc=1 naming the decodeBlock test,
+      which is what makes the captures load-bearing rather than optional.
+
+  FOLD 8, the fixture polarities, Executed and matching L2's figures exactly:
+    no captures  -> 10 passed | 1 skipped     (the state of main)
+    one capture  -> 11 passed
+    two captures -> 11 passed
+    Confirming L2's point that the suite count CANNOT tell one capture from two.
+    The capture guard is the only thing that reports the count.
+    Full indexer suite with a reachable Postgres: 457 passed / 0 skipped.
+
+  THE SIX GATES, Executed:
+    TEST_RC=0  TYPECHECK_RC=0  LINT_RC=0  VALIDATE_RC=0  CHECK_RC=0  BUILD_RC=0
+    `pnpm check` is sixteen guards. `pnpm build` left `git status --porcelain`
+    carrying only this branch's own files - which is F-49-2's premise measured
+    from the other direction.
+
+ASSUMPTIONS (each: ACCEPTED / CORRECTED / DEFERRED - reason):
+  CORRECTED  "the captures are deliberately NOT already on main". They ARE on
+    main, at docs/2.0/capture/, placed by three web-UI commits on top of the PR
+    #49 merge - so main is 4515825, not fa696a6. The PREMISE BEHIND the sentence
+    holds and that is what mattered: they landed in the STAGING directory, not in
+    the fixture glob, so block-decoder.test.ts's one test is still skipped on
+    main and moving them is this PR's work.
+  CORRECTED  L2's capture sizes, "87.6 KB and 169.0 KB". On disk they are 94,593
+    and 181,354 bytes (92.4 and 177.1 KiB). L2's figures are exactly the MINIFIED
+    sizes in KiB; the committed files are pretty-printed. Immaterial to the
+    arithmetic, but the "90 KB-2.4 MB per block" cost estimate that drives the
+    "a thousand blocks is tens to hundreds of megabytes" argument is built on the
+    compact figure, so the real cost of a fixture range is higher than stated.
+  CORRECTED  L2's fold-8 line "10 tx sap 4 orch 2 iron 6" for 3,441,955. Measured:
+    2 vShieldedOutput and 2 vShieldedSpend, not 4 outputs. "sap N" is L2's total
+    of sapling shielded ELEMENTS. This matters because the capture guard's
+    sapling delta arm compares the tree size against OUTPUTS only - correctly,
+    since the note-commitment tree grows by outputs - so a reader taking "sap 4"
+    as the expected delta would think the guard was broken.
+  CORRECTED  Two of L2's five capture-guard polarity transcripts do not reproduce
+    from the repository. See NOTICED.
+  ACCEPTED   L2's line numbers ci.yml:300 and ci.yml:327, the A11 fullName
+    character for character, the F-49-2 measurement, and every particular of A5.
+    All re-measured here; all exact.
+  ACCEPTED   "correct LEDGER-11 Q2 in place" read as "at the ledger, against Q2
+    by name" rather than as a rewrite, on the project's own two precedents
+    (75fd8b0's message, LEDGER-04 Q6). Recorded in the ledger block itself.
+  DEFERRED   Committing the two predecessor blocks to make the guard's trees
+    delta arm reproducible. No session can fetch them; goes to §8.
+  DEFERRED   Raising SNAPSHOT_TTL_MS to 120,000 to restore the equality fold 4
+    broke. A staleness trade, so the operator's; goes to §8.
+
+NOTICED (outside scope, or found by driving something rather than reading it):
+  THE THREE DEFECTS IN L2'S APPENDIX A, all found by executing it.
+    (1) Its self-test drove TWO of the guard's SEVEN finding arms. nTx, per-tx
+        blockhash, per-tx height, the best-chain flag and previousblockhash had
+        no fail side at all - the LEDGER-09a Q3 shape, a self-test that
+        under-covers its own rule.
+    (2) `merkleRoot([])` throws out of Buffer.from, so ONE malformed capture took
+        the whole run down with a stack trace instead of naming the file, and the
+        captures after it were never examined. A crash is a fourth outcome the
+        guard's own header says it does not have.
+    (3) Its docblock said the self-test "drives a known block" and the self-test
+        built its blocks with `merkleroot: merkleRoot(txids)` - the function
+        checking itself. Measured: reversing the byte order AND replacing the
+        odd-row duplication BOTH left the self-test green; only the committed
+        captures caught them, so a tree with no captures would have shipped
+        either. A sentence making a checkable claim about runtime behaviour,
+        checked by executing it, and false - stopping-rule clause (c).
+    All three fixed: arms are data and the self-test iterates them, coverage is
+    checked in BOTH directions over checkOne's own source, and a known-answer
+    vector (block 3,432,130's five txids and its node-reported root) pins the
+    conventions with no fixture present.
+  TWO OF L2'S FIVE POLARITY TRANSCRIPTS DO NOT REPRODUCE, and its own note four
+    paragraphs later refutes them - the F-49-2 shape again.
+      claimed: both blocks present -> "2 capture(s) ... 3 delta(s) checked", 1 NOT RUN
+      measured: "2 capture(s) ... 0 delta(s) checked", 2 NOT RUN
+    The two committed captures are 9,825 blocks apart, so NEITHER has its
+    predecessor and the delta arm cannot run for either. Rows 1 and 4 were both
+    taken in a directory containing height 3,432,129. Row 4's MESSAGE reproduces
+    byte for byte against a derived predecessor, but that derivation computes
+    13,639 as 13,640 minus the block's own one action - the same arithmetic L2
+    used - so it corroborates the guard, not L2's reading of a block this
+    repository does not hold. Rows 2, 3 and 5 reproduce exactly.
+  A THIRD CI EDIT WAS NECESSARY AND F-49-1 NAMED ONLY TWO. The guard step was at
+    ci.yml:300 and the zebra-rpc suite at :327, so wiring the report in without
+    moving anything would have had the guard read a file written 27 lines later -
+    a hard failure by design. The suite now sits immediately above the guard.
+  AND A FOURTH CONSEQUENCE: zebra-rpc-results.json was not gitignored. The
+    .gitignore comment already records this exact shape happening once before,
+    when the publisher's report was added without its sibling ignore. Second
+    instance of one origin - a new suite joining a convention every existing
+    member already had - so the three reports are now listed as a set.
+  THE COMPOSE GUARD HAS TWO CLAUSES THAT CANNOT CHANGE A VERDICT. Q3's step 1
+    (reject `@`) and step 2 (the colon must follow the last slash) are both
+    subsumed by step 3's anchored regex: delete either and every ref still
+    reaches the same outcome by a different route. Measured. They are kept
+    because each produces the correct DIAGNOSTIC, they are tested BY MESSAGE, and
+    the guard's header says a green run is not evidence for them - because a
+    fail-side probe that does not fail is itself a finding.
+  AND ITS COMPARATOR'S PATCH TERM IS UNREACHABLE against a floor whose patch is
+    0: deleting `a.patch - b.patch` left every image-ref row green. It is driven
+    against a synthetic 6.3.1 floor, which is the only way that term gets a fail
+    side at all while the declared floor ends in zero.
+  MY OWN COVERAGE CHECK HAD THE HOLE IT WAS WRITTEN AGAINST. The first version
+    counted finding sites, so DELETING A PROBE ROW left the count unchanged and
+    the self-test green - the disease reproduced inside its own cure. Now checked
+    in both directions: every site must carry some row's marker, and every row's
+    marker must be found at some site.
+  AND ONE VACUOUS PASS OF MY OWN, caught the same way. Rewriting §5 dropped the
+    uppercase "EXCLUSION SET" marker that opts a handoff into R4, so
+    check-ledger-structure.mjs SKIPPED the file and reported OK. Restored, and
+    proven non-vacuous by the count moving from 49 assertions across 4 handoffs
+    to 54 across 5. A guard that skips silently and a guard that passes look
+    identical in a transcript; only the count distinguishes them.
+  DELIVERABLE 2b IS HALF CLOSED, AND L2'S SURVEY DID NOT NOTICE IT. All 15
+    transactions across both captures return OBSERVED from
+    `joinSplitObservability`, including FOUR v4 transactions in 3,441,955 - the
+    version class where a missing key is ABSENT_INDETERMINATE, confirmed against
+    a control. So Zebra emits `vjoinsplit` on the verbosity-2 getblock path, and
+    this repository now holds a node's answer for a version that could have
+    carried JoinSplits. What stays open is a NON-EMPTY JoinSplit; recent heights
+    will not produce one.
+  THE CAPTURES CONFIRM §2's IRONWOOD PREMISE INDEPENDENTLY. Both carry
+    `finalsaplingroot` and `finalorchardroot` and NO Ironwood root under any
+    spelling, which is what §2 says and what deliverable 2 is for.
+  docs/2.0/CLAUDE-CODE-PROMPTS.md:302 states "ISR (revalidate 60s)". Checked and
+    LEFT: it is a dated prompt pack ("Prepared: 22 Aug 2026"), a record of what
+    was specified rather than a claim about current behaviour. Recorded so a
+    later sweep does not re-find it as an error.
+
 UNVERIFIED (labelled):
-GATE ROUNDS: n · fingerprints (file · rule · severity) per round
-PREVIEW URL (if any):
+  The `subversion` /Zebra:6.2.1/ and the endpoint. Recorded in RUNBOOK-VPS on
+    L2's report; a getblock result carries no node identity, so no reader can
+    re-measure it from the tree. Labelled as such there.
+  L2's reading of Zebra's source across four tags for issue #10550. Not
+    re-derived here - no session can reach that repository - but the FIELDS
+    #10550 could corrupt are now checked by a guard on every run, which is the
+    half that matters and the half that is reproducible.
+  The trees-delta arm over the real tree. It reports NOT RUN for both captures
+    and that is honest rather than a pass; it cannot be driven in-tree without
+    the predecessor blocks, which no session can fetch.
+  L2's 130-block survey and its failure rates. Not reproducible without node
+    access; recorded with its n, per the rule fold 10 contributes.
+  Every deployed measurement. No session can reach a preview host.
+
+GATE ROUNDS: 0 formal rounds. Stated plainly rather than dressed: this branch has
+  not been through a gate. The verify fan-out that WOULD have opened round 1 lost
+  one of its eight workers to the account's weekly usage limit, and the remaining
+  budget went to the reconcile and the folds. Per LEDGER-10 Q3 the surviving
+  findings are partitioned by whether EXECUTION settles them: all seven returning
+  clusters were re-measured by the lead against the tree by running commands, so
+  they are dispositioned here; the eighth cluster's questions (guard house style,
+  runbook section 10, the pnpm check count, the ledger guard's structure) were
+  all answered by the lead executing them directly, so nothing is carried forward
+  as UNVERIFIED on its account.
+  EXTRAPOLATION, stated rather than a convergence claim: a first real gate round
+  over this branch would probably find one or two more defects of the reach the
+  NOTICED list shows - a guard predicate or a docblock sentence making a
+  checkable claim - and the §4 work, being unwritten, is where a round would
+  actually pay.
+
+PREVIEW URL: none. Unreachable from a session (Deployment Protection returns 302
+  to SSO and the container's egress proxy refuses the CONNECT tunnel with 403
+  before that).
 ```
 
 ## §8 LEDGER — appended to `handoffs/LEDGER.md` by docs-scribe; read by L2 before the next handoff

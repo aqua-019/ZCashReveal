@@ -7134,3 +7134,130 @@ mechanism and were checked and left alone, because that mechanism is true:
 LEDGER.md:6580-6582, HANDOFF-11-live-wiring.md:516-518,
 apps/web/test/e2e/snapshot.spec.ts:70-72, LOG.md:27.
 ```
+
+## HANDOFF-12 - the reconcile, two guards, and a seam caught before it shipped (L3, 1 Sep 2026)
+
+```
+QUESTIONS (for the operator / L2):
+
+Q1. A5 IS DECIDED: REMOVE THE PUBLISH, DO NOT SUBSCRIBE IT. The indexer publishes
+    to the literal "zcashreveal:links" (index.ts:146) and no constant names that
+    channel and no process reads it. Subscribing it would mean inventing a
+    REDIS_CHANNELS.links, a frame kind, a WS test and a renderer for data no
+    surface asks for - building a consumer to justify a producer. Removing it
+    costs one guarded block and makes the grep agree in both apps, which is what
+    A5 asks for. NOT YET EXECUTED: it is a live-path edit and belongs with the
+    rest of the runtime wiring rather than alone on a branch that does not touch
+    index.ts otherwise. Recorded as decided so the next session does not re-open
+    it. If L2 disagrees, the counter-case is that link records are the one
+    analysis output with no path to the site at all, and that is a product
+    question rather than a wiring one.
+
+Q2. THE PREDECESSOR BLOCKS, AND THE TRADE L2 LEFT TO US. The capture guard's
+    trees-delta arm reports NOT RUN for both captures, because neither height
+    3,432,129 nor 3,441,954 is committed. That arm is the one CLAUDE.md's
+    "every detector is driven at least once over the REAL TREE" standard cannot
+    be met for, and it is the arm most likely to be silently inert. Committing
+    the two predecessors would close it at about 549 KB and 305 KB. NO SESSION
+    CAN FETCH THEM, so this is the operator's call and it needs a node. The
+    interim is honest rather than sufficient: the arm has a synthetic fail side
+    in the self-test and reports NOT RUN rather than counting itself a pass.
+
+Q3. SNAPSHOT_TTL_MS AND revalidate ARE NO LONGER EQUAL, AND FOLD 4 DID NOT SAY SO.
+    The TTL is 60,000 and was exactly the old revalidate, so any two
+    revalidations in one window necessarily shared a memo. At 120 s the memo
+    covers only the first half of each period, so SNAPSHOT.md section 5's warm
+    row now holds when the two routes revalidate within 60 s of each other and
+    degrades toward the cold row when they drift. The section says so. Raising
+    the TTL to 120,000 restores the equality and doubles a rendered page's
+    worst-case staleness. That is a product trade, not a wiring one, so it is
+    the operator's - but leaving them unequal means the warm figure is a lower
+    bound and should be read as one.
+
+Q4. THE SIX-ONTO-FIVE MAPPING IS NOW LOAD-BEARING IN A SECOND PLACE. The
+    conservation law balances only over the SIX wire entries; over LedgerLane's
+    five it is short by exactly the lockbox delta, 18,750,000 on both captures.
+    schemas.ts already says mapping six onto five is the gateway's job and that
+    is still right. The question is whether any FUTURE conservation check - the
+    publisher's, the site's - is at risk of being written over the five, since
+    five is what every consumer type shows. A guard could pin it; this session
+    pinned it as a test instead and is naming the choice rather than hiding it.
+
+Q5. THIS BRANCH HAS NOT BEEN THROUGH A GATE AND SAYS SO. The verify fan-out lost
+    a worker to the account's weekly usage limit and the remaining budget went to
+    the reconcile and the folds. Under LEDGER-10 Q3 that is reported as two
+    counts, and both are settled: seven clusters returned and every one was
+    re-measured by the lead by RUNNING something, and the eighth cluster's
+    questions were all answered by direct execution too. Nothing is carried as
+    UNVERIFIED on the dead worker's account. What is NOT claimed is convergence:
+    a first real round over this branch would probably find one or two more
+    defects of the reach the section 7 NOTICED list shows.
+
+INFERRED (non-empty inferences a worker made):
+
+  1. THAT "correct LEDGER-11 Q2 IN PLACE" MEANS APPENDING. Fold 1 says "in
+     place"; CLAUDE.md says this file is append-only. Resolved on the project's
+     own two precedents rather than on preference: 75fd8b0's message reads
+     "Appended rather than edited - the earlier block was accurate when written",
+     and LEDGER-04 Q6 reads "thank you for putting it in the right place rather
+     than editing an append-only file". The second site, HANDOFF-11's section 7
+     NOTICED, is annotated with its original sentence kept, because a correction
+     that erases the belief also erases why it was needed.
+
+  2. THAT HANDOFF-13 OPENS. Its depends_on are 04 and 11, 11 closed on this
+     reconcile, and its track is "2.1 - plan only" rather than Integration - so
+     12 being in-progress does not hold the one-open-per-track cap against it.
+     Mechanical rather than a judgement, but it is the first time this
+     directory has had two handoffs open on different tracks, so it is named.
+
+  3. THAT THE CAPTURES' ARRIVAL ON main IS NOT THE THING THE PROMPT WARNED
+     ABOUT. main is 4515825, not fa696a6: three web-UI commits placed both files
+     under docs/2.0/capture/. That is the STAGING directory, not the fixture
+     glob, so block-decoder.test.ts is still skipped on main and the premise
+     behind the warning holds exactly.
+
+NOT-MATCHED (patterns handed over that did not apply):
+
+  - `h_split`. Named in this handoff's own section 3 and present NOWHERE in
+    source. It is this document's vocabulary for the reorg split height, not an
+    identifier, and a session grepping for it finds only the handoff.
+  - `UNKNOWN_ANCHOR`. Named in A3 and present nowhere but A3's own sentence. It
+    must be CREATED, and the handoff does not say whether it is a FindingCode
+    union member - which pulls in check-audit-consumers.mjs - or a log string.
+    That choice decides whether A3's fail side is observable in the report at
+    all, which is what "both polarities tested" turns on.
+  - L2's five capture-guard polarity transcripts: rows 1 and 4 do not reproduce
+    from this repository, for the reason L2's own later paragraph gives.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+
+  - A1's "reference values (source cited)" had no referent: no fixture range
+    exists and none can. L2's restatement to the node's own valuePools is right
+    and is adopted, with the reason recorded in section 5 rather than the old
+    wording quietly satisfied.
+  - A3's "logged UNKNOWN_ANCHOR" - see NOT-MATCHED. Log or FindingCode is
+    undecided and the next session must decide it before writing the test.
+  - Fold 1's "in place" against an append-only file - see INFERRED 1.
+
+GATE ROUND COUNTS: 0. No gate was run; section 7 states this rather than
+  implying otherwise, and states the extrapolation instead of claiming
+  convergence.
+
+DEFERRED ASSUMPTIONS:
+  - The two predecessor captures (Q2). Needs a node; no session can fetch them.
+  - SNAPSHOT_TTL_MS (Q3). A staleness trade, so the operator's.
+  - Section 4 deliverables 1-3 in full: the replay-before-ZMQ ordering, the
+    confirmed-block driver, per-spend and per-link assessments, the reorg
+    property test, and the Ironwood anchor via z_gettreestate. NOT STARTED
+    beyond removing A1's blocker. The next session inherits a section 5 that has
+    been reconciled against the tree and five assertions each carrying its
+    exclusion set, which is the half that was worth doing first.
+  - Three smaller findings L2 recorded and this session confirms are not this
+    handoff's: version-floor.ts's docblock reads as though its three stated
+    reasons were everything the floor protects against, and #10550 is excluded
+    only incidentally; the fixtures README's short-hash rule is degenerate on
+    modern mainnet, which is why BOTH captures are named -000000; and tx.hex is
+    45% of a capture and nothing reads it, which L2 recommends not stripping and
+    this session agrees with - a capture edited to fit a budget is a synthetic
+    with extra steps.
+```
