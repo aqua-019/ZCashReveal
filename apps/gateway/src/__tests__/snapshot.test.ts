@@ -318,7 +318,14 @@ describe("A9 - the WS snapshot frame is the FIRST frame a new client receives", 
     // The mempool snapshot still goes out, second. It was not replaced.
     const second = stream.frames[1];
     expect(second?.channel).toBe("zcashreveal:mempool");
-    expect((second?.payload as { type: string }).type).toBe("mempool_snapshot");
+    // `snapshot` AND NOT `mempool_snapshot` SINCE HANDOFF-11. The old type
+    // named no member of `zecFrameSchema`, so the one frame that exists to fill
+    // the table on connect filled nothing: `apps/web`'s guard switches on
+    // `type` and dropped it into its default arm without a throw. The payload
+    // is now the `MempoolView` that union's `snapshot` arm carries, which is
+    // the same shape `GET /v2/mempool` serves, built by the same function.
+    expect((second?.payload as { type: string }).type).toBe("snapshot");
+    expect((second?.payload as { view: { entries: unknown[] } }).view.entries).toEqual([]);
 
     stream.close();
     await h.close();

@@ -386,7 +386,16 @@ function poolInitial(pool: ShieldedPool): string {
   }
 }
 
-function mempoolRow(r: LeakReport, now: number): MempoolRow {
+/**
+ * One `LeakReport` to one `MempoolRow`.
+ *
+ * EXPORTED IN HANDOFF-11 so the WebSocket relay can apply the same projection
+ * the REST route applies. It was private, and the consequence was that
+ * `ws-broker.ts` forwarded the indexer's raw `LeakReport` to a client whose
+ * union expects this shape - so every live mempool frame was dropped in the
+ * browser without a throw. One projection, two transports.
+ */
+export function mempoolRow(r: LeakReport, now: number): MempoolRow {
   // A REPORT THAT MEASURED NOTHING GETS A ROW THAT CLAIMS NOTHING, AND IT HAS
   // TO BE DECIDED HERE, FIRST. Every field below is recomputed from `valueFlow`
   // and the decoded bundles - deliberately, so /tx and /track cannot state two

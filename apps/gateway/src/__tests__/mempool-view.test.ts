@@ -1,257 +1,27 @@
 import { describe, expect, it } from "vitest";
-import {
-  asHex,
-  mempoolViewSchema,
-  type DecodedIronwoodAction,
-  DecodedOrchardAction,
-  type DecodedSaplingOutput,
-  type DecodedSaplingSpend,
-  type Hex,
-  type LeakReport,
-  type ShieldedPool,
-  type TransparentInput,
-  type TransparentOutput,
-  type ValueBalanceAnnotation,
-  type Zatoshi,
-} from "@zcashreveal/types";
+
+import { mempoolViewSchema, type LeakReport } from "@zcashreveal/types";
 
 import { buildMempoolView } from "../views/mempool.js";
 import { zecText } from "../views/units.js";
-
-/**
- * `buildMempoolView` - the class, the flow label and the crossing tile.
- *
- * THIS FILE EXISTS BECAUSE NOTHING COVERED `mempoolRow` AT ALL. The route
- * assertions in `routes.test.ts` drive `/api/mempool` with an EMPTY mempool -
- * there is no Redis in that harness, so `readLiveReports` returns `[]` and
- * every row-level branch is unexercised. That is how two defects lived in this
- * function through a green suite:
- *
- *   (a) the class ternary tested `direction` FIRST. Every transaction that
- *       moves a pool has a direction of DEPOSIT or WITHDRAWAL, so the
- *       `movedPools.length > 1` branch under it was unreachable for every
- *       input: `summary.migrations` was permanently zero and a Sapling to
- *       Orchard migration was published as `class: "shield"`, `flow: "t to z"`
- *       - a transparent-side claim about a transaction with no transparent
- *       side.
- *   (b) `migrationFlowText` read the label off the ORDER of `perPoolZat`,
- *       which the analyser builds in canonical pool order regardless of which
- *       side of the crossing each pool is on. An Orchard-into-Sapling
- *       migration therefore printed "S to O" - backwards.
- *
- * Both are fixed; these tests are what stops them coming back. Each rule is
- * pinned from both sides, because a test that only ever sees the passing state
- * cannot tell a working rule from an absent one: the migration cases are
- * mirror images of each other, and shield and deshield each appear with and
- * without the transparent half they name.
- *
- * The reports are BUILT rather than borrowed. `ws-broker.test.ts` casts a bare
- * `{ txid }` to `LeakReport`, which is sound there - the broker copies the
- * payload verbatim - and useless here, where every assertion reads
- * `valueFlow`. `report()` below constructs the whole record, and derives
- * `direction` by the analyser's own rule so that no case can state a
- * combination the indexer would never produce.
+/*
+ * THE HARNESS MOVED TO `leak-report-fixture.ts` IN HANDOFF-11 and is imported
+ * rather than rewritten. It is byte-identical to what stood here; the reason it
+ * moved is that `ws-broker.test.ts` now needs a real `LeakReport` too, and the
+ * alternative was a second hand-rolled one that had already drifted from the
+ * type on its first attempt.
  */
+import {
+  FEE,
+  NOW,
+  TIP,
+  ZEC,
+  coinbaseInput,
+  report,
+  transparentInput,
+  transparentOutput,
+} from "./leak-report-fixture.js";
 
-const NOW = 1_756_000_000_000;
-const TIP = 3_456_854;
-const ZEC = 100_000_000n;
-/** ZIP 317's conventional fee at the grace floor of two logical actions. */
-const FEE = 10_000n;
-
-const hex = (seed: string): Hex => asHex(seed.repeat(32).slice(0, 64));
-
-const times = <T>(n: number, make: (index: number) => T): T[] =>
-  Array.from({ length: n }, (_unused, index) => make(index));
-
-const transparentInput = (index: number): TransparentInput => ({
-  index,
-  coinbase: false,
-  prevTxid: hex("bc"),
-  prevVout: index,
-  address: "t1KtLcMzUgvcd6NqBnPvSvcYnJqbXvJmvVe",
-  sequence: 0xffff_ffff,
-});
-
-/**
- * A coinbase input, which is what the harness could not express until gate
- * round 2. `report()` builds vin from `transparentInput` alone, so the fix that
- * stopped a ZIP 213 coinbase being called a `shield` had no test that could
- * fail - `grep -rn coinbase` over this directory returned nothing.
- */
-const coinbaseInput = (index: number): TransparentInput => ({
-  index,
-  coinbase: true,
-  address: null,
-  sequence: 0xffff_ffff,
-});
-
-const transparentOutput = (index: number): TransparentOutput => ({
-  index,
-  valueZat: ZEC,
-  addresses: ["t1KtLcMzUgvcd6NqBnPvSvcYnJqbXvJmvVe"],
-  scriptType: "pubkeyhash",
-});
-
-const saplingSpend = (index: number): DecodedSaplingSpend => ({
-  pool: "sapling",
-  index,
-  nullifier: hex("11"),
-  anchor: hex("22"),
-  cv: hex("33"),
-  rk: hex("44"),
-});
-
-const saplingOutput = (index: number): DecodedSaplingOutput => ({
-  pool: "sapling",
-  index,
-  cmu: hex("55"),
-  cv: hex("66"),
-  ephemeralKey: hex("77"),
-  encCiphertextSize: 580,
-  outCiphertextSize: 80,
-});
-
-const orchardAction = (index: number): DecodedOrchardAction => ({
-  pool: "orchard",
-  index,
-  nullifier: hex("88"),
-  cmx: hex("99"),
-  cv: hex("aa"),
-  rk: hex("bb"),
-  ephemeralKey: hex("cc"),
-  encCiphertextSize: 580,
-  outCiphertextSize: 80,
-});
-
-/** The same shape with `pool: "ironwood"`, which is the only thing that differs. */
-const ironwoodAction = (index: number): DecodedIronwoodAction => ({
-  pool: "ironwood",
-  index,
-  nullifier: hex("77"),
-  cmx: hex("66"),
-  cv: hex("55"),
-  rk: hex("44"),
-  ephemeralKey: hex("33"),
-  encCiphertextSize: 580,
-  outCiphertextSize: 80,
-});
-
-interface Shape {
-  readonly txid: string;
-  /**
-   * The pool deltas, in the canonical order `classifyValueFlow` emits them -
-   * sprout, sapling, orchard - because that ORDER is what defect (b) read the
-   * flow label off. A case that sorted its own deltas source-first would pass
-   * against the broken implementation and prove nothing.
-   *
-   * Sign convention is the annotation's own: POSITIVE means value LEFT the
-   * pool, NEGATIVE means it entered.
-   */
-  readonly perPoolZat?: ReadonlyArray<{ readonly pool: ShieldedPool; readonly deltaZat: Zatoshi }>;
-  readonly vin?: number;
-  /** Build the vin from COINBASE inputs. See `coinbaseInput`. */
-  readonly coinbaseVin?: boolean;
-  readonly vout?: number;
-  readonly saplingSpends?: number;
-  readonly saplingOutputs?: number;
-  readonly orchardActions?: number;
-  readonly ironwoodActions?: number;
-}
-
-const deltaOf = (deltas: Shape["perPoolZat"], pool: ShieldedPool): Zatoshi =>
-  (deltas ?? []).find((d) => d.pool === pool)?.deltaZat ?? 0n;
-
-function report(shape: Shape): LeakReport {
-  const perPoolZat = shape.perPoolZat ?? [];
-  // `coinbaseVin` builds the vin from coinbase inputs instead of ordinary ones.
-  // Added in gate round 2: the harness could not express a coinbase at all, so
-  // the rule that a coinbase is not a transparent source had no test that could
-  // fail.
-  const vin = times(shape.vin ?? 0, shape.coinbaseVin === true ? coinbaseInput : transparentInput);
-  const vout = times(shape.vout ?? 0, transparentOutput);
-  const saplingSpends = times(shape.saplingSpends ?? 0, saplingSpend);
-  const saplingOutputs = times(shape.saplingOutputs ?? 0, saplingOutput);
-  const orchardActions = times(shape.orchardActions ?? 0, orchardAction);
-  const ironwoodActions = times(shape.ironwoodActions ?? 0, ironwoodAction);
-
-  const sproutValueBalanceZat = deltaOf(perPoolZat, "sprout");
-  const hasShieldedAny =
-    saplingSpends.length + saplingOutputs.length + orchardActions.length + ironwoodActions.length >
-      0 || sproutValueBalanceZat !== 0n;
-
-  // The analyser's rule, copied deliberately (`leak-analyzer.ts`,
-  // `classifyValueFlow`): a pool that GAINED value makes the transaction a
-  // DEPOSIT. Every migration is therefore a DEPOSIT, which is precisely why
-  // testing `direction` before the pool count hid the migration class.
-  const direction: ValueBalanceAnnotation["direction"] = !hasShieldedAny
-    ? "NONE"
-    : perPoolZat.length === 0
-      ? "INTRA_POOL"
-      : perPoolZat.some((d) => d.deltaZat < 0n)
-        ? "DEPOSIT"
-        : "WITHDRAWAL";
-
-  return {
-    txid: asHex(shape.txid.repeat(64).slice(0, 64)),
-    seenAt: NOW - 30_000,
-    tipHeightAtSeen: TIP,
-    txVersion: 5,
-    // Never read by the view: the row recomputes the class from the value flow
-    // so that /tx and /track cannot state two different things about one
-    // transaction. Present because `LeakReport` requires it.
-    leakClass: "MIXED",
-    overallSeverity: "LOW",
-    bundle: {
-      saplingSpends,
-      saplingOutputs,
-      saplingValueBalanceZat: deltaOf(perPoolZat, "sapling"),
-      orchardActions,
-      orchardValueBalanceZat: deltaOf(perPoolZat, "orchard"),
-      orchardAnchor: orchardActions.length > 0 ? hex("de") : null,
-      orchardFlags: null,
-      ironwoodActions,
-      ironwoodValueBalanceZat: deltaOf(perPoolZat, "ironwood"),
-      ironwoodAnchor: ironwoodActions.length > 0 ? hex("df") : null,
-      ironwoodFlags: null,
-    },
-    transparent: { vin, vout },
-    identity: {
-      sender: { transparentAddresses: [], nullifiers: [], commitments: [] },
-      recipient: { transparentAddresses: [], nullifiers: [], commitments: [] },
-    },
-    spends: [],
-    outputs: [],
-    valueFlow: {
-      sproutValueBalanceZat,
-      saplingValueBalanceZat: deltaOf(perPoolZat, "sapling"),
-      orchardValueBalanceZat: deltaOf(perPoolZat, "orchard"),
-      ironwoodValueBalanceZat: deltaOf(perPoolZat, "ironwood"),
-      perPoolZat,
-      netTransparentInflowZat: 0n,
-      isPureShielded: perPoolZat.length === 0 && hasShieldedAny,
-      crossesPoolBoundary: perPoolZat.length > 0,
-      direction,
-    },
-    fingerprint: {
-      outputCount:
-        vout.length + saplingOutputs.length + orchardActions.length + ironwoodActions.length,
-      spendCount:
-        vin.length + saplingSpends.length + orchardActions.length + ironwoodActions.length,
-      outputPadded: false,
-      feeZat: FEE,
-      isZip317ConventionalFee: true,
-      logicalActions: 2,
-      expiryDelta: 40,
-      hasMemo: false,
-      likelyWallet: "ZCASHD_RUST",
-    },
-    findings: [],
-    links: [],
-  };
-}
-
-/** Sapling drains into Orchard: Sapling loses (positive), Orchard gains (negative). */
 const saplingIntoOrchard = report({
   txid: "a1",
   perPoolZat: [

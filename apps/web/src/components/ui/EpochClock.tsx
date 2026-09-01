@@ -4,10 +4,9 @@ import { useEffect, useState } from "react";
 
 import type { ChainTip } from "@/lib/chain";
 import { fmtTipTime } from "@/lib/chain";
-import { DATA_MODE } from "@/lib/env";
 import { fmtInt, fmtSnapshotAge } from "@/lib/format";
 import { seedLabel } from "@/lib/seed";
-import { subscribeFrames } from "@/lib/api/stream";
+import { onTip } from "@/lib/api/tip-bus";
 import {
   snapshotAgeBlocks,
   SNAPSHOT_FALLBACK_MARKER,
@@ -53,24 +52,20 @@ export function EpochClock({
 
   useEffect(() => {
     setHeight(tip.height);
-    // NO SUBSCRIPTION OUTSIDE LIVE MODE. `subscribeFrames` falls back to the
-    // committed FixtureStream when the WebSocket is not configured, and that
-    // stream emits no `tip` frame at all - so subscribing in fixture mode would
-    // open a socket, replay a mempool and move nothing. The clock stands still
-    // against a fixture, which is the honest reading of a fixture.
-    if (DATA_MODE !== "live") return;
-    return subscribeFrames((frame) => {
-      // ONLY FORWARD. A `tip` frame naming a lower height is a reorg or a
-      // late-delivered frame, and letting the clock run backwards would render
-      // a chain reorganisation as a clock fault. The snapshot age clamps at
-      // zero for the same reason, one layer down.
-      if (frame.type !== "tip") return;
-      setHeight((h) => (frame.height > h ? frame.height : h));
-    });
-    // `height` IS DELIBERATELY NOT A DEPENDENCY. The updater above reads the
+    // ONE SUBSCRIPTION FOR THE WHOLE DOCUMENT, through the tip bus, which opens
+    // nothing outside live mode: the committed FixtureStream emits no `tip`
+    // frame at all, so a fixture clock stands still - the honest reading of a
+    // fixture. The bus is also where the ONLY-FORWARD rule lives, so no
+    // consumer has to remember it: a `tip` frame naming a lower height is a
+    // reorg or a late-delivered frame, and a clock running backwards would
+    // render a chain reorganisation as a clock fault.
+    //
+    // `height` IS DELIBERATELY NOT A DEPENDENCY. The updater below reads the
     // current value through setState's function form, so the effect does not
-    // need it - and listing it would tear down and re-open the subscription on
-    // every block, which is a reconnect per tip.
+    // need it - and listing it would detach and re-attach on every block.
+    return onTip((t) => {
+      setHeight((h) => (t.height > h ? t.height : h));
+    });
   }, [tip.height]);
 
   const age = snapshotAgeBlocks(tip.height, height);

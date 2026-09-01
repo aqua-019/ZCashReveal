@@ -199,3 +199,77 @@ describe("the summary's priced count reaches the panel", () => {
     );
   });
 });
+
+/**
+ * A5 - the envelope, which is the seam the live path was broken at.
+ *
+ * `apps/gateway` has emitted `{ channel, payload }` since HANDOFF-05 and this
+ * guard switched on a top-level `type`, so every enveloped frame hit the
+ * `default` arm and was DROPPED - counted in `ZecSocket.droppedFrames`, never
+ * thrown, never rendered. A panel reading "live" while receiving nothing, on a
+ * socket that was connected and healthy.
+ *
+ * NOTHING IN THIS SUITE COULD SEE IT, and that is the part worth keeping. Every
+ * case above drives the FixtureStream's shape, which is bare - so the suite
+ * exercised the one wire format that worked and was green about the one that
+ * shipped. A fake server emitting a bare `ZecFrame` would have passed here and
+ * against a real gateway would have rendered an empty table.
+ */
+describe("A5 - the gateway's { channel, payload } envelope", () => {
+  it("PASS STATE: an enveloped snapshot frame is unwrapped and accepted", () => {
+    const enveloped = { channel: "zcashreveal:mempool", payload: overWire({ type: "snapshot", view: MEMPOOL_VIEW }) };
+    const out = asFrame(enveloped);
+    expect(out?.type).toBe("snapshot");
+    expect(out?.type === "snapshot" ? out.view.entries.length : -1).toBe(MEMPOOL_VIEW.entries.length);
+  });
+
+  it("PASS STATE: an enveloped tip frame is unwrapped, which is what moves the epoch clock", () => {
+    const enveloped = { channel: "zcashreveal:tip", payload: { type: "tip", height: 3_456_900, hash: "aa".repeat(32) } };
+    const out = asFrame(enveloped);
+    expect(out).toEqual({ type: "tip", height: 3_456_900, hash: "aa".repeat(32) });
+  });
+
+  it("PASS STATE: a BARE frame still works, because the fixture stream writes one", () => {
+    // Both shapes, one guard. The fixture stream is this build's own producer
+    // and writes bare frames; the gateway wraps. Accepting only one of them is
+    // how the seam broke in the first place.
+    const out = asFrame(overWire({ type: "tip", height: 1, hash: "bb".repeat(32) }));
+    expect(out?.type).toBe("tip");
+  });
+
+  it("FAIL STATE, BY DATA: the frame the gateway ACTUALLY sent before this handoff is rejected", () => {
+    // The member of the exclusion set, by value: `apps/indexer` publishes
+    // `{type: "tx_added", report: LeakReport}` and `ZecFrame`'s arm carries
+    // `entry: MempoolRow`. This is the exact payload that was on the wire, and
+    // it must not become a row.
+    const asShipped = {
+      channel: "zcashreveal:mempool",
+      payload: { type: "tx_added", report: { txid: "cc".repeat(32), leakClass: "SHIELDING" } },
+    };
+    expect(asFrame(asShipped)).toBeNull();
+  });
+
+  it("FAIL STATE, BY DATA: the connect frame types the gateway used are rejected", () => {
+    // `mempool_snapshot` and `snapshot_v1` are members of no `ZecFrame` union
+    // arm. The first is now sent as `snapshot`; the second still rides its own
+    // channel and this build has no use for it, so dropping it is correct
+    // rather than a gap.
+    expect(asFrame({ channel: "zcashreveal:mempool", payload: { type: "mempool_snapshot", reports: [] } })).toBeNull();
+    expect(asFrame({ channel: "gateway:snapshot", payload: { type: "snapshot_v1", snapshot: {} } })).toBeNull();
+  });
+
+  it("FAIL STATE, BY DATA: a DOUBLY wrapped frame is rejected rather than unwrapped twice", () => {
+    // One level only. Unwrapping until something looks right is how a guard
+    // stops discriminating: a producer defect would then be absorbed silently.
+    const doubled = {
+      channel: "zcashreveal:tip",
+      payload: { channel: "zcashreveal:tip", payload: { type: "tip", height: 5, hash: "dd".repeat(32) } },
+    };
+    expect(asFrame(doubled)).toBeNull();
+  });
+
+  it("FAIL STATE, BY DATA: an envelope with no payload object is rejected", () => {
+    expect(asFrame({ channel: "zcashreveal:tip", payload: null })).toBeNull();
+    expect(asFrame({ channel: "zcashreveal:tip" })).toBeNull();
+  });
+});

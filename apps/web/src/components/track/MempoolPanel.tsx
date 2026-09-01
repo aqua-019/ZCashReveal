@@ -99,7 +99,16 @@ export function MempoolPanel({ initial }: { readonly initial: MempoolView }) {
     const stop = subscribeFrames((frame) => {
       switch (frame.type) {
         case "snapshot":
-          setView(frame.view);
+          // THE TIP NEVER MOVES BACKWARDS ON A SNAPSHOT FRAME. The gateway
+          // derives the connect frame's height from the reports' own
+          // `tipHeightAtSeen`, so an EMPTY mempool carries height 0 - and the
+          // table's caption states "N in the pool at height H". Taking the
+          // frame's height unconditionally would rewrite a real height as 0 the
+          // moment a reader connected to a quiet chain. This is the same
+          // only-forward rule the tip bus applies one layer up, for the same
+          // reason: a height that goes down is a reorg or a stale frame, and
+          // neither is a measurement of the tip.
+          setView((v) => ({ ...frame.view, tipHeight: Math.max(v.tipHeight, frame.view.tipHeight) }));
           setState("open");
           break;
         case "tx_added":

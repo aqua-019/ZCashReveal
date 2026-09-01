@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 
+import { BlockArrival } from "@/components/ambience/BlockArrival";
 import { Grain } from "@/components/ambience/Grain";
 import { Tide } from "@/components/ambience/Tide";
 import { SysBar } from "@/components/ui/SysBar";
@@ -30,6 +31,7 @@ export function Shell({
 }) {
   return (
     <>
+      <BlockArrival />
       <Tide />
       <Grain>
         <a className="skip" href="#main">

@@ -139,7 +139,12 @@ export async function buildServer(options: BuildServerOptions): Promise<BuiltSer
   if (subscriber !== null) {
     await subscriber.subscribe(REDIS_CHANNELS.mempool, REDIS_CHANNELS.tip);
     subscriber.on("message", (channel: string, message: string) => {
-      broker.broadcast(broker.translate(channel, message));
+      // A message that maps to no client frame is dropped by `translate`, with
+      // the channel logged. Broadcasting it would push a payload every consumer
+      // discards one layer further on, where nothing can say where it came
+      // from.
+      const frame = broker.translate(channel, message, Date.now());
+      if (frame !== null) broker.broadcast(frame);
     });
   }
 
@@ -213,8 +218,11 @@ export async function buildServer(options: BuildServerOptions): Promise<BuiltSer
         }
 
         try {
+          // The frame's tip height is derived from the reports themselves -
+          // see `snapshotFrame`, which explains why neither the snapshot nor
+          // the node may supply it.
           const reports = reader === null ? [] : await readLive(reader);
-          socket.send(JSON.stringify(snapshotFrame(reports)));
+          socket.send(JSON.stringify(snapshotFrame(reports, Date.now())));
         } catch (err) {
           log.warn({ err }, "failed to send snapshot");
         }
