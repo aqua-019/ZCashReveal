@@ -142,15 +142,20 @@ async function main() {
           { txid: report.txid, count: newLinks.length },
           "round-trip links detected",
         );
-        await redis.publish(
-          "zcashreveal:links",
-          JSON.stringify({
-            type: "links_detected",
-            txid: report.txid,
-            links: newLinks.map(serializeReport),
-          }),
-        );
       }
+      // THE `zcashreveal:links` PUBLISH THAT STOOD HERE IS GONE (HANDOFF-12,
+      // A5, LEDGER-12 Q1). It published to a literal no constant named and no
+      // process read: `REDIS_CHANNELS` declares `mempool` and `tip` only, and
+      // the gateway subscribes to exactly those two. The egress ordering was
+      // confirmed at THIS site rather than taken from a report: the links are
+      // assigned onto `report.links` above, `state.upsert` emits the diff, and
+      // `publishDiff` then carries the whole report - links included - to
+      // `persistLeakReport`, to `zcashreveal:mempool` and to
+      // `zcashreveal:mempool:live`. The channel was therefore a third copy of
+      // data that already reached every consumer through the report, and
+      // removing it loses nothing a reader could have seen. Whether link
+      // records have any path to the SITE is a product question and is
+      // recorded as one in the ledger; a channel nobody reads did not answer it.
       state.upsert(report);
     } catch (err) {
       log.warn({ err, txid }, "fetch/analyze failed");
