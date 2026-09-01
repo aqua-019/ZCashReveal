@@ -24,7 +24,7 @@ import { createDb, persistLeakReport } from "./persistence/index.js";
 import { AnchorRegistry, analyze } from "./decoder/index.js";
 import { RoundTripIndex } from "./analysis/round-trip.js";
 import { PrevOutCache } from "./analysis/prevout-cache.js";
-import { asHex, type Hex } from "@zcashreveal/types";
+import { asHex, serializeWire, type Hex } from "@zcashreveal/types";
 
 const cfg = loadConfig();
 const log = pino(
@@ -174,12 +174,12 @@ async function publishDiff(
       await persistLeakReport(sql, d.report);
       await redis.publish("zcashreveal:mempool", JSON.stringify({
         type: "tx_added",
-        report: serializeReport(d.report),
+        report: serializeWire(d.report),
       }));
       await redis.hset(
         "zcashreveal:mempool:live",
         d.report.txid,
-        JSON.stringify(serializeReport(d.report)),
+        JSON.stringify(serializeWire(d.report)),
       );
       log.debug({ txid: d.report.txid, leakClass: d.report.leakClass }, "added");
     } else {
@@ -194,11 +194,11 @@ async function publishDiff(
   }
 }
 
-function serializeReport(r: unknown): unknown {
-  return JSON.parse(
-    JSON.stringify(r, (_k, v) => (typeof v === "bigint" ? v.toString() : v)),
-  );
-}
+// `serializeReport` LIVED HERE AND IN persistence/leak-reports.ts, TWICE, AND
+// STRINGIFIED EVERY BIGINT BY VALUE WHILE THE GATEWAY REVIVED BY KEY. Both
+// copies are replaced by `serializeWire` from @zcashreveal/types, the one
+// producer beside the one reviver, so the two sides of the seam cannot drift
+// (HANDOFF-12, A3; see realtime.ts).
 
 main().catch((err) => {
   log.fatal({ err }, "fatal error in indexer");

@@ -23,7 +23,7 @@ import type { IncomingMessage, Server, ServerResponse } from "node:http";
 
 import type { Redis, RedisOptions } from "ioredis";
 import type { Sql } from "postgres";
-import { REDIS_CHANNELS, REDIS_KEYS, type LeakReport } from "@zcashreveal/types";
+import { REDIS_CHANNELS } from "@zcashreveal/types";
 import type { ZebraRpc } from "@zcashreveal/zebra-rpc";
 import type { WebSocket } from "ws";
 
@@ -32,6 +32,7 @@ import { secretValues, trustProxyFor, type GatewayConfig } from "./config.js";
 import type { GatewayApp } from "./routes/deps.js";
 import { API_PREFIXES, RETIRED_API_PREFIX, registerReadRoutes } from "./routes/index.js";
 import { toStatus } from "./routes/errors.js";
+import { readLiveReports } from "./live-reports.js";
 import { readSnapshotFile } from "./snapshot-source.js";
 import { WsBroker, snapshotFrame, snapshotV1Frame } from "./ws-broker.js";
 
@@ -221,7 +222,10 @@ export async function buildServer(options: BuildServerOptions): Promise<BuiltSer
           // The frame's tip height is derived from the reports themselves -
           // see `snapshotFrame`, which explains why neither the snapshot nor
           // the node may supply it.
-          const reports = reader === null ? [] : await readLive(reader);
+          // THROUGH THE SHARED READER, WHICH REVIVES. Until HANDOFF-12 this
+          // frame read the hash with `JSON.parse(raw) as LeakReport` while
+          // the REST route beside it revived - see live-reports.ts.
+          const reports = await readLiveReports(reader, log);
           socket.send(JSON.stringify(snapshotFrame(reports, Date.now())));
         } catch (err) {
           log.warn({ err }, "failed to send snapshot");
@@ -337,19 +341,6 @@ export async function buildServer(options: BuildServerOptions): Promise<BuiltSer
 }
 
 let reqCounter = 0;
-
-async function readLive(reader: Redis): Promise<LeakReport[]> {
-  const live = await reader.hgetall(REDIS_KEYS.mempoolLive);
-  const out: LeakReport[] = [];
-  for (const raw of Object.values(live)) {
-    try {
-      out.push(JSON.parse(raw) as LeakReport);
-    } catch {
-      // Skipped rather than fatal: see routes/mempool.ts.
-    }
-  }
-  return out;
-}
 
 /** Re-exported so a test can assert on the same list the config module defines. */
 export { secretValues };

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import pino from "pino";
+import { serializeWire } from "@zcashreveal/types";
 import { NOW as FIXTURE_NOW, TIP, report } from "./leak-report-fixture.js";
 import { WsBroker, snapshotFrame, snapshotFrameAt, type OutboundFrame } from "../ws-broker.js";
 
@@ -24,8 +25,12 @@ const TIP_CHANNEL = "zcashreveal:tip";
 
 describe("WsBroker.translate - the relay maps a wire shape onto the client's union", () => {
   it("(a) PASS STATE: a tx_added message becomes {type: tx_added, entry: MempoolRow}, not the raw report", () => {
-    const raw = JSON.stringify({ type: "tx_added", report: report({ txid: "ab", vin: 1, orchardActions: 2, perPoolZat: [{ pool: "orchard", deltaZat: 100_000_000n }] }) }, (_k, v: unknown) =>
-      typeof v === "bigint" ? v.toString() : v,
+    // THROUGH THE REAL PRODUCER. This line carried its own bigint replacer -
+    // the indexer's, copied - until HANDOFF-12 changed the wire form and the
+    // copy silently kept the old one: a test building its own input, which is
+    // the seam shape CLAUDE.md records. `serializeWire` is what index.ts calls.
+    const raw = JSON.stringify(
+      serializeWire({ type: "tx_added", report: report({ txid: "ab", vin: 1, orchardActions: 2, perPoolZat: [{ pool: "orchard", deltaZat: 100_000_000n }] }) }),
     );
     const frame = broker.translate(MEMPOOL, raw, NOW);
 
