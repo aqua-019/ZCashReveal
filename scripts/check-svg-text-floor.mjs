@@ -65,6 +65,7 @@
 
 import { readFileSync, readdirSync, statSync, mkdtempSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 
 /**
@@ -741,8 +742,24 @@ function selfTest(realFiles, floor) {
   return ok;
 }
 
-/* ----------------------------------------------------------------------- run */
+/* ----------------------------------------------------------------------- run
 
+   RUN ONLY AS A SCRIPT, NEVER ON IMPORT, and this is the house pattern rather
+   than a preference: `apps/web/scripts/check-tokens.mjs` states it as "one
+   implementation, two callers - the assertion cannot pass in one place and fail
+   in the other". Here the second caller is
+   `apps/web/test/e2e/painted-floor.spec.ts`, which reads `SUPPORTED_WIDTHS` from
+   this module so the static rule and the measurement cannot drift apart.
+   Without this gate the import EXECUTED the guard, whose paths are relative to
+   the repository root, from `apps/web` - so it read no files, hit the vacuity
+   gate and exited 2, taking the whole Playwright run with it. Found by running
+   the suite, which is the only thing that could have found it. */
+
+if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
+  main();
+}
+
+function main() {
 const files = ROOTS.flatMap((r) => sourceFiles(r)).map((p) => ({ path: p, source: readFileSync(p, "utf8") }));
 /**
  * `null` when the token file is unreadable OR declares no floor. Both are the
@@ -799,3 +816,4 @@ console.log(
     "apps/web/test/e2e/painted-floor.spec.ts (detectors self-tested in both directions, over the real " +
     "apps/web tree and a fixture).",
 );
+}

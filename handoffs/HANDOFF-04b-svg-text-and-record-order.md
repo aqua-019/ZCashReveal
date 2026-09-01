@@ -1,7 +1,7 @@
 ---
 handoff: 04b
 title: The SVG text regime, and claim order on the remaining Record pages
-status: in-progress
+status: shipped
 branch: the session-designated branch (name it `feat/v2-04b-svg-text-and-record-order` if you may choose)
 track: Web
 depends_on: 04a
@@ -740,3 +740,214 @@ rather than believing the result.
 The dispatch should have given each worker a distinct port and a distinct build directory, or
 reserved rendering to the lead entirely. Recorded so the next fan-out over one Next.js app does one
 of those two things rather than rediscovering this.
+
+### 7.14 DELIVERABLE 3 - claim order, and the two pages where the data has no epistemic status
+
+Seven build workers, one per page, disjoint file scopes. **Every page verified by rendering, at 1440,
+with every disclosure closed:**
+
+```
+route            claim  first  strip-in-details  conf  verified  count  summaries  digitless
+/                  Y      Y*         false       open    open     open       5         0
+/beware            Y      Y          false       open    open     open      32         0
+/contradictions    Y      Y          false       open    open     open      16         0
+/timeline          Y      Y          false       open    open     open     128         0
+/network           Y      Y          false       open    open     open     101         0
+/method            Y      Y          false       open    open     open      10         0
+/flows             Y      Y          false       open    open     open      76         0
+/sources           Y      Y          false       open  (named)    open       3         0
+```
+
+`*` the splash's claim beat is `.beat-claim` rather than `.pageclaim` - it is the surface the
+grammar was extracted FROM - and it is the first element in `<main>`; the sweep's `first` column
+tests for the extracted class, so it read `N` until the element was named. Probe, not page.
+
+**THE TWO PAGES WHERE THE THREE DO NOT EXIST STATE THE CONDITION AND INVENT NOTHING.** This is
+`docs/2.0/SNAPSHOT.md` §8.1's rule about absences, applied to epistemic status:
+
+- `/sources` renders zero `Cite` and zero `Conf`, and that is not an oversight. `sourceSchema` is
+  `{id, title, url, publisher, date (nullable), accessed}` and `.strict()`: there is **no
+  `confidence` and no `lastVerified` on a Source, for any of the 328 records**. Widening the schema
+  is a data-layer change §1 item 5 forbids. The page says so - "No source on this site carries a
+  confidence or a last-verified date - the schema has neither field, for any of these 328 - and
+  neither is invented here" - and names what a bibliography carries instead. Checked by rendering:
+  the fetch date and 170 publication dates ARE in the open, so the sentence is true.
+- `/method`'s own material is documentation of this site's procedure rather than a sourced claim
+  about the world; its file docblock says fabricating a source "would be the precise defect this
+  page exists to argue against". It states that condition and carries the apparatus only on the
+  corpus-backed material it does cite.
+
+**AND A THIRD PAGE CHOSE THE SAME HONESTY WITHOUT BEING ASKED.** `/network` and `/contradictions`
+pass no page-level `confidence`, because the corpus grades each RECORD and grades no sentence like
+the page's own generalisation over them - "a grade for the claim itself would be one this site
+invented". The distribution stays in the open on both (`81 HIGH, 14 MED, 1 LOW` and
+`14 high, 2 med`), so A3 is satisfied by a real number rather than by a manufactured one.
+
+**Three duplicate-epistemic-chip sites removed, never the only copy.** 04a moved `confidence` and
+`lastVerified` into `Cite`'s closed summary; `BewareRow`, `BewareDeepDive`, `ContradictionCard` and
+`FlowsClaim` each still printed a second chip and a second date immediately beside it, so a reader
+met each of them twice per row. The surplus went; the open copy stayed.
+
+**One contract violation found and fixed in passing.** `/beware`'s "Never detectable - 3 of 14"
+metric carried `accent`, which is gold. CLAUDE.md and LEDGER-04 Q1b: gold marks a boundary crossing,
+never a magnitude, and **a figure about unprovability is never gold, because size in the accent
+colour reads as an accusation this site does not make.** `.metric .v.gold` on `/beware` is now 0.
+
+### 7.15 THE FOURTH INSTANCE OF L2's OWN PROBE SHAPE, AND THIS SESSION MADE THE SAME MISTAKE THREE TIMES
+
+L2 folded a rule into `CLAUDE.md` in the same resolution that commissioned this handoff: **a probe
+whose output is an ordering, a pairing or an enumeration is checked against one known member before
+any finding is built on it.** It arrived with three instances. This branch adds a fourth of L2's -
+the Q3 minima, an enumeration over one svg reported as the site's - and **three of this session's
+own**, every one caught by checking the instrument rather than the code:
+
+1. **A stale server.** The lead converted four diagrams, rebuilt, measured - and read a server
+   started an hour earlier that was still holding the previous build. The measurement said the
+   source was unchanged; the source was changed and the port was not free. Caught by asking why a
+   file with no `<text>` served `<text>`.
+2. **A rounding error larger than the defect.** The rendered floor sweep computed an HTML element's
+   scale as `getBoundingClientRect().width / offsetWidth`. The first is fractional and the second is
+   an integer, so ordinary unscaled text measures 0.995, and the probe reported **27,727 sub-floor
+   nodes** across the site - every one of them 11.9-something px of genuinely 12px text. Caught by
+   reading the VALUES rather than the count. The scale now comes from the transform chain.
+3. **A pointer parked inside the nav.** Every screenshot showed 546px of open navigation panel
+   pushing the page down, which looked like a regression in 04a's disclosure. Playwright's mouse
+   starts at (0,0), which is inside the bar, so the hover disclosure was open in every default shot.
+   Measured with the pointer moved away: closed 50.7px, hover 597.5px, away 50.7px - 04a's behaviour
+   exactly, and L2's own 51 / 598 / 51 reproduced. The shooting script now moves the pointer and
+   REFUSES to shoot if the panel is open, and that guard immediately fired on a correct page because
+   its threshold was width-naive - the collapsed bar is 50.7px at 1440 and 96.7px at 760.
+
+**The rule earns its place three times over in one session, and its converse earns it more:** when a
+probe comes back saying the code is wrong, check the probe before judging the code.
+
+### 7.16 THE ASSERTIONS, each with its two polarities and the exclusion-set member its fail side used
+
+| # | state | pass side (Executed) | fail side, and which member of the exclusion set |
+|---|---|---|---|
+| A0 | HOLDS | 5 of 5 arrival-rate positions reconcile; four reproduce L2's figures exactly | the shipped static `3` restored: 5 of 5 fail. Pinned to the literal with the id kept: **4 of 5** - at rate 2 the literal equals the computed value and the defect is invisible |
+| A1 | HOLDS | 0 visible SVG `<text>` across 15 routes x 10 widths; 0 of **150,590** rendered text nodes below 12px across 13 routes x 12 widths | 12 user units in a 1000-unit viewBox: 16.10px at 1440, 7.94px at 760, and the check names `760px`. Plus a `<text>` planted in `Charts.tsx` (guard: 1 finding; rendered: 8 measurements, 2.78-10.13px, widths named) |
+| A2 | HOLDS | all eight Record pages lead with a labelled claim; probe run against two untouched routes returned `claimIsFirst: false`, so it discriminates | a page's claim element removed, and the sweep names the page |
+| A3 | HOLDS | `confidence`, `lastVerified` and a source count reachable with every `<details>` shut, on all eight; `/sources` and `/method` name the CONDITION instead | `.pc-status` moved inside `details.cite`: the open-state list goes from `["verified 2026-08-22","43 sources"]` to `[]` |
+| A4 | N/A - ALREADY HELD | `Cite.tsx` was fixed by 04a in `6610c40`; measured on all eight pages, 0 of 284 closed citations failing | not run as specified: the brief's fail side is "revert `Cite.tsx`", which is a code mutation on already-shipped work. Recorded as a corrected premise rather than a satisfied assertion |
+| A5 | HOLDS | 0 digitless summaries on any of the eight, every disclosure opened first | the bare word `Sources` planted on a live summary: `{total:17, withoutDigit:["Sources"]}` |
+| A6 | HOLDS | register empty, 0 sub-floor declarations, machinery driven over a synthetic row | `9.75px` spliced into the real stylesheet and read by the real parser; anti-probe on the unmutated file returns `[]` |
+| A7 | HOLDS | six self-test arms, all detectors driven in both polarities, over a fixture AND the real tree; exit 1 proven reachable by 23 real findings | `check-nav-routes.mjs`'s own hole - a self-test asserting the real tree is clean - not reintroduced; R4's fail side splices the exact `--plabel-tx: 0` that shipped |
+| A8 | HOLDS | **1351 total** against a 1346 baseline: +5, all in `apps/web` (438 -> 443), no package fell | a deleted test file would move the total and show as a FALL; per-package itemisation is what makes that visible rather than absorbed |
+| A9 | HOLDS | fourteen guards, typecheck, lint, `content validate`, `pnpm build` all green | `pnpm build` is the only one that runs `next build`; it was run at every stage, not once at the end |
+
+**A8 in full, per package, measured in this container:**
+
+```
+content 67 · zebra-rpc 50 · zec-instruments 98 · web 443 · gateway 143 ·
+publisher 101 · indexer 449            = 1351 total
+```
+
+**AND THE HONEST LIMIT ON A8's COLOUR.** The TOTAL is exactly reproducible here and matches L2's
+1346 + 5. The 1343/3 PASS-SKIP SPLIT IS NOT: this container has no PostgreSQL and no Redis
+(`pg_isready` no response, both ports `ECONNREFUSED`), so 105 further tests skip themselves through
+`global-setup.ts`'s reachability probe - gateway 136/7, indexer 366/83, publisher 83/18. Every
+package's TOTAL is unchanged from the baseline except `apps/web`. CI supplies both services and is
+where the colour is established.
+
+### 7.17 THE POST-FAN-OUT SWEEP
+
+`git status --porcelain --untracked-files=all` was run after **each** of the three fan-outs, before
+the next commit.
+
+- After the mapping fan-out (4 read-only workers): clean. One worker reported a pre-existing
+  modification against itself rather than touching it, which is the read-only rule working.
+- After the `Charts.tsx` worker: one modified file, the one it was scoped to. It also reported, in
+  its own words, that it had temporarily patched `globals.css` to run a rendered check and then
+  reverted it, verifying the file byte-identical by `sha256` - **a write outside its scope,
+  disclosed rather than hidden**, with the tree ending unchanged. That is the fifth occurrence of a
+  worker writing outside scope on this project's record and the first that was self-reported before
+  the sweep found it.
+- After the seven page workers: 41 paths, every one inside a declared scope. No scratch file, no
+  stray test, nothing under `docs/` or `handoffs/`.
+
+### 7.18 THE SCREENSHOT-DERIVED CHECK, and what it is and is not good for
+
+Carried forward from 04a as a non-assertion, and it paid again - AND showed its limit, which is
+worth more than another confirmation.
+
+**What it found.** The Sankey's labels overlapping on `/pools` at 760 - "outSapling", two node names
+printed through each other. That is what sent this session to measure collisions across every chart
+at twelve widths, which found 254 pairs and led to the breakpoint work in §7.10c. Nothing but
+looking at the page would have raised it: every one of those labels was 12px, every one cleared the
+floor, and every automated check on the branch was green.
+
+**What it missed.** The `calc()` defect. Two screenshot passes at 1440 approved a state in which
+86 of 155 labels had no transform at all. **A screenshot answers "does this look wrong"; a label
+twelve pixels from where it belongs does not look wrong.** `var(o)` did, because it painted nothing.
+The question that had a false answer was "did the declaration apply", and only the CSSOM answers it.
+
+**So the practice is amended rather than repeated.** A rendered check now means two instruments: the
+picture, for arrangement, and the computed style or the CSSOM, for whether the rule reached the
+element. `painted-floor.spec.ts` carries the second; §7.15 lists three of this session's own probes
+that needed the same treatment.
+
+Final screenshots read back by the lead: `/timeline`, `/network`, `/sources`, `/pools`, `/flows` and
+`/beware` at 1440, `/pools` and `/network` at 760. Every one shows the masthead, then a labelled
+CLAIM in the display face, then the explanation, then the epistemic strip, then the evidence. The
+shooting script moves the pointer off the nav bar and REFUSES to shoot if the panel is open, after
+three passes were taken with 546px of open panel in them.
+
+## §8 LEDGER - appended to `handoffs/LEDGER.md`; read by L2 before the next handoff
+
+The full block is in `handoffs/LEDGER.md` under `## HANDOFF-04b`. Two questions for L2, and the
+bound this branch inherits and passes on.
+
+### LEDGER-04b Q1 - is the visible table twin the right answer to the collision cost?
+
+Moving the labels out of the drawing fixed the size and created a second problem: a label that no
+longer scales no longer gets out of its neighbour's way. Measured: **254 overlapping label pairs**
+across five routes and twelve widths, 0 at 1440 and 100 at 320.
+
+This branch took the answer already in the tree - `TurnstilePlane` hides its overlay below 760 and
+lets a legend carry the whole reading - and generalised it: below 900 (1100 on three measured dense
+diagrams) the overlay goes and the `sr-only` table twin becomes visible, because a table reflows and
+a viewBox does not. 254 collisions to 0.
+
+**The alternative not taken, and L2 should say whether it is preferred:** make the DRAWING adapt -
+fewer labelled points, a coarser tick set, or a per-chart minimum width with a pan container, which
+is what `network-loop` already does at `<= 760`. That keeps a picture on a phone; this keeps the
+numbers. The argument for what shipped is that a chart at 263px is not a picture anyone reads, and
+the table is the same data in the form that survives the width. **It is a design decision made under
+a measurement, by a session, and it changes what a phone reader sees on eight surfaces**, which is
+why it is a question rather than a note.
+
+### LEDGER-04b Q2 - does the deferral of the adaptive retention window now also cover this?
+
+LEDGER-04a Q2 deferred the adaptive retention window WHOLE to the handoff that adds a per-crossing
+source, on the ground that without per-crossing heights there is no ordering and so no "newest N".
+That handoff will add per-crossing amounts, ordering and confirmation state to the plane - and every
+one of those is a new LABEL on a drawing whose labels are now HTML at a fixed 12px.
+
+So the question is narrow and practical: **does the per-crossing handoff inherit the label regime as
+a constraint on what it may draw?** A plane that gains thickness-by-amount and fade-by-age gains no
+text; a plane that gains a per-crossing readout gains text that must clear 12px at 320px wide, on a
+board that is 1180 user units across. §8 of that handoff should say which, before its geometry is
+designed rather than after.
+
+### The bound HANDOFF-12 still inherits, restated because this branch did not touch it
+
+The per-crossing `SnapshotV1` field is capped at the newest N. The publisher already spends
+`WIRE_COMMANDS_PER_TIP` = 5 per tip, about 172,500 a month against a 200,000 ceiling, **on a store
+shared with an unrelated production project**. A field capped at the newest N is a fixed-size array;
+an unbounded one could not ship.
+
+### NOTICED, and not acted on
+
+- **`.record-head` is `align-items: end`.** On a page whose aside is a chart, the h1 and dek sit
+  level with the BOTTOM of the aside, leaving ~330px of empty column above them at 1440 on
+  `/timeline`. Pre-existing - this branch's diff touches `.record-head` zero times - and a
+  deliberate typographic choice from an earlier handoff. Named because it is the first thing a
+  reader of the final screenshots asks about.
+- **`.bw-lede` is now unused.** `/beware`'s claim moved into `PageClaim`; the rule and its comment
+  remain in `globals.css`. Dead CSS, one rule.
+- **`.claim > .anchor` is inert on a link that is not a direct child of `.claim`.** Found by the
+  `/timeline` worker while moving citation links into a disclosure; it dropped the class rather than
+  putting a semantically wrong one on to keep a rule alive.
+- **`/flows` and `/method` carry a `pre.code` whose min-content width exceeds a 390px viewport.**
+  Pre-existing, inside a scroll container, and not introduced here.

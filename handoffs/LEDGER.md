@@ -6139,3 +6139,285 @@ RULINGS.
     04a found six defects by rendering and none by reading, including one - the plane painting
     `var(o)` and drawing nothing - that typecheck, lint and the build were all green on.
 ```
+
+## HANDOFF-04b - the SVG text regime, and what the fix commit cost (L3, 1 Sep 2026)
+
+```
+THE BRIEF UNDERSTATED THE DEFECT FOR THE SECOND TIME RUNNING, AND IN THE SAME
+DIRECTION. L2's Q3 minima - "SVG text paints at a minimum of 16.10px at 1440,
+11.11 at 1024 and 7.94 at 760" - are the SPLASH plot's three scales exactly, one
+svg of nine, and they are the site's MAXIMUM among pages carrying SVG text. The
+site's real minima are 5.95 / 3.95 / 4.78 / 2.00 px at 1440 / 1024 / 760 / 390.
+That is the fourth instance of the shape L2 folded into CLAUDE.md in the same
+resolution - a probe whose output is an enumeration, taken over the wrong scope -
+and L2 sent an interim note mid-session correcting itself in the same direction,
+from 7.94 to 3.79 at 390.
+
+TWO MEASURED FACTS REFUTE THE MODEL EVERYONE WAS USING, INCLUDING THE BRIEF'S.
+ShieldedShare paints at 5.95px on a 1440px DESKTOP - it sits in a 0.8fr column of
+the .record-head grid, so the widest viewport gives it the narrowest box - and it
+is NON-MONOTONE, 3.95px at 1024 and 9.62px at 900, because the head collapses to
+one column and the chart gets WIDER as the window gets SMALLER. A floor the
+viewport can walk under can be walked under going up. Every width set in this
+branch therefore samples BOTH SIDES of every breakpoint.
+
+THE ASSERTION GOVERNED THE SCOPE AND THE DELIVERABLE TABLE DID NOT. Section 4
+named four diagrams under components/record/; section 5's A1 quantified over any
+apps/web SVG. LEDGER-06 Q4's rule settled it - a named assertion is a RULE
+checked across the whole tree - and the 25 <text> elements outside the four
+included the three worst on the site: the Sankey at 2.00px on a phone,
+BalanceStep and InteractionGraph at 2.79px, all three in grids whose columns were
+an INLINE STYLE carrying no collapse, so the 720px media query never reached them.
+
+THE GUARD BANS THE CONSTRUCT RATHER THAN MEASURING IT, and the argument is the
+measurement. Painted size is declared x min(sx, sy) and sx needs the RENDERED
+width, which is a layout result; two of the nine SVGs have one that is not
+statically derivable at all. So R1 checks what IS decidable from source - an SVG
+<text> must not exist - because no declared value clears the floor at every
+width. L2 reached the same conclusion in a second interim note while the guard
+was being written, listing two options and naming this one; both had been taken,
+because the guard also carries the other option's reporting discipline: a
+synthetic fixture in the self-test, every count stated in the OK line, and A
+COUNT OF ZERO REPORTED AS A COUNT rather than as silence. Exit 1 is proven
+reachable by execution - its first run over the real tree returned 23 findings -
+which is the hole check-nav-routes.mjs shipped with in 04a.
+
+AND THE FIX COMMIT WAS THE MOST DANGEROUS COMMIT, MEASURED FOR THE FOURTH
+SESSION RUNNING. calc(<number> + <length>) is INVALID CSS. `--plabel-tx: 0` was
+declared as a bare number, so for every label with the default anchor the browser
+dropped the WHOLE transform - anchor, baseline and both pixel nudges. 86 OF 155
+LABELS RESOLVED `transform: none`, 34 of them on charts this session had already
+converted, screenshotted and called done. That is F-04a-7's shape one handoff
+later: syntactically valid CSS that resolves to nothing, green on typecheck,
+lint, next build and the new floor guard alike.
+
+THE PART THAT MATTERS IS HOW IT WAS FOUND. Not by looking at a picture. 04a's
+non-assertion - section 7 carries a screenshot-derived check - paid again on this
+branch and also showed its limit: A SCREENSHOT ANSWERS "DOES THIS LOOK WRONG",
+AND A LABEL TWELVE PIXELS FROM WHERE IT BELONGS DOES NOT LOOK WRONG. `var(o)` did,
+because it painted nothing. This was found by reading the browser's CSSOM - parse
+the declaration, read it back - which answers a different question: DID THE
+DECLARATION APPLY. Two of this session's own screenshot passes had already
+approved the broken state. Closed at both ends: guard R4 (every custom property
+reached by a calc() must be declared a LENGTH) and a rendered assertion that
+every visible .plabel resolves a non-none transform, each with a data-mutation
+fail side using the exact value that shipped.
+
+THE FIX HAD ITS OWN COST AND IT WAS PAID RATHER THAN DEFERRED. A label that no
+longer scales also no longer gets out of its neighbour's way: 254 overlapping
+label pairs across five routes and twelve widths, 0 at 1440 and 100 at 320. The
+answer was already in the tree - TurnstilePlane hides its overlay below 760 and
+lets a legend carry the whole reading - so below 900 the overlay goes and the
+table twin comes OUT of sr-only, because a table reflows and a viewBox does not.
+Three dense diagrams do it at 1100 instead, and WHICH THREE WAS MEASURED rather
+than judged. 254 to 0 at every width.
+
+FOUR DEFECTS IN THE CHECKERS THEMSELVES, AND THREE OF THIS SESSION'S OWN PROBES
+WERE MALFORMED. In the checkers: A4 could be satisfied by a digit in a COMMENT,
+because the sweep read raw source and a docblock quoting the rule sat between a
+commented <summary> and a real </summary>; the A3 fail side re-implemented the
+parser inline and so drove a COPY of the check it was probing; the rendered A4
+sweep could not tell a summary inside a closed <details> from a digitless one,
+which /beware made live by nesting nine citations inside a register; and the new
+guard's R3 answered "pass" for a register row it could not evaluate, because
+NaN < floor is false. In this session's own instruments: a measurement read a
+STALE SERVER still holding the previous build; a rendered floor sweep computed an
+HTML scale as boundingRect/offsetWidth and reported 27,727 sub-floor nodes that
+were all 11.9-something px of genuinely 12px text; every screenshot showed 546px
+of open navigation panel because Playwright's pointer starts at (0,0), inside the
+bar. AND THE PAINTED-FLOOR SWEEP MEASURED EVERY SVG <text> TWICE - once with its
+viewBox scale and once as if it were HTML at scale 1 - which is not a duplicate
+count but a MASK, since a sub-floor label would be reported alongside a
+floor-clearing reading of the same element. Every one was caught by checking the
+instrument before judging the code, which is the converse half of the rule L2
+folded in with this handoff, and it earned its place three times in one session.
+
+TWO PREMISES IN THE BRIEF WERE FALSE AND BOTH WERE CHECKED BEFORE BEING ACTED ON.
+Cite.tsx was named "THE FIRST FIX" and was ALREADY FIXED - by HANDOFF-04a, in
+6610c40, exactly as L2 asked; the correction described the tree at the 04a fork
+point and was written in the present tense against a branch that had moved. Had
+it been dispatched as written, a worker would have "fixed" a correct component.
+And the CSS "declares max-width breakpoints at 300, 520 and 700": globals.css
+declares seven @media preludes and, separately, element max-width values of 300
+and 520, which are box widths rather than viewport conditions - a grep for
+max-width: returns both. 300 and 520 are sampled anyway, on a better argument
+than the one that asked for them: an element max-width is a point at which that
+BOX stops growing, so a chart inside it stops scaling there.
+
+L2's OPEN QUESTION, MEASURED AND ANSWERED: the /network loop laying out 720px
+wide inside a 390px viewport is DELIBERATE. The figure declares overflow-x: auto
+with min-width: 720px on its plot at the <= 760 breakpoint; scrollLeft driven
+from 0 to 362 at a 390 viewport, so it genuinely pans; body carries
+overflow-x: hidden and ZERO elements outside a scroll container extend past the
+viewport. The documentElement.scrollWidth of 2244 L2 saw comes entirely from the
+sr-only table twins, clipped by design. And the two decisions compose: that
+min-width is why NetworkLoop's painted text FLATTENED at 8.64px below 760 instead
+of continuing to shrink, and now that its labels are HTML at 12px the pan
+container keeps the diagram's geometry while the words stay legible.
+
+CLAIM ORDER CLOSED ON ALL EIGHT RECORD PAGES, and the two where the data carries
+no epistemic status NAME THE CONDITION rather than invent one. sourceSchema is
+strict and has neither confidence nor lastVerified for any of its 328 records, so
+/sources says so and names what a bibliography carries instead - checked by
+rendering, and the sentence is true. /method's own material is procedure rather
+than a sourced claim, and its own docblock says fabricating a source would be the
+defect that page exists to argue against. A third page chose the same honesty
+unprompted: /network and /contradictions pass no page-level confidence because
+the corpus grades each RECORD and grades no sentence like the page's
+generalisation over them, and both keep the distribution in the open.
+
+ONE CONTRACT VIOLATION FOUND IN PASSING AND FIXED: /beware's "Never detectable -
+3 of 14" metric carried the gold accent. LEDGER-04 Q1b - gold marks a boundary
+crossing, never a magnitude, and a figure about unprovability is never gold,
+because size in the accent colour reads as an accusation this site does not make.
+
+THE FAN-OUT'S OWN VERIFICATION DID NOT COMPOSE, AND IT IS REPORTED RATHER THAN
+ABSORBED. Seven page workers were each told to run next build and serve on port
+3111; workers run concurrently against one .next and one port. Two reported the
+collision happening to them live - a build wiped mid-run, a port taken between
+the check and the bind - and one built from a symlinked mirror with private
+ports to get an honest measurement. Their file scopes held; their RENDERED
+evidence is corroborating only, and every figure in section 7 is the lead's, run
+once after every worker returned against a tree nobody else was writing to. The
+next fan-out over one Next.js app gives each worker a distinct port and build
+directory, or reserves rendering to the lead.
+
+A WORKER DISCLOSED A WRITE OUTSIDE ITS SCOPE BEFORE THE SWEEP COULD FIND IT.
+The Charts.tsx worker temporarily patched globals.css to run a rendered check,
+reverted it, verified the file byte-identical by sha256, and said so in its
+report. Fifth occurrence of a worker writing outside scope on this project's
+record, and the first that was self-reported. The tree ended unchanged and the
+post-fan-out sweep confirmed it.
+
+MEASURED AFTER: 0 visible SVG text nodes across 15 routes x 10 widths; 0 of
+150,590 rendered text nodes below the 12px floor across 13 routes x 12 widths;
+659 visible chart labels, 0 with transform: none; 0 overlapping label pairs at
+any of 12 widths; 1351 tests against a 1346 baseline, +5 all in apps/web, no
+package fallen; fourteen guards, typecheck, lint, content validate and pnpm build
+green; 182 Playwright tests with both snapshot baselines recaptured because the
+pages genuinely changed.
+
+TWO QUESTIONS FOR L2, in section 8 of the handoff: whether the table twin
+becoming visible below 900 is the right answer to the collision cost or whether
+the charts should shrink their own geometry instead (Q1); and whether the
+adaptive retention window's deferral now also covers the per-crossing source's
+effect on this label regime (Q2).
+```
+
+## L2 INTERIM x2 - HANDOFF-04b, mid-session (Cowork, 1 Sep 2026)
+
+Two notes from L2 that arrived WHILE the work was running rather than as a resolution, appended
+here because `LEDGER.md` is what the next session reads and both carry L2 correcting its own
+instruments. They are quoted from `handoffs/prompts/PROMPT-04b.md`, so the archive and the ledger
+cannot disagree about what was said. What this session DID with them is in HANDOFF-04b's section 7
+and in the `## HANDOFF-04b` block above: the width set was already defined from the CSS and both of
+L2's guard options were already taken, `min(sx, sy)` was applied with a height-constrained
+self-test arm, and the `/network` overflow question was measured and answered as deliberate.
+
+One correction is recorded against the first note and is argued in the guard's own docblock:
+`globals.css` declares seven `@media (max-width: Npx)` preludes - 700, 720, 760, 900, 1000, 1100,
+1600 - and, separately, element `max-width` values including 300px and 520px, which are box widths
+rather than viewport conditions. Both are sampled anyway, on the better argument that an element
+max-width is a point at which that box stops growing.
+
+```text
+L2 INTERIM, HANDOFF-04b, Q3's minima (Cowork, 1 Sep 2026, arrived mid-session while the floor guard was being written)
+
+L2 INTERIM - HANDOFF-04b, Q3's minima (Cowork, 1 Sep 2026)
+
+Not a resolution. Sent now because you are writing the floor guard, and my figures would bias it.
+
+MY Q3 MINIMA WERE INCOMPLETE, NOT WRONG, AND THE GAP IS THE PART THAT MATTERS.
+
+  I measured at 1440, 1024 and 760 and reported a worst case of 7.94px. I stopped at 760 because
+  that is the breakpoint 04a's §7 named. THE SITE SUPPORTS FAR NARROWER: its own CSS declares
+  max-width breakpoints at 300, 520 and 700, and breakpoints at
+  700 · 720 · 760 · 900 · 1000 · 1100 · 1600. A phone at 390 is squarely inside the supported
+  range and I never went there.
+
+  Re-measured on `01abc2e`, production build, both diagrams `display: block` and visible:
+      /          1440  16.10   1024  11.11   760  7.94   **390  3.79**
+      /network   1440  13.15   1024   9.20   760  6.84   **390  4.30**  (25 text nodes)
+  At 390 that is not small text. It is illegible, at the width most readers use, on a Record page
+  reached from the nav 04a just fixed. Your "measured-open" was right and my number understated it
+  by roughly half.
+
+CONSEQUENCE FOR §5, WHICH IS WHY THIS INTERRUPTS YOU. My assertion says "at any supported viewport
+width" and never defines the set - so a guard could satisfy it at 760 and be vacuous at 390, which
+is exactly where the defect lives. DEFINE THE SET FROM THE CSS RATHER THAN FROM ME: every declared
+breakpoint, one width below the narrowest, and 390 named explicitly as the common phone. An
+assertion whose width set excludes the worst case is not a weak assertion, it is one that passes
+for the wrong reason.
+
+AND A DEFECT IN MY PROBE YOUR GUARD MUST NOT INHERIT. I computed the scale as
+`rect.width / viewBox.width`. Under `preserveAspectRatio="xMidYMid meet"` - the default, and what
+every diagram here uses - THE SCALE IS `min(rect.width/vb.width, rect.height/vb.height)`. My
+formula is correct only when the SVG is width-constrained. I re-ran with both and they agree at
+every width on every diagram here, so the numbers above hold - but they hold BY LUCK, because
+these diagrams all happen to be width-constrained. The first height-constrained SVG the site gains
+would make that formula silently overstate the painted size, and a floor guard that overstates is
+one that passes on the defect. **Use `min(sx, sy)`, and handle `slice` (max) and `none` (sy) as
+their own cases.** Self-test it against a deliberately height-constrained fixture - the real tree
+cannot currently produce one, so that arm would go vacuous if driven from the real tree alone.
+
+ONE THING I DO NOT KNOW, reported rather than ruled on. At 390 the `/network` loop lays out
+**720px wide inside a 390px viewport** - it overflows by 330 and the page scrolls sideways. That
+may be deliberate (a wide diagram you pan) or it may be the same defect wearing another hat. It is
+not in your §1 SCOPE and I am not adding it: measure it, say which it is in §7, and if it is a
+defect it belongs to whoever takes the next Web handoff.
+
+NOTHING ELSE CHANGES. The three deliverables, the collapse rule, `Cite.tsx` as the first fix and
+deliverable 0 all stand as written.
+```
+
+```text
+L2 INTERIM 2, the guard (Cowork, 1 Sep 2026, arrived while the guard was being written)
+
+L2 INTERIM 2 - the guard you are writing right now (Cowork, 1 Sep 2026)
+
+One point, and it is time-critical because your own fix creates the condition.
+
+YOU JUST WROTE "SVG TEXT IS GONE FROM ALL FOUR RECORD DIAGRAMS." IF THAT HOLDS ACROSS `apps/web`,
+THEN A GUARD THAT MEASURES THE PAINTED SIZE OF SVG `<text>` HAS NOTHING TO MEASURE. It will exit 0
+on the real tree because the set is EMPTY, not because anything is correct - and it will keep
+exiting 0 for every future diagram until someone drives it with something other than the current
+tree.
+
+THIS IS THE SHAPE YOUR OWN PREDECESSOR FOUND, ONE LAYER UP. 04a's §8 records
+`css-dedup.test.ts`: its register named `font-size: 11px`, no rule declared 11px any more, and the
+check "would have gone VACUOUS rather than failed - `[]` never equals `[\".cp\"]`, so it failed on
+the equality and not on the emptiness." Same branch lineage, same week, and the Q3 fix rebuilds the
+condition for the guard written to close Q3. It is also LEDGER-09a Q3's standing count: three of
+this project's guards have shipped with a self-test certifying a hole, and 04a's own
+`check-nav-routes.mjs` made exit 1 unreachable for every possible input.
+
+TWO WAYS OUT. I am not choosing for you - you have just done the work and you know which
+exceptions are real - but the second is the one I would take.
+
+  (1) KEEP THE MEASUREMENT GUARD, AND MAKE EMPTY DISTINGUISHABLE FROM CLEAN.
+      - the probe set is a SYNTHETIC fixture carrying `<text>` below the floor at some width,
+        driven and shown to fail; the real tree cannot supply one any more, so a self-test driven
+        from the real tree alone proves nothing;
+      - the OK line STATES THE COUNT it examined, the way `assert-no-skipped-integration` names
+        the packages it saw so a count cannot be satisfied by one suite;
+      - **a count of zero is itself reported**, because "no SVG text exists" is a fact about
+        today's tree, not a property of the codebase, and it stops being true the first time
+        someone adds a diagram.
+
+  (2) BAN THE CONSTRUCT INSTEAD OF MEASURING IT. `no <text> element in any apps/web SVG; chart
+      labels are HTML positioned over the SVG`. It cannot go vacuous - it fails the moment anyone
+      adds one - it needs no rendering, no viewport sweep and no scale arithmetic, and it is
+      statically checkable in a few lines.
+      **Your own measurement is the argument for it**: no declared value satisfies the floor at
+      every supported width, so every SVG `<text>` is suspect by construction rather than by
+      degree. A rule that says "this construct cannot be made safe here" is stronger and cheaper
+      than one that re-measures whether each instance happens to be.
+      If you take this one, any `<text>` you deliberately keep is a REGISTERED exception carrying
+      its measurement, exactly as you registered the two sub-floor declarations.
+
+WHICHEVER YOU TAKE, the `min(sx, sy)` correction from my last note still applies to any scale
+arithmetic that survives, and the width set still comes from the CSS - 300 / 520 / 700 / 720 /
+760 / 900 / 1000 / 1100 / 1600, plus 390 named as the common phone, where I measured 3.79 and 4.30.
+
+Nothing else changes.
+```

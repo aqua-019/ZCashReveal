@@ -147,9 +147,18 @@ async function paintedText(page: Page): Promise<Painted[]> {
     }
 
     // HTML: any element with a direct text child. An ancestor `transform` scales
-    // it exactly as a viewBox scales SVG text, so the ratio of the painted box
-    // to the layout box is the scale, and it is measured rather than assumed.
+    // it exactly as a viewBox scales SVG text, so the scale is read from the
+    // transform chain rather than assumed.
     for (const el of document.querySelectorAll<HTMLElement>("body *")) {
+      // SVG ELEMENTS ARE IN `body *` TOO, and the first version of this sweep
+      // measured every `<text>` TWICE - once above with its real viewBox scale,
+      // and once here as if it were HTML, at scale 1. A planted 12-unit probe
+      // came back as two rows, `16.10px` and `12px`. That is not a duplicate
+      // count, it is a MASK: a sub-floor SVG label would be reported alongside a
+      // floor-clearing reading of the same element, and a sweep that reports
+      // both has told the reader nothing. Caught by the fail side refusing to
+      // find exactly one planted probe.
+      if (el.namespaceURI !== "http://www.w3.org/1999/xhtml") continue;
       const hasOwnText = [...el.childNodes].some((n) => n.nodeType === 3 && (n.textContent ?? "").trim() !== "");
       if (!hasOwnText) continue;
       const cs = getComputedStyle(el);
@@ -299,22 +308,31 @@ test.describe("A1 pass state - the label layer's transform actually applies", ()
     // invented for the probe. Applied to the live CSSOM so the real browser
     // parser decides, which is the only thing that can.
     await page.goto("/", { waitUntil: "networkidle" });
-    const before = await page.evaluate(() => {
-      const l = document.querySelector<HTMLElement>(".plabel");
+    // THE DEFAULT-ANCHOR LABEL IS THE ONE THE DEFECT HIT, and it is also the
+    // only one this probe can reach. `--plabel-tx` is set on bare `.plabel`
+    // (0,1,0) and overridden on `.plabel[data-anchor="middle"|"end"]` (0,2,0),
+    // so an injected `.plabel { ... }` rule LOSES the cascade to either of them.
+    // The first version of this probe selected the first `.plabel` on the page,
+    // which is an `end`-anchored y tick, and reported the transform surviving -
+    // a probe failing to reproduce a defect that is real. Matched at the same
+    // specificity, on the anchor that shipped broken.
+    const SEL = '.plabel[data-anchor="start"]';
+    const before = await page.evaluate((sel) => {
+      const l = document.querySelector<HTMLElement>(sel);
       return l === null ? null : getComputedStyle(l).transform;
-    });
-    expect(before, "no .plabel on the splash; the probe has nothing to break").not.toBeNull();
+    }, SEL);
+    expect(before, "no start-anchored .plabel on the splash; the probe has nothing to break").not.toBeNull();
     expect(before, "the transform is already `none`, so breaking it proves nothing").not.toBe("none");
 
-    const after = await page.evaluate(() => {
+    const after = await page.evaluate((sel) => {
       const style = document.createElement("style");
-      style.textContent = ".plabel { --plabel-tx: 0; }";
+      style.textContent = '.plabel[data-anchor="start"] { --plabel-tx: 0; }';
       document.head.appendChild(style);
-      const l = document.querySelector<HTMLElement>(".plabel");
+      const l = document.querySelector<HTMLElement>(sel);
       const t = l === null ? null : getComputedStyle(l).transform;
       style.remove();
       return t;
-    });
+    }, SEL);
     expect(after, "a bare `0` in the calc must drop the transform entirely").toBe("none");
   });
 });
