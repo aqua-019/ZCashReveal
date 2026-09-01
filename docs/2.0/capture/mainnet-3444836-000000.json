@@ -1,0 +1,218 @@
+{
+  "hash": "00000000001e5057e71a7656ac40e3117c6944e770f71144fbdd23c8aa4ac8b1",
+  "confirmations": 23713,
+  "size": 1870,
+  "height": 3444836,
+  "version": 4,
+  "merkleroot": "17629a315e66a8380362110bbc19bbdd603d00ddd6a264f9b2d10f7b2f6b02ee",
+  "blockcommitments": "fcf86e3024bf804f1d4619f0a95a1dbeb543fcbf26f87495c1de8a6d5716619e",
+  "finalsaplingroot": "60d0b71fa3c8c522edf24416818dc65ad073f0af7eafda70acf1ba75bf3be010",
+  "finalorchardroot": "d16472af8891ad2fe63a9c44d8b4feebf3ed885bc31a3bae57f786b5db9a8837",
+  "nTx": 2,
+  "tx": [
+    {
+      "in_active_chain": true,
+      "hex": "0600008098b684d85b16a5370000000064903400010000000000000000000000000000000000000000000000000000000000000000ffffffff090364903404f09fa693ffffffff0250807307000000001976a91425db9091e9786867e536f70089a5102523ab1d6a88ac20bcbe000000000017a914c20cd5bdf7964ca61764db66bc2531b1792a084d8700000000",
+      "height": 3444836,
+      "confirmations": 23713,
+      "vin": [
+        {
+          "coinbase": "0364903404f09fa693",
+          "sequence": 4294967295
+        }
+      ],
+      "vout": [
+        {
+          "value": 1.2501,
+          "valueZat": 125010000,
+          "n": 0,
+          "scriptPubKey": {
+            "asm": "OP_DUP OP_HASH160 25db9091e9786867e536f70089a5102523ab1d6a OP_EQUALVERIFY OP_CHECKSIG",
+            "hex": "76a91425db9091e9786867e536f70089a5102523ab1d6a88ac",
+            "reqSigs": 1,
+            "type": "pubkeyhash",
+            "addresses": [
+              "t1MKn34KBa8Xh4g8qU8psibBXvURafphVn7"
+            ]
+          }
+        },
+        {
+          "value": 0.125,
+          "valueZat": 12500000,
+          "n": 1,
+          "scriptPubKey": {
+            "asm": "OP_HASH160 c20cd5bdf7964ca61764db66bc2531b1792a084d OP_EQUAL",
+            "hex": "a914c20cd5bdf7964ca61764db66bc2531b1792a084d87",
+            "reqSigs": 1,
+            "type": "scripthash",
+            "addresses": [
+              "t3cFfPt1Bcvgez9ZbMBFWeZsskxTkPzGCow"
+            ]
+          }
+        }
+      ],
+      "vShieldedSpend": [],
+      "vShieldedOutput": [],
+      "vjoinsplit": [],
+      "orchard": {
+        "actions": [],
+        "valueBalance": 0,
+        "valueBalanceZat": 0
+      },
+      "valueBalance": 0,
+      "valueBalanceZat": 0,
+      "size": 142,
+      "time": 1786505366,
+      "txid": "d2414d3884505c53d7c0f58d4a13c0f8ea62cf51b4685ad93acadc56c5ce7ebc",
+      "authdigest": "f6e2d1f897be17529e98f4bfa29df250d42104a96be3bbc4a46effb23338865b",
+      "overwintered": true,
+      "version": 6,
+      "versiongroupid": "d884b698",
+      "locktime": 0,
+      "expiryheight": 3444836,
+      "blockhash": "00000000001e5057e71a7656ac40e3117c6944e770f71144fbdd23c8aa4ac8b1",
+      "blocktime": 1786505366
+    },
+    {
+      "in_active_chain": true,
+      "hex": "050000800a27a7265b16a537000000008b90340001ab6a421c2f16147af93cd1ca4cb275e811959fe62ac875b1883de3248f4fe78b010000006a473044022035ff7f62531df669d512f6e130bfe62819018e6278a046920822d571e2d2a39e02207ba2d0c83fe754cb9d0e764037b438704b08e86840f0766a610424db555c0c4e012102010a560c7325827df0212bca20f5cf6556b1345991b6b64b469c616e758230a5ffffffff02b4cf4000000000001976a91448e6a4b9a97276525ac4dc65279c207ca23dd3d188ac6813c901000000001976a914c8b56e00740e62449a053c15bdd4809f720b5cb588ac000000",
+      "height": 3444836,
+      "confirmations": 23713,
+      "vin": [
+        {
+          "txid": "8be74f8f24e33d88b175c82ae69f9511e875b24ccad13cf97a14162f1c426aab",
+          "vout": 1,
+          "scriptSig": {
+            "asm": "3044022035ff7f62531df669d512f6e130bfe62819018e6278a046920822d571e2d2a39e02207ba2d0c83fe754cb9d0e764037b438704b08e86840f0766a610424db555c0c4e[ALL] 02010a560c7325827df0212bca20f5cf6556b1345991b6b64b469c616e758230a5",
+            "hex": "473044022035ff7f62531df669d512f6e130bfe62819018e6278a046920822d571e2d2a39e02207ba2d0c83fe754cb9d0e764037b438704b08e86840f0766a610424db555c0c4e012102010a560c7325827df0212bca20f5cf6556b1345991b6b64b469c616e758230a5"
+          },
+          "sequence": 4294967295
+        }
+      ],
+      "vout": [
+        {
+          "value": 0.04247476,
+          "valueZat": 4247476,
+          "n": 0,
+          "scriptPubKey": {
+            "asm": "OP_DUP OP_HASH160 48e6a4b9a97276525ac4dc65279c207ca23dd3d1 OP_EQUALVERIFY OP_CHECKSIG",
+            "hex": "76a91448e6a4b9a97276525ac4dc65279c207ca23dd3d188ac",
+            "reqSigs": 1,
+            "type": "pubkeyhash",
+            "addresses": [
+              "t1QX4xY2bHN877AMrH3QZAbHMt2T3iEHtRT"
+            ]
+          }
+        },
+        {
+          "value": 0.2995492,
+          "valueZat": 29954920,
+          "n": 1,
+          "scriptPubKey": {
+            "asm": "OP_DUP OP_HASH160 c8b56e00740e62449a053c15bdd4809f720b5cb5 OP_EQUALVERIFY OP_CHECKSIG",
+            "hex": "76a914c8b56e00740e62449a053c15bdd4809f720b5cb588ac",
+            "reqSigs": 1,
+            "type": "pubkeyhash",
+            "addresses": [
+              "t1cArVf7BgN3zPx6UHGy87ZAurTA4AQejj7"
+            ]
+          }
+        }
+      ],
+      "vShieldedSpend": [],
+      "vShieldedOutput": [],
+      "vjoinsplit": [],
+      "orchard": {
+        "actions": [],
+        "valueBalance": 0,
+        "valueBalanceZat": 0
+      },
+      "valueBalance": 0,
+      "valueBalanceZat": 0,
+      "size": 240,
+      "time": 1786505366,
+      "txid": "6f20c1770fc573831e7cec2cd12030f66c5061a9b8dfc9c36506907a45115333",
+      "authdigest": "83d8d9ddf7edffa7667ceba959f25c8b86eda21254fee18273961a79f5aca55a",
+      "overwintered": true,
+      "version": 5,
+      "versiongroupid": "26a7270a",
+      "locktime": 0,
+      "expiryheight": 3444875,
+      "blockhash": "00000000001e5057e71a7656ac40e3117c6944e770f71144fbdd23c8aa4ac8b1",
+      "blocktime": 1786505366
+    }
+  ],
+  "time": 1786505366,
+  "nonce": "3dbf0080000000000000000000020000000000000000000000000000665e4678",
+  "solution": "014a377ab75557931f4cc807e0f218772884db93fb0b406f377e078c8f22ca33bb1dd744ce72c17e0f850304b616f41209ad32e7c3e4f970b9224058b66efe2bfeca047b16aa18e95d94812eeae489e16abecb5301bcd6166c0c59a7670c52ca773749399c06f76a4005f0764139593fd5f7ff03bf5028a7b65196ba044005f403dbbf29a80f887b817c0dd620155ed2ff82ba3de5e59f0228bded7ff1e4fdf2cf7cbda5807b2ace03e12705c4de28d15192e4b748e9a00a827b545e22047b63d633cdff11c860389fc754375ebf295d3e391c31f78d3248bc10763db3746fbc460cfae4285cf651f57d0b439cbd31f3fb5a7cfe62e7a2d7cd1968ef0d9b2722c5886cd137f8b2de265895f9766f5ed65d15dcab8746110778c0a3c1fc751e9d74efdad38ab615c9e31620c872bc73a7d2c5742557fdef9fda86781dc6a7e24ac8009a8080c591166d6f2af4dc3bd67e0270e4edee841ef246d1a2ad14f575694e084c0d8946780390285473ccd8f3b8f377ded04333d5fdd11f326a934c8b179d7de6c0e3acb1548341f9f652e57c6eedfe3899e327f5f7d3a7ea3f6cf526ae70df425a04cd82106e03b7f895d5307429a807cd953c79b88c129735246a6766e7d291e4cf0fc9fcfda8391c58d70a1da8692a60e17bfab062106daaefae134afa32bb0e674c2e9e6cd06fe0fdc1a6c34d4c35a64a7a3ee60b8c56f6faa519d99bc3c1cbe19b637c89ed6ed1501118d4f0e3aeb103df2217e058db299a07a7f4aab4110b3b6a631e31fb207151a84bcc936c6c4bec619352a852e7559e2be5e16de81f4f7b6c0e3aa8f56d770cba662c102ef4ed9744a32ff0d8a2d5126529917430e752f78f0d81a5037b15b564b34d02a2f37ae50d16c670da8505c464a80741f24436b764ebb97228b940721d6b82ee34839d1c37b891719be7c62f5f99e202d57ebf17474a9c94f060bfea136374fc8dd88a4b08d6570adb9eda4b0ec189446ef9035351649c04f618702a55c78ad02fd0e9d4f948eb5bb1ebc6faa7ff2f0f069c3625eb6da6c0c6b02a40c61288737facad04582a600df20085c1e750f06f8fc8e1de74fb968d05c7a498af5b8c4566def0c0bef045f8599a831d4e0cdf8f6a3b67840f69cea24c0dcc8e00c8103fca6b2c7ef5fe3196a8774c48c62dcc42ed22ba7c9f8c8c06135459b83af7d5eacc86520affcaedc4fa3f39263168dab14d6c81b3831144bcfc3594d1e6ac90ca82109598c9944de3a8b0e2e4ae9c4396cf61c4dee54f14a187d08cdd9da7310f91bf35680fb0957ebc9d3406a9e31115b3add5a9dcd73e55c0e971e6a939b3b32c3f0ff8b8dc8e85007856ab02f9613682e697a2ec1e08dd545f0f46bf36345244e4733b24db5791c58936dea5e81bf176d1dd5c03732b60660d0862cbd9eb03d8bb5daa8889c5b732c47b78afb97da4eb93a3284a0587963f1347130d0ee4ddaa2eb781f69d5057be116089511add3e3aeb73364e83b4e7da51fe53c9b51bf9ddd0dd2df881ed70279258768c56ab88de4a820ea4b487098c493bd3dc118ce8a139ba586c3cb0c1546f0336d3585e82d9a37560b4792fcf57f2df1aa41ae4a1ac401e2e73509e53a422e0e59dc8d29dbd7024c93bea80746d83fb91e2e7adc15fd8ca61d955bb04361f5d042d34099d2fd16aa7e51b7645627646ce1074b64c93643db941db4116c9c1446f9fa0de076234d99fa44c11ffca917ea6d435e6d40a4fc23c785e7385067a67a2741bd2f5475eb0602016236915249a0953c6054945ae48a4cc92537d29f25943915d41e834e013a86351d628a46f154a4651060fbe3fdfbd400b995c6fd99113c99c8851851e78834c6fa21cff760d354ac276943e9f539d45e03ed7393196bb528f5b",
+  "bits": "1c009ffd",
+  "difficulty": 214763684.96208218,
+  "chainSupply": {
+    "chainValue": 16872189.2280448,
+    "chainValueZat": 1687218922804480,
+    "monitored": true
+  },
+  "valuePools": [
+    {
+      "id": "transparent",
+      "chainValue": 12449260.17586075,
+      "chainValueZat": 1244926017586075,
+      "monitored": true,
+      "valueDelta": 1.375,
+      "valueDeltaZat": 137500000
+    },
+    {
+      "id": "sprout",
+      "chainValue": 22621.26786698,
+      "chainValueZat": 2262126786698,
+      "monitored": true,
+      "valueDelta": 0,
+      "valueDeltaZat": 0
+    },
+    {
+      "id": "sapling",
+      "chainValue": 539786.05190185,
+      "chainValueZat": 53978605190185,
+      "monitored": true,
+      "valueDelta": 0,
+      "valueDeltaZat": 0
+    },
+    {
+      "id": "orchard",
+      "chainValue": 1182627.10756268,
+      "chainValueZat": 118262710756268,
+      "monitored": true,
+      "valueDelta": 0,
+      "valueDeltaZat": 0
+    },
+    {
+      "id": "lockbox",
+      "chainValue": 55956.9375,
+      "chainValueZat": 5595693750000,
+      "monitored": true,
+      "valueDelta": 0.1875,
+      "valueDeltaZat": 18750000
+    },
+    {
+      "id": "ironwood",
+      "chainValue": 2621937.68735254,
+      "chainValueZat": 262193768735254,
+      "monitored": true,
+      "valueDelta": 0,
+      "valueDeltaZat": 0
+    }
+  ],
+  "trees": {
+    "sapling": {
+      "size": 73944723
+    },
+    "orchard": {
+      "size": 50363095
+    },
+    "ironwood": {
+      "size": 48467
+    }
+  },
+  "previousblockhash": "0000000000304e18d2aea51d3baf3c878789ff728cd9ccfbefe43f70134a23af",
+  "nextblockhash": "0000000000274151cfae6e6d498f95afe06c8a5b5ee3b4540a0888f4bbbcbcfb"
+}
