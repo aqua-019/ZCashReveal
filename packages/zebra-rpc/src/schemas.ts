@@ -148,6 +148,14 @@ export type GetInfo = z.infer<typeof getInfoSchema>;
  * five: the ZIP 271 lockbox is not a pool lane. Mapping the six onto the five
  * is the gateway's job and is done explicitly there, not by dropping an entry
  * here.
+ *
+ * A CONSERVATION CHECK WRITTEN OVER THE FIVE DOES NOT BALANCE, and that is
+ * measured rather than argued: the six deltas sum to the block subsidy only
+ * with the lockbox entry included, and over the five lanes they are short by
+ * exactly the lockbox delta - 18,750,000 zat on every committed capture.
+ * `apps/indexer/src/decoder/__tests__/value-pools-conservation.test.ts` pins
+ * both halves; meet that counter-example there before writing a check over
+ * `LedgerLane` (LEDGER-12 Q4).
  */
 export const blockchainInfoSchema = z
   .object({
