@@ -4,7 +4,7 @@ title: Live wiring: snapshot baseline → WS upgrade, smoke tests, cutover check
 status: queued
 branch: the session-designated branch (name it `feat/v2-11-live-wiring` if you may choose)
 track: Integration
-depends_on: 04, 04a, 05, 09, 09a, 09b, 10
+depends_on: 04, 04a, 04b, 05, 09, 09a, 09b, 10
 written_by: L2 (Cowork) · 22 Aug 2026
 stack: Aqua Stack v4.1
 ---
