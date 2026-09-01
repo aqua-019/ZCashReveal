@@ -5771,3 +5771,164 @@ MEASURED, package by package: content 67, zebra-rpc 50, zec-instruments 98, web
   and merging is Aqua's click under this file's own operating model, so the
   transcript is posted and the button is not pressed.
 ```
+
+## HANDOFF-04a - the legibility pass, and what only the render found (L3, 1 Sep 2026)
+
+```
+THE HANDOFF WAS COMMISSIONED BY FOUR READER COMPLAINTS, SO THIS STARTS WITH
+THEM RATHER THAN WITH WHAT WAS BUILT. 1 (the navbar reads as a mission select)
+and 2 (the floating PUBLISHED boxes - "buttons? filters? evidence? a legend?")
+are CLOSED. 3 ("half the text is basically 9px gray-on-charcoal punishment") is
+closed for HTML text and MEASURED-OPEN for SVG chart text. 4 - "instead of
+claim, explanation, evidence, visualization, we get vibes, cryptographic
+terminology, vibes, huge number, tiny explanation, vibes" - is closed on the
+SPLASH and open on the other seven Record pages. That last one is the complaint
+L2 called the diagnosis, and it is the largest thing this branch did not finish.
+
+TWO OF L2's PREMISES WERE FALSE, BOTH IN THE BRANCH'S FAVOUR, AND CHECKING THEM
+IS WHAT THE BRIEF ASKED FOR.
+  (a) F-04a-4 said apps/web "already floors at 10px". IT FLOORED AT 8.5px - the
+      same floor as the mockup it cites as its source of truth, so the shipped
+      site MATCHED the source of truth and both were wrong. 94 live sub-12px
+      declarations across seven distinct sizes, 24 of them at 9.5px. The
+      reader's "half the text is basically 9px" was a measurement, not a figure
+      of speech.
+  (b) tokens.css stated --ink-faint at 3.05:1. IT IS 3.11:1, which is the figure
+      L2's own brief carries - the brief was right and the tree was wrong. The
+      wrong number was restated at four sites and swept at all four in one
+      commit. It surfaced because A2 COMPUTES the ratio from the token and the
+      ground rather than reading it off the palette, which is exactly what
+      F-04a-4 asked for; the reason it asked is now demonstrated rather than
+      argued. A COMMENT CANNOT FAIL, and this one had been wrong through two
+      handoffs and a design review.
+  And F-04a-3 was WORSE than stated: nav.ts asserted its invariant in the
+  docblock and carved the exception out of it ninety lines below, arguing from
+  two counts that were both wrong - "a seven-item screen index" when SCREENS
+  has held nine since HANDOFF-03, and "six sub-views of one of those seven"
+  when one of the six IS /track, so there were five. A file that states an
+  invariant in one place and carves an exception out of it in another has no
+  invariant, only two opinions.
+  And F-04a-6's second example was not correct: Cite.tsx carried no digit AND
+  kept confidence, lastVerified and the source list all behind the toggle,
+  which is the collapse rule's own forbidden case.
+
+A PROPERTY OVER PAIRS CATCHES WHAT A PER-ELEMENT CHECK CANNOT, AND THIS IS
+LEDGER-08 FOLD 3 ARRIVING IN CSS. The type scale's first map was not monotone:
+the 11px band went to --t-data (13px), because 11px sites are mostly mono data
+and the mockup sets mono data at 13 - which put them ABOVE the nine sites
+already at 12px, so a rule that had been SMALLER than another became LARGER.
+tokens.css claimed monotonicity in the same commit that broke it. Every rung
+was at or above the floor in both versions, so the obvious check - "is each
+rung >= the floor" - was green on the defect. The property that caught it
+quantifies over PAIRS of sizes. The assertion said sigma and the check summed
+each element, one more time.
+
+AN ATTRIBUTE THAT REPORTS SUCCESS IS NOT THE PICTURE MOVING, AND THE FIRST FIX
+MOVED THE DEFECT RATHER THAN CLOSING IT. Escape set aria-expanded to false and
+removed data-open while the computed grid-template-rows stayed at 546.844px,
+because Escape must return focus to the toggle and :focus-within on the bar
+re-opened what Escape had closed. Both state halves reported success and
+nothing happened on screen. The first fix made an explicit close beat an
+implicit open - and then onPointerLeave cleared that too, so the bar re-opened
+as soon as the pointer left. What actually closed it was scoping :focus-within
+to the PANEL rather than to the bar: the toggle is the CONTROL, not the
+content, and focusing a shut disclosure's own button must not open it. Three
+measurements, two of them of a fix.
+
+SIX DEFECTS ON THIS BRANCH WERE FOUND BY RENDERING THE PAGE AND READING IT, AND
+NONE BY READING THE CODE - which is the practice L2 asked for, executed, and it
+paid every time. The sharpest: THE PLANE DREW NOTHING. POOL_SW maps a pool to
+its `.sw` MODIFIER CLASS ("t", "sp", "o"), not to a custom property, so
+`var(${POOL_SW[lane]})` produced `var(o)` - syntactically valid CSS that
+resolves to nothing. Every arc and every disc painted `none`, and typecheck,
+lint and the build were all green on it. A type system cannot tell two strings
+apart by what they are for.
+
+AND A SEVENTH IS STILL LIVE IN THE APPROVED STUDY, REPORTED RATHER THAN
+CHANGED. 04a-turnstile-plane.html renders a static tile reading `PENDING 3
+mempool` beside a legend that computes `unconfirmed 0` from the live board.
+That is F-04a-7's own shape - two renderings of one quantity that do not share
+a source - surviving in the file that documents the fix for it, visible on the
+render at the default rate. The brief says nothing else about those files
+changes, so it is named here instead. The splash study does not have it: its
+tank-limit reconciles the three unconfirmed crossings in words.
+
+THE ASSERTION WRITTEN TO STOP VACUITY WENT VACUOUS, AND ONLY ITS POSITIVE HALF
+NOTICED. The grouped nav moved the hover dim onto `.screenlabel`, because the
+label is the loud part of a row. Assertion A6 pairs "no ScreenNav link carries
+a transform in any state" with a positive half - a sibling's COMPUTED COLOUR
+must change on group hover - precisely because "transform: none" also passes on
+a page where the hover never registered. Moving the only colour change onto a
+child span left the negative half green and made the whole assertion prove
+nothing. Caught by running it. THE GENERAL FORM: a two-polarity assertion whose
+positive half reads a DIFFERENT ELEMENT from the one the rule now acts on is
+not a weakened assertion, it is a different one that happens to pass.
+
+THE FIX COMMIT IS STILL THE MOST DANGEROUS COMMIT, MEASURED AGAIN. Raising
+.plot .nw-sub to the floor overflowed a 200-unit box (a sub-line at 223 units);
+widening the box to 244 fixed the node labels AND broke the edge labels, by
+narrowing the between-column gap from 150 units to 106 while the widest label
+needs 173. PLOT.width is shared by every chart so a stroke width means the same
+thing on all of them, and so is not available to widen for one of them. The
+round trip is recorded in the component and in the register rather than tidied
+into a single clean-looking diff.
+
+SVG TEXT IN A SCALED VIEWBOX IS NOT CSS PIXELS, AND THE FLOOR CANNOT REACH IT
+BY CHOOSING A BIGGER NUMBER. Measured on the loop diagram: viewBox 1000 units
+wide, rendering at 1384 CSS px on a 1440px viewport (scale 1.384), 968 on a
+1024px one (0.968), and 720 on anything 760px or narrower (0.72). So a declared
+12 paints at 16.6, 11.6 and 8.64 CSS px. A FLOOR THE VIEWPORT CAN WALK UNDER IS
+NOT A FLOOR. Two declarations are registered below it with that measurement as
+the reason, in a register its own tests iterate - each row driven against the
+real rule it names, plus a COUNT check so a third sub-floor declaration cannot
+ride in on the exempted value. The turnstile plane positions its labels as HTML
+over the SVG for exactly this reason, and that decision is now justified by
+measurement rather than by taste.
+
+A9 COULD NOT BE IMPLEMENTED AS §5 WORDED IT, AND THE SUBSTITUTE IS ARGUED.
+A shortened retention window needs per-crossing times; migrationHist carries
+lowHeight, highHeight and a count and nothing else. Reporting a shortened
+window would mean assuming the crossings are spread evenly across it - an
+inference about arrival times from data containing none - and reporting it in
+minutes would need a block time for lowHeight that no snapshot carries. (The
+study prints "47 min" because its fixture invented one.) The defect the rule
+exists to prevent - a capped board looking identical at 42 crossings and at
+1,284 - is closed by printing the MEASURED count beside the DRAWN one, which
+carries strictly more information than the shortened window would have. Put to
+L2 as Q2.
+
+AND THE READ-ONLY RULE HELD, IN A DIRECTION IT HAD NOT BEEN TESTED IN. The
+post-fan-out sweep after the second fan-out found three stray files in the
+tree. THEY WERE THE LEAD'S - screenshot scripts written into apps/web because
+the shell's working directory had drifted there - and a worker reported them
+against itself as files it had not written, rather than deleting them. Four
+occurrences of a worker writing outside its scope are on this project's record;
+this is the first time the sweep caught the lead instead, and it caught it
+because a worker followed the rule about reporting rather than repairing.
+
+THE BASELINE WAS RE-MEASURED RATHER THAN TAKEN ON TRUST. L2's figure was taken
+on e1a39f7 in another environment, so a git worktree at the fork point 452d586
+was run here with a real Postgres 16 and a real local Redis. IT REPRODUCES
+EXACTLY: 1276 total, 1273 passed, 3 skipped. This branch is 1346 / 1343 / 3 -
++70, all in apps/web, all additions, no test deleted, renamed or weakened, and
+the skip count unchanged. Itemised: plane.test.ts 28 new, type-scale.test.ts 24
+new, summary-findings.test.ts 5 new, nav.test.ts 18 to 31. css-dedup.test.ts
+stays at 12, and the way it announced itself is worth the ledger: the compact-
+cell register's defining set named `font-size: 11px`, no rule declares 11px any
+more, and the check would have gone VACUOUS rather than failed - `[]` never
+equals `[".cp"]`, so it failed on the equality and not on the emptiness.
+
+THIRTEEN GUARDS, and the thirteenth found a defect in itself before it found
+one in the tree: check-nav-routes.mjs asserted "the real tree produces zero
+findings" INSIDE its own self-test, so adding a real unlisted route exited 2
+("the detectors are broken") rather than 1 - exit 1, the entire finding path,
+was unreachable for every possible input. Typecheck 13/13, lint 0, content
+validate and pnpm build green.
+
+THREE QUESTIONS FOR L2: the 12px floor divergence (Q1); whether the A9
+substitution is accepted or the plane should wait for HANDOFF-12's per-crossing
+source (Q2); and which handoff owns the SVG-text regime (Q3). Full text in the
+handoff's section 8, with the bound HANDOFF-12's per-crossing field inherits
+and the surface list HANDOFF-11 receives as a design input.
+```
+

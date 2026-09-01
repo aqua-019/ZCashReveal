@@ -7,10 +7,15 @@ import { expect, test } from "@playwright/test";
  * out by hand rather than imported. An import would make the assertion
  * tautological: a route silently dropped from the screen table would also
  * silently drop out of the walk. The unit suite (test/unit/nav.test.ts) owns
- * the shape of the table; this suite owns the claim that each of these nine
+ * the shape of the table; this suite owns the claim that each of these eleven
  * URLs is actually reachable in shipped output.
  *
- * Keep the two in step by hand. If they diverge, one of them is a bug.
+ * Keep the two in step by hand. If they diverge, one of them is a bug. The
+ * hand-written mirror is also why `scripts/check-nav-routes.mjs` exists and
+ * this file is not the guard: a mirror catches a route dropped from the table,
+ * and cannot catch a page added to `src/app` that never reached the table at
+ * all - which is exactly how `/pools` and `/reveal` went nine screens and four
+ * handoffs without a nav entry.
  */
 const ROUTES: readonly string[] = [
   "/",
@@ -22,6 +27,9 @@ const ROUTES: readonly string[] = [
   "/method",
   "/flows",
   "/sources",
+  // HANDOFF-04a, F-04a-3: real top-level pages that the bar did not carry.
+  "/pools",
+  "/reveal",
 ];
 
 test.describe("A7 route walk", () => {

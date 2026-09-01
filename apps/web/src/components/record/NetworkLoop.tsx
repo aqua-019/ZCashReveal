@@ -43,6 +43,23 @@ import { Plot } from "@/components/record/Plot";
 
 /** The diagram's own coordinate space. Wider than the shared plot is tall. */
 const H = 470;
+/**
+ * 200 units, and it stayed 200 at HANDOFF-04a after a round trip worth
+ * recording. The type floor first moved `.plot .nw-sub` and `.plot
+ * .edge-label` from 9.5 to 12, which overflowed two second lines - "ZODL CEO -
+ * paid CYPH advisor" measured 223 units against this box - so the box was
+ * widened to 244. That fixed the node labels and BROKE THE EDGE LABELS: three
+ * columns in a 1000-unit space have 150 units of gap at w=200 and 106 at
+ * w=244, and "$33.33M fleet, in equity" is 173 units at 12 and 137 at 9.5. It
+ * fits the first gap at the old size and neither gap at the new one.
+ *
+ * The coordinate space cannot simply grow: `PLOT.width` is shared by every
+ * chart on the site so that a stroke width means the same thing on all of
+ * them. So the two labels went back to 9.5 and are a NAMED EXCLUSION in
+ * test/unit/type-scale.test.ts rather than a silent survival, and the reason
+ * they are allowed to be is measured rather than asserted - see that file's
+ * SVG_EXCLUSIONS. `.plot .node-label` stayed at the floor: it fits.
+ */
 const BOX = { w: 200, h: 54 } as const;
 const COL = { l: 150, c: 500, r: 850 } as const;
 const ROW = { t: 96, m: 250, b: 404 } as const;
@@ -54,9 +71,9 @@ interface Node {
   readonly y: number;
   /**
    * A short display name. `NetworkEntity.title` is long-form
-   * ("Cypherpunk Technologies Inc. (Nasdaq: CYPH)") and does not fit a 200-unit
-   * box; the cards under the diagram print the title, the role and the exposure
-   * in full, with the citation.
+   * ("Cypherpunk Technologies Inc. (Nasdaq: CYPH)") and does not fit the box;
+   * the cards under the diagram print the title, the role and the exposure in
+   * full, with the citation.
    */
   readonly name: string;
   /** One compressed line, and which seed field it compresses. */

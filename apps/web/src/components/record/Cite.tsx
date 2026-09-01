@@ -18,6 +18,32 @@ import { SITE_URL } from "@/lib/site";
  * The canonical URL is absolute. A citation that only resolves relative to the
  * page it was copied from is not a citation.
  *
+ * WHAT THE CLOSED STATE CARRIES, AND WHY IT IS NOT JUST THE ID. HANDOFF-04a
+ * deliverable 4 states the collapse rule for every disclosure on the site:
+ * collapse the derivation, the raw table, the full source list - never the
+ * claim, and never `confidence`, `lastVerified` or the source count, because
+ * epistemic status behind a toggle is the null-panel-renders-as-zero defect in
+ * a nicer coat. This summary used to read `N-cameron-winklevoss  CITE` and put
+ * all three of those behind the triangle, so a reader skimming a page of claims
+ * saw a row of identical grey chips and could not tell a high-confidence claim
+ * verified last week from a low-confidence one verified in March without
+ * opening every one of them. The closed state now carries the id, the
+ * confidence, the last-verified date and the number of sources; the derivation
+ * - the canonical URL and the sources themselves, with their publishers and
+ * access dates - is what stays behind the toggle.
+ *
+ * THE COUNT IS DERIVED, never written beside the list. `sources.length` is the
+ * same array the body maps over, so a summary saying "4 sources" above a list
+ * of three is not reachable: the two cannot disagree. The count is the only
+ * finding this summary can honestly carry - `Source` has no field marking a
+ * source primary or secondary, so the "14 cited, 3 primary" shape the rule
+ * gives as its example has no second number available here.
+ *
+ * The dl in the body still repeats the date and the confidence. That is not an
+ * oversight: the body is a citation a reader copies whole, and a citation that
+ * omits when it was last verified because the chip above it happened to say so
+ * is not a citation.
+ *
  * A claim can have NO canonical URL: `permalink()` returns null for the 22
  * quarantined records that render on no page (LEDGER-04 Q4, fold 5). The
  * popover then states that rather than linking, because an anchor that lands
@@ -46,7 +72,10 @@ export function Cite({
     <details className="cite" data-cite={id}>
       <summary>
         <span className="cite-id">{id}</span>
-        <span className="cite-verb">cite</span>
+        <span className="sr-only">confidence: </span>
+        <Conf level={confidence} />
+        <span className="cite-date">verified {lastVerified}</span>
+        <span className="cite-verb">{`cite - ${sources.length} ${sources.length === 1 ? "source" : "sources"}`}</span>
       </summary>
       <div className="cite-body">
         <dl className="kv stack">

@@ -37,8 +37,14 @@
      headers, key columns, the nav index numerals - which is normal text under
      WCAG, so 4.5:1 applies and neither cleared it. #8f8576 is 5.20:1 on --bg
      and still 4.52:1 on --surface-2, the darkest ground it is painted on.
-     --ink-faint is now 3.05:1 and is reserved for non-text: hairline rules and
+     --ink-faint is now 3.11:1 and is reserved for non-text: hairline rules and
      inactive marks. Same hue ramp, same relationships, legible.
+     THIS FIGURE READ 3.05:1 UNTIL HANDOFF-04a. It is 3.11:1, computed; the
+     wrong value had been restated at four sites and was swept at all four in
+     one commit. It was found by a test that COMPUTES the ratio from the token
+     and the ground rather than reading it off this comment, which is the whole
+     reason A2 is written that way: a comment cannot fail, and this one had been
+     wrong through two handoffs and a design review.
      This diverges from the mockup :root, which is why it is a ledger question
      rather than a silent edit - see the section 8 block for HANDOFF-01. */
   --ink-mute: #8f8576;
@@ -100,6 +106,70 @@
   --f-numeral: var(--font-fraunces), var(--font-instrument-serif), Georgia, serif;
   --f-mono: var(--font-jetbrains-mono), "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --f-sans: var(--font-manrope), "Helvetica Neue", Arial, sans-serif;
+
+  /* -- type scale: a floor, and a dominance order that is not size ---------
+     THE FLOOR IS 12px AND NOTHING RENDERED AS TEXT GOES BELOW IT.
+
+     WHY IT MOVED. HANDOFF-01 did the palette pass and raised --ink-mute and
+     --ink-faint until the ink cleared WCAG AA. It worked: every ink token
+     except --ink-faint, which is reserved for non-text, passes AA on every
+     ground it is painted on. The site still read as punishment, and a reader
+     said so - "half the text is basically 9px gray-on-charcoal". They were
+     right and the palette was not the reason. Measured on this file's
+     consumer before the change: 94 live font-size declarations below 12px,
+     across seven distinct sizes, bottoming at 8.5px. A ratio that clears AA
+     at 9.5px is legal and unreadable, so the remaining work was never colour.
+
+     THIS DIVERGES FROM THE MOCKUP, WHICH IS WHY IT IS A LEDGER QUESTION
+     RATHER THAN A SILENT EDIT - the same treatment, and the same sentence,
+     as the ink divergence above. docs/2.0/mockups/zecreveal-2.0-mockups-v2.html
+     is the source of truth for values and floors at 8.5px; this file's
+     consumer floored at 8.5px too, so the shipped site already matched the
+     mockup and both were wrong. The approved composition for HANDOFF-04a
+     (docs/2.0/mockups/04a-splash-record.html) floors at 12px and states the
+     scale in its own annotation layer: "Prose 16px, secondary 15, mono data
+     13, labels 12 with tracking." These rungs are that scale.
+
+     THE DOMINANCE ORDER IS FAMILY, COLOUR AND TRACKING - NOT SIZE. Below
+     about 13px, size stops carrying hierarchy and starts carrying only
+     effort, so a thing that must recede recedes by becoming --ink-mute, or
+     by becoming mono and tracked, and never by becoming smaller. That is why
+     all seven bands under the floor collapse onto the floor rather than being
+     rescaled across it: 8.5px and 10.5px were never a distinction a reader
+     could make, and neither were 10.5px and 11px.
+
+     THE COLLAPSE IS MONOTONE - no pair of sizes swaps order - which is what
+     makes it a collapse rather than a re-ranking: a distinction may be lost,
+     and a thing that used to recede may not come to dominate. THE FIRST
+     VERSION OF THIS SCALE WAS NOT MONOTONE and this comment claimed it was.
+     The 11px band was sent to --t-data (13px) because 11px sites are mostly
+     mono data and the mockup sets mono data at 13; that put them ABOVE the
+     nine sites already at 12px, so a rule that had been smaller than another
+     became larger. Caught by test/unit/type-scale.test.ts, which states the
+     property over the whole map instead of checking the rungs one at a time -
+     every rung was at or above the floor in both versions, so a per-rung check
+     would have passed on the defect.
+
+     MEASURED AT THE FLOOR, against the two grounds text is painted on:
+       --ink       #ede6d8   15.19:1 on --bg   14.26:1 on --surface   AA pass
+       --ink-dim   #b3a996    8.11:1 on --bg    7.61:1 on --surface   AA pass
+       --ink-mute  #8f8576    5.20:1 on --bg    4.88:1 on --surface   AA pass
+       --gold      #f4b728   10.46:1 on --bg    9.82:1 on --surface   AA pass
+       --ink-faint #6a6157    3.11:1 on --bg    2.92:1 on --surface   non-text
+     12px is normal text under WCAG 2.1 (large text starts at 18.66px bold or
+     24px), so 4.5:1 is the threshold and --ink-mute clears it with margin on
+     both. test/unit/type-scale.test.ts COMPUTES these from the tokens rather
+     than reading them off this comment, because a comment cannot fail. */
+  --t-label: 12px;
+  --t-micro: 12.5px;
+  --t-data: 13px;
+  --t-dek: 13.5px;
+  --t-sm: 14px;
+  --t-body: 15px;
+  --t-prose: 16px;
+
+  /** The floor itself, so a test and a guard can read one value. */
+  --t-floor: 12px;
 
   /* -- motion: one curve, three durations ---------------------------------- */
   --ease: cubic-bezier(0.32, 0.72, 0, 1);

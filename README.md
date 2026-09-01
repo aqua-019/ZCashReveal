@@ -86,7 +86,7 @@ pnpm build          # turbo, topological
 pnpm typecheck      # all packages
 pnpm lint           # eslint flat config; Math.random is banned repo-wide
 pnpm -r test        # every workspace suite
-pnpm check          # the twelve static guards CI runs: no emoji, Vercel config,
+pnpm check          # the thirteen static guards CI runs: no emoji, Vercel config,
                     # shared-Redis safety (docs/2.0/SNAPSHOT.md - the managed
                     # store holds another production project's live data),
                     # no stale two-pool unions (the pool model is four pools),
@@ -101,8 +101,11 @@ pnpm check          # the twelve static guards CI runs: no emoji, Vercel config,
                     # store TCP URL confined to the publisher + the snapshot
                     # file paired between its writer and its readers,
                     # zebrad.toml keys Zebra accepts and agreeing with compose,
-                    # the runbook's topics and DEPLOY-2.0's variable list, and
-                    # LEDGER.md's heading-to-fence structure
+                    # the runbook's topics and DEPLOY-2.0's variable list,
+                    # LEDGER.md's heading-to-fence structure, and every
+                    # user-facing static route under apps/web/src/app carrying
+                    # a nav entry or a named exclusion (/pools and /reveal were
+                    # top-level pages with no entry for four handoffs)
 ```
 
 60 of the indexer's tests are Postgres-backed integration tests (37 before HANDOFF-06, 56 before HANDOFF-07). They gate themselves on a
