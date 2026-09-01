@@ -1,7 +1,7 @@
 ---
 handoff: 11
 title: Live wiring: snapshot baseline → WS upgrade, smoke tests, cutover checklist
-status: queued
+status: in-progress
 branch: the session-designated branch (name it `feat/v2-11-live-wiring` if you may choose)
 track: Integration
 depends_on: 04, 04a, 04b, 05, 09, 09a, 09b, 10

@@ -1,7 +1,7 @@
 ---
 handoff: 04b
 title: The SVG text regime, and claim order on the remaining Record pages
-status: shipped
+status: closed
 branch: the session-designated branch (name it `feat/v2-04b-svg-text-and-record-order` if you may choose)
 track: Web
 depends_on: 04a
