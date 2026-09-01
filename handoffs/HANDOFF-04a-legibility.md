@@ -476,8 +476,12 @@ could not settle, and each is argued rather than asserted.
    which is the whole fix; setting it in the one ink that fails AA would have shipped the
    reader's third complaint inside the answer to it.
 5. **`N_MAX` is 42, the study's splash value, not the full-size 60.** The board is 1180x560 here
-   against 1500x830 in the study. It is a parameter rather than a literal so `/pools` can render
-   the same component at the study's density without a second implementation.
+   against 1500x830 in the study, which is where the two numbers come from; the study made that
+   call and this build takes it. It is a parameter rather than a literal so `/pools` can render
+   the same component at the study's density without a second implementation. **A first version
+   of the constant's comment justified 42 with a measurement of fan spacing that nobody took.**
+   Removed and replaced with the truth, because a fabricated justification for a correct number
+   is worse than none: the next reader trusts it.
 
 ### 7.4 THE TYPE SCALE
 

@@ -110,14 +110,22 @@ import { seededRng } from "./seed";
 /**
  * The most marks the board holds.
  *
- * 42 ON THE SPLASH, where the study uses 60 at full size. The board is 1180 by
- * 560 there against 1500 by 830 in the study, and the count is set by the
- * plane's AREA rather than by taste: 60 arcs across the splash board put two
- * fans within a stroke width of each other near Ironwood, where every migration
- * arc converges. 42 is the largest count at which the Orchard-to-Ironwood fan
- * still resolves as countable strands at the splash's size. Section 7 states
- * this; `/pools` may raise it to the study's 60 when it renders the plane at
- * full size, which is why it is a parameter and not a literal in the geometry.
+ * 42, WHICH IS THE APPROVED COMPOSITION'S OWN SPLASH VALUE, adopted rather than
+ * derived. `docs/2.0/mockups/04a-splash-record.html` uses 42 on a 1180 by 560
+ * board and `04a-turnstile-plane.html` uses 60 on a 1500 by 830 one; the study
+ * made that call and this build takes it.
+ *
+ * SAID PLAINLY BECAUSE AN EARLIER VERSION OF THIS COMMENT DID NOT: it claimed
+ * that 60 arcs put two fans within a stroke width of each other on the splash
+ * board and that 42 was the largest count at which the fan still resolved. That
+ * is a measurement, it reads like one, and nobody took it. A number adopted from
+ * an approved design is a perfectly good reason for a constant; a fabricated
+ * justification for the same number is worse than no justification at all,
+ * because the next reader trusts it.
+ *
+ * It is a PARAMETER rather than a literal in the geometry so `/pools` can render
+ * the same component at the study's full-size density without a second
+ * implementation.
  */
 export const SPLASH_N_MAX = 42;
 
