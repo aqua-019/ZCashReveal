@@ -15,11 +15,26 @@ proves nothing about the node. `synthetic-v6-ironwood-3430000.json` is the
 first of these: it is a post-NU6.3 block carrying two ZIP 318 crossings and one
 intra-Ironwood transfer, and it exists because no captured v6 block exists.
 
-> **Status.** No `mainnet-*.json` has ever landed here, so the real-fixture
-> test is still skipped automatically via `describe.skipIf` and the synthetic
-> suites are the full validation surface. No code change is needed to activate
-> it — drop a conforming file in this directory and the guarded test picks it
-> up on the next run.
+> **Status (HANDOFF-12).** Four captures are committed and the real-fixture
+> test runs over every one of them: 3,432,130 and 3,441,955 (PR #50, both
+> conforming to section 2) and the CONSECUTIVE pair 3,444,836 / 3,444,837
+> (fold 2 of the PR #50 resolution). 3,444,837 conforms and carries a ZIP 318
+> crossing; 3,444,836 is its predecessor - two transactions, no shielded
+> activity - and is here so that `scripts/check-capture-consistency.mjs` can
+> run its note-commitment-tree delta arm over a real pair, which it now does
+> (three deltas checked). No code change is needed to add another: drop a file
+> matching `mainnet-*.json` in this directory and the guarded test and the
+> guard both pick it up on the next run.
+>
+> **What a predecessor capture is for, and what section 2 does not govern.** A
+> predecessor is chosen for being the block BEFORE a conforming one, so the
+> guard can check that each note-commitment tree grew by exactly the outputs
+> and actions the conforming block carries. Section 2 is selection guidance
+> for choosing a fixture worth having; it is not a validity rule every file in
+> this directory must satisfy, and nothing enforces it per file - the decoder
+> suite asserts pool coverage over the SET of captures, not over each one - so
+> a two-transaction predecessor beside a conforming block is not a section 2
+> failure that slipped through.
 >
 > **What the synthetic Ironwood fixture cannot settle — and what has since
 > been settled without it.** Its `ironwood` bundle key and the block's
@@ -106,10 +121,22 @@ mainnet-<height>-<short-hash>.json
 ```
 
 - `<height>` — the block height (decimal).
-- `<short-hash>` — the first 6 hex characters of `block.hash`.
+- `<short-hash>` — the first 6 hex characters of `block.hash` AFTER its leading
+  zeros.
 
-Example: a block at height `1_700_512` with hash `00000000abc123…` →
-`mainnet-1700512-0000ab.json`.
+Example: a block at height `3_444_837` with hash `0000000000274151cfae…` →
+`mainnet-3444837-274151.json`.
+
+**WHY THE RULE CHANGED, AND IT WAS NOT COSMETIC.** It read "the first 6 hex
+characters of `block.hash`" until HANDOFF-12, and on modern mainnet that is
+`000000` for every block: difficulty puts ten or more leading zeros on every
+hash, so the rule produced `mainnet-3432130-000000.json` and
+`mainnet-3441955-000000.json` - names that differed only in their height
+digits. L2 filed that as a documentation nit; it then caused a real operator
+error, when four captures were mistaken for each other and a decision was
+nearly taken on the wrong pair. Skipping the leading zeros gives the four
+committed captures four distinct suffixes - `9eb351`, `54b709`, `1e5057`,
+`274151` - which is the whole job a short hash has.
 
 The test discovers **every** file matching `mainnet-*.json` in this directory
 and asserts over all of them, so the exact name only matters for human

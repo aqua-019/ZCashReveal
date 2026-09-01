@@ -25,7 +25,22 @@ import { describe, expect, it } from "vitest";
 import { ZebraRpc, type FetchLike } from "@zcashreveal/zebra-rpc";
 
 const FIXTURES = join(import.meta.dirname, "../../../test/fixtures/blocks");
-const CAPTURES = ["mainnet-3432130-000000.json", "mainnet-3441955-000000.json"] as const;
+/**
+ * NAMED, NOT GLOBBED, because the subsidy below is a fact about a halving epoch
+ * and a capture from a later one would need a different constant rather than a
+ * wider list. Renamed in HANDOFF-12 fold 2 with the fixtures README's naming
+ * rule - the resolution's "the decoder globs, so no test changes" was true of
+ * block-decoder.test.ts and false of this file, which names its captures.
+ * The consecutive pair 3,444,836 / 3,444,837 is covered here too; 3,444,836 is
+ * a two-transaction predecessor and the law holds on it exactly as on the
+ * others, because issuance is issuance whether or not a pool moved.
+ */
+const CAPTURES = [
+  "mainnet-3432130-9eb351.json",
+  "mainnet-3441955-54b709.json",
+  "mainnet-3444836-1e5057.json",
+  "mainnet-3444837-274151.json",
+] as const;
 
 /**
  * The block subsidy at these heights. The six pool deltas sum to exactly this,
