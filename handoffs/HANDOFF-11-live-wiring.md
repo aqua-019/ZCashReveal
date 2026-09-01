@@ -439,6 +439,17 @@ EVIDENCE (per assertion; Executed unless labelled):
     a measured 1,407 / 1,411. It happens to be right; it was arithmetic rather
     than a reading until this line, and this project's rule is that a figure is
     executed or it is labelled.
+    REPRODUCED INDEPENDENTLY BY CI, PER PACKAGE, ON THE PUSHED HEAD adca738.
+    The `typecheck, lint, test` job's own log reports indexer 448/1, gateway
+    157/0, publisher 99/2, web 486/0, zebra-rpc 54/1, content 67/0, instruments
+    98/0 - summing to exactly 1,409 passed, 4 skipped, 1,413 total on a
+    different machine. The breakdown is also the enumeration check the count
+    alone cannot make: seven packages declare a `test` script
+    (`@zcashreveal/types` declares none) and all seven appear in the log, so no
+    suite is running locally and unrun in CI. That is the origin this project
+    counts - a workspace member arriving without inheriting a convention every
+    other member has - checked against the object (the packages) rather than
+    against the CI file that enumerates them.
     Fourteen guards rc=0, typecheck rc=0, lint rc=0, `content validate` rc=0,
     `pnpm build` 8/8 (was 9/9; `legacy/dashboard` is gone).
 
