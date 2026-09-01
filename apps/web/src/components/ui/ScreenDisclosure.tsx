@@ -23,9 +23,15 @@ import { NAV_ENTRIES, isActive } from "@/lib/nav";
  *      bar (`.sysbar::after`) so it opens as the cursor ARRIVES rather than on
  *      contact. The strip is positioned `top: 100%`, so it rides with the bar
  *      as the bar grows instead of being left behind at the collapsed height.
- *   2. KEYBOARD - `.sysbar:focus-within`. Tabbing into the bar opens the index,
- *      so a keyboard user never has to know the button exists - and, more
- *      importantly, never lands on a link inside a zero-height container.
+ *   2. KEYBOARD - `.navwrap:focus-within`, scoped to the PANEL and deliberately
+ *      not to the bar. Tabbing onto a link inside the collapsed panel opens it,
+ *      so a keyboard user never lands on a link in a zero-height container and
+ *      never has to know the button exists. Scoped to the bar it also fired on
+ *      the TOGGLE, which is the control rather than the content: focusing a
+ *      shut disclosure's own button then re-opened it, and that is the second
+ *      form of the Escape defect below - the first fix moved it rather than
+ *      closing it, and only a second measurement showed the picture still had
+ *      not moved.
  *   3. TAP - this button, a real `<button>` with `aria-expanded` and
  *      `aria-controls`. On a touch device there is no hover and no tab, and the
  *      first two paths do not exist at all. A7 asserts touch rather than
@@ -64,7 +70,7 @@ import { NAV_ENTRIES, isActive } from "@/lib/nav";
  * `document.getAnimations()` is empty and `window.__zr.rafCalls` is zero after
  * the index has been opened by all three paths.
  */
-export function ScreenDisclosure({ children }: { readonly children: ReactNode }) {
+export function ScreenDisclosure({ bar, panel }: { readonly bar: ReactNode; readonly panel: ReactNode }) {
   const pathname = usePathname();
   /** `null` = follow hover and focus; `true` = forced open; `false` = forced shut. */
   const [forced, setForced] = useState<boolean | null>(null);
@@ -99,7 +105,15 @@ export function ScreenDisclosure({ children }: { readonly children: ReactNode })
       {...(forced === true ? { "data-open": "" } : {})}
       {...(forced === false ? { "data-closed": "" } : {})}
       onPointerLeave={() => {
-        setForced(null);
+        // CLEARS A FORCED CLOSE, NEVER A FORCED OPEN. Both were cleared here
+        // first, and it broke the tap path on any device that also has a
+        // pointer: clicking the toggle set the state open, moving the cursor
+        // off the bar immediately reset it to `null`, and the panel shut again
+        // - so on a hybrid device the button appeared to do nothing. A click is
+        // an explicit request and outlives the pointer; a forced CLOSE only has
+        // to outlive the gesture that made it, which is why it is safe to drop
+        // here and why dropping it is necessary (see `onFocus`).
+        setForced((v) => (v === false ? null : v));
       }}
       onFocus={(e) => {
         // Anything inside the bar that is not the toggle wants the index open:
@@ -108,8 +122,15 @@ export function ScreenDisclosure({ children }: { readonly children: ReactNode })
         if (e.target !== buttonRef.current) setForced(null);
       }}
     >
+      {/* THE TOGGLE LIVES IN THE TOP ROW, ALWAYS, and the panel is its sibling
+          rather than its neighbour inside the row. It was inside `.sysbar-in`
+          first, which wraps: on a 390px viewport the full-width panel wrapped
+          ABOVE the button and buried it under eleven rows of nav, so the one
+          disclosure path a touch device has was unreachable by touch. Measured
+          with a real touch context - Playwright could not tap the button
+          because the panel intercepted every attempt. */}
       <div className="sysbar-in">
-        {children}
+        {bar}
         <button
           type="button"
           className="here"
@@ -137,6 +158,7 @@ export function ScreenDisclosure({ children }: { readonly children: ReactNode })
           <span className="sr-only">{forced === true ? "Hide the screen index" : "Show the screen index"}</span>
         </button>
       </div>
+      {panel}
     </header>
   );
 }

@@ -24,6 +24,21 @@
  * use every one of the collapsed patterns: /beware carries the deep dive's
  * preformatted blocks and the citation disclosures, /flows carries the ledger
  * lines, the compact cells and the widest span of card insets.
+ *
+ * THE BASELINES WERE RECAPTURED AT HANDOFF-04a, and had to be: the type scale
+ * moved 94 declarations onto a 12px floor, so "changed no pixel" is false
+ * against the pre-pass tree by construction. What the assertion still buys is
+ * the same thing one commit later - the NEXT stylesheet change has to be
+ * provably invisible, and the recapture is recorded here rather than done
+ * silently.
+ *
+ * AND THE POINTER IS PARKED BEFORE THE SHOT. Chromium's synthetic pointer
+ * starts at the origin, which is inside the system bar, so a `fullPage`
+ * capture taken without moving it renders the screen index OPEN - five hundred
+ * pixels of nav that no reader sees on load. The first recapture went in that
+ * way and would have coupled two CSS baselines to the nav's copy: changing a
+ * `dek` would have broken /beware and /flows. Parking the pointer captures the
+ * resting state, which is both the honest picture and the stable one.
  */
 import { expect, test } from "@playwright/test";
 
@@ -40,6 +55,12 @@ for (const path of PAGES) {
     // taken promptly after load is stable. Waiting on the wordmark rather than
     // on a timeout keeps that true without pinning a duration.
     await page.locator("[data-ui='sysbar']").first().waitFor({ state: "visible" });
+
+    // See the note above: park the pointer clear of the bar so the screen
+    // index is captured collapsed, as a reader first meets it.
+    await page.mouse.move(10, 10);
+    await page.mouse.move(1200, 900);
+    await expect(page.locator(".navwrap")).toHaveCSS("grid-template-rows", "0px");
 
     await expect(page).toHaveScreenshot(`${path.slice(1)}-full.png`, {
       fullPage: true,

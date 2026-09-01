@@ -20,20 +20,26 @@ import type { ChainTip } from "@/lib/chain";
  */
 export function SysBar({ tip }: { readonly tip: ChainTip }) {
   return (
-    <ScreenDisclosure>
-      <Link className="wordmark" href="/" aria-label="ZCashReveal home">
-        <ZecMark className="z" />
-        <span className="name">
-          ZCash<em>Reveal</em>
-        </span>
-        <span className="tag">shielded ≠ silent</span>
-      </Link>
-      <EpochClock tip={tip} />
-      <div className="navwrap">
-        <div className="navinner">
-          <ScreenNav />
+    <ScreenDisclosure
+      bar={
+        <>
+          <Link className="wordmark" href="/" aria-label="ZCashReveal home">
+            <ZecMark className="z" />
+            <span className="name">
+              ZCash<em>Reveal</em>
+            </span>
+            <span className="tag">shielded ≠ silent</span>
+          </Link>
+          <EpochClock tip={tip} />
+        </>
+      }
+      panel={
+        <div className="navwrap">
+          <div className="navinner">
+            <ScreenNav />
+          </div>
         </div>
-      </div>
-    </ScreenDisclosure>
+      }
+    />
   );
 }

@@ -379,10 +379,349 @@ cannot check that either is correct, and that limit is stated in its own header.
   compiled stylesheet.
 - Post-fan-out sweep (`git status --porcelain`) after every fan-out, before the next commit.
 
-## §7 REPORT — written by L3 before the PR opens
+## §7 REPORT - written by L3 before the PR opens
 
-*(filled at write-back)*
+Provenance on every claim: **Executed** (output shown or reproduced in this session),
+**Read** (file and commit), **UNVERIFIED** (labelled as such). Numbers in this section were
+measured on this branch unless they name another commit.
 
-## §8 LEDGER — appended to `handoffs/LEDGER.md`; read by L2 before the next handoff
+### 7.0 SPAWN MODE
 
-*(filled at write-back)*
+**Executed.** Subagents are available and were proven by a tool attempt before any work began:
+a `general-purpose` subagent returned `SPAWN-OK` in 1.8s. The Workflow tool is also available
+and was used once, for the eight-way tree map that opened the session. Three fan-outs ran in
+total; the post-fan-out sweep after each is in §7.9.
+
+### 7.1 THE FOUR READER COMPLAINTS - what this branch closed, and what it did not
+
+The handoff was commissioned by feedback, so this comes before what was built.
+
+1. **"The navbar is confusing... am I browsing a website or selecting missions in Metal Gear
+   Solid?"** - **CLOSED.** Every entry now renders the `dek` that was already written for it,
+   and the bar is grouped into The Record and The Instrument by the `half` field that was
+   already on every screen. No new copy was written. The two-digit index stays.
+2. **"The floating PUBLISHED NULLIFIERS / ANCHORS / COMMITMENTS boxes... Are they buttons?
+   Filters? Evidence? A legend? Nobody knows."** - **CLOSED.** They were an unlabelled list of
+   pill-shaped boxes floating over the hero fog whose only statement of what they were lived in
+   an `aria-label`. Four things now say it is a legend and none of them is a colour: it is a
+   definition list, so each row is a NAME and WHAT IT IS; the heading names the group on the
+   surface at reading size; it sits in document flow inside "the working" rather than over an
+   image; and nothing in the group is interactive, so there is no hover state to mistake for a
+   control.
+3. **"Half the text is basically 9px gray-on-charcoal punishment."** - **CLOSED FOR HTML TEXT,
+   NOT CLOSED FOR SVG CHART TEXT, and the second half is measured rather than conceded.** 94
+   live declarations below 12px are gone; the floor is 12px and a test resolves every
+   declaration through the token layer to prove it. **SVG text inside a scaled `viewBox` is not
+   CSS pixels and cannot be fixed by choosing a bigger number:** the loop diagram's viewBox is
+   1000 units wide and renders at 1384 CSS px on a 1440px viewport (scale 1.384), at 968px on a
+   1024px viewport (0.968), and at 720px on anything 760px or narrower (0.72) - so a declared 12
+   paints at 16.6, 11.6 and **8.64** CSS px respectively. Two declarations are registered
+   below the floor with a measured reason (§7.4); the real fix is HTML labels over the SVG, which
+   the turnstile plane already does and which §8 names as work.
+4. **"Instead of: Claim -> explanation -> evidence -> visualization, we get: Vibes ->
+   cryptographic terminology -> vibes -> huge number -> tiny explanation -> vibes."** -
+   **CLOSED ON THE SPLASH, NOT ON THE OTHER SEVEN RECORD PAGES.** The splash now opens with a
+   falsifiable one-sentence claim carrying the figure, then Evidence, then The working, with the
+   beats LABELLED so the order is visible rather than implied. Nothing was deleted to achieve it.
+   `/beware`, `/contradictions`, `/timeline`, `/network`, `/method`, `/flows` and `/sources` keep
+   the order they had; the type pass and the disclosure rule reached them, the beat structure did
+   not. **This is the largest thing this branch did not finish**, and it is the complaint L2
+   called the diagnosis.
+
+### 7.2 L2's FINDINGS, DISPOSITIONED
+
+| finding | disposition | evidence |
+|---|---|---|
+| F-04a-1 the `dek` is written and not rendered | **ACCEPTED** | Read. `ScreenNav.tsx` rendered `s.idx` and `s.label` only. Now renders `.screendek` per entry; A5 checks all eleven. |
+| F-04a-2 the nav flattens a two-group structure | **ACCEPTED** | Read. `half` on every screen, unrendered. `NAV_GROUPS` now partitions `NAV_ENTRIES`; `nav.test.ts` checks the partition is exact. |
+| F-04a-3 `nav.ts` states a guarantee the tree does not hold | **ACCEPTED, and it was worse than stated** | Executed. The docblock claimed the invariant; the `TRACK_FAMILY` comment ninety lines below carved the exception out of it, arguing from two counts that were both wrong - "a seven-item screen index" when `SCREENS` has held nine since HANDOFF-03, and "six sub-views of one of those seven" when one of the six IS `/track`, so there were five. Closed by giving the two routes entries AND by `scripts/check-nav-routes.mjs`. |
+| F-04a-4 the contrast complaint is right, its explanation is wrong | **ACCEPTED with two corrections** | Executed, and both corrections are L2's own premises. (a) **The tree did not floor at 10px, it floored at 8.5px** - 94 live sub-12px declarations across seven sizes, 24 of them at 9.5px, so the reader's "9px" was literal rather than rhetorical. (b) `--ink-faint` measures **3.11:1** on `--bg`, not the 3.05:1 `tokens.css` stated at four sites - L2's own brief has 3.11 and the tree was wrong. Swept at all four sites in one commit. |
+| F-04a-5 the size floor is a ledger question | **ACCEPTED** | Set at 12px, recorded in `tokens.css` on HANDOFF-01's own precedent, and put to L2 as LEDGER-04a Q1. |
+| F-04a-6 the disclosure pattern exists in the tree, twice | **ACCEPTED, and one of the two was not correct** | Executed. `EstimatePanel` was exactly as described. **`Cite.tsx` was not**: it carried no digit AND kept `confidence`, `lastVerified` and the source list all behind the toggle - the collapse rule's own forbidden case. Its summary now reads `<id> HIGH VERIFIED <date> CITE - 4 SOURCES`, count from `sources.length`. |
+| F-04a-7 three defects L2 caught on the render | **ACCEPTED, and a fourth is still live in the approved study** | Executed. A1 is written against the shape. See §7.7. |
+
+### 7.3 WHERE THIS BUILD DEPARTS FROM THE APPROVED STUDY, AND WHY
+
+The composition was not reopened. These five are data-binding and token decisions the study
+could not settle, and each is argued rather than asserted.
+
+1. **A lane outside the measured relation says "not measured", never "closed - 0 crossings in
+   window".** `SnapshotV1` carries ONE crossing count - `migrationHist`, the ZIP 318 migration
+   lens, Orchard to Ironwood - and no shield, unshield or other boundary count at all. Four of
+   five lanes are therefore outside every relation this document measures, and a zero under them
+   would be a measurement the instrument never took. **The study renders the forbidden form: it
+   prints `closed - 0 crossings in window` under `sprout`, whose own `EDGES` table contains no
+   sprout edge, two lines below its own comment saying "A pair that cannot occur is absent, never
+   drawn at zero."** The departure is in the study's favour on the study's own principle.
+2. **The retention window is stated in BLOCKS and the board says when it is capped, rather than
+   shortening the window.** The study's mechanism needs per-crossing times; `migrationHist`
+   carries `lowHeight`, `highHeight` and a count, and nothing else. Reporting a shortened window
+   would mean assuming the crossings are spread evenly across it - an inference about arrival
+   times from data containing none - and reporting it in minutes would need a block time for
+   `lowHeight` that no snapshot carries (the study prints "47 min" because its fixture invented
+   one). The defect the rule exists to prevent is closed on the derivable quantity instead: the
+   header prints **the measured count beside the drawn one** ("1,284 crossings measured over
+   1,152 blocks - board drawing 42 of them"), so two boards holding 42 marks are told apart by
+   the numbers rather than by the density. A9 is asserted in that form. **This is the one place
+   where a §5 assertion as L2 worded it could not be implemented as worded**, and it goes to L2
+   as LEDGER-04a Q2.
+3. **The fog is kept, demoted from an opening to a bounded backdrop.** The study drops it. Two
+   reasons, the weaker first: assertions A5 and A6 prove the reduced-motion contract by checking
+   that `FogCanvas` REFUSED to construct on `/`, and a splash with no ambience proves that
+   vacuously. The stronger: the fog's argument is cited in the tree and is true - what stays in
+   the haze is what the proof hides. Behind a claim it supports an assertion; in front of one it
+   WAS the assertion, which is what the reader objected to.
+4. **The beat tag is `--ink-mute`, not the study's `--ink-faint`.** `tokens.css` reserves
+   `--ink-faint` for non-text at 3.11:1. The beat tag is the label that makes the order visible,
+   which is the whole fix; setting it in the one ink that fails AA would have shipped the
+   reader's third complaint inside the answer to it.
+5. **`N_MAX` is 42, the study's splash value, not the full-size 60.** The board is 1180x560 here
+   against 1500x830 in the study. It is a parameter rather than a literal so `/pools` can render
+   the same component at the study's density without a second implementation.
+
+### 7.4 THE TYPE SCALE
+
+**Executed.** `tokens.css` gains seven named rungs and a `--t-floor`. 134 declarations in
+`globals.css` moved onto them, of which **94 were below 12px**: 8.5px x1, 9px x2, 9.5px x24,
+10px x27, 10.5px x15, 11px x22, 11.5px x3.
+
+**The collapse is monotone, and the first version was not.** All seven sub-floor bands land on
+the floor. The first map sent the 11px band to `--t-data` (13px), because 11px sites are mostly
+mono data and the mockup sets mono data at 13 - which put them ABOVE the nine sites already at
+12px, so a rule that had been smaller than another became larger. `tokens.css` claimed
+monotonicity in the same commit that broke it. **Caught by writing the property over the whole
+map rather than checking the rungs one at a time**: every rung was at or above the floor in both
+versions, so a per-rung check would have been green on the defect.
+
+**Measured at the floor** (computed in `test/unit/type-scale.test.ts`, not read off the palette):
+
+| ink | on `--bg` | on `--surface` | on `--surface-2` | AA at 12px |
+|---|---|---|---|---|
+| `--ink` #ede6d8 | 15.19 | 14.26 | 13.21 | pass |
+| `--ink-dim` #b3a996 | 8.11 | 7.61 | 7.06 | pass |
+| `--ink-mute` #8f8576 | 5.20 | 4.88 | 4.52 | pass |
+| `--gold` #f4b728 | 10.46 | 9.82 | 9.10 | pass |
+| `--ink-faint` #6a6157 | 3.11 | 2.92 | 2.70 | non-text, and asserted to paint none |
+
+**Two declarations are registered below the floor, with a measured reason**, in
+`SVG_EXCLUSIONS`: `.plot .edge-label` and `.plot .nw-sub`, both 9.5 user units. The register is
+iterated by the tests, each row must name a real selector carrying the value it claims, and a
+separate count check makes the total number of sub-floor declarations equal the number of rows -
+so a third one cannot be waved through on the exempted value. **The round trip is recorded
+rather than tidied away**: they were raised to 12, which overflowed the diagram (a node sub-line
+at 223 units against a 200-unit box; an edge label at 173 units into a 150-unit gap), the box
+was widened to 244, that fixed the node labels and broke the edge labels by narrowing the gap to
+106, and `PLOT.width` is shared by every chart so the coordinate space cannot grow for one of
+them. Reverted, registered, and the follow-up named in §8.
+
+### 7.5 THE NAV, AND F-04a-3 CLOSED
+
+**Executed.** `SCREENS` is unchanged at nine, `00` through `08`, consecutive and closed. `VIEWS`
+carries `/pools` and `/reveal` as UNNUMBERED instrument views; `NAV_ENTRIES` is the concatenation
+and is what the bar renders and what `ROUTES` walks. A second list rather than two more `SCREENS`
+members, because `idx: "--"` would have made "unique two-digit index" false and the honest repair
+for that is a second list rather than a weaker assertion. `/pools` and `/reveal` left
+`TRACK_FAMILY`, so they light themselves rather than lighting `/track` as well.
+
+**The thirteenth guard.** `scripts/check-nav-routes.mjs`: every static route under
+`apps/web/src/app` has a `NAV_ENTRIES` entry or a row in `EXCLUSIONS` with a reason. Three
+detectors (unaccounted route; exclusion covering no route; exclusion for a route the bar carries
+anyway). Its self-test iterates `EXCLUSIONS`, drives the real app tree, drives a `mkdtempSync`
+fixture tree, and treats a vacuous scan as a finding. **Its own fail side found a defect in it**:
+the first draft asserted "the real tree produces zero findings" INSIDE the self-test, so adding a
+real unlisted route exited 2 ("the detectors are broken") rather than 1 - exit 1, the entire
+finding path, was unreachable for every possible input. The count was swept from twelve to
+thirteen at `CLAUDE.md` (three statements), `README.md`, `.github/workflows/ci.yml` and the
+`R4-GUARDS` row of `check-finding-sites.mjs`.
+
+### 7.6 THE PLANE
+
+**Executed.** `lib/plane.ts` is pure and takes a `SnapshotV1`. **The input type is
+load-bearing rather than tidy**: the fixture `PoolsView` carries a `flows: {from, to, zat}[]`
+field that would draw a five-edge plane immediately, and that `SnapshotV1` has no field for at
+all - so an honest picture would have become a dishonest one silently at the cutover. Taking the
+snapshot type makes that unreachable rather than discouraged.
+
+`apps/web` has **no snapshot read path**, and this branch does not add one - that is HANDOFF-11's
+and is out of scope. `NEXT_PUBLIC_SNAPSHOT_URL` has two readers, neither of which fetches. What
+this adds is the SHAPE: a fixture `SnapshotV1` built from `getStats()` - the same call the metric
+row makes - with no pool figure typed into it, so a balance can be wrong but cannot be
+inconsistent. The cutover replaces one function.
+
+### 7.7 THE SCREENSHOT-DERIVED CHECK
+
+L2 found all three of F-04a-7's defects by rendering the page and reading it. So did this
+session, and **eight defects on this branch were found that way and none of them by reading the
+code**:
+
+1. **The plane drew nothing.** `POOL_SW` maps a pool to its `.sw` MODIFIER CLASS ("t", "sp",
+   "o"), not to a custom property, so `var(${POOL_SW[lane]})` produced `var(o)` - syntactically
+   valid, silently resolving to nothing. Every arc and every disc painted `none`. Typecheck,
+   lint and the build were all green.
+2. **Every plane label sat a hundred pixels low.** The label layer is `inset: 0`, and it was
+   positioned against the whole `<figure>` - which also holds the header and the caption - rather
+   than against the SVG's own box. The near row landed inside the caption text.
+3. **Escape closed the state and not the picture.** `aria-expanded` went to `false` and
+   `data-open` disappeared while the computed `grid-template-rows` stayed at `546.844px`, because
+   Escape returns focus to the toggle and `:focus-within` on the bar re-opened it. **An
+   attribute-only assertion would have been green on this**, which is why A7 asserts the computed
+   rows; the e2e spec plants the pre-fix rule back and shows exactly that.
+4. **The first fix moved the defect rather than closing it.** `data-closed` beat `:focus-within`,
+   and then `onPointerLeave` cleared it - so with the pointer moved away the bar re-opened.
+   Scoping `:focus-within` to the PANEL rather than the bar is what actually closed it: the
+   toggle is the control, not the content.
+5. **The touch path did not exist.** On a 390px viewport the full-width panel wrapped ABOVE the
+   toggle inside the flex row and buried it under eleven rows of nav; Playwright could not tap
+   the button because the panel intercepted every attempt. The panel is now a sibling of the row.
+6. **Sticky hover opened the bar on a device with no hover.** `(hover: hover)` false and
+   `.sysbar:hover` matching anyway - the panel was open on load and re-opened after every tap
+   meant to close it. The pointer path is now gated on `@media (hover: hover) and (pointer:
+   fine)`, which is the three-ways-in argument written where the browser can read it.
+7. **SVG text rendered through its own boxes on `/network`** - §7.4.
+8. **The regenerated visual baselines captured the nav OPEN.** Chromium's synthetic pointer
+   starts at the origin, which is inside the system bar, so a `fullPage` capture renders five
+   hundred pixels of nav no reader sees on load. Committing that would have coupled two CSS
+   baselines to the nav's copy: changing a `dek` would have broken `/beware` and `/flows`. The
+   spec now parks the pointer and asserts the collapsed state before the shot.
+
+**And one defect is still live in the approved study, reported rather than changed** (the brief
+says nothing else about those files changes). `04a-turnstile-plane.html` renders a static tile
+reading `PENDING 3 mempool` beside a legend that computes `unconfirmed 0` from the live board.
+That is F-04a-7's own shape - two renderings of one quantity that do not share a source -
+surviving in the file that documents the fix for it, and it is visible on the render at the
+default rate. The splash study does not have it: its `tank-limit` reconciles the three
+unconfirmed crossings in words, saying they are counted in the readings and not drawn.
+
+### 7.8 ASSERTIONS
+
+*(transcripts filled in at the gate, below)*
+
+### 7.9 POST-FAN-OUT SWEEPS
+
+**Executed.** Three fan-outs: the eight-agent tree map, the two-agent guard-and-disclosure pair,
+and the single-agent e2e spec. `git status --porcelain` was run after each and before the next
+commit.
+
+- After the map: clean, no writes (all eight agents were read-only and stayed read-only).
+- After the guard/disclosure pair: **three stray files, and they were MINE, not the agents'** -
+  `apps/web/crop.tmp.mjs`, `probe.tmp.mjs` and `shot2.tmp.mjs`, screenshot scripts written into
+  `apps/web` because the shell's working directory had drifted there. The guard agent reported
+  them against itself as files it had not written rather than deleting them, which is the rule
+  working in the direction it was written for. Removed.
+- After the e2e spec: clean. The agent removed its own throwaway config and `test-results/`.
+
+## §8 LEDGER - appended to `handoffs/LEDGER.md`; read by L2 before the next handoff
+
+The block below is appended verbatim to `handoffs/LEDGER.md` under its own heading.
+
+### Questions for L2
+
+**Q1 - THE SIZE FLOOR IS SET AT 12px AND DIVERGES FURTHER FROM THE MOCKUP.** F-04a-5 asked for
+this to be recorded rather than decided silently, on HANDOFF-01's own precedent. Recorded, with
+one correction to the premise: the brief said `apps/web` "already floors at 10px, so the shipped
+site is ALREADY a divergence and an improvement". **It floored at 8.5px** - the same floor as
+the mockup - so the shipped site MATCHED the source of truth and both were wrong. 94 live
+declarations sat below 12px, 24 of them at 9.5px, which makes the reader's "half the text is
+basically 9px" a measurement rather than a figure of speech. The floor is 12px, `--ink-mute`
+clears AA on every ground at that size with margin (5.20 / 4.88 / 4.52), and the divergence is
+this question.
+
+**Q2 - A9 COULD NOT BE IMPLEMENTED AS WORDED, AND THE SUBSTITUTE IS ARGUED RATHER THAN
+ASSUMED.** §5 asks that a capped board "states the shortened window". `migrationHist` carries
+`lowHeight`, `highHeight` and a count, and no per-crossing height or time at all - so a
+shortened window is only reachable by assuming the crossings are spread evenly across the
+window, which is an inference about arrival times from data containing none, and stating it in
+minutes needs a block time for `lowHeight` no snapshot carries. The defect the rule exists to
+prevent is that a capped board looks identical at 42 crossings and at 1,284; that is closed by
+printing **the measured count beside the drawn one**, which is strictly more information than
+the shortened window would have carried. **Does L2 accept the substitution, or is the intent
+that the plane wait for HANDOFF-12's per-crossing source before drawing at all?**
+
+**Q3 - SVG TEXT IS A DIFFERENT REGIME AND THE FLOOR DOES NOT REACH IT.** Measured on the loop
+diagram: the viewBox is 1000 units wide and renders at 1384 CSS px on a 1440px viewport, 968 on
+a 1024px one, and 720 on anything 760px or narrower. So a declared 12 paints at 16.6, 11.6 and
+**8.64** CSS px, and **no declared value satisfies the floor at every width** - a floor the
+viewport can walk under is not a floor. Two declarations are registered below it with that
+measurement as the reason. The fix is HTML labels positioned over the SVG, which is what the
+turnstile plane does and why; it is a real piece of work across four hand-positioned diagrams
+and it is named here rather than started. **Which handoff owns it?**
+
+### What this branch learned, and what it cost
+
+**A PROPERTY OVER THE WHOLE MAP CATCHES WHAT A PER-ELEMENT CHECK CANNOT.** The type scale's
+first map was not monotone: the 11px band went to 13px and landed above the nine sites already
+at 12px, so a rule that had been smaller than another became larger. Every rung was at or above
+the floor in both versions, so the obvious check - "is each rung >= the floor" - was green on
+the defect. The property that caught it quantifies over PAIRS, and `tokens.css` claimed
+monotonicity in the same commit that broke it. This is LEDGER-08 fold 3's shape arriving in CSS
+rather than in an estimator: the assertion said sigma and the test checked each element.
+
+**A COMMENT CANNOT FAIL, AND ONE HAD BEEN WRONG THROUGH TWO HANDOFFS AND A DESIGN REVIEW.**
+`tokens.css` stated `--ink-faint` at 3.05:1. It is 3.11:1. The number was restated at four sites
+and swept at all four in one commit. It was found because A2 COMPUTES the ratio from the token
+and the ground rather than reading it off the palette - which is exactly what F-04a-4 asked for,
+and the reason it asked is now demonstrated rather than argued. L2's own brief had 3.11; the
+tree was wrong and the brief was right.
+
+**AN ATTRIBUTE THAT REPORTS SUCCESS IS NOT THE PICTURE MOVING.** Escape set `aria-expanded` to
+`false` and removed `data-open` while the computed `grid-template-rows` stayed at its open value,
+because Escape must return focus to the toggle and `:focus-within` on the bar re-opened what
+Escape had closed. Both state halves reported success and nothing happened on screen. **The
+first fix moved the defect rather than closing it** - `data-closed` beat `:focus-within`, and
+then `onPointerLeave` cleared `data-closed`, so the bar re-opened as soon as the pointer left.
+What closed it was scoping `:focus-within` to the PANEL rather than the bar: the toggle is the
+control, not the content. Three measurements, two of them of a fix.
+
+**THE FIX COMMIT IS STILL THE MOST DANGEROUS COMMIT.** Raising `.plot .nw-sub` to the floor
+overflowed a 200-unit box; widening the box to 244 fixed the node labels AND broke the edge
+labels, by narrowing the between-column gap from 150 units to 106 while the label needed 173.
+The round trip is recorded in the component and in the register rather than tidied into a
+single clean-looking diff, because the reason the exception exists is the half a later reader
+needs.
+
+**AND THE READ-ONLY RULE HELD, IN THE DIRECTION IT WAS WRITTEN FOR.** The post-fan-out sweep
+after the second fan-out found three stray files in the tree. They were the LEAD's - screenshot
+scripts written into `apps/web` because the shell's working directory had drifted - and the
+guard agent reported them against itself as files it had not written rather than deleting them.
+Four occurrences of a worker writing outside its scope are on this project's record; this is the
+first time the sweep caught the lead instead.
+
+### The bound HANDOFF-12's per-crossing field inherits
+
+Named here because the brief asked that the handoff which adds it inherit the reason rather than
+rediscover it. **The per-crossing source is affordable only because it is capped.** The
+publisher already spends `WIRE_COMMANDS_PER_TIP` = 5 per tip, about 172,500 a month against a
+200,000 ceiling, on a managed store **shared with an unrelated production project**. A field
+carrying the newest N crossings is a fixed-size array and costs nothing further per tip; an
+unbounded one could not ship at any N. The plane is already written to consume exactly that
+shape: `N_MAX` is a parameter, the marks are a list, and when the field arrives the picture gets
+RICHER - thickness becomes amount, fade becomes age, pending arcs appear - and never DIFFERENT.
+Same component, better input.
+
+### What HANDOFF-11 receives as a design input
+
+The surface list the brief asked for, so 11's three status affordances land somewhere rather
+than on top of the problem this handoff was commissioned to fix.
+
+| affordance | where it goes |
+|---|---|
+| staleness indicator | the system bar, beside the epoch clock: it is a property of the DOCUMENT, not of any panel, and the bar is the one surface every route carries. |
+| `source:` chip | inside the disclosure that carries the derivation, next to the count in the `<summary>` - never floating beside a value, which is what made the PUBLISHED group unreadable. |
+| `UNVERIFIED` chip | the chip row beside the claim, with `confidence` and `lastVerified`, and it NEVER collapses: epistemic status behind a toggle is the null-panel-renders-as-zero defect in a nicer coat. |
+
+Two rules 11 inherits with them: **every `<summary>` carries a digit** (checked at the source by
+`test/unit/summary-findings.test.ts` and on the page by `test/e2e/legibility.spec.ts`), and
+**nothing rendered as HTML text goes below `--t-floor`** (checked by `test/unit/type-scale.test.ts`,
+with the only two exceptions registered and reasoned).
+
+### Carried forward, not done
+
+- Reader complaint 4 is closed on the splash and open on the other seven Record pages (§7.1).
+- SVG chart labels want HTML positioning; two declarations sit below the floor until they get it
+  (Q3).
+- `/pools` does not render the plane. Deliverable 5 says "on the splash" and that is where it
+  is; the component takes `nMax` as a parameter so `/pools` can render it at the study's density
+  without a second implementation.
+- `/track` renders zero `<summary>` elements, so its leg of the rendered A4 sweep is vacuous and
+  the spec says so with a pinned count rather than passing quietly. The source-level check is
+  what actually covers `apps/web`.

@@ -188,6 +188,15 @@ export function TurnstilePlane({
       </div>
 
       <figcaption className="tplane-cap">
+        {/* The legend repeats the traffic line the labels carry, and the
+            repetition is deliberate rather than an oversight: below 760px the
+            label overlay is hidden, because five absolutely-positioned blocks
+            on a 390px board collide into unreadable mush. The legend is then
+            the ONLY carrier of the per-lane reading, so it has to be the whole
+            reading and not an abbreviation of it. Both come from the same
+            `n.traffic`, which is what keeps A1 true across the breakpoint - a
+            legend abbreviated by hand would be a second rendering that could
+            drift from the first. */}
         <ul className="tplane-legend">
           {LANE_ORDER.map((lane) => {
             const n = plane.nodes.find((x) => x.lane === lane);

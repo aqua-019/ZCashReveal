@@ -102,7 +102,7 @@ p {
   background: var(--gold);
   color: var(--gold-ink);
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   padding: 10px 16px;
@@ -303,10 +303,36 @@ p {
   min-height: 0;
 }
 
-.sysbar:hover .navwrap,
-.sysbar:focus-within .navwrap,
+/* `.navwrap:focus-within`, NOT `.sysbar:focus-within`. Scoped to the bar it
+   also fired on the toggle - the control rather than the content - so pressing
+   Escape, which must return focus to the toggle, re-opened the panel it had
+   just closed. Scoped to the panel, focusing a link inside the collapsed box
+   opens it (which is what a keyboard user needs) and focusing the toggle does
+   not (which is what Escape needs). */
+.navwrap:focus-within,
 .sysbar[data-open] .navwrap {
   grid-template-rows: 1fr;
+}
+
+/* THE POINTER PATH IS GATED ON THERE BEING A POINTER, and that is not belt and
+   braces - an ungated `:hover` is the sticky-hover bug by construction. A tap
+   leaves `:hover` matching the element it landed on until the next tap
+   elsewhere, so on a phone the bar opened on load (the emulated pointer parks
+   at the origin, which is inside the bar) and re-opened itself after every tap
+   that was meant to close it. Measured in a real touch context: `(hover:
+   hover)` false, and `.sysbar:hover` matching anyway. The three-ways-in
+   argument already says the pointer path does not exist on touch; this is that
+   sentence written where the browser can read it. */
+@media (hover: hover) and (pointer: fine) {
+  .sysbar:hover .navwrap {
+    grid-template-rows: 1fr;
+  }
+}
+
+/* An explicit close beats an implicit open. Last in source order and equal in
+   specificity to the three rules above, which is what makes it win. */
+.sysbar[data-closed] .navwrap {
+  grid-template-rows: 0fr;
 }
 
 /* The collapsed line still names the current screen. Hiding the index must not
@@ -511,7 +537,7 @@ p {
   align-items: center;
   gap: 18px;
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   color: var(--ink-dim);
   letter-spacing: 0.06em;
 }
@@ -578,7 +604,7 @@ p {
 
 .block-head .idx {
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   letter-spacing: 0.22em;
   color: var(--gold);
 }
@@ -910,7 +936,7 @@ p {
 .cp {
   display: block;
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   line-height: 1.55;
   color: var(--ink-dim);
 }
@@ -930,7 +956,7 @@ p {
   grid-template-columns: 1fr auto;
   gap: 6px 14px;
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
 }
 
 .kv .k {
@@ -1106,7 +1132,7 @@ p {
    partial is warn. */
 .lrow .det {
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   letter-spacing: 0.08em;
 }
 
@@ -1167,7 +1193,7 @@ p {
 }
 
 .reason .r .mono {
-  font-size: var(--t-data);
+  font-size: var(--t-label);
 }
 
 /* ---------- inference chain ---------- */
@@ -1214,7 +1240,7 @@ p {
 
 .chain .st .cost {
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   color: var(--danger);
 }
 
@@ -1359,7 +1385,7 @@ p {
   border-radius: 3px;
   padding: 7px 10px;
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   color: var(--ink);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   max-width: 300px;
@@ -1580,7 +1606,7 @@ canvas[data-ui="fog"] {
   flex-direction: column;
   gap: 4px;
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   color: var(--ink-dim);
   margin: 0;
 }
@@ -1844,7 +1870,7 @@ canvas[data-ui="fog"] {
   padding-left: 18px;
   display: grid;
   gap: 8px;
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   line-height: 1.5;
   color: var(--ink-dim);
 }
@@ -1904,7 +1930,7 @@ canvas[data-ui="fog"] {
 /* Text in ink tokens, never in a series colour. */
 .plot .tick {
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   fill: var(--ink-mute);
 }
 
@@ -2006,7 +2032,7 @@ canvas[data-ui="fog"] {
 
 .plot .node-label {
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   fill: var(--ink);
   text-anchor: middle;
   dominant-baseline: middle;
@@ -2022,9 +2048,22 @@ canvas[data-ui="fog"] {
   fill: none;
 }
 
+/* 9.5 USER UNITS, BELOW THE FLOOR, AND THE EXCEPTION IS MEASURED RATHER THAN
+   ASSUMED. SVG text inside a scaled viewBox is not CSS pixels: this diagram's
+   viewBox is 1000 wide and renders at 1384px on a 1440px viewport, so a
+   declared 9.5 paints at 13.1 CSS px there and a declared 12 would paint at
+   16.6 - while at 760px and below BOTH fall under the floor (6.8 and 8.6),
+   because the scale factor is 0.72 and no declared number changes that. The
+   floor is a rule about CSS pixels and this is a different regime.
+   What the raise DID change is the layout: 12 units puts "$33.33M fleet, in
+   equity" at 173 units into a 150-unit gap between two hand-positioned
+   columns, straight through both boxes. `PLOT.width` is shared by every chart
+   so the space cannot grow for this one. Registered as a named exclusion in
+   test/unit/type-scale.test.ts, with the follow-up - HTML labels over the
+   SVG, as the turnstile plane already does - recorded in section 8. */
 .plot .edge-label {
   font-family: var(--f-mono);
-  font-size: var(--t-label);
+  font-size: 9.5px;
   fill: var(--ink-mute);
   text-anchor: middle;
   paint-order: stroke;
@@ -2132,7 +2171,7 @@ canvas[data-ui="fog"] {
 
 .tl .d {
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   color: var(--ink-mute);
   letter-spacing: 0.04em;
   padding-top: 3px;
@@ -2449,7 +2488,7 @@ canvas[data-ui="fog"] {
 
 .ent .none {
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   color: var(--ink-mute);
   font-style: italic;
 }
@@ -2618,7 +2657,7 @@ canvas[data-ui="fog"] {
    the shared `.code` treatment; only the three diff colours are local. */
 /* The mockup sets the comment lines in #4F4840. That token is --ink-faint,
    which HANDOFF-03 section 3 (LEDGER-01 Q1, fold 4) reserves for non-text:
-   3.05:1 on --bg-deep is below AA for 12px text. --ink-mute is the same ramp
+   3.24:1 on --bg-deep is below AA for 12px text. --ink-mute is the same ramp
    and clears it, and where the mockup and AA disagree, AA wins. */
 .code .bw-c {
   color: var(--ink-mute);
@@ -2658,7 +2697,7 @@ canvas[data-ui="fog"] {
 
 .bw-step .bw-w {
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   color: var(--ink-mute);
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
@@ -2754,12 +2793,19 @@ canvas[data-ui="fog"] {
 
 /* ---------- the loop diagram ----------
    Node titles use the shared `.plot .node-label`. The second line needs to be
-   quieter and smaller than the first without leaving the mono register, and it
-   takes the same halo in the same ground, so the two lines of a box read as
-   one label rather than as two differently-mounted ones. */
+   QUIETER than the first without leaving the mono register, and it takes the
+   same halo in the same ground, so the two lines of a box read as one label
+   rather than as two differently-mounted ones.
+
+   IT IS STILL SMALLER, and that sentence survived a round trip: the type floor
+   put both lines on the same rung, the second line then overflowed its box,
+   and it went back. The exception is named and measured rather than silent -
+   see `.plot .edge-label` below. */
 .plot .nw-sub {
   font-family: var(--f-mono);
-  font-size: var(--t-label);
+  /* 9.5 user units, for the reason set out on `.plot .edge-label` above: at 12
+     this second line measured 223 units against a 200-unit box. */
+  font-size: 9.5px;
   letter-spacing: 0.06em;
   fill: var(--ink-mute);
   text-anchor: middle;
@@ -3232,7 +3278,7 @@ canvas[data-ui="fog"] {
 .fl-addr {
   display: block;
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   color: var(--ink);
   word-break: break-all;
 }
@@ -3289,7 +3335,7 @@ canvas[data-ui="fog"] {
   align-items: baseline;
   gap: 8px;
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   line-height: 1.5;
   color: var(--ink-mute);
 }
@@ -3422,7 +3468,7 @@ canvas[data-ui="fog"] {
 
 .tk-examples .a {
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
 }
 
 .tk-examples .b {
@@ -3691,7 +3737,7 @@ canvas[data-ui="fog"] {
 
 .tk-mp .id {
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   color: var(--ink);
   white-space: nowrap;
 }
@@ -3717,7 +3763,7 @@ canvas[data-ui="fog"] {
 
 .tk-vb {
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   white-space: nowrap;
 }
 
@@ -4014,7 +4060,7 @@ canvas[data-ui="fog"] {
 /* The pool balances table. */
 .tk-pooltbl td {
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
 }
 
 /* ---------- the round-trip ledger ---------- */
@@ -4025,7 +4071,7 @@ canvas[data-ui="fog"] {
   padding: 7px 0;
   border-bottom: 1px solid var(--line-faint);
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   align-items: baseline;
 }
 
@@ -4078,7 +4124,7 @@ canvas[data-ui="fog"] {
   gap: 4px;
   margin-top: 10px;
   font-family: var(--f-mono);
-  font-size: var(--t-data);
+  font-size: var(--t-label);
   color: var(--ink-dim);
 }
 
@@ -4586,13 +4632,21 @@ canvas[data-ui="fog"] {
   margin-left: -21px;
 }
 
+/* --ink-mute, not --ink-faint. The approved composition sets the beat tag in
+   --ink-faint and this build does not, because `tokens.css` reserves that token
+   for NON-TEXT - "hairline rules and inactive marks" - on the ground that it
+   measures 3.11:1 on --bg and does not clear AA for normal text. A beat tag is
+   the label that makes the order visible, which is the whole fix this handoff
+   was commissioned for; setting it in the one ink that fails would have shipped
+   the reader's complaint inside the answer to it. Caught by rendering the page,
+   confirmed by A2. */
 .beattag {
   display: block;
   font-family: var(--f-mono);
   font-size: var(--t-label);
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--ink-faint);
+  color: var(--ink-mute);
   margin-bottom: 10px;
 }
 

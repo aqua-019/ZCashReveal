@@ -107,7 +107,7 @@ describe("A9 (b): one compact-cell register", () => {
   // exactly how this test failed when the scale landed.
   const DEFINING = [
     "font-family: var(--f-mono)",
-    "font-size: var(--t-data)",
+    "font-size: var(--t-label)",
     "line-height: 1.55",
     "color: var(--ink-dim)",
   ];
