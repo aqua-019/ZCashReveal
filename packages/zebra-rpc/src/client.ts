@@ -23,6 +23,7 @@ import {
   blockHeaderSchema,
   blockchainInfoSchema,
   getInfoSchema,
+  getTreestateSchema,
   rawMempoolSchema,
   rawMempoolVerboseSchema,
   rpcBlockSchema,
@@ -30,6 +31,7 @@ import {
   type AddressBalance,
   type AddressUtxo,
   type GetInfo,
+  type GetTreestate,
 } from "./schemas.js";
 import type { BlockHeaderResult, BlockchainInfoResult, RpcBlock } from "./types.js";
 import type { Hex, RpcTransaction } from "@zcashreveal/types";
@@ -273,6 +275,27 @@ export class ZebraRpc {
   getBlock(id: { hash: Hex } | { height: number }): Promise<RpcBlock> {
     const selector = "hash" in id ? id.hash : String(id.height);
     return this.call("getblock", [selector, 2], rpcBlockSchema).then((block) => asRpcBlock(block, selector));
+  }
+
+  /**
+   * `z_gettreestate`: the note-commitment-tree roots as of a block, by hash or
+   * by height.
+   *
+   * THE ONLY PLACE THIS PROJECT CAN GET AN IRONWOOD ROOT. `getblock` carries no
+   * Ironwood root under any spelling (LEDGER-07 Q5), only `trees.ironwood.size`;
+   * the root is here, under `ironwood.commitments.finalRoot`, for every height
+   * at which NU6.3 is active. HANDOFF-12's confirmed-block driver calls this
+   * at exactly the heights `decodeBlock` marks `ironwoodAnchorPendingTreestate`
+   * - a block that appended Ironwood commitments - and at no other, because a
+   * pool most blocks do not move should not cost a second RPC on every block.
+   *
+   * The selector is a STRING either way, as for `getBlock`: Zebra's
+   * `hash_or_height` is typed `String`. A height not in the best chain is a
+   * JSON-RPC -8 (`LegacyCode::InvalidParameter`), surfaced as {@link RpcError}.
+   */
+  getTreestate(id: { hash: Hex } | { height: number }): Promise<GetTreestate> {
+    const selector = "hash" in id ? id.hash : String(id.height);
+    return this.call("z_gettreestate", [selector], getTreestateSchema);
   }
 
   getBlockHeader(hash: Hex): Promise<BlockHeaderResult> {

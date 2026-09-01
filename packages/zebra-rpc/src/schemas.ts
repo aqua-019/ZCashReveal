@@ -611,6 +611,93 @@ export const blockHeaderSchema = z
   .passthrough();
 export type BlockHeader = z.infer<typeof blockHeaderSchema>;
 
+/* ============================================================================
+   z_gettreestate
+   ========================================================================== */
+
+/**
+ * One pool's treestate inside a `z_gettreestate` response.
+ *
+ * READ FROM `zebra-rpc/src/methods/trees.rs` AND FROM THE METHOD BODY THAT
+ * FILLS IT, at the v6.3.0 tag and at the 1c9b245 commit this file is read at,
+ * because the two disagree about what a reader should expect. The struct's
+ * docblock says "Zebra does *not* use this field" of `finalRoot`, and that was
+ * true of the deprecated `from_parts` constructor. `z_get_treestate` itself
+ * builds each pool's `Commitments::new(Some(root), Some(tree))` from
+ * `t.root().bytes_in_display_order()` - Sapling, Orchard and, from NU6.3,
+ * Ironwood alike - so on a live node `finalRoot` IS populated. Both fields are
+ * declared optional here because Zebra's own snapshot for a genesis-era height
+ * serialises `"sapling": { "commitments": {} }`: a pool whose tree does not
+ * exist yet skips both keys rather than sending nulls.
+ *
+ * `finalState` is the serialised CommitmentTree - the frontier, not the root -
+ * and nothing in this project reads it. It is declared so that a reader who
+ * reaches for it meets this sentence: computing a root from it needs the
+ * pool's Merkle hash (Pedersen for Sapling, Sinsemilla for the Orchard-shaped
+ * pools), which this repository does not carry and should not, because the
+ * node already did that arithmetic and put the answer in `finalRoot`.
+ *
+ * THE ROOT'S BYTE ORDER, READ AT THE PINNED RELEASE, BECAUSE THE DRIVER PAIRS
+ * IT WITH THE ANCHORS TRANSACTIONS CITE. At v6.3.0 the Orchard-shaped pools'
+ * `Root::bytes_in_display_order()` is `self.into()` - the field's canonical
+ * repr, unreversed - and `orchard_shaped_object` in `types/transaction.rs`
+ * emits a bundle's `anchor` through the SAME call, and `getblock`'s
+ * `finalorchardroot` through `root.into()`, the same bytes. So at 6.3.0 the
+ * three spellings agree, and the committed capture confirms one of them from
+ * the transaction side: the Ironwood transaction in block 3,444,837 cites
+ * `ae2935f1dfd8a24aed7c70df7de3a668eb7a49b1319880dde2bbd9031ae5d82f`, which is
+ * the empty Orchard-tree root exactly as Zebra's own test vector
+ * (`zebra-chain/src/orchard/tests/vectors/tree.rs`, `EMPTY_ROOTS[32]`) spells
+ * it. Sapling's `bytes_in_display_order` reverses and Sapling's transaction
+ * anchor is reversed too, so that pool agrees with itself as well.
+ *
+ * AND THE REASON IT IS WRITTEN DOWN: ZcashFoundation/zebra PR #10461, merged
+ * 22 Aug 2026 AFTER the 6.3.0 tag, rewrote `orchard_shaped_object` to
+ * `bundle.anchor().to_bytes()` followed by `anchor.reverse()` ("Display order
+ * is reversed in the RPC output") while leaving this response and `getblock`
+ * unreversed. A release carrying that commit will emit Orchard and Ironwood
+ * transaction anchors byte-reversed relative to the roots, and every lookup
+ * of a cited anchor against a recorded root will miss. `version-floor.ts` has
+ * a floor and no ceiling; the runtime detects the drift instead (see
+ * `apps/indexer/src/runtime/confirmed-block.ts`, the reversed-spelling probe)
+ * rather than pinning a ceiling nobody has measured.
+ */
+export const treestateCommitmentsSchema = z
+  .object({
+    finalRoot: hash32Schema.optional(),
+    finalState: hexLowerSchema.optional(),
+  })
+  .passthrough();
+
+export const treestateSchema = z
+  .object({
+    commitments: treestateCommitmentsSchema,
+  })
+  .passthrough();
+
+/**
+ * `z_gettreestate`.
+ *
+ * `sprout` is never serialised by Zebra ("we can't currently return Sprout data
+ * because we don't store it for old heights" - methods.rs) and `ironwood` is
+ * present only from NU6.3, so both are optional; `sapling` and `orchard` are
+ * always present, empty-commitments or not. `hash_or_height` is a String on
+ * the wire exactly as `getblock`'s is.
+ */
+export const getTreestateSchema = z
+  .object({
+    hash: hash32Schema,
+    height: heightSchema,
+    time: z.number().int(),
+    sprout: treestateSchema.optional(),
+    sapling: treestateSchema,
+    orchard: treestateSchema,
+    ironwood: treestateSchema.optional(),
+  })
+  .passthrough();
+export type Treestate = z.infer<typeof treestateSchema>;
+export type GetTreestate = z.infer<typeof getTreestateSchema>;
+
 /** `getrawmempool` with verbose=false: a flat array of txids. */
 export const rawMempoolSchema = z.array(hash32Schema);
 
