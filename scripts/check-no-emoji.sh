@@ -28,6 +28,11 @@ if ! printf '\xF0\x9F\x9A\x80\n' | grep -qP "$PATTERN"; then
   exit 2
 fi
 
+# `.next*` rather than `.next`, because the exclusion is about BUILD OUTPUT and
+# not about one directory name. HANDOFF-11 built into `.next-snapshot` for one
+# afternoon and this guard scanned it - minified vendor code, full of emoji,
+# reported as findings in files nobody wrote. The build directory a tool chooses
+# is not this rule's business; the source tree is.
 # docs/2.0/research/ holds imported third-party
 # research that uses U+26A0 as an UNVERIFIED marker; both are carved out by A9.
 # apps/web (HANDOFF-01) is the first tree with user-visible copy outside the
@@ -38,7 +43,7 @@ hits=$(grep -rnP "$PATTERN" \
   --include='*.md' --include='*.ts' --include='*.tsx' --include='*.yml' --include='*.yaml' \
   --include='*.css' --include='*.mjs' --include='*.cjs' --include='*.js' \
   --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=.turbo --exclude-dir=dist \
-  --exclude-dir=.next --exclude-dir=research \
+  --exclude-dir='.next*' --exclude-dir=research \
   . 2>/dev/null)
 
 if [ -n "$hits" ]; then
@@ -47,4 +52,4 @@ if [ -n "$hits" ]; then
   exit 1
 fi
 
-echo "check-no-emoji: OK - no emoji in *.md, *.ts, *.tsx, *.yml, *.css, *.mjs, *.js (excluding research/ and .next/)."
+echo "check-no-emoji: OK - no emoji in *.md, *.ts, *.tsx, *.yml, *.css, *.mjs, *.js (excluding research/ and every .next* build directory)."

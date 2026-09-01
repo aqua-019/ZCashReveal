@@ -133,7 +133,7 @@ At roughly 1,150 blocks a day (the 75-second target interval gives 1,152):
 | publisher commands **on the wire**, per tip | 5 (`MULTI` + 3 x `SET` + `EXEC`) |
 | publisher commands charged, per day | ~5,750 |
 | publisher commands charged, per month | ~172,500 |
-| **`apps/web` reads, per month** | **see below — not yet bounded** |
+| **`apps/web` reads, per month** | **~129,600 warm / ~259,200 cold** — measured by HANDOFF-11, derivation below |
 | publisher's share of the 500K allowance | ~35%, **before reads and before the other project's usage** |
 
 The counter is charged the **wire** count of five, not the write count of three — see §8.6. The
@@ -151,9 +151,33 @@ which was true while the publisher was charged 3 commands per tip and became fal
 charging the wire count of 5. LEDGER-09 Q2, fold 2.)* Two rules follow, and HANDOFF-11 owns both: the snapshot is
 fetched **once per render at module scope, never once per component or once per request**, and the
 resolution order must prefer a cached value over a fresh `GET` whenever the cached one is inside
-its staleness window. Until HANDOFF-11 states a measured figure here, the combined share is
-**unknown and larger than 35%** — the publisher's own charged share, from the table above — which is
-the honest answer and the reason that row says so rather than carrying a number nobody has measured.
+its staleness window. **HANDOFF-11 STATED THE FIGURE, AND IT IS TWO FIGURES BECAUSE ONE ASSUMPTION DECIDES WHICH.** The
+read side is now built: `apps/web/src/lib/snapshot/store.ts` resolves the snapshot once per render at
+module scope, and `/` and `/pools` carry `revalidate = 60`. So the arithmetic is a revalidation
+count, not a traffic count:
+
+| | per day | per month | assumption |
+| --- | --- | --- | --- |
+| one warm instance, both pages | 1,440 | ~43,200 | the module-scope memo survives between renders, so two pages in one 60 s window are ONE `GET` |
+| three regions, warm | 4,320 | **~129,600** | the figure this table's row carries. Three regions is the same number the paragraph above uses |
+| three regions, every render on a COLD instance | 8,640 | **~259,200** | the memo is empty on a cold start, so each route's revalidation is its own `GET` |
+
+**Combined with the publisher's ~172,500, that is ~302,100 (60%) warm and ~431,700 (86%) cold, of a
+500,000 allowance shared with another project.** The cold figure is the one to plan against: it is
+an upper bound rather than a prediction, and it leaves 14% of headroom for a project that never
+agreed to run alongside us.
+
+**What is measured and what is derived, kept apart.** Measured, by
+`apps/web/test/unit/snapshot-store.test.ts`: two resolutions inside one window issue exactly ONE
+`GET`; ten concurrent callers share ONE in-flight read; a resolution past `SNAPSHOT_TTL_MS` issues a
+second. Derived from those: everything in the table, by multiplying by the number of 60 s windows in
+a day and by a region count. **The region count is an assumption and not a reading** - no session can
+see how many regions Vercel serves this project from - so it is named in the table rather than
+folded into the total.
+
+**The lever, if the combined total approaches the allowance, is `revalidate` and not the code.**
+Doubling it to 120 s halves this side. The exit condition in section 6 is the other lever and is the
+operator's.
 
 Four consequences, none optional:
 

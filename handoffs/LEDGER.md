@@ -6566,3 +6566,161 @@ AND THE TWO NON-ASSERTIONS, both of which have now paid on two branches running:
 closed and what it did not, and §7 carries BOTH a screenshot-derived check AND a CSSOM check. 04b
 found 86 of 155 labels silently broken after two of its own screenshot passes had approved them.
 ```
+
+## HANDOFF-11 - the live wiring, and three assertions that were green and proved nothing (L3, 1 Sep 2026)
+
+```
+QUESTIONS (for the operator / L2):
+
+Q1. THE SECOND PRODUCTION BUILD, AND WHETHER THE COVERAGE IS WORTH THE PRICE.
+    A3, A7 and A2's "API unreachable" leg all describe a build whose
+    managed-store credentials are SET, and none is observable on a build that
+    resolved to the fixture. A second Playwright `webServer` with its own
+    `distDir` was written and run, and removed for a reason that is a fact about
+    Next rather than a preference: building with a custom `distDir` makes Next
+    REWRITE the tracked `apps/web/tsconfig.json`, appending
+    `<distDir>/types/**/*.ts` to its `include`. tsc then checks the route
+    validators in BOTH output directories and a clean build fails in a route
+    file nobody touched. Measured in three polarities: merged main builds 9/9
+    from a clean worktree; this branch builds clean with the committed tsconfig;
+    the same build after one custom-distDir run fails with
+    `"COLLECTION_NAMES" is not a valid Route export field`.
+    A suite that dirties the working tree as a side effect is worse than the
+    coverage it buys, so the assertions moved to the unit layer - asserted BY
+    VALUE, and for the REST rung over a REAL SOCKET rather than a mocked fetch.
+    The question is whether L2 accepts that trade or wants the e2e leg bought
+    another way. The two ways that exist: build `apps/web` in a temporary COPY
+    of the workspace, or commit the second `include` entry so Next has nothing
+    to add. The second is cheap and leaves a stale-validator footgun for anyone
+    who runs the suite and then builds.
+
+Q2. `apps/web/tsconfig.json` IS REWRITTEN BY EVERY BUILD, ON MAIN TOO. It has no
+    `include` committed and `next build` writes one. So `pnpm build` dirties the
+    working tree, and has since HANDOFF-01. Not this handoff's to fix - but it
+    is the mechanism behind Q1, and a session that commits after a build is one
+    `git add -A` away from committing a generated block. Should the generated
+    `include` be committed so the file stops moving?
+
+Q3. THE COMPOSE PIN CLEARS THE VERSION FLOOR WITH ZERO HEADROOM. `zfnd/zebra:6.3.0`
+    against a floor of 6.3.0, inclusive. A tag moved one patch down fails the
+    floor and nothing in `pnpm check` would say so. A guard is possible but not
+    straightforward: `parseZebraVersion` returns null for `zfnd/zebra:6.3.0`
+    BY DESIGN - it parses a subversion, not an image tag - so a guard written
+    the naive way reports a correct pin as unparsed forever and is
+    indistinguishable from one that checks nothing. Stated by a test here rather
+    than guarded. Does L2 want the guard, with the extraction spelled out?
+
+Q4. THE READS FIGURE IS TWO FIGURES AND THE REGION COUNT IS AN ASSUMPTION.
+    `SNAPSHOT.md` section 5 now carries ~129,600/month warm and ~259,200 cold,
+    derived from a measured fact (two pages in one 60 s window are ONE GET) and
+    an assumed one (three regions). Combined with the publisher's ~172,500 that
+    is 60% warm and 86% cold of a 500,000 allowance SHARED with another
+    project. Nobody here can read the region count. Is 86% an acceptable planning
+    figure, or should `revalidate` move to 120 s before the cutover - which
+    halves this side and costs a reader at most one more block of staleness?
+
+Q5. A15 IS WRONG ABOUT THE SHIPPED PLANE IN THREE CLAUSES AND THIS SESSION DID
+    NOT FORCE IT. Its exclusion set names "a drawn count that differs from
+    migrationHist's counted one", which the capped board violates BY DESIGN and
+    discloses (04a's answer to LEDGER-04a Q2); it says the "other four lanes
+    render not measured" when three do and ironwood is the measured `in` end of
+    the one counted relation; and its named DATA fail side, "give a mark a
+    per-crossing amount", cannot be constructed, because no such field exists -
+    which is the property the assertion protects. Corrected in section 7's
+    ASSUMPTIONS rather than implemented. Confirming that reading.
+
+INFERRED (non-empty inferences a worker made):
+  - The nine mappers were read-only and inferred nothing into the tree. One
+    correctly flagged the lead's own uncommitted `apps/web/src/lib/snapshot/`
+    as an untracked write it had not made, which is the post-fan-out rule
+    working from the other side.
+  - The lead inferred that fold 2's `source:` chip and section 3's resolved-rung
+    token are two different affordances. Recorded in section 7 as a reading.
+
+NOT-MATCHED (patterns handed over that did not apply):
+  - A15's "other four lanes" and its named fail side (Q5).
+  - A16's "unchanged in COUNT", which forbids the tests section 4.1 commissions.
+  - A2's `\d+`, which cannot match a grouped integer.
+  - A8's "grep apps/web is empty", which its own sibling makes impossible.
+  - A9's fail side, which the rule it enforces forbids running.
+  - Section 3's `/api/snapshot` and section 4.1's `apps/web/e2e/`.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+  - Fold 2's `source:` chip versus section 3's `source:` token. Resolved as two
+    affordances; if L2 meant one, the bar's is the one section 3 specifies and
+    the panel's is the one 04a's surface list places.
+
+GATE ROUND COUNTS: 0 external. The session's own checks found four defects in
+  its OWN work and every one was found by EXECUTING rather than reading: the
+  footer rendering a server-side age of 0 beside a live one in the bar; the mock
+  store listening at import time and holding its port so the next run failed
+  "already used"; A16's first restatement excluding a skip A11 mandates; and the
+  guard self-test arm answering a missing checklist step with "this row has no
+  fail side" - a true sentence about the wrong thing, at the wrong exit code.
+  Three probes of this session's own were malformed and are reported rather than
+  quietly redone: a `JSON.stringify` with no bigint replacer that threw before
+  reaching the schema guard it was written to exercise; a grep for the main
+  check's message when the self-test exits first, which made a live guard look
+  inert; and a `node -e` that imported the mock store to read a constant and
+  never exited.
+
+DEFERRED ASSUMPTIONS:
+  - The adaptive retention window, whole (LEDGER-04a Q2).
+  - The mainnet block fixture (LEDGER-10 Q4). The cutover ships without it and
+    `CUTOVER.md` section 1 says so in a table of three things that do not block.
+  - The per-crossing crossing source, which is HANDOFF-12's confirmed-block
+    driver.
+```
+
+### The two defects this handoff found that nobody had commissioned
+
+```
+NEITHER WAS IN SECTION 5 AND BOTH WERE LIVE ON MAIN.
+
+1. EVERY LIVE WEBSOCKET FRAME WAS SILENTLY DISCARDED. `apps/gateway` has emitted
+   `{channel, payload}` since HANDOFF-05 and `apps/web` reads a flat top-level
+   `type` - `stream.ts`'s `asFrame` switches on it and `zecFrameSchema` is a
+   discriminated union on it - so an enveloped frame hit the default arm and was
+   dropped into `ZecSocket.droppedFrames`. No throw, no log, no user-visible
+   signal: a panel reading "live" while receiving nothing, on a socket that was
+   connected and healthy. The mismatch was DOUBLE - after unwrapping, the
+   relayed payload was `{type: "tx_added", report: LeakReport}` where `ZecFrame`
+   wants `entry: MempoolRow`, and the two connect frames were typed
+   `mempool_snapshot` and `snapshot_v1`, neither a member of the union.
+   NOTHING IN EITHER SUITE COULD SEE IT: the fixture stream writes bare frames,
+   so every test drove the one shape that worked and was green about the one
+   that shipped. A5 as written would have gone green over all of it.
+
+2. `GET /v2/mempool` ANSWERED 500 FOR EVERY NON-EMPTY MEMPOOL ON A LIVE STACK.
+   `apps/indexer` writes every zatoshi through a `bigint -> string` replacer and
+   the gateway read it back with `JSON.parse(raw) as LeakReport` - a CAST, which
+   asserts a shape rather than producing one. `buildMempoolView`'s first
+   arithmetic on a zatoshi is `abs % ZAT_PER_ZEC`, and mixing a string with a
+   bigint throws. Reproduced in both polarities: the same report with real
+   bigints does not throw, and round-tripped through the replacer it throws
+   `TypeError: Cannot mix BigInt and other types`.
+   NO SUITE SAW IT BECAUSE EVERY SUITE BUILT ITS REPORTS WITH REAL BIGINTS and
+   none had ever sent one through the form the indexer actually stores. That is
+   the same family as `expiryheight`'s casing and `tx.feeZat` at `0n`: a
+   producer and a consumer agreeing about a TYPE and disagreeing about the WIRE,
+   with the tests written on the producer's side of the gap.
+
+   The fix is `reviveWireZatoshi`, by the `Zat` suffix - this project's own
+   convention - and the convention is CHECKED rather than trusted: five real
+   report shapes are serialised, revived, and required to deep-equal the
+   original, so a zatoshi the reviver misses comes back a string and fails, and
+   a non-zatoshi it converts by mistake comes back a bigint and fails too.
+
+AND A THIRD, SMALLER, IN THE SAME FAMILY: `TipChannelPayload` has declared
+`{type: "tip", height, hash}` since it was written and `apps/indexer` published
+the last two fields only. A relay narrowing on the discriminator would have
+dropped every tip frame in silence, taking the epoch clock and the block-arrival
+redraw with it. Found by a test whose comment asserted the wire was right and
+the type was wrong.
+
+WHAT THE THREE HAVE IN COMMON, because it is the thing worth carrying forward:
+each is a SEAM BETWEEN TWO PROCESSES, each was covered by tests on both sides,
+and each test built its own input rather than taking the other side's output.
+The instrument that found all three was the same: make one side actually
+produce the value and hand it to the other.
+```

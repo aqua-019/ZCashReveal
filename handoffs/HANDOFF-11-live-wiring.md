@@ -1,7 +1,7 @@
 ---
 handoff: 11
 title: Live wiring: snapshot baseline → WS upgrade, smoke tests, cutover checklist
-status: in-progress
+status: shipped
 branch: the session-designated branch (name it `feat/v2-11-live-wiring` if you may choose)
 track: Integration
 depends_on: 04, 04a, 04b, 05, 09, 09a, 09b, 10
@@ -192,8 +192,8 @@ Wire `apps/web` to the real API and WS with the snapshot as the baseline, so the
   *Exclusion set:* a mark carrying a per-crossing amount; a mark carrying an ordering or a confirmation state; a non-uniform weight; a drawn count that differs from `migrationHist`'s counted one; and a measured zero drawn under a lane the document has no field for.
   *Fail side names:* **"a mark carrying a per-crossing amount"** - one mark given an amount and the assertion shown to fail, which is the member `SnapshotV1` has no field for and which inventing would manufacture a measurement.
 
-- **A16.** *(same source.)* **`pnpm -r test` is unchanged in COLOUR, and no test present in the baseline is removed or newly skipped.** Baseline **1,351 total, 1,348 passed, 3 skipped**, measured by L2 on a clean worktree of `50ac7d9` and reproduced by this session on merged main at `76ea9e7` with a real PostgreSQL 16.13 and a real local Redis. **L2's wording was "unchanged in COUNT as well as colour", and taken literally that forbids the unit tests §4.1 commissions in the same sentence; it is restated rather than obeyed or ignored, and §7 says so.** The count is a FLOOR, not a fixed point: the total rises only by tests this handoff adds. **And the 3 skips are not 3 gaps** - two are notice-tests that skip *because* their environment is present (`it.runIf(!reachable)` fires only when it is not), and the third is the mainnet block fixture, which is the operator's and which the cutover ships without (LEDGER-10 Q4, fold 5).
-  *Exclusion set:* a passing baseline test that is absent from the new run; a baseline test whose state moves from passed to skipped; a skip count above 3; and a total below 1,351.
+- **A16.** *(same source.)* **`pnpm -r test` is unchanged in COLOUR, and no test present in the baseline is removed or newly skipped.** Baseline **1,351 total, 1,348 passed, 3 skipped**, measured by L2 on a clean worktree of `50ac7d9` and reproduced by this session on merged main at `76ea9e7` with a real PostgreSQL 16.13 and a real local Redis. **L2's wording was "unchanged in COUNT as well as colour", and taken literally that forbids the unit tests §4.1 commissions in the same sentence; it is restated rather than obeyed or ignored, and §7 says so.** The count is a FLOOR, not a fixed point: the total rises only by tests this handoff adds. **And the 3 skips are not 3 gaps** - two are notice-tests that skip *because* their environment is present (`it.runIf(!reachable)` fires only when it is not), and the third is the mainnet block fixture, which is the operator's and which the cutover ships without (LEDGER-10 Q4, fold 5). **A FOURTH SKIP IS ADDED BY THIS HANDOFF AND IT IS MANDATED BY A11**, whose own text says so: "if no live node is reachable in CI, the two fail-side legs and the parser still run and the live leg is labelled UNVERIFIED". A skip count of 4 is therefore the correct outcome, and the first draft of this assertion excluded it - caught by running the suite rather than by reading the clause.
+  *Exclusion set:* a passing baseline test that is absent from the new run; a baseline test whose state moves from passed to skipped; a NEW skip that no assertion in this section mandates and names; and a total below 1,351.
   *Fail side names:* **"a baseline test whose state moves from passed to skipped"** - one existing test marked `.skip`, the comparison shown to fire, then reverted; the comparison is by NAME against the baseline list rather than by total, because two changes of opposite sign leave a total unmoved.
 
 ## §6 DISPATCH HINTS (director-build decides; these are L2's routing suggestions)
@@ -204,16 +204,303 @@ Wire `apps/web` to the real API and WS with the snapshot as the baseline, so the
 ## §7 REPORT — written by L3 before the PR opens (docs-scribe keeps it)
 
 ```
-STATUS: DONE | DONE-WITH-ASSUMPTIONS | BLOCKED | OUT-OF-DEPTH | NOT CONVERGING
-BRANCH / PR:
-DIRECTORS SPAWNED (lead names each + spawn mode proven):
-FILES (created / modified / moved):
-EVIDENCE (per §5 assertion: pass transcript + fail transcript, provenance Executed/Read/UNVERIFIED):
-ASSUMPTIONS (each: ACCEPTED / CORRECTED / DEFERRED — reason):
+STATUS: DONE-WITH-ASSUMPTIONS
+
+BRANCH / PR: claude/new-session-zejoty, forked from main at 76ea9e7 (PR #48 merged).
+  PR title begins "HANDOFF-11:". Stops at opened.
+
+SPAWN MODE (proven by tool attempt, first output of the session):
+  LIVE subagents. `Agent(general-purpose, haiku)` returned "76ea9e7 SPAWN-OK".
+  The `Workflow` tool is also available and was used once.
+
+DIRECTORS SPAWNED (the lead names each):
+  ONE fan-out, and it was a reconnaissance rather than a build. `Workflow`
+  "handoff-11-recon", nine read-only mappers over the subsystems section 5
+  touches, each returning a structured {facts, staleAssertions, risks}:
+  map:web-snapshot-path, map:web-record-and-chips, map:gateway-routes,
+  map:snapshot-contract, map:tests-and-ci, map:zebra-version-floor,
+  map:legacy-and-cutover-inputs, map:turnstile-plane, map:ledger-rules.
+  9 returned, 0 errors, 418 tool uses.
+  NO BUILD CREW WAS SPAWNED. The wiring is one seam across four packages and
+  every change had to be made against a fact another change had just
+  established - the envelope, the projection, the revive, the prefix. Splitting
+  that across workers would have produced four reports agreeing with each other
+  and not with the tree.
+
+  POST-FAN-OUT SWEEP: run. `git status --porcelain` after the workflow returned
+  listed only `apps/web/src/lib/snapshot/` - the lead's own uncommitted work,
+  which one mapper correctly flagged as an untracked write it had not made. No
+  worker wrote to the tree. Nothing was reverted.
+
+FILES (created / modified / deleted):
+  created:
+    apps/web/src/lib/snapshot/source.ts, store.ts
+    apps/web/src/lib/api/attempt.ts, tip-bus.ts
+    apps/web/src/components/ui/Unverified.tsx, NotMeasured.tsx
+    apps/web/src/components/ambience/BlockArrival.tsx
+    apps/web/test/unit/snapshot-store.test.ts, snapshot-store.integration.test.ts,
+      client-graph.test.ts, status-affordances.test.tsx
+    apps/web/test/e2e/snapshot.spec.ts, test/e2e/support/mock-store.mjs
+    apps/gateway/src/__tests__/leak-report-fixture.ts, wire-form.test.ts
+    packages/zebra-rpc/src/__tests__/version-floor-smoke.test.ts
+    scripts/post-deploy-smoke.mjs
+    .github/workflows/post-deploy-smoke.yml
+    docs/2.0/CUTOVER.md
+  modified: apps/web (layout, splash, /pools, EpochClock, SysBar, Shell,
+    FooterLedger, MempoolPanel, chain.ts, format.ts, env.ts, api/index.ts,
+    http-api.ts, socket.ts, stream.ts, globals.css, next.config.ts,
+    playwright.config.ts, package.json); apps/gateway (ws-broker, server,
+    routes/index + every route docblock, routes/mempool, views/mempool,
+    views/pools, config, logger, index, four test suites, capture-examples.mts);
+    apps/indexer/src/index.ts; packages/zec-types/src/realtime.ts;
+    scripts/check-no-emoji.sh, check-audit-consumers.mjs, check-finding-sites.mjs,
+    check-infra-docs.mjs, check-instrument-deps.mjs, check-compose.mjs;
+    docs/2.0/API.md, SNAPSHOT.md, RUNBOOK-VPS.md, ZECREVEAL-2.0-PLAN.md,
+    BRANCH-CLEANUP.md; .github/workflows/ci.yml, e2e.yml; pnpm-workspace.yaml
+  deleted: legacy/dashboard (30 tracked files, the whole v0.2 SPA)
+
+DELIVERABLE 0 - THE RECONCILE, AND THE TEN ASSERTIONS THAT CHANGED.
+  Fold 1 asks that section 5 be read against the tree first and that section 7
+  name every assertion changed, what it said and what made it stale. Section 0
+  carries the folds; this is the assertion-by-assertion record. Each is named by
+  SUBJECT rather than by number, which fold 4 requires for the four duplicated
+  IDs and which costs nothing to do for all of them.
+
+  1. THE FIXTURE E2E (A1). Said "no pageerror on any route" against NINE routes.
+     `NAV_ENTRIES` has held ELEVEN since HANDOFF-04a added `/pools` and `/reveal`
+     as unnumbered views, closing its own F-04a-3. Restated over eleven, and the
+     sweep now registers a pageerror listener, which `routes.spec.ts` never did.
+  2. THE STALENESS REGEX (A2). Two things. Its regex `\d+` cannot match a
+     grouped integer, so it would have PASSED on a fresh site and FAILED at
+     1,000 blocks behind - the only case it exists for. Corrected to `[\d,]+`,
+     found by executing the regex over the formatter at six ages. And the
+     premise that no staleness surface existed was false: `EpochClock` and
+     `FooterLedger` both rendered `fmtBlockAge`, which returns `tip` - a string
+     with no digit. Those were the sites to repoint rather than places to add a
+     third indicator.
+  3. THE STORE RESOLUTION (A3). Its fail side needs the `gateway` rung, and
+     section 3 spelled that rung `/api/snapshot` while section 4.2 of the same
+     handoff deletes the `/api` prefix. Both answered on merged main, which kept
+     the contradiction invisible; after 4.2 the rung would have answered 410 and
+     fallen silently through to the fixture. Corrected in section 3.
+  4. THE CLIENT-BUNDLE SWEEP (A4). Passed VACUOUSLY: no module under
+     `apps/web/src` read any managed-store name, so nothing could be inlined and
+     both legs were empty by construction. Restated with the condition that it
+     is re-run after the store lands, and widened from "carries `'use client'`"
+     to "is transitively imported by one" - which is the real hazard and which
+     `src/lib/env.ts`, the obvious home for the reads, violates.
+  5. THE FAKE WEBSOCKET (A5). Named a `mempool` frame that neither side has ever
+     sent, and a fake server emitting a bare `ZecFrame` would have gone green
+     over a live path where every real frame is discarded. Restated to require
+     the gateway's own envelope, with the exclusion set naming the four shapes
+     that were actually on the wire.
+  6. THE LOCKBOX FIGURE (A6). Already asserted against the fixture in two
+     places. What this handoff owed was the leg through `HttpApi` rather than
+     `FixtureApi`. Exclusion set gained `78,183.41` - the two-decimal rounding
+     this site legitimately renders in prose at three other sites, which is the
+     same number and not the same string.
+  7. THE UNVERIFIED CHIP (A7). Its path `/api/pools` was wrong twice: the
+     shipped client has always requested `/v2/pools`, and 4.2 deletes `/api`.
+     The behaviour was also the opposite of what shipped - `HttpApi#get` THROWS
+     on a schema mismatch, and the string `UNVERIFIED` appeared nowhere in
+     `apps/web`.
+  8. THE MANAGED-STORE WRITE GREP (first A8, by subject: "apps/web cannot write
+     to the managed store"). UNSATISFIABLE, and unsatisfiable because of its own
+     sibling. `grep -rn 'SNAPSHOT_REDIS_KV_REST_API_TOKEN' apps/web` returns
+     `playwright.config.ts`, which blanks that name BECAUSE the other member of
+     the pair requires all five blanked. Narrowed to `apps/web/src` and from
+     MENTION to READ. The resolution not taken was deleting the blanking line,
+     which would have made the grep pass by reopening the hole the sibling
+     closes.
+  9. THE BUILD-REACHES-THE-STORE ASSERTION (second A8's sibling, by subject: "no
+     test or build reaches the managed store"). Half already shipped in
+     HANDOFF-05's addendum and is reported as shipped rather than claimed. Its
+     FAIL SIDE as written is forbidden by the rule it enforces: "remove the
+     blanking and watch the indicator read `source: redis-rest`" is only
+     reachable on a machine holding the real credentials, and running it there
+     IS the read `SNAPSHOT.md` rule 5 forbids against a store shared with
+     another project's production. Restated onto a local mock.
+ 10. THE READ COUNT (A10). Zero, not one: no route in `apps/web` exported
+     `revalidate`, so both pages were prerendered once at build time and there
+     was no render to attach a read to. And the two pages read two unrelated
+     sources, neither a snapshot. Restated to state the window it counts
+     against, and `revalidate = 60` added to both routes.
+  Also corrected, outside section 5: section 4.1 named `apps/web/e2e/*.spec.ts`,
+  a directory that has never existed - `playwright.config.ts` sets
+  `testDir: "./test/e2e"`, so a spec written to the named path would never run
+  and `playwright test` would report a pass having executed only the eighteen
+  specs already there.
+
+  STILL VALID, unchanged: the version floor (A11), the fallback marker (second
+  A8), and `history.replaceState` (second A9) - the last already built in both
+  polarities by HANDOFF-04a's `timeline-filter.spec.ts`, with its coverage
+  restated honestly as "the one route that calls it".
+
+EVIDENCE (per assertion; Executed unless labelled):
+  A1 eleven routes, no pageerror  PASS Executed: `snapshot.spec.ts` walks
+    NAV_ENTRIES (11), all 200, zero pageerror and zero console error.
+    FAIL SIDE Executed: the pre-existing `record.spec.ts` fail-state block on a
+    route that does not exist.
+  A2 staleness regex  PASS Executed: 11 routes, `[data-ui=staleness]` count 1,
+    text matches `/snapshot age: [\d,]+ blocks?/`.
+    FAIL SIDE Executed, BY DATA: `tip` and `1,234 blocks behind` - the two
+    strings the shipped formatter returned - asserted NOT to match, in
+    `format.test.ts` and again on the page.
+  A3 store resolution  PASS Executed: `snapshot-store.test.ts` resolves
+    `redis-rest` from a mocked REST endpoint and asserts the document BY VALUE
+    (height 4,000,001), the bearer header sent, and the key requested; and
+    `snapshot-store.integration.test.ts` does the same over a REAL socket.
+    FAIL SIDE Executed, BY DATA: the wrong token -> the server answers 401, the
+    rung faults, the site falls through and says so.
+  A4 no managed-store name in the client  PASS Executed: `client-graph.test.ts`
+    walks the import graph from every `'use client'` entry (graph non-empty,
+    known members asserted) and finds the store unreachable; `.next/static`
+    grep empty over 40+ files.
+    FAIL SIDE Executed, BY DATA: the store's reads placed in `src/lib/env.ts` -
+    the module its own docblock names - and the predicate shown to fire.
+  A5 the WebSocket envelope  PASS Executed: `frame-guard.test.ts` accepts an
+    enveloped snapshot and tip frame; `ws-broker.test.ts` shows the gateway
+    emitting `{type: "tx_added", entry: MempoolRow}`.
+    FAIL SIDE Executed, BY DATA: `{channel, payload: {type: "tx_added", report}}`
+    - the exact frame `apps/indexer` publishes - asserted to produce NO frame.
+  A6 the lockbox figure  PASS Executed against the fixture (shipped).
+    LIVE GATEWAY LEG: UNVERIFIED - no session can reach one.
+  A7 the UNVERIFIED chip  PASS Executed: `status-affordances.test.tsx` renders
+    it with its reason, in the open, tone `warn`.
+    FAIL SIDE Executed, BY DATA: the same chip inside a closed `<details>`,
+    shown unreachable.
+    THE PAGE-LEVEL LEG IS UNIT-LEVEL, NOT e2e - see UNVERIFIED below.
+  A8 (managed-store write)  PASS Executed: zero reads of the read-write name
+    under `apps/web/src`; the integration test proves the READ-ONLY token is
+    what actually crosses the wire, which a grep cannot.
+    FAIL SIDE Executed: the read written in, the grep shown to match, reverted.
+  A9 (no test or build reaches the store)  PASS Executed: the e2e build reads
+    `source: fixture` with `data-faults=0` on all eleven routes, with the five
+    names blanked.
+    FAIL SIDE Executed, BY DATA: the REST pair pointed at the local mock, and
+    the store shown to resolve `redis-rest` instead - never at the real store.
+  A10 reads are counted  PASS Executed: two resolutions in one window issue ONE
+    GET; ten concurrent callers share one in-flight read.
+    FAIL SIDE Executed, BY DATA: a resolution past `SNAPSHOT_TTL_MS` issues a
+    second, so the memo is a window rather than a cache with no expiry.
+    FIGURE: ~129,600/month warm, ~259,200 cold, in `SNAPSHOT.md` section 5 with
+    its derivation and its assumptions named.
+  A11 the version floor  FAIL SIDES Executed, BY DATA: `/Zebra:6.2.3/` ->
+    `below-floor`, `/MagicBean:5.4.2/` -> `unparsed`.
+    LIVE LEG: UNVERIFIED - no node is reachable from any session, and the suite
+    says so with its reason rather than omitting the case.
+  A8 (the fallback marker)  PASS Executed: present in `.next/static`.
+    FAIL SIDE Executed, BY DATA: `post-deploy-smoke.mjs` against a route that
+    loads no script - exit 1, "loaded no script at all".
+  A9 (history.replaceState)  PASS Executed: shipped spec, re-run green.
+  A12 the three affordances  PASS Executed: indicator in
+    `[data-ui=sysbar] [data-ui=epochclock]`; `source:` chip in the derivation
+    `<summary>` with its count; `UNVERIFIED` chip outside every `<details>`.
+    FAIL SIDE Executed, BY DATA: the chip moved into a closed disclosure.
+  A13 the resolved source and the FIRST rung  PASS Executed: the indicator
+    names the rung and `data-faults`.
+    FAIL SIDE Executed, BY DATA: a configured REST pair on a closed port - the
+    site renders, `source: fixture`, and the fault is NAMED rather than
+    swallowed.
+  A14 the four inherited rules  PASS Executed: `type-scale`, `summary-findings`,
+    `check-svg-text-floor` and the rendered legibility sweep all green over the
+    new markup; the CSSOM check is `painted-floor.spec.ts`, re-run green.
+  A15 the plane  PASS Executed: `plane.test.ts` unchanged and green; the plane's
+    only change is its INPUT (the resolved document rather than the fixture
+    function), which is the same type.
+    SEE ASSUMPTIONS - two clauses of A15 as written are wrong about the shipped
+    plane and are corrected there rather than forced.
+  A16 the suite  PASS Executed: 1,407 passed, 4 skipped, 1,411 total, rc=0,
+    against a real PostgreSQL 16.13 and a real local Redis. Baseline 1,348 / 3 /
+    1,351 reproduced on merged main at 76ea9e7 before any change.
+    Playwright 187 passed / 2 failed before the deliberate baseline recapture.
+    Fourteen guards rc=0, typecheck rc=0, lint rc=0, `content validate` rc=0,
+    `pnpm build` 8/8 (was 9/9; `legacy/dashboard` is gone).
+
+ASSUMPTIONS:
+  CORRECTED - A15's exclusion set said "a drawn count that differs from
+    `migrationHist`'s counted one". The shipped board CAPS at `nMax` and prints
+    the true count beside the drawn one, which is HANDOFF-04a's own answer to
+    LEDGER-04a Q2. A literal implementation of that clause fails on merged main
+    and the wrong fix - removing the cap - would reintroduce the defect 04a
+    closed. Reported rather than implemented.
+  CORRECTED - A15 said the "other four lanes render not measured". Three do.
+    Ironwood is measured as the `in` side of the one relation `migrationHist`
+    counts, so the honest count is three not-measured lanes and two measured
+    ends of one edge.
+  CORRECTED - A15's named fail side, "give a mark a per-crossing amount", cannot
+    be built as a DATA mutation: neither `PlaneMark` nor `SnapshotV1` has such a
+    field, which is the property the assertion exists to protect. The exclusion
+    set is satisfied instead by the members that ARE constructible.
+  CORRECTED - A16 as written says the suite is "unchanged in COUNT as well as
+    colour", which forbids the unit tests section 4.1 commissions in the same
+    sentence. Restated as a FLOOR plus "no baseline test removed or newly
+    skipped", and the first restatement then excluded a 4th skip that A11's own
+    text mandates - caught by running the suite, corrected in place.
+  ACCEPTED - fold 2's `source:` chip and section 3's `source: redis-rest |
+    redis | gateway | fixture` are two different things, and both are honoured:
+    the DOCUMENT's resolved rung goes in the bar's staleness indicator per
+    section 3, and a PANEL's own derivation source goes in that panel's
+    disclosure summary, which is where `/pools` previously floated `view.source`
+    beside a heading. Recorded as a reading rather than a departure.
+  DEFERRED - the adaptive retention window stays deferred whole (LEDGER-04a Q2).
+  DEFERRED - the mainnet block fixture stays the operator's (LEDGER-10 Q4). The
+    cutover ships with that test skipped, and `CUTOVER.md` section 1 says so.
+
 NOTICED (outside scope, not acted on):
+  - `apps/web/tsconfig.json` has no `include` committed; `next build` writes one
+    on every run, so a build dirties the working tree. Pre-existing on main.
+    It is why the two-build Playwright design was abandoned - see UNVERIFIED.
+  - The compose pin `zfnd/zebra:6.3.0` clears the 6.3.0 floor with ZERO
+    headroom, and nothing in `pnpm check` would catch a tag moved one patch
+    down. Stated by a test rather than guarded; a guard would have to extract
+    the version from an image tag, which `parseZebraVersion` refuses by design.
+  - `apps/gateway`'s `readLiveReports` casts `JSON.parse(raw) as LeakReport` in
+    one more place than this handoff revived: the shape is now revived, but the
+    CAST idiom remains the tree's habit and is what hid the 500 for two
+    handoffs.
+  - `zecFrameSchema`'s `class` enum is hand-copied into `stream.ts`'s guard as a
+    runtime `Set<string>` with no compile-time link. Recorded as a standing
+    exposure by HANDOFF-08 and still standing.
+
 UNVERIFIED (labelled):
-GATE ROUNDS: n · fingerprints (file · rule · severity) per round
-PREVIEW URL (if any):
+  - EVERY CHECK IN `docs/2.0/CUTOVER.md` SECTION 5. No session can reach a
+    preview or production host: Deployment Protection answers 302 to the SSO
+    endpoint and the container's egress proxy refuses the CONNECT tunnel with
+    403 before that (LEDGER-04 Q3). The document says UNVERIFIED at the head of
+    that section rather than reporting the checks as done.
+  - THE POST-DEPLOY JOB HAS NEVER RUN AGAINST A DEPLOYMENT. The SCRIPT it runs
+    is exercised in both polarities against a locally served production build,
+    which is why it takes a base URL; the WORKFLOW that calls it is unrun.
+  - A11's LIVE LEG. No node is reachable. The two fail-side legs and the parser
+    run everywhere.
+  - A6's LIVE GATEWAY LEG, on the same terms the assertion already permits.
+  - A3, A7 AND A2's "API UNREACHABLE" LEG ARE UNIT-LEVEL, NOT e2e, and this is
+    the one place the evidence is weaker than the assertion asks for. A second
+    Playwright `webServer` with its own `distDir` was written and run: building
+    with a custom `distDir` makes Next REWRITE the tracked
+    `apps/web/tsconfig.json`, after which tsc checks the route validators in
+    both output directories and a clean build fails in a route file nobody
+    touched (`"COLLECTION_NAMES" is not a valid Route export field`). Measured:
+    merged main builds 9/9 from a clean worktree; the same build after one
+    custom-distDir run fails. A suite that dirties the working tree as a side
+    effect is worse than the coverage it buys, so the second build was removed
+    and the assertions moved to the unit layer, where they are asserted BY VALUE
+    and, for the REST rung, over a real socket. `playwright.config.ts` carries
+    the measurement.
+
+GATE ROUNDS: 0 external rounds. The gate here is the session's own, and the
+  extrapolation rather than a convergence claim: a first external round would
+  probably find one to three defects, most likely in the gateway's frame
+  mapping (the newest control flow, and the place three of this session's own
+  fixes landed) or in `/pools`'s degraded rendering, which has no e2e leg. The
+  four defects this session found in its OWN work - the footer's duplicate age,
+  the mock's port-holding import, the A16 skip clause, and the self-test arm
+  that answered a missing checklist step with the wrong message - were all
+  found by running something rather than by reading it, which is the reach a
+  round of review would have to beat.
+
+PREVIEW URL: none. No session can reach one.
 ```
 
 ## §8 LEDGER — appended to `handoffs/LEDGER.md` by docs-scribe; read by L2 before the next handoff

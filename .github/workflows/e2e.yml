@@ -32,6 +32,13 @@ on:
       - "packages/zec-types/**"
       # And a change to this file must be able to test itself.
       - ".github/workflows/e2e.yml"
+      # THE SUITE READS A GUARD'S SOURCE, so a change to it can break a
+      # Playwright assertion with no apps/web edit at all:
+      # test/e2e/painted-floor.spec.ts spawns node to import SUPPORTED_WIDTHS
+      # and BREAKPOINTS out of scripts/check-svg-text-floor.mjs, and
+      # test/e2e/snapshot.spec.ts runs scripts/post-deploy-smoke.mjs. Without
+      # this line a PR editing either one gates on nothing here.
+      - "scripts/**"
 
 concurrency:
   group: e2e-${{ github.ref }}

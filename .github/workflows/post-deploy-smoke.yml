@@ -1,0 +1,69 @@
+name: post-deploy smoke
+
+# WHAT THIS IS FOR (HANDOFF-11 section 4.1): "a post-deploy smoke job that
+# fetches the production bundle and fails if the snapshot fallback marker is
+# absent". A deployment can be green, serve every route and still have shipped
+# without the snapshot fallback - which is the failure that emptied v0.2
+# production, where the page had nothing to render when the VPS was
+# unreachable.
+#
+# IT RUNS ON A DEPLOYMENT, NOT ON A PUSH. `deployment_status` is what Vercel
+# posts when a deployment finishes, and its payload carries the URL - so this
+# job checks the artefact that was actually deployed rather than one CI built
+# for itself. The `if` narrows it to successful PRODUCTION deployments: a
+# preview is not the thing the marker protects, and a failed deployment has no
+# bundle to read.
+#
+# AND IT IS RUNNABLE BY HAND, which matters more here than usual. No session can
+# reach a preview or production host - Deployment Protection answers 302 to the
+# SSO endpoint and the container's egress proxy refuses the CONNECT tunnel with
+# 403 before that (LEDGER-04 Q3) - so nobody in this repository has ever seen
+# this job pass against the real site. `workflow_dispatch` with a URL is how an
+# operator runs it on the day, and `docs/2.0/CUTOVER.md` section 5 lists the
+# same check by hand.
+#
+# THE SCRIPT ITSELF HAS A POSITIVE SIDE ANYBODY CAN RUN. `scripts/post-deploy-smoke.mjs`
+# takes a base URL, so the Playwright suite drives it against a locally served
+# production build in both polarities. A check whose only execution is against a
+# host no contributor can reach is a check shipped unproven.
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Base URL to smoke, e.g. https://zecreveal.example"
+        required: true
+        type: string
+
+jobs:
+  smoke:
+    name: the snapshot fallback marker is in the deployed bundle
+    # A successful PRODUCTION deployment, or a hand-run with a URL.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+
+      # No install: the script uses only node builtins and global fetch, on
+      # purpose. A post-deploy check that needs a dependency tree is a check
+      # that can fail for a reason having nothing to do with the deployment.
+      - name: Smoke the deployed bundle
+        env:
+          TARGET: ${{ github.event_name == 'workflow_dispatch' && inputs.url || github.event.deployment_status.target_url }}
+        run: |
+          if [ -z "$TARGET" ]; then
+            echo "no target URL on this event; nothing to smoke"
+            exit 1
+          fi
+          echo "smoking $TARGET"
+          node scripts/post-deploy-smoke.mjs "$TARGET"

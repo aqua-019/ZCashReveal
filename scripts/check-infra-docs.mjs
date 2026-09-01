@@ -41,6 +41,7 @@ import { join } from "node:path";
 
 const RUNBOOK = "docs/2.0/RUNBOOK-VPS.md";
 const DEPLOY = "docs/2.0/DEPLOY-2.0.md";
+const CUTOVER = "docs/2.0/CUTOVER.md";
 // SCANS ALL OF apps/web, NOT JUST src/. The first gate round found that
 // `apps/web/next.config.ts` reads NEXT_PUBLIC_API_URL, NEXT_PUBLIC_WS_URL and
 // NEXT_PUBLIC_SNAPSHOT_URL - outside src/, and therefore outside the first
@@ -64,6 +65,49 @@ const DEPLOY_PREFIXES = /^(NEXT_PUBLIC|SNAPSHOT)_/;
  * called "Backups" and no `pg_dump` in it is the failure this assertion exists
  * to catch - a document that reads as complete and cannot be executed.
  */
+/**
+ * HANDOFF-11's cutover checklist, on the same standard A6 sets for the runbook:
+ * each row is a topic and a pattern that proves the document carries the
+ * OPERATOR-EXECUTABLE thing rather than a paragraph about it.
+ *
+ * WHY THIS DOCUMENT GETS A ROW SET AT ALL. It is the one artefact of HANDOFF-11
+ * that nobody in this repository can test by running it - no session can reach
+ * a preview or production host (LEDGER-04 Q3), so every check in its
+ * verification section is the operator's. A document whose whole value is that
+ * somebody else can execute it is exactly the document that decays without
+ * anyone noticing, which is the argument that produced A6's table one document
+ * over.
+ *
+ * THE PATTERNS ARE DELIBERATELY NOT HEADINGS. A checklist with a section called
+ * "Verify" and no request in it is the failure this catches - the same shape as
+ * a runbook with a "Backups" heading and no `pg_dump`.
+ *
+ * WHAT THIS CANNOT CHECK, stated so a green run is not mistaken for more than
+ * it is: that the steps are in a workable ORDER, that the expected answers are
+ * right, or that an operator could actually follow it. Those are read by a
+ * person. This checks that the executable half has not gone missing.
+ */
+const CUTOVER_REQUIRED = [
+  // The promotion is the click the whole document exists for.
+  { topic: "the promotion click", re: /Promote to Production/i },
+  // The gateway checks, as requests rather than as prose.
+  { topic: "the /v2 snapshot check", re: /curl[^\n]*\/v2\/snapshot|GET\s+https?:\/\/[^\s]*\/v2\/snapshot/ },
+  { topic: "the /v2/pools 503 expectation", re: /\/v2\/pools\b[\s\S]{0,200}?503|503[\s\S]{0,200}?\/v2\/pools\b/ },
+  { topic: "the retired /api answering 410", re: /\/api\/[a-z]+[\s\S]{0,120}?410|410[\s\S]{0,120}?\/api\// },
+  // The two bundle facts A8 and A4 impose together.
+  { topic: "the fallback marker", re: /zr:snapshot-fallback:v1/ },
+  { topic: "no managed-store name in the bundle", re: /SNAPSHOT_REDIS[\s\S]{0,200}?(browser|bundle|view source)/i },
+  // The migration ordering, which is the one precondition that gets expensive
+  // if it is skipped rather than merely late.
+  { topic: "migrations before the cutover", re: /pnpm\s+--filter\s+@zcashreveal\/indexer\s+migrate/ },
+  // The rollback. A checklist with no way back is a checklist an operator is
+  // right to refuse to start.
+  { topic: "rollback", re: /roll ?back/i },
+  // The read-only token rule, which is the one mistake here that damages
+  // another project rather than this one.
+  { topic: "the read-only token rule", re: /READ_ONLY_TOKEN/ },
+];
+
 const A6_REQUIRED = [
   { topic: "provisioning", re: /docker\s+compose\s+-f\s+docker-compose\.yml\s+config|get\.docker\.com/ },
   { topic: "first sync", re: /docker\s+compose\s+up\s+-d\s+zebrad/ },
@@ -177,6 +221,53 @@ function selfTest() {
     console.error(`[infra-docs] SELF-TEST FAIL: ${m}`);
     ok = false;
   };
+
+  /*
+   * THE CUTOVER ROWS ARE DRIVEN OVER THE REAL DOCUMENT, ONE ROW AT A TIME, AND
+   * THE LOOP IS OVER `CUTOVER_REQUIRED` ITSELF.
+   *
+   * Two standards, and neither subsumes the other (LEDGER-09a Q3). Iterating
+   * the rule's own data structure is what stops a probe set UNDER-COVERING the
+   * rule: a row added tomorrow arrives with a fail side already attached rather
+   * than waiting for somebody to remember one. Driving the REAL tree is what
+   * stops a probe that passes against a synthetic fixture and would not against
+   * reality - a hand-written positive example is chosen to pass, and this
+   * project has shipped three guards whose self-test certified a hole.
+   *
+   * The mutation is a DATA mutation: delete the text the row matches, from the
+   * real file, and require the row to fire. A row whose pattern matches
+   * something that is not there to delete cannot pass this loop, and a row that
+   * fires on the intact document cannot either.
+   */
+  if (existsSync(CUTOVER)) {
+    const real = readFileSync(CUTOVER, "utf8");
+    for (const { topic, re } of CUTOVER_REQUIRED) {
+      const m = re.exec(real);
+      if (m === null) {
+        // NOT A SELF-TEST FAILURE, AND THE FIRST DRAFT MADE IT ONE. A row that
+        // matches nothing means the DOCUMENT is missing that step, which is
+        // precisely what the main check below reports - with the right message
+        // and the right exit code. Failing here instead made the self-test win
+        // the race and answer a missing checklist step with "this row has no
+        // fail side", which is a true sentence about the wrong thing. Measured:
+        // removing "Promote to Production" from the real document produced
+        // rc=2 and a message about fail sides rather than rc=1 and a message
+        // about a missing step.
+        continue;
+      }
+      const without = real.slice(0, m.index) + real.slice(m.index + m[0].length);
+      if (re.test(without)) {
+        // Not a failure by itself - a document may legitimately state a thing
+        // twice - but it means this row is not discriminating on the instance
+        // that was removed, so the mutation must be a full sweep to mean
+        // anything.
+        const swept = real.split(m[0]).join("");
+        if (re.test(swept)) {
+          fail(`cutover row "${topic}" still matches ${CUTOVER} with every instance of its match removed`);
+        }
+      }
+    }
+  }
 
   // A6 patterns must match the real command shapes and not their prose.
   const shouldMatch = [
@@ -362,6 +453,18 @@ if (!existsSync(DEPLOY)) {
   }
 }
 
+// --- the cutover checklist (HANDOFF-11) -----------------------------------
+if (!existsSync(CUTOVER)) {
+  findings.push(`${CUTOVER} does not exist; HANDOFF-11 section 4.1 commissions it.`);
+} else {
+  const text = readFileSync(CUTOVER, "utf8");
+  for (const { topic, re } of CUTOVER_REQUIRED) {
+    if (!re.test(text)) {
+      findings.push(`${CUTOVER}  no operator-executable step for "${topic}" (looked for ${re}).`);
+    }
+  }
+}
+
 if (findings.length > 0) {
   console.error(`[infra-docs] FAIL: ${findings.length} finding(s).`);
   for (const f of findings) console.error(`  ${f}`);
@@ -371,6 +474,8 @@ if (findings.length > 0) {
 const documented = [...envNamesRead(WEB_ROOT)].filter((n) => DEPLOY_PREFIXES.test(n) && !NOT_REAL_VARIABLES.has(n)).length;
 console.log(
   `[infra-docs] OK: ${RUNBOOK} carries a command for all ${A6_REQUIRED.length} topics A6 requires, ` +
-    `and ${DEPLOY} names all ${documented} NEXT_PUBLIC_/SNAPSHOT_ variable(s) ${WEB_ROOT} reads from process.env ` +
-    "(detectors self-tested in both directions).",
+    `${DEPLOY} names all ${documented} NEXT_PUBLIC_/SNAPSHOT_ variable(s) ${WEB_ROOT} reads from process.env, ` +
+    `and ${CUTOVER} carries an operator-executable step for all ${CUTOVER_REQUIRED.length} topics ` +
+    "(detectors self-tested in both directions; the cutover rows check that the executable half is PRESENT, " +
+    "never that the order or the expected answers are right - those are read by a person).",
 );
