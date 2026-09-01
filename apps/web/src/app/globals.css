@@ -526,6 +526,20 @@ p {
 /* The dim verb. --ink-mute, not --ink-faint: receding must not mean becoming
    unreadable, and hovering the bar used to drop the whole rest of the nav to
    2.09:1. A recessed label is still a label. */
+/* THE DIM VERB, AND IT HAS TO LAND ON THE ANCHOR ITSELF. HANDOFF-04a first put
+   it only on `.screenlabel`, because the label is the loud part of a row - and
+   that broke assertion A6's POSITIVE half, which reads the computed colour of
+   the `<a>` and requires it to change when the group is hovered. A6 pairs
+   "nothing carries a transform" with that positive half precisely because
+   "transform: none" also passes on a page where the hover never registered, so
+   moving the only colour change onto a child span made the whole assertion
+   vacuous while leaving it green on its negative half. Caught by running it.
+
+   The dek does not dim, and that is deliberate rather than an omission: it
+   already sits at --ink-mute, and the only ink below that is --ink-faint,
+   which tokens.css reserves for non-text and which A2 asserts paints no text
+   anywhere. A recessive element has nowhere legible left to recede to. */
+.screens:hover a:not(:hover):not([aria-current="page"]),
 .screens:hover a:not(:hover):not([aria-current="page"]) .screenlabel {
   color: var(--ink-mute);
 }
