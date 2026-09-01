@@ -318,7 +318,7 @@ describe("A5 - the WebSocket connection cap", () => {
 describe("request identity", () => {
   it("every response carries a request id", async () => {
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    const res = await h.app.inject({ method: "GET", url: `/v2/address/${LOCKBOX}` });
     expect(res.headers["x-request-id"]).toBeTruthy();
     await h.close();
   });

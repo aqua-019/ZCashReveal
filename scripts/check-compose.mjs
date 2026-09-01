@@ -319,7 +319,7 @@ function scanManagedStore(serviceMap, names) {
  * one. HANDOFF-09's gate found the gateway with NO `SNAPSHOT_FILE` and NO
  * volume: it fell back to its schema default of `./snapshot.json`, which its
  * image resolves against `WORKDIR /app/apps/gateway`. The publisher wrote every
- * tip successfully and logged that it had; `GET /api/snapshot` answered 503
+ * tip successfully and logged that it had; `GET /v2/snapshot` answered 503
  * `absent` forever and no WebSocket client ever received a snapshot frame. That
  * is the empty dashboard `docs/2.0/SNAPSHOT.md` section 8.1 says the design
  * exists to make structurally impossible, and this guard passed the whole time,

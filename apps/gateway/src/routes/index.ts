@@ -1,24 +1,29 @@
 /**
- * Every read route, registered under BOTH prefixes.
+ * Every read route, registered under ONE prefix. `/v2` is the API.
  *
- * TWO PREFIXES, AND THE REASON IS A REAL DISAGREEMENT BETWEEN TWO HANDOFFS.
- * HANDOFF-05 section 3 names the endpoints as `/api/address/:addr`,
- * `/api/tx/:txid` and so on, and HANDOFF-11 section 3 reads
- * `${NEXT_PUBLIC_API_URL}/api/snapshot`. But `apps/web`'s `HttpApi`, written and
- * shipped by HANDOFF-04, requests `/v2/address/...`, `/v2/tx/...`, `/v2/pools`,
- * `/v2/mempool`, `/v2/flows` and `/v2/labels`. Serving only `/api` would mean
- * the client that exists cannot reach the gateway that exists, and renaming the
- * client's paths would be editing another track's shipped code to match a
- * sentence in this one's spec.
+ * WHAT THIS RESOLVES. HANDOFF-05 mounted every route under BOTH `/api` and
+ * `/v2`, because its own section 3 named `/api/...` while `apps/web`'s
+ * `HttpApi` - written and shipped by HANDOFF-04 - requests `/v2/...`. Serving
+ * only one would have broken the other at this cutover, so both were served
+ * from one registration and the disagreement was raised as LEDGER-05 Q1.
  *
- * Both are served, from one registration, so they cannot drift. `/api` is the
- * documented contract; `/v2` is the alias the shipped client already uses. The
- * disagreement is recorded in the section 8 ledger for L2 to rule on, and
- * whichever survives, one line here removes the other.
+ * L2 RULED, AND THE ARGUMENT IS ABOUT WHAT THE WORD MEANS: "`/api` is not a
+ * version, it is a category, and the moment a v3 exists the name lies." So
+ * `/api` is deleted here, and a request to any path under it answers **410
+ * with a body naming `/v2`** rather than 404 - a 404 says the route never
+ * existed, and a client still sending `/api` needs to be told where the API
+ * went rather than left to guess at a network fault. `server.ts` carries that
+ * handler.
  *
- * The union of the two lists is what is served: search, address, tx, block,
- * pools, mempool, flows, labels, cases and snapshot. Nothing is narrowed on the
- * grounds that one handoff did not name it.
+ * NOTHING OUTSIDE THIS REPOSITORY IS KNOWN TO SEND `/api`, and inside it
+ * nothing does: `HttpApi` has always sent `/v2`, and the only other `/api`
+ * surface in the tree belongs to a different application -
+ * `apps/web/src/app/api/content/[collection]` is a Next.js route handler
+ * serving the content package, on a different origin, reached by no gateway
+ * client. The 410 is for a caller this repository cannot see.
+ *
+ * What is served: search, address, tx, block, pools, mempool, flows, labels,
+ * cases and snapshot.
  */
 
 import type { GatewayApp, RouteDeps } from "./deps.js";
@@ -33,8 +38,23 @@ import { registerSearchRoute } from "./search.js";
 import { registerSnapshotRoute } from "./snapshot.js";
 import { registerTxRoute } from "./tx.js";
 
-/** The prefixes every read route is mounted under. */
-export const API_PREFIXES = ["/api", "/v2"] as const;
+/**
+ * The prefixes every read route is mounted under.
+ *
+ * A TUPLE OF ONE, KEPT AS A TUPLE. `routes.test.ts` iterates it to assert that
+ * every route answers under every prefix, and collapsing it to a bare string
+ * would delete that check rather than narrow it - the test would still pass and
+ * would be asserting nothing. It is also where a `/v3` would arrive.
+ */
+export const API_PREFIXES = ["/v2"] as const;
+
+/**
+ * The prefix that used to be served and now answers 410.
+ *
+ * Exported so the handler in `server.ts` and the tests that hold it to a 410
+ * name the same string, rather than two string literals that can drift apart.
+ */
+export const RETIRED_API_PREFIX = "/api" as const;
 
 export async function registerReadRoutes(app: GatewayApp, deps: RouteDeps): Promise<void> {
   for (const prefix of API_PREFIXES) {

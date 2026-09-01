@@ -302,7 +302,7 @@ export const WS_SNAPSHOT_CHANNEL = "gateway:snapshot" as const;
  * `bigint` zatoshi and `JSON.stringify` throws on one - the connect path
  * stringifies this frame exactly as `broadcast` stringifies every other. It is
  * the same conversion `respond` applies at the REST boundary, so `GET
- * /api/snapshot` and this frame carry the identical document, which
+ * /v2/snapshot` and this frame carry the identical document, which
  * `snapshot.test.ts` asserts by comparing the two rather than by trusting that
  * one function called twice agrees with itself.
  */

@@ -368,7 +368,7 @@ That is verbatim the failure `apps/gateway/src/views/pools.ts` already records a
 outlives its subject reads as a fact.** A condition does not decay, which is why all four now name
 one.
 
-**This is the LEDGER-05 Q2 precedent applied exactly**: `/api/pools` answers 503 naming the four
+**This is the LEDGER-05 Q2 precedent applied exactly**: `/v2/pools` answers 503 naming the four
 blocks it cannot serve rather than serving four empty ones, because a page that serves four empty
 blocks is claiming to have looked and found nothing. A named absence is that same answer in a
 panel's shape.

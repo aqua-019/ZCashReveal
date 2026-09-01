@@ -1,4 +1,4 @@
-/** `GET /api/flows` - the Tracking side of the Record's /flows, as a summary. */
+/** `GET /v2/flows` - the Tracking side of the Record's /flows, as a summary. */
 import { flowsViewSchema } from "@zcashreveal/types";
 
 import type { GatewayApp, RouteDeps } from "./deps.js";

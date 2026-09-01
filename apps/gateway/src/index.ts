@@ -7,17 +7,17 @@
  *
  * Endpoints (both `/api/*` and `/v2/*` - see routes/index.ts for why two):
  *   GET  /healthz                 liveness
- *   GET  /api/search?q=           what a query string is, by shape alone
- *   GET  /api/address/:addr       transparent address, from Zebra's address index
- *   GET  /api/tx/:txid            transaction, plus the indexer's record if it has one
- *   GET  /api/block/:height       block at a height, from getblock verbosity 2
- *   GET  /api/pools/balances      live per-pool balances, and the lockbox
- *   GET  /api/pools               503 while four blocks have no producer, named
- *   GET  /api/mempool             the indexer's live mempool
- *   GET  /api/flows               the Tracking side of the Record's /flows
- *   GET  /api/labels              address labels, from packages/content
- *   GET  /api/cases               golden cases, from packages/content
- *   GET  /api/snapshot            the published snapshot, or 503 with a reason
+ *   GET  /v2/search?q=           what a query string is, by shape alone
+ *   GET  /v2/address/:addr       transparent address, from Zebra's address index
+ *   GET  /v2/tx/:txid            transaction, plus the indexer's record if it has one
+ *   GET  /v2/block/:height       block at a height, from getblock verbosity 2
+ *   GET  /v2/pools/balances      live per-pool balances, and the lockbox
+ *   GET  /v2/pools               503 while four blocks have no producer, named
+ *   GET  /v2/mempool             the indexer's live mempool
+ *   GET  /v2/flows               the Tracking side of the Record's /flows
+ *   GET  /v2/labels              address labels, from packages/content
+ *   GET  /v2/cases               golden cases, from packages/content
+ *   GET  /v2/snapshot            the published snapshot, or 503 with a reason
  *   WS   /stream                  live mempool diff stream, capped
  */
 import { Redis } from "ioredis";

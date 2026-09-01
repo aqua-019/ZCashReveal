@@ -1,5 +1,5 @@
 /**
- * `GET /api/mempool` - the live mempool, from the indexer's own reports.
+ * `GET /v2/mempool` - the live mempool, from the indexer's own reports.
  *
  * Reads `zcashreveal:mempool:live` on the VPS-LOCAL Redis. If that Redis is
  * absent the view is EMPTY rather than an error: an empty mempool and an

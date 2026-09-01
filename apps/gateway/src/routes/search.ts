@@ -1,5 +1,5 @@
 /**
- * `GET /api/search?q=` - what a query string is, by shape alone.
+ * `GET /v2/search?q=` - what a query string is, by shape alone.
  *
  * A VIEWING KEY MUST NEVER REACH THIS ENDPOINT, and that is not a warning about
  * misuse - it is a constraint this route is built around.
