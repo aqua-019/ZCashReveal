@@ -64,12 +64,40 @@ test.describe("A1 pass state - the routes render in fixture mode", () => {
     });
   }
 
-  test("the Track item in the system bar lights on every route in the family", async ({ page }) => {
+  /**
+   * EXACTLY ONE ENTRY LIGHTS, AND THE TABLE SAYS WHICH.
+   *
+   * This asserted `href === "/track"` for all seven routes until HANDOFF-04a,
+   * because none of them had an entry of their own and `/track` stood in for
+   * the whole family. F-04a-3 changed that: `/pools` and `/reveal` are
+   * top-level user-facing pages that had no nav entry while `nav.ts` claimed a
+   * route could never exist without one, so they now have entries and left
+   * `TRACK_FAMILY`. They light themselves.
+   *
+   * The expectation is a TABLE rather than a constant, which is stricter than
+   * what it replaces rather than looser: the old form could not have caught
+   * `/pools` lighting `/reveal`, and this one can. What remains in the family
+   * is the three dynamic segments - one page per address, txid and height -
+   * which a bar cannot carry and for which `/track` is the honest stand-in.
+   */
+  test("exactly one system-bar entry lights on every route, and it is the right one", async ({ page }) => {
+    const EXPECTED: Readonly<Record<string, string>> = {
+      "/track": "/track",
+      [`/address/${LOCKBOX}`]: "/track",
+      [`/tx/${ROUND_TRIP}`]: "/track",
+      "/block/3191051": "/track",
+      "/track/flows": "/track",
+      "/pools": "/pools",
+      "/reveal": "/reveal",
+    };
+
     for (const route of ROUTES) {
+      const want = EXPECTED[route];
+      expect(want, `${route} has no expected entry in the table`).toBeDefined();
       await page.goto(route);
       const current = page.locator('[data-ui="screennav"] [aria-current="page"]');
-      await expect(current, `${route} lights no screen in the system bar`).toHaveCount(1);
-      await expect(current, `${route} lights the wrong screen`).toHaveAttribute("href", "/track");
+      await expect(current, `${route} lights no screen, or lights more than one`).toHaveCount(1);
+      await expect(current, `${route} lights the wrong screen`).toHaveAttribute("href", want ?? "");
     }
   });
 });
