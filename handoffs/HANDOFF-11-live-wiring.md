@@ -206,7 +206,8 @@ Wire `apps/web` to the real API and WS with the snapshot as the baseline, so the
 ```
 STATUS: DONE-WITH-ASSUMPTIONS
 
-BRANCH / PR: claude/new-session-zejoty, forked from main at 76ea9e7 (PR #48 merged).
+BRANCH / PR: claude/new-session-zejoty -> PR #49 (draft), forked from main at
+  76ea9e7 (PR #48 merged).
   PR title begins "HANDOFF-11:". Stops at opened.
 
 SPAWN MODE (proven by tool attempt, first output of the session):
@@ -427,10 +428,17 @@ EVIDENCE (per assertion; Executed unless labelled):
     function), which is the same type.
     SEE ASSUMPTIONS - two clauses of A15 as written are wrong about the shipped
     plane and are corrected there rather than forced.
-  A16 the suite  PASS Executed: 1,407 passed, 4 skipped, 1,411 total, rc=0,
+  A16 the suite  PASS Executed: 1,409 passed, 4 skipped, 1,413 total, rc=0,
     against a real PostgreSQL 16.13 and a real local Redis. Baseline 1,348 / 3 /
     1,351 reproduced on merged main at 76ea9e7 before any change.
-    Playwright 187 passed / 2 failed before the deliberate baseline recapture.
+    Playwright 192 passed, 0 failed, on the committed tree - 187 passed with 2
+    failed on the run before the two visual baselines were recaptured, which is
+    the recapture doing its job rather than a flake.
+    THE COUNT WAS QUOTED BEFORE IT WAS MEASURED, ONCE, AND CORRECTED HERE. The
+    PR body was written with 1,409 / 1,413 arrived at by adding two new cases to
+    a measured 1,407 / 1,411. It happens to be right; it was arithmetic rather
+    than a reading until this line, and this project's rule is that a figure is
+    executed or it is labelled.
     Fourteen guards rc=0, typecheck rc=0, lint rc=0, `content validate` rc=0,
     `pnpm build` 8/8 (was 9/9; `legacy/dashboard` is gone).
 
