@@ -140,3 +140,27 @@ describe("ValuePool (properties)", () => {
     );
   });
 });
+
+describe("ValuePool opened at a balance (HANDOFF-12)", () => {
+  // Sapling's chainValueZat at 3,444,836, from the committed capture.
+  const OPENING = 53_978_605_190_185n;
+
+  it("opens at the node's figure and moves from there", () => {
+    const v = new ValuePool<"sapling">("sapling", "mainnet", OPENING);
+    expect(v.balance()).toBe(OPENING);
+    // 3,444,837's Sapling delta: +875,651,408 left the pool.
+    v.apply({ pool: "sapling", txid: h(1), height: 3_444_837, deltaZat: 875_651_408n });
+    expect(v.balance()).toBe(OPENING - 875_651_408n);
+  });
+
+  it("FAIL STATE, BY DATA: opened at zero, the first withdrawal is refused - the pool was not empty, the counter was", () => {
+    const v = new ValuePool<"sapling">("sapling");
+    expect(() =>
+      v.apply({ pool: "sapling", txid: h(1), height: 3_444_837, deltaZat: 875_651_408n }),
+    ).toThrow(NegativeBalanceError);
+  });
+
+  it("refuses a negative opening balance, because ZIP 209 holds at every height including the first", () => {
+    expect(() => new ValuePool<"sapling">("sapling", "mainnet", -1n)).toThrow(NegativeBalanceError);
+  });
+});

@@ -7,6 +7,7 @@
 import type { Sql } from "postgres";
 import type { Pool } from "@zcashreveal/types";
 import type { PoolState } from "../state/pool-state.js";
+import { ReplayPositionMismatchError } from "../state/errors.js";
 import { readAllPoolCommitments } from "./pool-commitments.js";
 import { readAllPoolAnchors } from "./pool-anchors.js";
 import { readAllPoolNullifiers } from "./pool-nullifiers.js";
@@ -39,12 +40,24 @@ export async function replayInto<P extends Pool>(
 ): Promise<void> {
   const commitments = await readAllPoolCommitments(state.pool, conn);
   for (const c of commitments) {
-    state.commitments.append({
+    const assigned = state.commitments.append({
       pool: c.pool,
       cmId: c.cmId,
       txid: c.txid,
       height: c.height,
     });
+    // THE STORED POSITION IS CHECKED, NOT TRUSTED AND NOT IGNORED (HANDOFF-12).
+    // Positions are absolute NCT indexes and a state opens at a base; a row
+    // whose position is not the one this index assigns means the base is
+    // wrong or the run has a gap, and either makes every candidate set built
+    // on the replay wrong by the difference. Renumbering silently was what
+    // this loop did before.
+    if (assigned !== c.position) {
+      throw new ReplayPositionMismatchError(
+        `${state.pool} replay: commitment ${c.cmId} is stored at position ${c.position} but this ` +
+          `state (base ${state.commitments.basePosition}) assigned ${assigned}`,
+      );
+    }
   }
 
   const anchors = await readAllPoolAnchors(state.pool, conn);

@@ -25,7 +25,7 @@ import { type Network, orchardExitOnlyFrom } from "@zcashreveal/instruments";
 import { ExitOnlyViolation, NegativeBalanceError } from "./errors.js";
 
 export class ValuePool<P extends Pool> {
-  private bal: bigint = 0n;
+  private bal: bigint;
   private byTx = new Map<Hex, BoundaryDelta<P>[]>();
 
   /**
@@ -34,11 +34,27 @@ export class ValuePool<P extends Pool> {
    *   Defaults to mainnet, so every existing construction site keeps its
    *   meaning; a testnet replay must say so, because the height Orchard
    *   becomes exit-only at differs between the two by nearly 706,000 blocks.
+   * @param openingBalanceZat the pool's balance at the height BEFORE the first
+   *   delta this pool will see (HANDOFF-12). Zero only for a pool indexed from
+   *   its birth. The live indexer starts mid-chain, where Sapling holds
+   *   hundreds of thousands of ZEC, and a pool that opened at zero would refuse
+   *   the first withdrawal as a negative balance and publish a balance that is
+   *   a running delta rather than the quantity `chainValueZat` names. The
+   *   opening figure is the node's own `chainValueZat` at that height, and A1
+   *   asserts the two stay equal block after block.
    */
   constructor(
     public readonly pool: P,
     public readonly network: Network = "mainnet",
-  ) {}
+    openingBalanceZat: bigint = 0n,
+  ) {
+    if (openingBalanceZat < 0n) {
+      throw new NegativeBalanceError(
+        `${pool} pool cannot open at a negative balance: ${openingBalanceZat} (ZIP 209)`,
+      );
+    }
+    this.bal = openingBalanceZat;
+  }
 
   /**
    * Apply a turnstile boundary delta. Balance changes by `-delta.deltaZat`.

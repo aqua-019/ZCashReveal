@@ -18,6 +18,7 @@ import {
   type SpentNullifier,
 } from "@zcashreveal/types";
 import { PoolState } from "../../../state/pool-state.js";
+import { ReplayPositionMismatchError } from "../../../state/errors.js";
 import { getSql, isPostgresReachable, truncateAll } from "./_setup.js";
 import { writePoolCommitment } from "../../pool-commitments.js";
 import { writePoolAnchor } from "../../pool-anchors.js";
@@ -136,6 +137,26 @@ describe.skipIf(!reachable)("replayInto: snapshot → replay round-trip", () => 
 
     // Balance: identical
     expect(fresh.value.balance()).toBe(original.value.balance());
+  });
+
+  it("FAIL STATE, BY DATA: rows written under a base replayed into a state opened at another base throw, they do not renumber (HANDOFF-12)", async () => {
+    // Two commitments stored at the positions a mid-chain indexer writes.
+    const BASE = 73_944_723n;
+    await writePoolCommitment({ pool: "sapling", cmId: h(1), position: BASE, txid: h(11), height: 3_444_837 }, sql);
+    await writePoolCommitment({ pool: "sapling", cmId: h(2), position: BASE + 1n, txid: h(12), height: 3_444_837 }, sql);
+
+    // The right base replays them to the positions they were stored at.
+    const right = new PoolState<"sapling">("sapling", "mainnet", { commitmentBase: BASE, openingBalanceZat: 0n });
+    await replayInto(right, sql);
+    expect(right.commitments.atPosition(BASE)?.cmId).toBe(h(1));
+    expect(right.commitments.size()).toBe(BASE + 2n);
+
+    // A state opened at zero - what every replay was until HANDOFF-12 - used to
+    // renumber them 0 and 1 and report a tree two commitments wide. Now it
+    // throws, naming the stored and the assigned position.
+    const wrong = new PoolState<"sapling">("sapling");
+    await expect(replayInto(wrong, sql)).rejects.toThrow(ReplayPositionMismatchError);
+    await expect(replayInto(new PoolState<"sapling">("sapling"), sql)).rejects.toThrow(/stored at position 73944723 .* assigned 0/);
   });
 
   it("replay does not cross pools (orchard replay sees no sapling data)", async () => {
