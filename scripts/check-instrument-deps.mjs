@@ -529,7 +529,7 @@ const ROOT = process.cwd();
 // as an npm leaf.
 function workspaceTops() {
   const file = join(ROOT, "pnpm-workspace.yaml");
-  if (!existsSync(file)) return ["packages", "apps", "legacy"];
+  if (!existsSync(file)) return ["packages", "apps"];
   const tops = [];
   // A deliberately small parser: `packages:` followed by `- "glob"` lines. The
   // workspace file is three lines long and a yaml dependency for it would be a
@@ -546,7 +546,7 @@ function workspaceTops() {
       if (top !== "" && top !== "." && !tops.includes(top)) tops.push(top);
     }
   }
-  return tops.length > 0 ? tops : ["packages", "apps", "legacy"];
+  return tops.length > 0 ? tops : ["packages", "apps"];
 }
 
 const WORKSPACE_TOPS = workspaceTops();

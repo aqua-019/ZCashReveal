@@ -154,5 +154,6 @@ which no longer exists after HANDOFF-00, so its build can never succeed again an
 put a permanent red check on every pull request. Confirmed on both branches: the combined
 commit status reports `Vercel - z-cash-reveal-dashboard: failure` on `origin/main` as well
 as on the handoff branch, while `z-cash-reveal-dashboard2` reports success from the new
-`legacy/dashboard/dist` output. Deleting the orphan project in the Vercel dashboard clears
+`legacy/dashboard/dist` output - a directory HANDOFF-11 has since deleted from the tree entirely.
+Deleting the orphan project in the Vercel dashboard clears
 it; no repository change is involved.

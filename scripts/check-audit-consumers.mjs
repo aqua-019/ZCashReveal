@@ -45,7 +45,11 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const UNION_FILE = "packages/zec-types/src/analysis.ts";
-const ROOTS = ["apps", "packages", "legacy"];
+// `legacy` IS GONE FROM THIS LIST BECAUSE THE DIRECTORY IS GONE. HANDOFF-11
+// section 1 retires `legacy/dashboard`; scanning a root that does not exist is
+// a root that can never produce a finding, which is the vacuous shape this file
+// exists to prevent elsewhere.
+const ROOTS = ["apps", "packages"];
 const EXTENSIONS = [".ts", ".tsx"];
 const SKIP_DIRS = new Set(["node_modules", "dist", ".next", ".turbo", "build", "coverage"]);
 
@@ -93,40 +97,25 @@ const GENERIC_READ =
  * since the only count on the page is now `countIn - countOut`.
  */
 const ACKNOWLEDGED = [
-  {
-    file: "legacy/dashboard/src/components/CandidatesPanel.tsx",
-    label: "amount_match",
-    skipped: ["matchedDepositTxid", "matchedDepositAmountZat", "withdrawalAmountZat"],
-    why: "the chip line states the match kind, the deposit height and the tolerance; the txid and the two magnitudes are on the row itself",
-  },
-  {
-    file: "legacy/dashboard/src/components/CandidatesPanel.tsx",
-    label: "amount_echo",
-    skipped: [
-      "grade", "withdrawalTxid", "withdrawalAmountZat", "depositTxids", "depositAmountZat",
-      "residualZat", "relativeError", "timeDeltaMs", "partial", "toleranceZat",
-      "relativeEpsilon", "searchedCandidates",
-    ],
-    why: "a fourteen-field variant rendered as one line; the kind, grade, residual and split are what a reader needs at chip size, and the gloss beside it carries the epsilon",
-  },
-  {
-    file: "legacy/dashboard/src/components/CandidatesPanel.tsx",
-    label: "time_window",
-    skipped: ["lowHeight"],
-    why: "the gloss states the window in blocks and the anchor height; the range's lower bound is on the params line above it",
-  },
-  {
-    file: "legacy/dashboard/src/components/CandidatesPanel.tsx",
-    label: "conservation",
-    // Split across two blocks, so every field below must be read by ONE of
-    // them. Without this the entry lists the whole variant and silences itself.
-    coveredElsewhere: true,
-    skipped: [
-      "poolBalanceZat", "claimedZat", "exitZat",
-      "rejectedForDoubleClaim", "rejectedForRivalWithdrawal", "rejectedForBalance",
-    ],
-    why: "two blocks split this variant between them - the params line carries the three magnitudes and the gloss carries the three rejection reasons - so each is a partial read of a whole that IS fully read. That was not true when this entry was written: `exitZat` was rendered by nothing, and the guard's first tree-wide run is what surfaced it",
-  },
+  // EMPTY, AND IT WAS FOUR ENTRIES, ALL FOR THE SAME DELETED FILE.
+  //
+  // Every acknowledgement this guard carried named
+  // `legacy/dashboard/src/components/CandidatesPanel.tsx` - the v0.2 panel that
+  // rendered a `FilterApplication` at chip size and could not show fourteen
+  // fields on one line. HANDOFF-11 section 1 retires `legacy/dashboard`, so the
+  // file, the renderer and the reason for the exemptions are all gone together.
+  //
+  // THEY ARE DELETED RATHER THAN LEFT IN PLACE, and the distinction matters for
+  // this guard specifically: an entry naming a path that no longer exists is
+  // dead configuration that can never be consulted, and it would sit here
+  // looking like coverage. That is the shape `check-corpus-citations.mjs` exists
+  // to catch one directory over.
+  //
+  // THIS GUARD'S HEADER CALLED ITSELF "THE COMPENSATING CONTROL FOR A MISSING
+  // TEST RUNNER" - `legacy/dashboard` had no `test` script, so a fix shipped
+  // there with no fail-side transcript. The gap it was compensating for closed
+  // by deletion. What remains is the rule it enforces over `apps` and
+  // `packages`, which is the half that was never about the dashboard.
 ];
 
 /** `readonly filter: "name";` followed by that variant's `readonly params: {...}`. */
