@@ -396,6 +396,13 @@ function asRpcBlock(v: z.infer<typeof rpcBlockSchema>, selector: string): RpcBlo
     // what this response carries about Ironwood at block level, and it carries
     // a SIZE rather than a root.
     ...(v.trees === undefined ? {} : { trees: v.trees }),
+    // FORWARDED BY HANDOFF-12, AND ITS ABSENCE WAS THE WHOLE OF A1'S BLOCKER.
+    // `rpcBlockSchema` has parsed these two since HANDOFF-06 and this literal
+    // dropped them, so the node's own per-pool accounting was parsed and then
+    // discarded one line before the indexer could read it. Nothing downstream
+    // read `valueDeltaZat` because nothing downstream could.
+    ...(v.valuePools === undefined ? {} : { valuePools: v.valuePools }),
+    ...(v.chainSupply === undefined ? {} : { chainSupply: v.chainSupply }),
     ...(v.previousblockhash === undefined ? {} : { previousblockhash: v.previousblockhash }),
     ...(v.nextblockhash === undefined ? {} : { nextblockhash: v.nextblockhash }),
     ...(v.confirmations === undefined ? {} : { confirmations: v.confirmations }),

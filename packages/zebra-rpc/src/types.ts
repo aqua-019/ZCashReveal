@@ -14,7 +14,7 @@
  * interface rather than a cast asserting it.
  */
 import type { Hex, RpcTransaction } from "@zcashreveal/types";
-import type { RpcBlockTrees } from "./schemas.js";
+import type { RpcBlockTrees, ValuePoolBalance } from "./schemas.js";
 
 export interface BlockchainInfoResult {
   chain: string;
@@ -69,6 +69,31 @@ export interface RpcBlock {
    * needs, arriving one RPC before the root does.
    */
   trees?: RpcBlockTrees | undefined;
+  /**
+   * PER-POOL VALUE, AS THE NODE ITSELF ACCOUNTS FOR IT. Six entries in 6.3.0 -
+   * transparent, sprout, sapling, orchard, lockbox, ironwood - in that fixed
+   * order, each carrying a CUMULATIVE `chainValueZat` and this block's SIGNED
+   * `valueDeltaZat`.
+   *
+   * DECLARED HERE BY HANDOFF-12 BECAUSE A1 IS UNREACHABLE WITHOUT IT.
+   * `rpcBlockSchema` has parsed both fields since HANDOFF-06, but this interface
+   * declared neither and `asRpcBlock` forwarded neither, so `getBlock()` parsed
+   * the reference value and then dropped it on the floor. A1 asks that a
+   * replay's computed per-pool deltas equal the block's own `valueDeltaZat` and
+   * its balances equal `chainValueZat` - a NODE-SOURCED reference rather than an
+   * explorer's figures, available once per block, needing no fixture range.
+   *
+   * THE SUM OF ALL SIX DELTAS IS THE BLOCK SUBSIDY, and that is the invariant
+   * any replay must satisfy: measured at 156,250,000 zat (1.5625 ZEC) on both
+   * committed captures, exactly. **It balances only with the LOCKBOX entry
+   * included.** `LedgerLane` has five lanes because the ZIP 271 lockbox is not a
+   * pool lane, and a conservation check written over those five rather than
+   * these six misses by exactly the lockbox delta - 18,750,000 on both captures.
+   * Mapping six onto five is the gateway's job and is done explicitly there.
+   */
+  valuePools?: ValuePoolBalance[] | undefined;
+  /** Total supply as the node accounts for it, same shape as one `valuePools` entry. */
+  chainSupply?: ValuePoolBalance | undefined;
   /** Full transaction objects (verbosity 2). */
   tx: RpcTransaction[];
   previousblockhash?: Hex | undefined;
