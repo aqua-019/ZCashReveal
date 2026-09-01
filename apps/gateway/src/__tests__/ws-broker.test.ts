@@ -75,13 +75,16 @@ describe("WsBroker.translate - the relay maps a wire shape onto the client's uni
   });
 
   it("(d) FAIL STATE, BY DATA: an unrecognised channel maps to nothing and is DROPPED, not forwarded", () => {
-    // `zcashreveal:links` is a real channel this repository publishes on
-    // (`apps/indexer/src/index.ts`, `links_detected`) and the gateway does not
-    // subscribe to it. It is a member of the excluded set rather than an
-    // invented one: the old relay forwarded it, and every consumer dropped it
-    // one layer further on where nothing could name the channel.
+    // Until HANDOFF-12 this probe used the round-trip links channel, which the
+    // indexer really published on and the gateway never subscribed to - a
+    // member of the excluded set rather than an invented one. HANDOFF-12
+    // removed that publish (A5, LEDGER-12 Q1), so the name is now one nothing
+    // in the tree emits, and a probe naming it would be a channel from nowhere
+    // dressed as a real one. The shape under test is unchanged: the old relay
+    // forwarded every unrecognised channel, and every consumer dropped it one
+    // layer further on where nothing could name the channel.
     const raw = JSON.stringify({ type: "links_detected", txid: "aa", links: [] });
-    expect(broker.translate("zcashreveal:links", raw, NOW)).toBeNull();
+    expect(broker.translate("zcashreveal:no-such-channel", raw, NOW)).toBeNull();
   });
 
   it("(e) FAIL STATE, BY DATA: a tip payload whose height is not a height is refused by the schema, not sent", () => {

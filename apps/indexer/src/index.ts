@@ -143,8 +143,8 @@ async function main() {
           "round-trip links detected",
         );
       }
-      // THE `zcashreveal:links` PUBLISH THAT STOOD HERE IS GONE (HANDOFF-12,
-      // A5, LEDGER-12 Q1). It published to a literal no constant named and no
+      // THE LINKS-CHANNEL PUBLISH THAT STOOD HERE IS GONE (HANDOFF-12, A5,
+      // LEDGER-12 Q1). It published to a literal no constant named and no
       // process read: `REDIS_CHANNELS` declares `mempool` and `tip` only, and
       // the gateway subscribes to exactly those two. The egress ordering was
       // confirmed at THIS site rather than taken from a report: the links are
