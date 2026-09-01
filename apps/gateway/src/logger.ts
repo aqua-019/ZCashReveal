@@ -1,7 +1,7 @@
 /**
  * The gateway's logger, and the promise it keeps about viewing keys.
  *
- * THE LOG IS THE WORSE COPY. `/api/search` is built so that a viewing key which
+ * THE LOG IS THE WORSE COPY. `/v2/search` is built so that a viewing key which
  * arrives is not echoed to the caller, and the not-found handler drops the query
  * string for the same reason. Neither stops the key being WRITTEN: Fastify's
  * default request serialiser logs `req.url` verbatim, query string included, on
@@ -53,7 +53,7 @@ export function redactKeys(value: string): string {
  * key-shaped redacted.
  *
  * BOTH HALVES ARE NEEDED. Dropping the query stops `?q=uview1...`; redacting the
- * remainder stops `/api/address/uview1...`, which is a path segment and survives
+ * remainder stops `/v2/address/uview1...`, which is a path segment and survives
  * the first rule. A key can arrive in either and neither is hypothetical - the
  * address route is exactly where a reader who pasted the wrong thing would send
  * one.

@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 
-import { MempoolPanel } from "@/components/track/MempoolPanel";
+import { MempoolPanel, type MempoolBaseline } from "@/components/track/MempoolPanel";
+import { NotMeasured } from "@/components/ui/NotMeasured";
+import { Unverified } from "@/components/ui/Unverified";
+import { attempt } from "@/lib/api/attempt";
+import { resolveSnapshot } from "@/lib/snapshot/store";
 import { TrackExamples, TrackSearch } from "@/components/track/TrackSearch";
 import { TrackHead, TrackNav } from "@/components/track/TrackShell";
 import { Block } from "@/components/ui/Block";
@@ -27,9 +31,32 @@ export const metadata: Metadata = {
  * was the THIRD site of that one stale number. The subscription upgrades that; it does not create it.
  */
 export default async function TrackPage() {
+  /*
+   * THE MEMPOOL COMES FROM THE GATEWAY, AND FROM THE SNAPSHOT WHEN IT CANNOT.
+   *
+   * Section 3: "the mempool island hydrates from `snapshot.lastReports` then
+   * subscribes to WS". Until HANDOFF-11 this page did `await zec.getMempool()`
+   * with nothing around it - correct while `api()` was always the fixture, and
+   * a **500** the moment `api()` became `HttpApi` and the gateway did not
+   * answer. The page that exists so the site can never render empty was the one
+   * page that could not render at all.
+   *
+   * THE ROWS FALL BACK AND THE SUMMARY DOES NOT, which is the honest split.
+   * `SnapshotV1.lastReports` is fifty real `MempoolRow`s, so the table is real.
+   * It carries no summary, and the metric row states bytes, a fee weather, a
+   * crossing total and a findings count - none of which is derivable from fifty
+   * rows, and all of which render as a measurement if invented. So the tiles
+   * become a named absence stating the CONDITION, which is
+   * `docs/2.0/SNAPSHOT.md` section 8.1 applied to a panel that has rows and no
+   * aggregate.
+   */
   const zec = api();
-  const mempool = await zec.getMempool();
-  const s = mempool.summary;
+  const attempted = await attempt(() => zec.getMempool());
+  const snapshot = await resolveSnapshot();
+  const mempool = attempted.ok ? attempted.value : null;
+  const s = mempool?.summary ?? null;
+  const baseline: MempoolBaseline =
+    mempool ?? { tipHeight: snapshot.doc.height, entries: snapshot.doc.lastReports };
 
   return (
     <>
@@ -84,8 +111,17 @@ export default async function TrackPage() {
       <Block
         idx="A"
         title="Mempool"
-        right={mempoolHeaderText(s, s.feeWeather)}
+        right={s === null ? "the gateway did not answer - rows from the published snapshot" : mempoolHeaderText(s, s.feeWeather)}
       >
+        {s === null ? (
+          <>
+            <Unverified reason={attempted.ok ? "" : attempted.reason} />
+            <NotMeasured
+              panel="mempool summary"
+              condition="the gateway did not answer, and a published snapshot carries rows without the aggregate they were counted from"
+            />
+          </>
+        ) : (
         <MetricRow>
           <Metric
             label="unconfirmed"
@@ -123,16 +159,25 @@ export default async function TrackPage() {
           />
           <Metric label="findings at high" value={fmtInt(s.findingsHigh)} sub={s.findingsNote} />
         </MetricRow>
+        )}
 
-        <MempoolPanel initial={mempool} />
+        <MempoolPanel initial={baseline} />
 
         {IS_FIXTURE ? (
           <p className="note" style={{ marginTop: 12, maxWidth: "72ch" }} data-ui="fixture-note">
+            {/*
+              THE COUNT IS THE BASELINE'S OWN LENGTH, not a summary field. It
+              read `mempool.summary.unconfirmed`, which is unreachable when the
+              gateway did not answer - and this paragraph only renders under
+              `IS_FIXTURE`, where it always did. Reading the array the sentence
+              is about removes the null and the second source at once: a count
+              beside a table cannot disagree with the table.
+            */}
             <b>These are committed values, not a live mempool.</b> The feed is a replay of{" "}
-            {fmtInt(mempool.summary.unconfirmed)} transcribed transactions and
+            {fmtInt(baseline.entries.length)} transcribed transactions and
             it closes and reopens on a cycle, which is why the badge above spends part of its time reconnecting - the
-            reconnect path running in ordinary operation rather than only under fault. The gateway arrives at HANDOFF-05 and
-            the live socket at the HANDOFF-11 cutover; nothing in this panel changes when they do.
+            reconnect path running in ordinary operation rather than only under fault. The live socket arrives when
+            NEXT_PUBLIC_DATA_MODE is `live` and the gateway is configured; nothing in this panel changes when it does.
           </p>
         ) : null}
       </Block>

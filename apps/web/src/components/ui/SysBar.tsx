@@ -5,6 +5,7 @@ import { EpochClock } from "./EpochClock";
 import { ScreenDisclosure } from "./ScreenDisclosure";
 import { ScreenNav } from "./ScreenNav";
 import type { ChainTip } from "@/lib/chain";
+import type { SnapshotFault, SnapshotSource } from "@/lib/snapshot/source";
 
 /**
  * The system bar: wordmark, where-you-are, epoch clock, and the screen index
@@ -18,7 +19,13 @@ import type { ChainTip } from "@/lib/chain";
  * than staying inert. That is one more hydration boundary and it buys the only
  * disclosure path a touch device has.
  */
-export function SysBar({ tip }: { readonly tip: ChainTip }) {
+export function SysBar({
+  tip,
+  status,
+}: {
+  readonly tip: ChainTip;
+  readonly status: { readonly source: SnapshotSource; readonly faults: readonly SnapshotFault[] };
+}) {
   return (
     <ScreenDisclosure
       bar={
@@ -30,7 +37,7 @@ export function SysBar({ tip }: { readonly tip: ChainTip }) {
             </span>
             <span className="tag">shielded ≠ silent</span>
           </Link>
-          <EpochClock tip={tip} />
+          <EpochClock tip={tip} status={status} />
         </>
       }
       panel={

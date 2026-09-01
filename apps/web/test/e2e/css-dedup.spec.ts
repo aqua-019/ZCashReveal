@@ -32,6 +32,14 @@
  * provably invisible, and the recapture is recorded here rather than done
  * silently.
  *
+ * RECAPTURED AGAIN AT HANDOFF-11, AND FOR A CHANGE THAT IS VISIBLE ON EVERY
+ * ROUTE. The system bar gained the staleness indicator - `snapshot age: N
+ * blocks - source: <rung>` beside the epoch clock - which fold 2 of the L2
+ * RESOLUTION for HANDOFF-04b places there because staleness is a property of
+ * the DOCUMENT rather than of any panel. Both baselines therefore differ by
+ * construction, exactly as they did at 04a, and `maxDiffPixels: 0` did its job
+ * by refusing them. Recorded here rather than absorbed.
+ *
  * AND THE POINTER IS PARKED BEFORE THE SHOT. Chromium's synthetic pointer
  * starts at the origin, which is inside the system bar, so a `fullPage`
  * capture taken without moving it renders the screen index OPEN - five hundred
@@ -51,9 +59,14 @@ for (const path of PAGES) {
 
     await page.goto(path, { waitUntil: "networkidle" });
 
-    // The epoch clock advances its height on a 75 s interval, so a screenshot
-    // taken promptly after load is stable. Waiting on the wordmark rather than
-    // on a timeout keeps that true without pinning a duration.
+    // THE CLOCK NO LONGER ADVANCES AT ALL IN FIXTURE MODE, so this shot is
+    // stable for a better reason than it used to be. It said "the epoch clock
+    // advances its height on a 75 s interval, so a screenshot taken promptly
+    // after load is stable" - true of a local `setInterval` that HANDOFF-11
+    // deleted, because incrementing the height against a fixture told every
+    // visitor the chain had advanced when no block had arrived. The height now
+    // moves only on a `tip` frame, and fixture mode has no socket. Waiting on
+    // the bar rather than on a timeout is still right and still cheap.
     await page.locator("[data-ui='sysbar']").first().waitFor({ state: "visible" });
 
     // See the note above: park the pointer clear of the bar so the screen

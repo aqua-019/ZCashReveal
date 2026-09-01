@@ -291,7 +291,7 @@ services:
       # path on the SAME volume, and until this line existed they did not: the
       # gateway fell back to `./snapshot.json`, which its own image resolves to
       # /app/apps/gateway/snapshot.json (Dockerfile WORKDIR), a path nothing
-      # writes. The symptom was silent and total - `GET /api/snapshot` answering
+      # writes. The symptom was silent and total - `GET /v2/snapshot` answering
       # 503 forever and no WS snapshot frame ever sent, while the publisher
       # logged successful writes - which is exactly the empty dashboard
       # docs/2.0/SNAPSHOT.md section 8.1 says this design exists to make

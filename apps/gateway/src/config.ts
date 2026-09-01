@@ -44,7 +44,7 @@ const Schema = z.object({
 
   /**
    * Where `apps/publisher`'s `file` sink writes, and therefore what
-   * `GET /api/snapshot` and the WebSocket snapshot frame serve.
+   * `GET /v2/snapshot` and the WebSocket snapshot frame serve.
    *
    * A PATH AND NOT A URL, WHICH IS THE POINT. docs/2.0/SNAPSHOT.md section 8.5
    * marks the `file` sink required because "this is what the gateway serves":

@@ -14,7 +14,7 @@ import { buildServer } from "../server.js";
  *
  * `apps/web`'s A11 suite proves the key never leaves the browser. This is the
  * same promise on the other side of the wire, and until this file existed
- * nothing tested it: the browser is not the only way to reach `/api/search`,
+ * nothing tested it: the browser is not the only way to reach `/v2/search`,
  * and a key can arrive in a query string, in a path segment, or in a request to
  * a route that does not exist.
  *
@@ -58,12 +58,12 @@ const rpc: FetchLike = () =>
 
 /** The URLs a key could realistically arrive on. */
 const URLS = [
-  `/api/search?q=${KEY}`,
   `/v2/search?q=${KEY}`,
-  `/api/address/${KEY}`,
-  `/api/tx/${KEY}`,
-  `/api/nope?q=${KEY}`,
-  `/api/address/t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo?vk=${KEY}`,
+  `/v2/search?q=${KEY}`,
+  `/v2/address/${KEY}`,
+  `/v2/tx/${KEY}`,
+  `/v2/nope?q=${KEY}`,
+  `/v2/address/t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo?vk=${KEY}`,
 ];
 
 async function run(log: pino.Logger): Promise<{ bodies: string[]; headers: string[] }> {
@@ -111,8 +111,8 @@ describe("A9 - a viewing key is not written to the log, the body or the headers"
 
     const emitted = lines().join("");
     expect(emitted).toContain('"method":"GET"');
-    expect(emitted).toContain("/api/search");
-    expect(emitted).toContain("/api/nope");
+    expect(emitted).toContain("/v2/search");
+    expect(emitted).toContain("/v2/nope");
     // The address route's real address survives; only the `vk` query is gone.
     expect(emitted).toContain("t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo");
     expect(emitted).not.toContain("vk=");
@@ -131,11 +131,11 @@ describe("A9 - a viewing key is not written to the log, the body or the headers"
   });
 
   it("FAIL STATE: redacting only the query would still write a key in a PATH", async () => {
-    // Two rules are needed and this is why. `/api/address/uview1...` has no
+    // Two rules are needed and this is why. `/v2/address/uview1...` has no
     // query string at all.
     const queryOnly = (url: string): string => url.split("?")[0] ?? url;
-    expect(queryOnly(`/api/address/${KEY}`)).toContain(FRAGMENT);
-    expect(safePath(`/api/address/${KEY}`)).not.toContain(FRAGMENT);
+    expect(queryOnly(`/v2/address/${KEY}`)).toContain(FRAGMENT);
+    expect(safePath(`/v2/address/${KEY}`)).not.toContain(FRAGMENT);
   });
 });
 
@@ -152,17 +152,17 @@ describe("the redaction rule itself", () => {
   });
 
   it("leaves an ordinary path alone", () => {
-    expect(safePath("/api/address/t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo")).toBe(
-      "/api/address/t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo",
+    expect(safePath("/v2/address/t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo")).toBe(
+      "/v2/address/t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo",
     );
-    expect(safePath("/api/block/3456227")).toBe("/api/block/3456227");
+    expect(safePath("/v2/block/3456227")).toBe("/v2/block/3456227");
     expect(redactKeys("a transparent address t1PKBiv7mtzD9bNafYaqyxaENeiNDbpKxxQ")).toContain("t1PKBiv7");
   });
 
   it("drops the whole query string, not only the parameters it recognises", () => {
     // A key can arrive under any parameter name, and the gateway reads only
     // `q`. Dropping the lot is the rule that does not depend on guessing.
-    expect(safePath("/api/search?q=1&anything=2&vk=uview1abc")).toBe("/api/search");
+    expect(safePath("/v2/search?q=1&anything=2&vk=uview1abc")).toBe("/v2/search");
   });
 
   it("removes an authorization header rather than censoring it", () => {

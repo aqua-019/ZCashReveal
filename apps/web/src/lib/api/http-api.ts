@@ -41,7 +41,7 @@ import {
 import { z } from "zod";
 
 import { searchKind } from "./kind";
-import { ZecSocket, type SocketLike } from "./socket";
+import { ZecSocket, unwrapEnvelope, type SocketLike } from "./socket";
 import type { ZecApi } from "./zec-api";
 
 export interface HttpApiOptions {
@@ -136,7 +136,16 @@ export class HttpApi implements ZecApi {
     const socket = new ZecSocket(this.#wsUrl, {
       open: this.#open,
       onFrame: (raw) => {
-        const parsed = zecFrameSchema.safeParse(raw);
+        // UNWRAPPED FIRST, AND THIS WAS THE SECOND READER WITH THE SAME DEFECT.
+        // `apps/gateway` wraps every frame as `{ channel, payload }` and this
+        // parsed the raw value against `zecFrameSchema`, a discriminated union
+        // on a top-level `type` - so every live frame failed the parse and was
+        // dropped, silently, exactly as `stream.ts`'s guard dropped it. Two
+        // frame readers, one fix each; `unwrapEnvelope` is shared so a third
+        // cannot be written without it.
+        const parsed = zecFrameSchema.safeParse(
+          typeof raw === "object" && raw !== null ? unwrapEnvelope(raw as Record<string, unknown>) : raw,
+        );
         // A frame the client does not recognise is dropped, not thrown. A
         // gateway one version ahead will send frames this build has never heard
         // of, and the mempool panel going blank is a worse answer than the

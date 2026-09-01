@@ -25,7 +25,7 @@ import type { MempoolRow, MempoolView, ZecFrame } from "@zcashreveal/types";
 import { API_URL, DATA_MODE, WS_URL } from "@/lib/env";
 
 import { MEMPOOL_VIEW } from "./fixtures/mempool";
-import { ZecSocket, type SocketLike } from "./socket";
+import { ZecSocket, unwrapEnvelope, type SocketLike } from "./socket";
 
 /** JSON cannot carry a bigint; the wire format is a decimal string, per `zatSchema`. */
 function jsonReplacer(_key: string, value: unknown): unknown {
@@ -174,7 +174,7 @@ export function subscribeFrames(onFrame: (frame: ZecFrame) => void, options: Str
  */
 export function asFrame(raw: unknown): ZecFrame | null {
   if (typeof raw !== "object" || raw === null) return null;
-  const f = raw as Record<string, unknown>;
+  const f = unwrapEnvelope(raw as Record<string, unknown>);
   switch (f["type"]) {
     case "hello":
       return isHeight(f["tipHeight"]) ? { type: "hello", tipHeight: f["tipHeight"] } : null;

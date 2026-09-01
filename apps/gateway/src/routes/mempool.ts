@@ -1,12 +1,12 @@
 /**
- * `GET /api/mempool` - the live mempool, from the indexer's own reports.
+ * `GET /v2/mempool` - the live mempool, from the indexer's own reports.
  *
  * Reads `zcashreveal:mempool:live` on the VPS-LOCAL Redis. If that Redis is
  * absent the view is EMPTY rather than an error: an empty mempool and an
  * unreachable indexer look the same to a reader, so the summary says which it
  * is in words.
  */
-import { REDIS_KEYS, mempoolViewSchema, type LeakReport } from "@zcashreveal/types";
+import { REDIS_KEYS, mempoolViewSchema, reviveWireZatoshi, type LeakReport } from "@zcashreveal/types";
 
 import type { GatewayApp, RouteDeps } from "./deps.js";
 import { toStatus } from "./errors.js";
@@ -38,7 +38,14 @@ async function readLiveReports(deps: RouteDeps): Promise<LeakReport[]> {
   const out: LeakReport[] = [];
   for (const raw of Object.values(live)) {
     try {
-      out.push(JSON.parse(raw) as LeakReport);
+      // REVIVED, NOT CAST, AND THE CAST WAS A LIVE 500. `apps/indexer` writes
+      // every zatoshi through a `bigint -> string` replacer, so
+      // `JSON.parse(raw) as LeakReport` asserted a shape the value did not
+      // have and `buildMempoolView`'s first `%` on one threw
+      // `TypeError: Cannot mix BigInt and other types`. Every gateway suite
+      // built its reports with real bigints, so nothing here had ever seen the
+      // form the indexer actually stores.
+      out.push(reviveWireZatoshi<LeakReport>(JSON.parse(raw)));
     } catch {
       // One malformed entry must not empty the table. The indexer wrote it and
       // the indexer's own logs are where that belongs; here it is one row.

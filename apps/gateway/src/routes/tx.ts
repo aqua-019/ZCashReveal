@@ -1,5 +1,5 @@
 /**
- * `GET /api/tx/:txid`.
+ * `GET /v2/tx/:txid`.
  *
  * A txid is 64 hex characters. A 62-character one is rejected with a 400 and
  * the reason rather than passed to the node, which would answer -5 and produce

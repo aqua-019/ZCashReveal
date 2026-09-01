@@ -18,22 +18,45 @@ transcript and a description.
 
 ---
 
-## Two prefixes, and why
+## One prefix. `/v2` is the API, and `/api` answers 410
 
-Every read route is served under **both `/api/*` and `/v2/*`**, registered once
-so they cannot drift.
+Every read route is served under **`/v2/*`** and nothing else.
 
-HANDOFF-05 §3 names the endpoints `/api/address/:addr`, `/api/tx/:txid` and so
-on, and HANDOFF-11 §3 reads `${NEXT_PUBLIC_API_URL}/api/snapshot`. But
-`apps/web`'s `HttpApi` — written and shipped by HANDOFF-04 — requests
-`/v2/address/…`, `/v2/tx/…`, `/v2/pools`, `/v2/mempool`, `/v2/flows` and
-`/v2/labels`. Serving only `/api` would mean the client that exists cannot reach
-the gateway that exists; renaming the client's paths would be editing another
-track's shipped code to match a sentence in this one's spec.
+**What this resolves.** HANDOFF-05 mounted every route under BOTH `/api` and
+`/v2`, because its own spec named `/api/...` while `apps/web`'s `HttpApi` -
+written and shipped by HANDOFF-04 - requests `/v2/...`. Serving only one would
+have broken the other at the cutover, so both were served from one registration
+and the disagreement was raised as LEDGER-05 Q1.
 
-`/api` is the documented contract. `/v2` is the alias the shipped client already
-uses. The disagreement is recorded in the §8 ledger for L2 to rule on, and
-whichever survives, one line in `src/routes/index.ts` removes the other.
+**L2 ruled, and the argument is about what the word means:** "`/api` is not a
+version, it is a category, and the moment a v3 exists the name lies." HANDOFF-11
+deletes it.
+
+**A request to any path under `/api` answers `410 Gone`, never 404.** A 404 says
+the route never existed; a client still sending `/api` needs to be told where
+the API went rather than left to guess at a network fault. 410 is permanent,
+cacheable by default where 404 is not, and distinguishes a retired path from a
+typo - which is the distinction a caller has to act on.
+
+```
+GET /api/address/t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo
+410 Gone
+
+{
+  "error": "the /api prefix is gone; this API is /v2",
+  "detail": "GET /api/address/t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo",
+  "moved": "/v2/address/t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo"
+}
+```
+
+`moved` is built from the path the caller sent, so it names the exact request
+they should have made. **The query string is dropped from both `detail` and
+`moved`**, on the same rule as the 404 branch beside it: a viewing key that
+arrives as `?q=` must be neither logged nor echoed, and a new branch in that
+handler is precisely where the leak it closed would come back.
+
+A path that was never served is still a **404**. Saying `410` about one would
+be as false as saying `404` about a path that was retired.
 
 ## Conventions
 
@@ -43,7 +66,7 @@ whichever survives, one line in `src/routes/index.ts` removes the other.
 | **Heights and counts** | JSON numbers. |
 | **Hex** | Lowercase, no `0x`, validated at the RPC boundary. |
 | **Dates** | A `Stamp`: `text` renders, `sortMs` sorts, `precision` says how much of the timestamp is real. A record known only to the day never renders a time (LEDGER-02 Q3). |
-| **Validation** | Every 2xx body is parsed through a Zod DTO **before** it is sent. A response that does not satisfy its own contract is a 500, not a malformed 200. Most come from `packages/zec-types`; `/api/search` and `/api/pools/balances` are not views the Tracking pages render, so their shapes are declared beside their routes rather than being the two 200s that leave unchecked. `/healthz` carries no data. |
+| **Validation** | Every 2xx body is parsed through a Zod DTO **before** it is sent. A response that does not satisfy its own contract is a 500, not a malformed 200. Most come from `packages/zec-types`; `/v2/search` and `/v2/pools/balances` are not views the Tracking pages render, so their shapes are declared beside their routes rather than being the two 200s that leave unchecked. `/healthz` carries no data. |
 | **CORS** | `GATEWAY_CORS_ORIGIN`, a comma-separated allow list or `*`. `*` is accepted: this is a read-only public API and some deployments legitimately want it. |
 | **Rate limit** | `GATEWAY_RATE_LIMIT_MAX` requests per `GATEWAY_RATE_LIMIT_WINDOW_MS` (default 100 / 10 s), keyed on `req.ip`. Over it: `429`, with `x-ratelimit-*` and `retry-after` headers. **Per reader only if `GATEWAY_TRUSTED_PROXIES` names the proxy** — behind a tunnel with it unset, every reader shares one bucket. |
 | **Request id** | Echoed as `x-request-id` on every response. A caller-supplied one is honoured, so a trace can span the tunnel between the site and the VPS — the one hop nobody can watch from either end. |
@@ -59,7 +82,7 @@ whichever survives, one line in `src/routes/index.ts` removes the other.
 | `413` | A bound was exceeded — see `GATEWAY_MAX_FUNDING_LOOKUPS`. The body names the bound. |
 | `429` | Rate limited. |
 | `500` | The gateway's own defect, including a DTO violation. |
-| `501` | Understood and not implemented yet. **No route returns this any more** — `/api/snapshot` was the only one and HANDOFF-09 implemented it. The row stays because the code is still meaningful for a future stub; a route that returns it is claiming it has no implementation at all. |
+| `501` | Understood and not implemented yet. **No route returns this any more** — `/v2/snapshot` was the only one and HANDOFF-09 implemented it. The row stays because the code is still meaningful for a future stub; a route that returns it is claiming it has no implementation at all. |
 | `502` / `504` | **The node refused, or did not answer.** Never a 404: a gateway that answered 404 for an unreachable node would have every page quietly reporting that the chain is empty. |
 | `503` | The resource exists but its content is not produced yet (`/pools`, `/snapshot`). The body names what is missing: for `/pools` the blocks and where each is routed, for `/snapshot` a `reason` of `absent`, `unreadable`, `malformed` or `invalid`. |
 
@@ -69,8 +92,8 @@ because a message is where one would leak.
 
 A `404` for an unmatched route names the method and the **path only**. Fastify's
 default not-found body is `Route ${method}:${request.url} not found` with the URL
-verbatim, query string included, so `GET /api/nope?q=uview1...` returned the
-viewing key in the body — the same leak `/api/search` is built to avoid,
+verbatim, query string included, so `GET /v2/nope?q=uview1...` returned the
+viewing key in the body — the same leak `/v2/search` is built to avoid,
 reachable by a typo.
 
 ---
@@ -81,7 +104,7 @@ reachable by a typo.
 { "ok": true, "ts": 1787493630483 }
 ```
 
-## `GET /api/search?q=`
+## `GET /v2/search?q=`
 
 What a query string is, by shape alone. No network call, and no database lookup.
 
@@ -103,10 +126,10 @@ What a query string is, by shape alone. No network call, and no database lookup.
 > **No client of this site should ever call this endpoint with a viewing key.**
 
 ```
-GET /api/search?q=t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo -> 200
+GET /v2/search?q=t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo -> 200
 { "kind": "transparent", "href": "/address/t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYo" }
 
-GET /api/search?q=3456227 -> 200
+GET /v2/search?q=3456227 -> 200
 { "kind": "height", "href": "/block/3456227" }
 ```
 
@@ -117,7 +140,7 @@ subsequent referrer header.
 
 An empty or absent `q` is a `400`.
 
-## `GET /api/address/:addr`
+## `GET /v2/address/:addr`
 
 `AddressView`, from Zebra's address index.
 
@@ -196,7 +219,7 @@ checksum verified and the version bytes read. That yields two different
 rejections for two different questions:
 
 ```
-GET /api/address/t2RnBRiqrN1nW4ecZs1Fj3WWjNdnSs4kiX8 -> 400
+GET /v2/address/t2RnBRiqrN1nW4ecZs1Fj3WWjNdnSs4kiX8 -> 400
 {
   "error": "not on this network",
   "issues": [{ "path": "addr", "message": "this is a testnet address and this gateway reads mainnet" }]
@@ -208,7 +231,7 @@ The same address is served with `200` by a gateway with
 rather than about the string. An address whose checksum does not verify gets
 `"error": "not a transparent address"` instead.
 
-## `GET /api/tx/:txid`
+## `GET /v2/tx/:txid`
 
 `TxView`. Public fields from the node; `leakClass`, `severity` and the wallet
 tell from the indexer's `leak_reports` row where it has one, and
@@ -295,7 +318,7 @@ a pool boundary — gold's third licensed job. A magnitude that crossed nothing 
 not it (LEDGER-04 Q1b).
 
 ```
-GET /api/tx/<62 hex characters> -> 400
+GET /v2/tx/<62 hex characters> -> 400
 { "error": "not a transaction id",
   "issues": [{ "path": "txid", "message": "a txid is 64 hex characters with no 0x prefix" }] }
 ```
@@ -304,7 +327,7 @@ A well-formed txid the chain does not have is a `404`. "There is no such
 transaction" and "that is not a transaction id" are different statements, and
 only one of them is about the chain.
 
-## `GET /api/block/:height`
+## `GET /v2/block/:height`
 
 `BlockView`, from one `getblock` verbosity-2 call — at verbosity 2 the `tx` array
 is full transaction objects, so every row is read from the same response rather
@@ -317,7 +340,7 @@ coinbase's actual outputs with their actual values, labelled where the Record
 labels the destination.
 
 ```
-GET /api/block/-1 -> 400
+GET /v2/block/-1 -> 400
 { "error": "not a block height",
   "issues": [{ "path": "height", "message": "a block height is not negative" }] }
 ```
@@ -325,7 +348,7 @@ GET /api/block/-1 -> 400
 A height above the tip is a `404`, because that **is** a statement about the
 chain: the node answers `-8`, and the gateway maps it.
 
-## `GET /api/pools/balances`
+## `GET /v2/pools/balances`
 
 Live per-pool balances, and the one endpoint HANDOFF-09's publisher will read.
 
@@ -358,7 +381,7 @@ entire subject is where the value is.
 `share` is floating point and exists only for display. The zatoshi figure beside
 it is the exact one, and nothing is derived from the share.
 
-## `GET /api/pools` — 503 while four blocks have no producer
+## `GET /v2/pools` — 503 while four blocks have no producer
 
 `poolsViewSchema` requires four structures no chain query can produce. Filling
 them with plausible numbers is the one thing this project must not do, and
@@ -394,7 +417,7 @@ carries `pools` at the tip only. `neff`'s estimator now exists (HANDOFF-09's
 that this route reads the chain and not the snapshot, which is HANDOFF-11's
 wiring.
 
-## `GET /api/mempool`
+## `GET /v2/mempool`
 
 `MempoolView`, from `zcashreveal:mempool:live` on the **VPS-local** Redis — the
 hash the indexer maintains as it watches the mempool — and not from
@@ -496,7 +519,7 @@ the wallet guess — a page built on that field would tell a reader how many
 transactions pay the conventional fee when what it counted was how many looked
 like two particular wallets.
 
-## `GET /api/flows`
+## `GET /v2/flows`
 
 `FlowsView` — the Tracking side of the Record's `/flows`, as a **summary, not a
 second copy**. The Record page holds the rich rows with their provenance;
@@ -533,7 +556,7 @@ HANDOFF-03's ledger records what happens when one fact lives in two files.
 }
 ```
 
-## `GET /api/labels`
+## `GET /v2/labels`
 
 Every address label from `packages/content`, filtered to `GATEWAY_NETWORK`, each
 with its `labeller`, its precedence `rank`, its `method`, its `confidence`, its
@@ -571,7 +594,7 @@ entries above — a label written into the consensus rules and a label asserted 
 one analyst — is the whole of this site's argument about labelling, which is why
 the rank travels with every label everywhere it is rendered.
 
-## `GET /api/cases`
+## `GET /v2/cases`
 
 The golden cases from `packages/content`, with each step's `amountZat` as an
 exact zatoshi string. 29,999.99 ZEC is `"2999999000000"` — which a double would
@@ -610,7 +633,7 @@ which is most of them: the research read these movements from an explorer, and
 inventing a height to fill the field would be fabricating a precision the source
 does not have.
 
-## `GET /api/snapshot` — the published snapshot, or a stated absence
+## `GET /v2/snapshot` — the published snapshot, or a stated absence
 
 **Implemented by HANDOFF-09.** This section described a `501` stub until then;
 what follows is the route as it now behaves.

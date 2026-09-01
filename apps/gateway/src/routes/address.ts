@@ -1,5 +1,5 @@
 /**
- * `GET /api/address/:addr`.
+ * `GET /v2/address/:addr`.
  *
  * The address is DECODED before anything else happens - base58check or bech32m,
  * checksum verified, version bytes read. Two rejections come out of that and

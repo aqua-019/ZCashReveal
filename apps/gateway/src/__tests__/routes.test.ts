@@ -95,7 +95,7 @@ const node: RpcHandler = (method, params) => {
 describe("A2 - the address view answers with the lockbox balance and its consensus label", () => {
   it("PASS STATE: balanceZat is the exact zatoshi string and the label is consensus", async () => {
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    const res = await h.app.inject({ method: "GET", url: `/v2/address/${LOCKBOX}` });
     expect(res.statusCode).toBe(200);
     const body = res.json() as { balanceZat: string; label: { labeller: string; rank: number } };
 
@@ -113,22 +113,58 @@ describe("A2 - the address view answers with the lockbox balance and its consens
     const h = await harness({
       handle: (m, p) => (m === "getaddressbalance" ? { balance: 1, received: 1 } : node(m, p)),
     });
-    const res = await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    const res = await h.app.inject({ method: "GET", url: `/v2/address/${LOCKBOX}` });
     expect((res.json() as { balanceZat: string }).balanceZat).toBe("1");
     await h.close();
   });
 
-  it("serves the same view under /v2, which is the path the shipped client requests", async () => {
+  /*
+   * THIS TEST USED TO COMPARE `/api` AND `/v2` AND WOULD NOW COMPARE `/v2`
+   * WITH ITSELF. HANDOFF-11 deletes the `/api` prefix, so the mechanical
+   * rewrite of every path literal in this file turned an agreement check into a
+   * tautology - green, and asserting nothing. It is replaced by the assertion
+   * the deletion actually owes: that `/api` is GONE and says so.
+   */
+  it("D2 PASS STATE: a retired /api path answers 410 and names /v2", async () => {
     const h = await harness({ handle: node });
-    const api = await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
-    const v2 = await h.app.inject({ method: "GET", url: `/v2/address/${LOCKBOX}` });
-    expect(v2.statusCode).toBe(200);
-    expect(v2.json()).toEqual(api.json());
+    const res = await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    // 410 AND NOT 404, WHICH IS THE RULING RATHER THAN A PREFERENCE. A 404 says
+    // the route never existed; a client still sending `/api` needs to be told
+    // where the API went rather than left to guess at a network fault.
+    expect(res.statusCode).toBe(410);
+    const body = res.json() as { error: string; moved: string; detail: string };
+    expect(body.error).toContain("/v2");
+    // The body names the path the caller should have used, built from theirs.
+    expect(body.moved).toBe(`/v2/address/${LOCKBOX}`);
     await h.close();
   });
 
-  it("every prefix serves every route", async () => {
+  it("D2 PASS STATE: the 410 body drops the query string, exactly as the 404 branch does", async () => {
+    // The leak this gateway closed once already, in the branch beside it:
+    // `GET /api/nope?q=uview1SECRET` must not echo the query anywhere. A new
+    // branch in the same handler is exactly where it would come back.
     const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: "/api/search?q=uview1SECRETKEYMATERIAL" });
+    expect(res.statusCode).toBe(410);
+    expect(JSON.stringify(res.json())).not.toContain("uview1SECRETKEYMATERIAL");
+    await h.close();
+  });
+
+  it("D2 FAIL STATE, BY DATA: a path that was never served is still a 404, not a 410", async () => {
+    // The member of the exclusion set: `410` means GONE, and saying it about a
+    // path that never existed is as false as saying `404` about one that did.
+    const h = await harness({ handle: node });
+    const res = await h.app.inject({ method: "GET", url: "/v3/labels" });
+    expect(res.statusCode).toBe(404);
+    await h.close();
+  });
+
+  it("every prefix serves every route, and the prefix list is not empty", async () => {
+    const h = await harness({ handle: node });
+    // THE EMPTINESS CHECK IS THE POINT NOW THAT THE TUPLE HOLDS ONE MEMBER. A
+    // loop over an empty list passes having asserted nothing, and this loop is
+    // one deletion away from being that.
+    expect(API_PREFIXES.length).toBeGreaterThan(0);
     for (const prefix of API_PREFIXES) {
       const res = await h.app.inject({ method: "GET", url: `${prefix}/labels` });
       expect(res.statusCode, `${prefix}/labels`).toBe(200);
@@ -143,7 +179,7 @@ describe("A3 - every route rejects a malformed input with 400 and a Zod issue li
     // a transaction id" are different statements, and only one of them is about
     // the chain.
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: `/api/tx/${"ab".repeat(31)}` });
+    const res = await h.app.inject({ method: "GET", url: `/v2/tx/${"ab".repeat(31)}` });
     expect(res.statusCode).toBe(400);
     const body = res.json() as { error: string; issues: { path: string; message: string }[] };
     expect(body.error).toBe("not a transaction id");
@@ -153,14 +189,14 @@ describe("A3 - every route rejects a malformed input with 400 and a Zod issue li
 
   it("PASS STATE for the same route: a 64-character txid is served", async () => {
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: `/api/tx/${HEX64}` });
+    const res = await h.app.inject({ method: "GET", url: `/v2/tx/${HEX64}` });
     expect(res.statusCode).toBe(200);
     await h.close();
   });
 
   it("a t2 address on a mainnet gateway is a 400 that says WHY", async () => {
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: `/api/address/${TESTNET_P2SH}` });
+    const res = await h.app.inject({ method: "GET", url: `/v2/address/${TESTNET_P2SH}` });
     expect(res.statusCode).toBe(400);
     const body = res.json() as { error: string; issues: { message: string }[] };
     expect(body.error).toBe("not on this network");
@@ -172,14 +208,14 @@ describe("A3 - every route rejects a malformed input with 400 and a Zod issue li
     // Without this the previous test would also pass against a gateway that
     // simply refused every t2 string for being malformed.
     const h = await harness({ handle: node, env: { GATEWAY_NETWORK: "testnet" } });
-    const res = await h.app.inject({ method: "GET", url: `/api/address/${TESTNET_P2SH}` });
+    const res = await h.app.inject({ method: "GET", url: `/v2/address/${TESTNET_P2SH}` });
     expect(res.statusCode).toBe(200);
     await h.close();
   });
 
   it("an address whose checksum does not verify is a 400 about the address, not the network", async () => {
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: "/api/address/t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYX" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/address/t3ev37Q2uL1sfTsiJQJiWJoFzQpDhmnUwYX" });
     expect(res.statusCode).toBe(400);
     expect((res.json() as { error: string }).error).toBe("not a transparent address");
     await h.close();
@@ -187,7 +223,7 @@ describe("A3 - every route rejects a malformed input with 400 and a Zod issue li
 
   it("a negative height is a 400", async () => {
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: "/api/block/-1" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/block/-1" });
     expect(res.statusCode).toBe(400);
     const body = res.json() as { error: string; issues: { message: string }[] };
     expect(body.error).toBe("not a block height");
@@ -203,7 +239,7 @@ describe("A3 - every route rejects a malformed input with 400 and a Zod issue li
     // as a true statement about the chain.
     const h = await harness({ handle: node });
     for (const bad of ["999999999999999999999", "1e9", "3.5", "0x10", " 12", "12 ", "+12", "٣"]) {
-      const res = await h.app.inject({ method: "GET", url: `/api/block/${encodeURIComponent(bad)}` });
+      const res = await h.app.inject({ method: "GET", url: `/v2/block/${encodeURIComponent(bad)}` });
       expect(res.statusCode, `"${bad}" was not rejected`).toBe(400);
     }
     // Not one of them reached the scripted node.
@@ -213,7 +249,7 @@ describe("A3 - every route rejects a malformed input with 400 and a Zod issue li
 
   it("PASS STATE for the same route: height 3456227 is served", async () => {
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: "/api/block/3456227" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/block/3456227" });
     expect(res.statusCode).toBe(200);
     expect((res.json() as { height: number }).height).toBe(3_456_227);
     await h.close();
@@ -226,15 +262,15 @@ describe("A3 - every route rejects a malformed input with 400 and a Zod issue li
         return node(m, p);
       },
     });
-    const res = await h.app.inject({ method: "GET", url: "/api/block/999999999" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/block/999999999" });
     expect(res.statusCode).toBe(404);
     await h.close();
   });
 
   it("an empty search query is a 400", async () => {
     const h = await harness({ handle: node });
-    expect((await h.app.inject({ method: "GET", url: "/api/search" })).statusCode).toBe(400);
-    expect((await h.app.inject({ method: "GET", url: "/api/search?q=" })).statusCode).toBe(400);
+    expect((await h.app.inject({ method: "GET", url: "/v2/search" })).statusCode).toBe(400);
+    expect((await h.app.inject({ method: "GET", url: "/v2/search?q=" })).statusCode).toBe(400);
     await h.close();
   });
 });
@@ -244,11 +280,11 @@ describe("A6 - the cache saves the call, and turning it off restores the call", 
     const cache = new MemoryCache();
     const h = await harness({ handle: node, cache, env: { GATEWAY_ADDRESS_CACHE_TTL_S: "60", GATEWAY_TX_CACHE_TTL_S: "60" } });
 
-    await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    await h.app.inject({ method: "GET", url: `/v2/address/${LOCKBOX}` });
     const afterFirst = h.calls().total;
     expect(afterFirst).toBeGreaterThan(0);
 
-    await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    await h.app.inject({ method: "GET", url: `/v2/address/${LOCKBOX}` });
     const second = h.calls().total - afterFirst;
 
     // ZERO, which is what A6 says. The first version of this cache kept the
@@ -268,8 +304,8 @@ describe("A6 - the cache saves the call, and turning it off restores the call", 
   it("the cached response is byte-identical to the first, which is what caching both halves together buys", async () => {
     const cache = new MemoryCache();
     const h = await harness({ handle: node, cache, env: { GATEWAY_ADDRESS_CACHE_TTL_S: "60", GATEWAY_TX_CACHE_TTL_S: "60" } });
-    const first = await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
-    const second = await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    const first = await h.app.inject({ method: "GET", url: `/v2/address/${LOCKBOX}` });
+    const second = await h.app.inject({ method: "GET", url: `/v2/address/${LOCKBOX}` });
     // The PROVENANCE legitimately differs - the second answer says it came from
     // the cache, in the balance note and in the reasoning panel - and every
     // figure must not. Stripping the two provenance strings and comparing the
@@ -292,9 +328,9 @@ describe("A6 - the cache saves the call, and turning it off restores the call", 
     const cache = new MemoryCache();
     const h = await harness({ handle: node, cache, env: { GATEWAY_ADDRESS_CACHE_TTL_S: "0", GATEWAY_TX_CACHE_TTL_S: "0" } });
 
-    await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    await h.app.inject({ method: "GET", url: `/v2/address/${LOCKBOX}` });
     const afterFirst = h.calls().total;
-    await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    await h.app.inject({ method: "GET", url: `/v2/address/${LOCKBOX}` });
 
     expect(h.calls().total - afterFirst).toBe(afterFirst);
     expect(h.calls().byMethod["getaddressbalance"]).toBe(2);
@@ -314,15 +350,15 @@ describe("A7 - no response leaks RPC credentials or an internal hostname", () =>
   it("PASS STATE: no successful response contains any of them", async () => {
     const h = await harness({ handle: node, withRedis: true });
     const urls = [
-      `/api/address/${LOCKBOX}`,
-      `/api/tx/${HEX64}`,
-      "/api/block/3456227",
-      "/api/pools/balances",
-      "/api/labels",
-      "/api/cases",
-      "/api/flows",
-      "/api/mempool",
-      "/api/search?q=3456227",
+      `/v2/address/${LOCKBOX}`,
+      `/v2/tx/${HEX64}`,
+      "/v2/block/3456227",
+      "/v2/pools/balances",
+      "/v2/labels",
+      "/v2/cases",
+      "/v2/flows",
+      "/v2/mempool",
+      "/v2/search?q=3456227",
       "/healthz",
     ];
     for (const url of urls) {
@@ -342,7 +378,7 @@ describe("A7 - no response leaks RPC credentials or an internal hostname", () =>
         throw new Error("connect ECONNREFUSED http://zebra.internal.example:8232");
       },
     });
-    for (const url of [`/api/address/${LOCKBOX}`, `/api/tx/${HEX64}`, "/api/block/1", "/api/pools/balances"]) {
+    for (const url of [`/v2/address/${LOCKBOX}`, `/v2/tx/${HEX64}`, "/v2/block/1", "/v2/pools/balances"]) {
       const res = await h.app.inject({ method: "GET", url });
       expect(res.statusCode).toBeGreaterThanOrEqual(500);
       for (const secret of SECRETS) {
@@ -356,7 +392,7 @@ describe("A7 - no response leaks RPC credentials or an internal hostname", () =>
     // Without this, an assertion that greps for three strings would pass just
     // as well against a gateway that returned an empty body for everything.
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: "/api/search?q=zebra.internal.example" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/search?q=zebra.internal.example" });
     expect(res.statusCode).toBe(200);
     // /search echoes nothing, so even this does not leak - assert the detector
     // against a body that genuinely holds the string.
@@ -371,7 +407,7 @@ describe("the search endpoint keeps a viewing key out of the response", () => {
   it("classifies a key and echoes nothing derived from it", async () => {
     const key = "uview1qqqqqqqqqqqqqqqqqqqqqqexamplekeynotreal";
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: `/api/search?q=${key}` });
+    const res = await h.app.inject({ method: "GET", url: `/v2/search?q=${key}` });
     expect(res.statusCode).toBe(200);
     const body = res.json() as { kind: string; href: string | null };
     expect(body.kind).toBe("viewing-key");
@@ -384,7 +420,7 @@ describe("the search endpoint keeps a viewing key out of the response", () => {
 
   it("makes no RPC call at all for a viewing key", async () => {
     const h = await harness({ handle: node });
-    await h.app.inject({ method: "GET", url: "/api/search?q=zxviews1example" });
+    await h.app.inject({ method: "GET", url: "/v2/search?q=zxviews1example" });
     expect(h.calls().total).toBe(0);
     await h.close();
   });
@@ -393,7 +429,7 @@ describe("the search endpoint keeps a viewing key out of the response", () => {
 describe("the pools endpoints", () => {
   it("map six pools onto five lanes and report the lockbox separately", async () => {
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: "/api/pools/balances" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/pools/balances" });
     expect(res.statusCode).toBe(200);
     const body = res.json() as {
       lanes: { lane: string; zat: string }[];
@@ -421,14 +457,14 @@ describe("the pools endpoints", () => {
             }
           : node(m, p),
     });
-    const res = await h.app.inject({ method: "GET", url: "/api/pools/balances" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/pools/balances" });
     expect(res.statusCode).toBe(500);
     await h.close();
   });
 
   it("answers 503 for the full view, naming every block it cannot compute and where it is routed", async () => {
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: "/api/pools" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/pools" });
     expect(res.statusCode).toBe(503);
     const body = res.json() as { missing: { block: string; owner: string }[] };
     expect(body.missing.map((m) => m.block).sort()).toEqual(["denominations", "history", "neff", "unsoundBands"]);
@@ -475,7 +511,7 @@ describe("the pools endpoints", () => {
       handle: node,
       env: { SNAPSHOT_FILE: join(tmpdir(), "zecreveal-gateway-no-such-directory", "snapshot.json") },
     });
-    const res = await h.app.inject({ method: "GET", url: "/api/snapshot" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/snapshot" });
     expect(res.statusCode).toBe(503);
     expect(res.statusCode).not.toBe(200);
     expect((res.json() as { reason: string }).reason).toBe("absent");
@@ -486,7 +522,7 @@ describe("the pools endpoints", () => {
 describe("the content-backed routes", () => {
   it("serves every label with its labeller and its precedence rank", async () => {
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: "/api/labels" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/labels" });
     const body = res.json() as { address: string; labeller: string; rank: number }[];
     expect(body.length).toBeGreaterThan(0);
     for (const l of body) {
@@ -500,7 +536,7 @@ describe("the content-backed routes", () => {
 
   it("serves the cases with their steps as exact zatoshi strings", async () => {
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: "/api/cases" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/cases" });
     const body = res.json() as { id: string; steps: { amountZat: string }[] }[];
     expect(body.length).toBeGreaterThan(0);
     // 29999.99 ZEC is 2999999000000 zatoshi exactly, and a double would in fact
@@ -513,7 +549,7 @@ describe("the content-backed routes", () => {
 
   it("serves the flows summary with the case it summarises", async () => {
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: "/api/flows" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/flows" });
     expect(res.statusCode).toBe(200);
     expect((res.json() as { case: { id: string } }).case.id).toBe("K-2026-01-02");
     await h.close();
@@ -521,7 +557,7 @@ describe("the content-backed routes", () => {
 
   it("serves an empty mempool as empty, and says which it is", async () => {
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: "/api/mempool" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/mempool" });
     expect(res.statusCode).toBe(200);
     const body = res.json() as { entries: unknown[]; summary: { unconfirmed: number; findingsNote: string } };
     expect(body.entries).toEqual([]);
@@ -538,7 +574,7 @@ describe("the content-backed routes", () => {
     // replaced the fixture. Pinned here so the two producers cannot drift
     // apart again.
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: "/api/mempool" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/mempool" });
     const body = res.json() as { summary: { conventionalFeeZat: string; feeWeather: string } };
     expect(body.summary.conventionalFeeZat).toBe("10000");
     // And an empty mempool does not claim every transaction in it pays that
@@ -558,7 +594,7 @@ describe("the DTO boundary", () => {
       handle: (m, p) =>
         m === "getblock" ? { hash: "cd".repeat(32), height: 5, time: 1, tx: [], size: 1 } : node(m, p),
     });
-    const res = await h.app.inject({ method: "GET", url: "/api/block/5" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/block/5" });
     // An empty block satisfies the schema, so this one is a 200 - the assertion
     // is that the response went THROUGH the schema, which the next case proves.
     expect(res.statusCode).toBe(200);
@@ -567,7 +603,7 @@ describe("the DTO boundary", () => {
 
   it("every zatoshi crosses the wire as a decimal string, never as a number", async () => {
     const h = await harness({ handle: node });
-    const res = await h.app.inject({ method: "GET", url: `/api/address/${LOCKBOX}` });
+    const res = await h.app.inject({ method: "GET", url: `/v2/address/${LOCKBOX}` });
     const body = res.json() as Record<string, unknown>;
     for (const key of ["balanceZat", "receivedZat", "sentZat", "netToPoolZat"]) {
       expect(typeof body[key], `${key} is not a string`).toBe("string");

@@ -141,8 +141,11 @@ jobs:
       # the three rejection counts, so a window in which two links were refused
       # rendered "Nothing was refused" - with countIn 3 and countOut 1 on the
       # same record. `tsc` was silent because reading two fields of three is
-      # legal. This also stands in for a test that cannot exist: legacy/dashboard
-      # has no test script, so that fix shipped with no fail-side transcript.
+      # legal. It stood in for a test that could not exist - legacy/dashboard had
+      # no test script, so that fix shipped with no fail-side transcript - and
+      # HANDOFF-11 retired that directory, which closed the gap by deleting the
+      # code. What remains is the rule over apps and packages, which was never
+      # about the dashboard.
       - name: Audit consumers (no partial read of a variant's params)
         run: node scripts/check-audit-consumers.mjs
 

@@ -1,5 +1,5 @@
 /**
- * `GET /api/cases` - the golden cases, from `packages/content`.
+ * `GET /v2/cases` - the golden cases, from `packages/content`.
  *
  * A case is a documented sequence of movements with a verdict and its sources.
  * It is served as the seed states it, with no re-derivation: HANDOFF-03's gate

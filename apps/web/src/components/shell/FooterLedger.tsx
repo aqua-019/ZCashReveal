@@ -1,5 +1,4 @@
-import type { ChainTip } from "@/lib/chain";
-import { fmtBlockAge } from "@/lib/format";
+import type { SnapshotFault, SnapshotSource } from "@/lib/snapshot/source";
 
 /**
  * The footer ledger: four numbered lines stating what this site does and
@@ -18,7 +17,11 @@ const LINES: readonly string[] = [
   "Every statement in the Record carries a source and a confidence. Unverified claims are kept off the site. Report uncertainty, not identity.",
 ];
 
-export function FooterLedger({ tip }: { readonly tip: ChainTip }) {
+export function FooterLedger({
+  status,
+}: {
+  readonly status: { readonly source: SnapshotSource; readonly faults: readonly SnapshotFault[] };
+}) {
   return (
     <footer className="ledgerfoot" data-ui="footer-ledger">
       <div className="lines">
@@ -33,7 +36,20 @@ export function FooterLedger({ tip }: { readonly tip: ChainTip }) {
       </div>
       <div className="meta">
         <span>
-          BUILD 2.0-scaffold · SNAPSHOT {fmtBlockAge(tip.snapshotAgeBlocks)} · AMBIENCE seeded by tip hash (FNV-1a to mulberry32)
+          {/*
+            THE FOOTER STATES PROVENANCE, NEVER THE AGE, and the difference is
+            not cosmetic. The age is a LIVE quantity: it is the gap between the
+            document's height and the tip the browser has since learned about,
+            so it is known only to the client island in the system bar. A
+            server-rendered copy here would read `snapshot age: 0 blocks`
+            forever while the bar read `3 blocks`, which is two renderings of
+            one quantity that CAN disagree - the defect
+            `lib/api/fixtures/snapshot.ts` was written to avoid on the pool
+            balances, arriving in the shell instead. What the server does know,
+            and what a reader needs beside the build id, is which rung the
+            document came from.
+          */}
+          BUILD 2.0-scaffold · SOURCE {status.source} · AMBIENCE seeded by tip hash (FNV-1a to mulberry32)
         </span>
         <span>BUILT FOR CYPHERPUNKS, NOT FOR COMPLIANCE</span>
       </div>

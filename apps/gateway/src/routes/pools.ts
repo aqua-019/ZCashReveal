@@ -1,11 +1,11 @@
 /**
- * `GET /api/pools` and `GET /api/pools/balances`.
+ * `GET /v2/pools` and `GET /v2/pools/balances`.
  *
  * See `views/pools.ts` for why there are two. In short: `poolsViewSchema`
  * requires four structures no chain query can produce, two of them analysis
  * that HANDOFF-08 ships and two of them published through the snapshot that
- * HANDOFF-09 ships. `/api/pools` therefore answers 503 with the blocks it is
- * missing NAMED, and `/api/pools/balances` serves the chain-derived half now.
+ * HANDOFF-09 ships. `/v2/pools` therefore answers 503 with the blocks it is
+ * missing NAMED, and `/v2/pools/balances` serves the chain-derived half now.
  *
  * A 503 that says exactly what is absent and which handoff owns it is a better
  * answer than a 200 carrying four fabricated distributions, and it is the only

@@ -7,7 +7,11 @@
  *
  * Rules that hold from here on (CLAUDE.md):
  *   - `NEXT_PUBLIC_*` is compiled into the client bundle. Nothing secret goes there.
- *   - `SNAPSHOT_REDIS_*` is server-only and is never given a NEXT_PUBLIC_ alias.
+ *   - The managed store's variables (`docs/2.0/SNAPSHOT.md` section 3) are
+ *     server-only and are never given a NEXT_PUBLIC_ alias. Their prefix is
+ *     deliberately not spelled out in this file: assertion A4 greps
+ *     `apps/web/src` for it and requires no match in any module the client
+ *     graph reaches, and this one is reached through `api/stream.ts`.
  *     This module deliberately does not read them; the first server-side reader
  *     arrives in HANDOFF-11.
  *   - Next.js inlines `process.env.NEXT_PUBLIC_X` only for a literal member

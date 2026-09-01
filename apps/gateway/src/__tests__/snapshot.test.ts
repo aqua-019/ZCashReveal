@@ -12,7 +12,7 @@ import { WS_SNAPSHOT_CHANNEL } from "../ws-broker.js";
 /**
  * Assertion A9, both halves and both polarities.
  *
- * A9: "GET /api/snapshot returns the latest file with `Cache-Control: max-age=60`;
+ * A9: "GET /v2/snapshot returns the latest file with `Cache-Control: max-age=60`;
  * the WS snapshot frame is the first frame a new client receives."
  *
  * THE FILE IS REAL AND SO IS THE SERVER. Every test here writes an actual
@@ -89,12 +89,12 @@ async function write(document: unknown): Promise<void> {
   await writeFile(file, JSON.stringify(document), "utf8");
 }
 
-describe("A9 - GET /api/snapshot serves the latest file with Cache-Control: max-age=60", () => {
+describe("A9 - GET /v2/snapshot serves the latest file with Cache-Control: max-age=60", () => {
   it("A9 PASS STATE: the published document is served with max-age=60, and it is a V1", async () => {
     await write(fixtureDocument());
     const h = await harness({ handle: noNode, env: { SNAPSHOT_FILE: file } });
 
-    const res = await h.app.inject({ method: "GET", url: "/api/snapshot" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/snapshot" });
     expect(res.statusCode).toBe(200);
     expect(res.headers["cache-control"]).toBe("max-age=60");
 
@@ -118,28 +118,43 @@ describe("A9 - GET /api/snapshot serves the latest file with Cache-Control: max-
     await h.close();
   });
 
-  it("A9 PASS STATE: /v2/snapshot serves the same document, since the shipped client uses that prefix", async () => {
+  /*
+   * THIS COMPARED `/api/snapshot` WITH `/v2/snapshot` AND WOULD NOW COMPARE
+   * `/v2` WITH ITSELF - a tautology the mechanical prefix rewrite created.
+   * Replaced by what the deletion owes: `/v2/snapshot` still serves the
+   * document with its cache header, and `/api/snapshot` is gone.
+   */
+  it("A9 PASS STATE: /v2/snapshot serves the document with max-age=60, and /api/snapshot is 410", async () => {
     await write(fixtureDocument());
     const h = await harness({ handle: noNode, env: { SNAPSHOT_FILE: file } });
-    const api = await h.app.inject({ method: "GET", url: "/api/snapshot" });
+
     const v2 = await h.app.inject({ method: "GET", url: "/v2/snapshot" });
     expect(v2.statusCode).toBe(200);
     expect(v2.headers["cache-control"]).toBe("max-age=60");
-    expect(v2.json()).toEqual(api.json());
+    expect(snapshotV1Schema.safeParse(v2.json()).success).toBe(true);
+
+    const retired = await h.app.inject({ method: "GET", url: "/api/snapshot" });
+    expect(retired.statusCode).toBe(410);
+    expect((retired.json() as { moved: string }).moved).toBe("/v2/snapshot");
+    // AND IT IS NOT AN EMPTY 200, which is the argument the 501 stub made and
+    // which still binds: an empty 200 would satisfy `apps/web`'s snapshot
+    // source and stop the fall-through. A 410 cannot be mistaken for a
+    // document.
+    expect(snapshotV1Schema.safeParse(retired.json()).success).toBe(false);
     await h.close();
   });
 
   it("A9 PASS STATE: the body is the file on disk and not a constant - a second height serves that height", async () => {
     await write(fixtureDocument({ height: 3_456_228, hash: "cd".repeat(32) }));
     const h = await harness({ handle: noNode, env: { SNAPSHOT_FILE: file } });
-    const res = await h.app.inject({ method: "GET", url: "/api/snapshot" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/snapshot" });
     expect((res.json() as { height: number }).height).toBe(3_456_228);
     await h.close();
   });
 
   it("A9 FAIL STATE: with no snapshot file the route answers 503, and NEVER an empty 200", async () => {
     const h = await harness({ handle: noNode, env: { SNAPSHOT_FILE: missingPath() } });
-    const res = await h.app.inject({ method: "GET", url: "/api/snapshot" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/snapshot" });
 
     expect(res.statusCode).toBe(503);
     expect(res.statusCode).not.toBe(200);
@@ -168,7 +183,7 @@ describe("A9 - a snapshot file that fails snapshotV1Schema is not served as a 20
     await write(document);
     const h = await harness({ handle: noNode, env: { SNAPSHOT_FILE: file } });
 
-    const res = await h.app.inject({ method: "GET", url: "/api/snapshot" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/snapshot" });
     expect(res.statusCode).toBe(503);
     const body = res.json() as { reason: string; issues: { path: string }[] };
     expect(body.reason).toBe("invalid");
@@ -182,7 +197,7 @@ describe("A9 - a snapshot file that fails snapshotV1Schema is not served as a 20
     // result rather than a guess because `schema` is a literal.
     await write(fixtureDocument({ schema: 2 }));
     const h = await harness({ handle: noNode, env: { SNAPSHOT_FILE: file } });
-    const res = await h.app.inject({ method: "GET", url: "/api/snapshot" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/snapshot" });
     expect(res.statusCode).toBe(503);
     expect((res.json() as { reason: string }).reason).toBe("invalid");
     await h.close();
@@ -195,7 +210,7 @@ describe("A9 - a snapshot file that fails snapshotV1Schema is not served as a 20
     // values would.
     await write(fixtureDocument({ pools: [{ lane: "orchard", balanceZat: 70_884_100_000_000, share: 0.042 }] }));
     const h = await harness({ handle: noNode, env: { SNAPSHOT_FILE: file } });
-    const res = await h.app.inject({ method: "GET", url: "/api/snapshot" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/snapshot" });
     expect(res.statusCode).toBe(503);
     expect((res.json() as { reason: string }).reason).toBe("invalid");
     await h.close();
@@ -204,7 +219,7 @@ describe("A9 - a snapshot file that fails snapshotV1Schema is not served as a 20
   it("FAIL STATE: a half-written file is a 503 with reason `malformed`, and the parser's words are not echoed", async () => {
     await writeFile(file, '{"schema":1,"height":34', "utf8");
     const h = await harness({ handle: noNode, env: { SNAPSHOT_FILE: file } });
-    const res = await h.app.inject({ method: "GET", url: "/api/snapshot" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/snapshot" });
     expect(res.statusCode).toBe(503);
     const body = res.json() as { reason: string; detail: string };
     expect(body.reason).toBe("malformed");
@@ -318,7 +333,14 @@ describe("A9 - the WS snapshot frame is the FIRST frame a new client receives", 
     // The mempool snapshot still goes out, second. It was not replaced.
     const second = stream.frames[1];
     expect(second?.channel).toBe("zcashreveal:mempool");
-    expect((second?.payload as { type: string }).type).toBe("mempool_snapshot");
+    // `snapshot` AND NOT `mempool_snapshot` SINCE HANDOFF-11. The old type
+    // named no member of `zecFrameSchema`, so the one frame that exists to fill
+    // the table on connect filled nothing: `apps/web`'s guard switches on
+    // `type` and dropped it into its default arm without a throw. The payload
+    // is now the `MempoolView` that union's `snapshot` arm carries, which is
+    // the same shape `GET /v2/mempool` serves, built by the same function.
+    expect((second?.payload as { type: string }).type).toBe("snapshot");
+    expect((second?.payload as { view: { entries: unknown[] } }).view.entries).toEqual([]);
 
     stream.close();
     await h.close();
@@ -339,7 +361,7 @@ describe("A9 - the WS snapshot frame is the FIRST frame a new client receives", 
     await h.close();
   });
 
-  it("A9 PASS STATE: the frame and GET /api/snapshot carry the identical document", async () => {
+  it("A9 PASS STATE: the frame and GET /v2/snapshot carry the identical document", async () => {
     // The two go through the same `toJsonSafe`, one of them behind `respond`.
     // That they therefore agree is an argument; this is the measurement, and it
     // is what stops the WebSocket half and the REST half drifting into two
@@ -349,7 +371,7 @@ describe("A9 - the WS snapshot frame is the FIRST frame a new client receives", 
     const h = await harness({ handle: noNode, env: { SNAPSHOT_FILE: file } });
     const stream = await openStream(h);
     await stream.waitFor(1);
-    const res = await h.app.inject({ method: "GET", url: "/api/snapshot" });
+    const res = await h.app.inject({ method: "GET", url: "/v2/snapshot" });
 
     const framed = (stream.frames[0]?.payload as { snapshot: unknown }).snapshot;
     expect(framed).toEqual(res.json());

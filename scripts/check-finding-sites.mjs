@@ -251,10 +251,16 @@ const FINDINGS = [
     // Probed at gate round 6, having shipped without one - see the loop below.
     probe: "with two candidates in range, two grade MEDIUM and the rest LOW",
     antiProbe: "with two candidates in range, a rival puts the match in the LOW clause by itself",
-    sites: [
-      "apps/indexer/src/analysis/echo.ts",
-      "legacy/dashboard/src/components/CandidatesPanel.tsx",
-    ],
+    // THE SECOND SITE WAS `legacy/dashboard/src/components/CandidatesPanel.tsx`
+    // AND IT WAS RETIRED, NOT SILENTLY DROPPED. HANDOFF-11 section 1 deletes
+    // `legacy/dashboard`: the two v0.2 Vercel projects were removed on 23 Aug
+    // 2026 and nothing has deployed it since, so the retirement is a `git rm`.
+    // The finding was CLOSED at that site before it went - the row is kept with
+    // its remaining site so the record of what was fixed survives the file, and
+    // a site list that named a deleted path would fail this guard as "missing",
+    // which is the right behaviour and the reason this note exists rather than
+    // a quiet edit.
+    sites: ["apps/indexer/src/analysis/echo.ts"],
   },
   {
     id: "R3-ROWS",
@@ -376,10 +382,13 @@ const FINDINGS = [
     absent: /a reader was being shown the side the law does not bound|ONE SUBSTANTIVE DEFECT ROUND 4 FOUND IN SHIPPED CODE/i,
     probe: "match, so a reader was being shown the side the law does not bound.",
     antiProbe: "match, so this line stated the side the law does not bound.",
-    sites: [
-      "legacy/dashboard/src/components/CandidatesPanel.tsx",
-      "handoffs/HANDOFF-08-analysis-toolkit.md",
-    ],
+    // Same retirement as R2-GRADE above, and this row is the more interesting
+    // case: the finding's whole point was that `legacy/dashboard`'s
+    // `parsers.ts` coerced an unknown record into an inert `time_window`, so
+    // the conservation arm was UNREACHABLE there and no reader ever saw the
+    // defect. Deleting the app closes it by removing the code, which is a
+    // stronger close than the fix was.
+    sites: ["handoffs/HANDOFF-08-analysis-toolkit.md"],
   },
   {
     id: "R4-COUNT",

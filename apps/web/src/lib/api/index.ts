@@ -6,21 +6,34 @@
  * `FixtureApi` or `HttpApi`, so HANDOFF-11's cutover is an edit to this file
  * and to nothing under `src/app`.
  *
- * FIXTURE IS THE ONLY MODE WIRED IN THIS HANDOFF, and the selection deliberately
- * fails CLOSED rather than open. `snapshot` and `live` are reserved names that
- * HANDOFF-09 and HANDOFF-11 fill in; until they do, selecting one of them gets
- * the fixture rather than a client pointed at an empty `NEXT_PUBLIC_API_URL`.
- * That is the same shape as the dev-surface gate in `lib/env.ts`: a
- * misconfigured deployment must degrade to something honest, not to a page of
- * failed requests.
+ * HANDOFF-11 IS THE COMMIT THAT SELECTS THE SECOND IMPLEMENTATION, and the
+ * selection still fails CLOSED. `snapshot` and `live` now reach `HttpApi` - but
+ * only when `NEXT_PUBLIC_API_URL` is also set, because a mode without a URL is
+ * a deployment that forgot a variable, and the honest answer to that is
+ * committed values with the disclosure switched ON rather than a page of failed
+ * requests. Same shape as the dev-surface gate in `lib/env.ts`: a misconfigured
+ * deployment must degrade to something honest.
  *
- * `DATA_MODE` is deliberately not read here. It was, and a gate round found the
- * consequence: the selection ignored it while `IS_FIXTURE` was computed from
- * it, so the two disagreed under any mode but `fixture`. This file will read it
- * again when there is a second implementation to select, and `IS_FIXTURE` will
- * still be derived from what was selected rather than from what was asked for.
+ * `DATA_MODE` IS READ HERE AGAIN, WHICH IT WAS NOT, and the reason it was not
+ * is worth keeping. A gate round found the selection ignoring it while
+ * `IS_FIXTURE` was computed from it, so the two disagreed under any mode but
+ * `fixture`: the page served committed values with the disclosure switched OFF.
+ * The rule that fixed it is the one below - `IS_FIXTURE` is a fact about what
+ * `api()` RETURNED, never a second reading of the same variable - and it is
+ * what makes reading `DATA_MODE` here safe now that there is something to
+ * select.
+ *
+ * THE SNAPSHOT IS NOT ONE OF THESE IMPLEMENTATIONS. `lib/snapshot/store.ts` is
+ * a separate, server-only path: it supplies the BASELINE every page renders
+ * from - the tip, the pool lanes, the plane's document - and `api()` supplies
+ * what the gateway alone can answer. A page that could not reach the gateway
+ * still renders, which is the whole design goal, and it says which panels it
+ * could not check.
  */
+import { API_URL, DATA_MODE, WS_URL } from "@/lib/env";
+
 import { FixtureApi } from "./fixture-api";
+import { HttpApi } from "./http-api";
 import type { ZecApi } from "./zec-api";
 
 let instance: ZecApi | undefined;
@@ -30,7 +43,15 @@ let instance: ZecApi | undefined;
  * component subscribes to is per-subscription rather than per-instance.
  */
 export function api(): ZecApi {
-  instance ??= new FixtureApi();
+  // FAIL CLOSED, AND THE CONDITION IS THE CONFIGURATION RATHER THAN THE MODE
+  // ALONE. `NEXT_PUBLIC_DATA_MODE=live` with no `NEXT_PUBLIC_API_URL` is a
+  // deployment that forgot a variable, and the honest answer to that is
+  // committed values with the disclosure switched ON - not a page of failed
+  // requests. Both are read because either alone is a half-configured client.
+  instance ??=
+    DATA_MODE !== "fixture" && API_URL !== ""
+      ? new HttpApi({ baseUrl: API_URL, wsUrl: WS_URL })
+      : new FixtureApi();
   return instance;
 }
 

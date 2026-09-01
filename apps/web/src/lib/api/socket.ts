@@ -267,3 +267,36 @@ export function parseFrame(data: unknown): unknown {
     return undefined;
   }
 }
+
+/**
+ * The gateway wraps every frame as `{ channel, payload }`; the fixture stream
+ * writes a bare one. This reads both, and the tolerance is deliberate.
+ *
+ * WHAT WAS WRONG BEFORE, AND IT WAS SILENT. `apps/gateway`'s `ws-broker.ts`
+ * has emitted `{ channel, payload }` since HANDOFF-05, and this guard switched
+ * on a top-level `type`. An enveloped frame therefore hit the `default` arm and
+ * was DROPPED - counted in `ZecSocket.droppedFrames`, never thrown, never
+ * rendered. The panel would have read "live" while receiving nothing, on a
+ * socket that was connected and healthy. Nothing in the suite could see it:
+ * the fixture stream writes bare frames, so every test drove the one shape that
+ * worked.
+ *
+ * The gateway now puts a real `ZecFrame` in `payload` - the reconciliation
+ * `ws-broker.ts`'s docblock promised HANDOFF-11 would do - so the two sides
+ * differ by exactly one wrapper, and this removes it.
+ *
+ * `channel` IS NOT READ. It says which producer a frame came from, which is an
+ * operator's question rather than a renderer's; the payload's own `type` is
+ * what this build narrows on, and reading both would be two discriminators for
+ * one decision.
+ */
+export function unwrapEnvelope(f: Record<string, unknown>): Record<string, unknown> {
+  const payload = f["payload"];
+  if (typeof f["channel"] === "string" && typeof payload === "object" && payload !== null) {
+    // ONE LEVEL ONLY. A doubly-wrapped frame is a producer defect, not a shape
+    // to accommodate, and unwrapping until something looks right is how a guard
+    // stops discriminating.
+    return payload as Record<string, unknown>;
+  }
+  return f;
+}

@@ -60,6 +60,24 @@ export const POOL_SW: Record<PoolKey, string> = {
   ironwood: "i",
 };
 
+/**
+ * The consensus rule that governs each lane.
+ *
+ * STATIC METADATA, NOT A MEASUREMENT, and separating it from the balances is
+ * what lets `/pools` render its table when the gateway is unreachable. A rule
+ * is a property of the protocol at a given upgrade; a balance is a reading of
+ * the chain. They used to travel together inside `PoolsView.balances`, so the
+ * whole table - rules included - was unavailable whenever the view was, which
+ * made a fact nobody has to fetch depend on a fetch.
+ */
+export const POOL_RULE: Record<PoolKey, string> = {
+  transparent: "public",
+  sprout: "migration-only - ZIP 308",
+  sapling: "Bal >= 0",
+  orchard: "exit-only - ZIP 2006",
+  ironwood: "Bal >= 0 - ZIP 209",
+};
+
 export const POOL_LABEL: Record<PoolKey, string> = {
   transparent: "Transparent",
   sprout: "Sprout",
@@ -74,4 +92,41 @@ export function fmtTipTime(timeMs: number): string {
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const pad = (n: number): string => n.toString().padStart(2, "0");
   return `${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()} - ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`;
+}
+
+/**
+ * The chain tip a page renders, taken from the published document.
+ *
+ * WHY THIS REPLACES `FIXTURE_TIP` AT THE LAYOUT AND NOT EVERYWHERE. Every
+ * consumer already takes a `ChainTip`, which is what this module's header
+ * predicted, so the cutover is one call in `app/layout.tsx`. What it is NOT is
+ * a second source of truth: the height, the hash and the time all come from the
+ * one document the store resolved, so the ambience seed, the clock and the
+ * staleness reading are a pure function of the same block.
+ *
+ * `snapshotAgeBlocks` IS ZERO HERE AND THAT IS NOT A PLACEHOLDER. The age is a
+ * difference between the document's height and the tip the page knows, and on a
+ * server render the document IS the tip the page knows. It becomes non-zero in
+ * the browser when a `tip` frame arrives naming a later block, which is the one
+ * moment the page learns the document is behind. A server-rendered non-zero age
+ * would have to come from a clock comparison, and `SnapshotV1` carries two
+ * timestamps for two different purposes precisely so that nobody measures
+ * staleness against the reader's clock.
+ */
+export function tipFromSnapshot(doc: {
+  readonly height: number;
+  readonly hash: string;
+  readonly time: string;
+}): ChainTip {
+  const parsed = Date.parse(doc.time);
+  return {
+    height: doc.height,
+    hash: doc.hash,
+    // `time` is validated as ISO 8601 by `snapshotV1Schema`, so `Date.parse`
+    // cannot be NaN for a document that reached here. The fallback is not
+    // defensive programming, it is the one branch a hand-built test fixture
+    // could otherwise take into a `Invalid Date` render.
+    timeMs: Number.isNaN(parsed) ? 0 : parsed,
+    snapshotAgeBlocks: 0,
+  };
 }

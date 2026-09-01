@@ -1,5 +1,5 @@
 /**
- * `GET /api/block/:height`.
+ * `GET /v2/block/:height`.
  *
  * A negative height is a 400, not a 404: assertion A3's third case. The node
  * would answer -8 for a height above the tip, which IS a 404 - "the chain does

@@ -398,7 +398,7 @@ key-shaped runs from what remains, and refuses to echo either back to a caller.
 balancer log full URLs by default, so a viewing key that arrives at
 
 ```
-https://api.zecreveal.example/api/search?q=uview1...
+https://api.zecreveal.example/v2/search?q=uview1...
 ```
 
 is written to the proxy's access log whatever the application does. A viewing key
@@ -440,7 +440,7 @@ hour-old number believing it is live.
 **THE READER-SIDE VERSION OF THIS ALERT CANNOT BE WRITTEN YET, AND SAYING SO IS
 THE POINT.** The right measurement is the height the public site is serving,
 because a publisher that believes it is publishing and a store that is not
-receiving look identical from the box. But `/api/pools` answers **503** today -
+receiving look identical from the box. But `/v2/pools` answers **503** today -
 deliberately, naming the handoffs that owe it data rather than fabricating any -
 and there is no published snapshot to read until HANDOFF-09 ships the publisher.
 An alert written against a field that does not exist would fire on day one,

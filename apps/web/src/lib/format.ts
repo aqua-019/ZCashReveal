@@ -64,10 +64,31 @@ export function fmtElapsed(fromMs: number, nowMs: number): string {
   return `${Math.floor(delta / 86_400_000)}d`;
 }
 
-/** Snapshot age in blocks, as the stale-but-honest contract renders it. */
-export function fmtBlockAge(blocks: number): string {
-  if (blocks <= 0) return "tip";
-  return `${fmtInt(blocks)} block${blocks === 1 ? "" : "s"} behind`;
+/**
+ * The staleness reading the system bar and the footer ledger both print.
+ *
+ * ONE FUNCTION FOR BOTH CALL SITES, so the two cannot disagree about how far
+ * behind the document is. They are two renderings of one quantity, which is
+ * only safe because they share a source AND a formatter; the defect that rule
+ * is written against is two renderings that share neither.
+ */
+export function fmtSnapshotAge(blocks: number): string {
+  // ALWAYS A DIGIT, INCLUDING AT THE TIP, and that is the change HANDOFF-11
+  // made. This function used to be `fmtBlockAge` and returned the bare word
+  // `tip` for a zero age - a string with no digit in it - which assertion A2's
+  // `/snapshot age: \d+ blocks/` cannot match, and which reads as a claim
+  // ("this IS the tip") where `snapshot age: 0 blocks` reads as the measurement
+  // it is. The alternative was a second, differently-worded indicator beside
+  // the first, which is two renderings of one quantity: the defect
+  // `lib/api/fixtures/snapshot.ts` was written to avoid on the pool balances.
+  //
+  // A NEGATIVE AGE IS CLAMPED RATHER THAN PRINTED. A snapshot ahead of the tip
+  // the page believes in is a reorg or a stale tip frame, and "-2 blocks" is a
+  // measurement of neither. `snapshotAgeBlocks` clamps at the source too; this
+  // is the second half of the same rule, kept here because this function is
+  // also called with a raw difference in the footer.
+  const behind = blocks > 0 ? blocks : 0;
+  return `snapshot age: ${fmtInt(behind)} block${behind === 1 ? "" : "s"}`;
 }
 
 /** A percentage with a fixed number of decimals and no locale drift. */

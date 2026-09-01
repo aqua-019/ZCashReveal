@@ -30,7 +30,7 @@ import type { WebSocket } from "ws";
 import type { CacheStore } from "./cache.js";
 import { secretValues, trustProxyFor, type GatewayConfig } from "./config.js";
 import type { GatewayApp } from "./routes/deps.js";
-import { registerReadRoutes } from "./routes/index.js";
+import { API_PREFIXES, RETIRED_API_PREFIX, registerReadRoutes } from "./routes/index.js";
 import { toStatus } from "./routes/errors.js";
 import { readSnapshotFile } from "./snapshot-source.js";
 import { WsBroker, snapshotFrame, snapshotV1Frame } from "./ws-broker.js";
@@ -139,7 +139,12 @@ export async function buildServer(options: BuildServerOptions): Promise<BuiltSer
   if (subscriber !== null) {
     await subscriber.subscribe(REDIS_CHANNELS.mempool, REDIS_CHANNELS.tip);
     subscriber.on("message", (channel: string, message: string) => {
-      broker.broadcast(broker.translate(channel, message));
+      // A message that maps to no client frame is dropped by `translate`, with
+      // the channel logged. Broadcasting it would push a payload every consumer
+      // discards one layer further on, where nothing can say where it came
+      // from.
+      const frame = broker.translate(channel, message, Date.now());
+      if (frame !== null) broker.broadcast(frame);
     });
   }
 
@@ -213,8 +218,11 @@ export async function buildServer(options: BuildServerOptions): Promise<BuiltSer
         }
 
         try {
+          // The frame's tip height is derived from the reports themselves -
+          // see `snapshotFrame`, which explains why neither the snapshot nor
+          // the node may supply it.
           const reports = reader === null ? [] : await readLive(reader);
-          socket.send(JSON.stringify(snapshotFrame(reports)));
+          socket.send(JSON.stringify(snapshotFrame(reports, Date.now())));
         } catch (err) {
           log.warn({ err }, "failed to send snapshot");
         }
@@ -251,10 +259,10 @@ export async function buildServer(options: BuildServerOptions): Promise<BuiltSer
    * `Route ${method}:${request.url} not found` with the URL verbatim - query
    * string included. Executed before this handler existed:
    *
-   *   GET /api/nope?q=uview1SECRETKEYMATERIAL -> 404
-   *   {"message":"Route GET:/api/nope?q=uview1SECRETKEYMATERIAL not found", ...}
+   *   GET /v2/nope?q=uview1SECRETKEYMATERIAL -> 404
+   *   {"message":"Route GET:/v2/nope?q=uview1SECRETKEYMATERIAL not found", ...}
    *
-   * `/api/search` is built so that a viewing key which arrives is neither
+   * `/v2/search` is built so that a viewing key which arrives is neither
    * logged nor echoed. This was the same leak through the back door, reachable
    * by a typo or by a client built against a different API version. The method
    * and the PATH are enough to tell a caller what happened; the query string
@@ -262,6 +270,40 @@ export async function buildServer(options: BuildServerOptions): Promise<BuiltSer
    */
   app.setNotFoundHandler((req, reply) => {
     const path = req.url.split("?")[0] ?? req.url;
+
+    /*
+     * `/api` IS GONE AND ANSWERS 410, NOT 404 (HANDOFF-11 deliverable 2).
+     *
+     * HANDOFF-05 served every route under both `/api` and `/v2` because its own
+     * spec named one and the shipped client sent the other. L2 ruled that
+     * "`/api` is not a version, it is a category, and the moment a v3 exists
+     * the name lies", so the prefix is deleted - and the ruling names the
+     * status: **410 with a body naming `/v2`**, because a 404 says the route
+     * never existed and a client still sending `/api` needs to be told where
+     * the API went rather than left to guess at a network fault.
+     *
+     * 410 IS "GONE", WHICH IS THE ONE STATUS THAT IS TRUE HERE. It is
+     * permanent, it is cacheable by default where 404 is not, and it
+     * distinguishes a retired path from a typo - which is exactly the
+     * distinction a caller needs to act on.
+     *
+     * THE QUERY STRING IS STILL DROPPED. Everything the 404 branch below says
+     * about `/v2/nope?q=uview1...` applies verbatim to this one: `path` is
+     * already split, and `detail` carries the method and the path and nothing
+     * else. The rewritten path is built from the SPLIT path for the same
+     * reason - echoing `req.url` here would have reintroduced the leak in the
+     * branch added to close a different one.
+     */
+    if (path === RETIRED_API_PREFIX || path.startsWith(`${RETIRED_API_PREFIX}/`)) {
+      const moved = `${API_PREFIXES[0]}${path.slice(RETIRED_API_PREFIX.length)}`;
+      void reply.code(410);
+      return reply.send({
+        error: "the /api prefix is gone; this API is /v2",
+        detail: `${req.method} ${path}`,
+        moved,
+      });
+    }
+
     void reply.code(404);
     return reply.send({ error: "no such route", detail: `${req.method} ${path}` });
   });

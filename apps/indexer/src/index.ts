@@ -73,8 +73,17 @@ async function main() {
         tipHeight = newInfo.blocks;
         const txids = await rpc.getRawMempool();
         state.reconcile(txids, "confirmed");
+        // `type: "tip"` HAS BEEN DECLARED SINCE `realtime.ts` WAS WRITTEN AND
+        // WAS NEVER ON THE WIRE. `TipChannelPayload` is
+        // `{type: "tip", height, hash}` and this call published the last two
+        // fields only, so the one shared type describing this channel was false
+        // about it - the same family as `expiryheight` and `tx.feeZat` at `0n`,
+        // and it would have been invisible until a consumer narrowed on the
+        // discriminator. HANDOFF-11's gateway relay is that consumer.
+        // Additive, so a gateway that has not been redeployed still reads
+        // `height` exactly as it did.
         await redis.publish("zcashreveal:tip", JSON.stringify({
-          height: tipHeight, hash: newInfo.bestblockhash,
+          type: "tip", height: tipHeight, hash: newInfo.bestblockhash,
         }));
         log.info({ tipHeight }, "tip advanced");
       } catch (err) {

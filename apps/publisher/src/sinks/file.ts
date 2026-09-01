@@ -2,7 +2,7 @@
  * The `file` sink: `snapshot.json` on the local filesystem.
  *
  * THE ONE SINK THAT IS NOT OPTIONAL (docs/2.0/SNAPSHOT.md section 8.5). It is
- * what the gateway serves from `GET /api/snapshot` and what a dev run produces,
+ * what the gateway serves from `GET /v2/snapshot` and what a dev run produces,
  * so there is no configuration in which it is absent - which is also why A7's
  * and A12's fail sides are both stated in terms of it: whatever goes wrong with
  * the managed store, this file keeps being written.

@@ -9,7 +9,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  fmtBlockAge,
+  fmtSnapshotAge,
   fmtCount,
   fmtElapsed,
   fmtInt,
@@ -188,19 +188,51 @@ describe("fmtElapsed", () => {
   });
 });
 
-describe("fmtBlockAge", () => {
-  it("says tip at zero and below", () => {
-    expect(fmtBlockAge(0)).toBe("tip");
-    expect(fmtBlockAge(-3)).toBe("tip");
+/*
+ * `fmtBlockAge` BECAME `fmtSnapshotAge` IN HANDOFF-11, and these three cases
+ * are the same three retargeted rather than deleted: the function is the same
+ * measurement, and what changed is the string it renders. The old form returned
+ * the bare word `tip` for a zero age - a string with no digit in it - which
+ * assertion A2's `/snapshot age: \d+ blocks/` cannot match. Every case below
+ * still pins the same input it pinned before.
+ */
+describe("fmtSnapshotAge", () => {
+  it("says zero blocks at zero and below, with a digit rather than a word", () => {
+    expect(fmtSnapshotAge(0)).toBe("snapshot age: 0 blocks");
+    // CLAMPED, NOT PRINTED. A snapshot ahead of the tip the page believes in is
+    // a reorg or a stale tip frame, and "-3 blocks" is a measurement of
+    // neither.
+    expect(fmtSnapshotAge(-3)).toBe("snapshot age: 0 blocks");
   });
 
   it("agrees with itself about singular and plural", () => {
-    expect(fmtBlockAge(1)).toBe("1 block behind");
-    expect(fmtBlockAge(2)).toBe("2 blocks behind");
+    expect(fmtSnapshotAge(1)).toBe("snapshot age: 1 block");
+    expect(fmtSnapshotAge(2)).toBe("snapshot age: 2 blocks");
   });
 
   it("groups a large lag", () => {
-    expect(fmtBlockAge(1234)).toBe("1,234 blocks behind");
+    expect(fmtSnapshotAge(1234)).toBe("snapshot age: 1,234 blocks");
+  });
+
+  it("matches assertion A2's regex at every age, which the old form could not", () => {
+    // `[\d,]+` AND NOT `\d+`, AND THE DIFFERENCE IS A REAL DEFECT IN THE
+    // ASSERTION AS WRITTEN. HANDOFF-11's A2 says the indicator must match
+    // `/snapshot age: \d+ blocks/`, and `fmtInt` groups with commas the way
+    // every other numeral on this site is grouped - so `\d+` matches an age of
+    // 999 and fails at 1,000. The assertion would have passed on a fresh site
+    // and failed on a STALE one, which is the only case it exists for.
+    // Restated in section 5 by deliverable 0 rather than answered by ungrouping
+    // the number, because a bare 1000000 in the system bar breaks the site's
+    // numeral convention to satisfy a regex.
+    const RE = /snapshot age: [\d,]+ blocks?/;
+    for (const blocks of [0, -3, 1, 2, 1234, 1_000_000]) {
+      expect(RE.test(fmtSnapshotAge(blocks))).toBe(true);
+    }
+    // The fail side, by DATA rather than by deletion: the exact string the
+    // shipped code returned before this handoff, drawn from A2's stated
+    // exclusion set, shown not to satisfy the regex the indicator is held to.
+    expect(RE.test("tip")).toBe(false);
+    expect(RE.test("1,234 blocks behind")).toBe(false);
   });
 });
 

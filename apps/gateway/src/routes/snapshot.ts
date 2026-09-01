@@ -1,5 +1,5 @@
 /**
- * `GET /api/snapshot` - the latest snapshot the publisher wrote, or a stated
+ * `GET /v2/snapshot` - the latest snapshot the publisher wrote, or a stated
  * absence.
  *
  * WHAT REPLACED THE 501, AND AGAINST THE ARGUMENT THAT STUB MADE. The stub said

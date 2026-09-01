@@ -19,10 +19,10 @@
  * project must not do, and filling them with zeros would be a claim that the
  * counts ARE zero.
  *
- * So `/api/pools` serves the full view only once a snapshot supplies those
+ * So `/v2/pools` serves the full view only once a snapshot supplies those
  * blocks, and until then reports which blocks are missing and which handoff
  * owns each. The chain-derived half is served in the meantime at
- * `/api/pools/balances`, which is also what HANDOFF-09's publisher will read.
+ * `/v2/pools/balances`, which is also what HANDOFF-09's publisher will read.
  * The handoff sequence already says this: HANDOFF-11, the cutover, depends on
  * 05, 09 and 10 together, so a `/pools` page that is complete only after 09 is
  * the order the plan asks for rather than a shortfall against it.
@@ -118,13 +118,13 @@ export function buildPoolBalances(pools: readonly ValuePoolBalance[], atHeight: 
  * The blocks of `PoolsView` a chain query cannot produce, and where each is
  * routed.
  *
- * Returned to a caller as the reason `/api/pools` cannot serve a full view yet,
+ * Returned to a caller as the reason `/v2/pools` cannot serve a full view yet,
  * so the answer names the gap instead of being an opaque 503.
  *
  * `owner` IS A LIVE STATEMENT ON THE WIRE AND DECAYS SILENTLY, which is what
  * this array got wrong until HANDOFF-09's gate. Every entry named a handoff -
  * two of them HANDOFF-09, two HANDOFF-08 - and both of those handoffs shipped
- * without closing what was assigned to them, so `/api/pools` was telling its
+ * without closing what was assigned to them, so `/v2/pools` was telling its
  * callers that a closed handoff owed them a field. A number here is a
  * PREDICTION about a future handoff, and a prediction that outlives its
  * subject reads as a fact. So `UNASSIGNED` is now a legal value and is used

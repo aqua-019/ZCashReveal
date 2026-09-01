@@ -1,5 +1,5 @@
 /**
- * `GET /api/labels` and the address-label contract.
+ * `GET /v2/labels` and the address-label contract.
  *
  * Served from `packages/content`, which is the only place a label is written
  * down. Every label carries its labeller and its precedence rank, because

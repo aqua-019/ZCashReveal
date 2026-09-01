@@ -93,7 +93,7 @@ export default function PrimitivesPage() {
         </div>
         <div className="spec" style={{ marginTop: 14 }}>
           <Eyebrow idx="EpochClock">height advances on block arrival, reduced motion or not</Eyebrow>
-          <EpochClock tip={FIXTURE_TIP} />
+          <EpochClock tip={FIXTURE_TIP} status={{ source: "fixture", faults: [] }} />
         </div>
         <div className="spec" style={{ marginTop: 14 }}>
           <Eyebrow idx="SubNav">second level, gold rule instead of a fill</Eyebrow>
