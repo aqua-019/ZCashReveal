@@ -39,9 +39,16 @@ import { readFileSync } from "node:fs";
 // `fullName`, which joins the describe and the test with a SINGLE SPACE and not with
 // the " > " a reader expects - written the other way first, and the guard caught it.
 const ALLOWED_SKIPS = [
-  "decodeBlock — real mainnet fixture decodes a captured post-NU5 mainnet block end-to-end",
   "A7 - the redis sink against a local Redis A7 SKIPPED, WITH ITS REASON: no local Redis, so the integration half did not run",
   "A1/A4/A5 - readSnapshotInputs against a real Postgres A1 SKIPPED, WITH ITS REASON: no reachable Postgres with migration 005 applied",
+  // A11's live leg. No runner this project has answers on a Zebra port, so this
+  // one skips everywhere; the three tests beside it that assert the floor BY
+  // DATA all run. It became visible only when ci.yml started writing a JSON
+  // report for packages/zebra-rpc - before that the guard was never handed the
+  // file, so the skip was invisible twice over: no report, and no INTEGRATION_FILE
+  // match either (F-49-1). Added in the same commit as the report, because the
+  // report alone turns CI red on every correctly configured runner.
+  "A11 - the connected node clears the version floor packages/zebra-rpc declares A11 PASS STATE: the live node's subversion clears the floor",
 ];
 
 /**

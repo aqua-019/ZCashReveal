@@ -29,11 +29,15 @@ docker-compose.override.yml
 dump.rdb
 
 # vitest JSON reports consumed by scripts/assert-no-skipped-integration.mjs in CI.
-# BOTH, since HANDOFF-09b widened that guard to apps/publisher: the CI step that
-# writes the second one was added without its sibling ignore, so anyone running
-# the same vitest command locally got an untracked file.
+# ALL THREE. HANDOFF-09b widened that guard to apps/publisher and HANDOFF-12
+# widened it to packages/zebra-rpc, and BOTH times the CI step that writes the
+# report was drafted without its sibling ignore, so anyone running the same
+# vitest command locally got an untracked file. Two instances of one shape - a
+# new suite joining a convention every existing member already had - so the
+# reports are listed here as a set rather than appended one at a time.
 indexer-results.json
 publisher-results.json
+zebra-rpc-results.json
 
 # Playwright run artefacts (apps/web). The suite is reproducible; its output is not committed.
 test-results/
