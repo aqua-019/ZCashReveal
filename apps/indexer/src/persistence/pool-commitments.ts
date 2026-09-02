@@ -5,7 +5,7 @@
  * Records are read in position-ascending order for deterministic replay.
  */
 
-import type { Sql } from "postgres";
+import type { Conn } from "./conn.js";
 import type { Commitment, Pool } from "@zcashreveal/types";
 import { asHex } from "@zcashreveal/types";
 
@@ -18,7 +18,7 @@ import { asHex } from "@zcashreveal/types";
  */
 export async function writePoolCommitment<P extends Pool>(
   record: Commitment<P>,
-  conn: Sql,
+  conn: Conn,
 ): Promise<void> {
   await conn`
     INSERT INTO pool_commitments (pool, cm_id, position, txid, block_height)
@@ -40,7 +40,7 @@ export async function writePoolCommitment<P extends Pool>(
  */
 export async function readAllPoolCommitments<P extends Pool>(
   pool: P,
-  conn: Sql,
+  conn: Conn,
 ): Promise<Commitment<P>[]> {
   const rows = await conn<
     Array<{ cm_id: string; position: string; txid: string; block_height: number }>
@@ -67,7 +67,7 @@ export async function readAllPoolCommitments<P extends Pool>(
 export async function rollbackPoolCommitmentsToHeight<P extends Pool>(
   pool: P,
   height: number,
-  conn: Sql,
+  conn: Conn,
 ): Promise<number> {
   const result = await conn`
     DELETE FROM pool_commitments

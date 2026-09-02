@@ -5,13 +5,40 @@
  */
 
 import type { Sql } from "postgres";
-import type { Pool } from "@zcashreveal/types";
+import type { Anchor, BoundaryDelta, Commitment, Pool, SpentNullifier } from "@zcashreveal/types";
 import type { PoolState } from "../state/pool-state.js";
 import { ReplayPositionMismatchError } from "../state/errors.js";
 import { readAllPoolCommitments } from "./pool-commitments.js";
 import { readAllPoolAnchors } from "./pool-anchors.js";
 import { readAllPoolNullifiers } from "./pool-nullifiers.js";
 import { readAllPoolBoundaryFlows } from "./pool-boundary-flows.js";
+
+/**
+ * What a replay READS, as an interface (HANDOFF-12).
+ *
+ * The four readers below are the Postgres ones; `runtime/chain-store.ts`
+ * implements the same four over an in-memory store so that the reorg
+ * property test and the startup-order test can execute the real replay
+ * without a database - A2's note in section 5 is that a test placed behind
+ * the Postgres gate passes vacuously on a runner without one. One replay
+ * function, two readers, and the position check runs in both.
+ */
+export interface PoolReader {
+  readAllCommitments<P extends Pool>(pool: P): Promise<Commitment<P>[]>;
+  readAllAnchors<P extends Pool>(pool: P): Promise<Anchor<P>[]>;
+  readAllNullifiers<P extends Pool>(pool: P): Promise<SpentNullifier<P>[]>;
+  readAllBoundaryFlows<P extends Pool>(pool: P): Promise<BoundaryDelta<P>[]>;
+}
+
+/** The Postgres readers as a {@link PoolReader}. */
+export function postgresPoolReader(conn: Sql): PoolReader {
+  return {
+    readAllCommitments: (pool) => readAllPoolCommitments(pool, conn),
+    readAllAnchors: (pool) => readAllPoolAnchors(pool, conn),
+    readAllNullifiers: (pool) => readAllPoolNullifiers(pool, conn),
+    readAllBoundaryFlows: (pool) => readAllPoolBoundaryFlows(pool, conn),
+  };
+}
 
 /**
  * Reconstruct an empty PoolState<P> from persisted records. Reads each of
@@ -38,7 +65,15 @@ export async function replayInto<P extends Pool>(
   state: PoolState<P>,
   conn: Sql,
 ): Promise<void> {
-  const commitments = await readAllPoolCommitments(state.pool, conn);
+  return replayPool(state, postgresPoolReader(conn));
+}
+
+/** {@link replayInto} over any {@link PoolReader}. The runtime's replay is this function. */
+export async function replayPool<P extends Pool>(
+  state: PoolState<P>,
+  reader: PoolReader,
+): Promise<void> {
+  const commitments = await reader.readAllCommitments(state.pool);
   for (const c of commitments) {
     const assigned = state.commitments.append({
       pool: c.pool,
@@ -60,17 +95,17 @@ export async function replayInto<P extends Pool>(
     }
   }
 
-  const anchors = await readAllPoolAnchors(state.pool, conn);
+  const anchors = await reader.readAllAnchors(state.pool);
   for (const a of anchors) {
     state.recordAnchor(a);
   }
 
-  const nullifiers = await readAllPoolNullifiers(state.pool, conn);
+  const nullifiers = await reader.readAllNullifiers(state.pool);
   for (const nf of nullifiers) {
     state.nullifiers.record(nf);
   }
 
-  const deltas = await readAllPoolBoundaryFlows(state.pool, conn);
+  const deltas = await reader.readAllBoundaryFlows(state.pool);
   for (const d of deltas) {
     state.value.apply(d);
   }

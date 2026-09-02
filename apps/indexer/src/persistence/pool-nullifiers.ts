@@ -6,7 +6,7 @@
  * is order-independent but stable ordering simplifies test assertions.
  */
 
-import type { Sql } from "postgres";
+import type { Conn } from "./conn.js";
 import type { Hex, Pool, SpentNullifier } from "@zcashreveal/types";
 import { asHex } from "@zcashreveal/types";
 
@@ -80,7 +80,7 @@ import { asHex } from "@zcashreveal/types";
  */
 export async function writePoolNullifier<P extends Pool>(
   record: SpentNullifier<P>,
-  conn: Sql,
+  conn: Conn,
   anchorRoot: Hex | null = null,
 ): Promise<void> {
   await conn`
@@ -110,7 +110,7 @@ export async function writePoolNullifier<P extends Pool>(
 export async function readPoolNullifierAnchor<P extends Pool>(
   pool: P,
   nfId: Hex,
-  conn: Sql,
+  conn: Conn,
 ): Promise<Hex | null> {
   const rows = await conn<Array<{ anchor_root: string | null }>>`
     SELECT anchor_root
@@ -127,7 +127,7 @@ export async function readPoolNullifierAnchor<P extends Pool>(
  */
 export async function readAllPoolNullifiers<P extends Pool>(
   pool: P,
-  conn: Sql,
+  conn: Conn,
 ): Promise<SpentNullifier<P>[]> {
   const rows = await conn<
     Array<{ nf_id: string; spent_txid: string; spent_height: number }>
@@ -153,7 +153,7 @@ export async function readAllPoolNullifiers<P extends Pool>(
 export async function rollbackPoolNullifiersToHeight<P extends Pool>(
   pool: P,
   height: number,
-  conn: Sql,
+  conn: Conn,
 ): Promise<number> {
   const result = await conn`
     DELETE FROM pool_nullifiers

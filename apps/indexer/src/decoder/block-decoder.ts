@@ -11,8 +11,9 @@
  * carried as an alarm on an inferred field name; L2 read Zebra's source and it
  * is now a settled fact (LEDGER-07 Q5). `decodeBlock` therefore emits no
  * Ironwood block anchor at all, reports the tree SIZE the response does carry,
- * and names the heights whose anchor HANDOFF-12 must fetch from
- * `z_gettreestate` - see `ironwoodTreeSize` and `ironwoodAnchorPendingTreestate`.
+ * and marks the heights whose anchor the confirmed-block driver fetches from
+ * `z_gettreestate` - see `ironwoodTreeSize` and `ironwoodAnchorPendingTreestate`,
+ * and `runtime/confirmed-block.ts`, which consumes both.
  *
  * No I/O, no state, no findings, no identity inference — this layer is the
  * confirmed-chain analogue of decoder/leak-analyzer.ts's mempool decode,
@@ -135,16 +136,20 @@ export interface DecodedBlock {
    * True when this block appended Ironwood commitments, and therefore when an
    * Ironwood anchor EXISTS for this height that `getblock` cannot supply.
    *
-   * IT IS A STATEMENT ABOUT THE RPC SURFACE, NOT AN ALARM. Its predecessor,
-   * `ironwoodRootUnobserved`, meant "the pool moved and no root came back under
-   * the name we guessed", and was designed to fire rarely and loudly. Under the
-   * confirmed shape it would fire on every such block, which is noise. The same
-   * boolean is kept because the QUESTION it answers is still live and is now
-   * HANDOFF-12's work list: these are exactly the heights at which
-   * `z_gettreestate` must be called to obtain the Ironwood root, and
-   * `z_getsubtreesbyindex` (which accepts `pool = "ironwood"`) to obtain
-   * subtrees. Zebra 6.0.0 names those two RPCs plus `getblock` as the Ironwood
-   * tree surface.
+   * A SCHEDULING SIGNAL, CONSUMED, SINCE HANDOFF-12 - NOT A REPORTED ABSENCE
+   * (deliverable 3). Its predecessor, `ironwoodRootUnobserved`, meant "the pool
+   * moved and no root came back under the name we guessed" and was designed to
+   * fire rarely and loudly; under the confirmed shape it would have fired on
+   * every such block, which is noise. This boolean answers a different
+   * question: `runtime/confirmed-block.ts` calls `z_gettreestate` at exactly
+   * the heights it marks and at no other, because a pool most blocks do not
+   * move should not cost a second RPC on every block. The absence it used to
+   * report is now recorded where it is decided - as a notice from the driver
+   * when the treestate is withheld, names another block or carries no root,
+   * and never as an anchor made up to fill the gap. `z_getsubtreesbyindex`
+   * (which accepts `pool = "ironwood"`) is not called: the subtree path is not
+   * needed for an anchor, and Zebra 6.0.0 names it beside `getblock` and
+   * `z_gettreestate` as the Ironwood tree surface only.
    */
   ironwoodAnchorPendingTreestate: boolean;
   txs: DecodedBlockTx[];
@@ -235,13 +240,14 @@ export function decodeBlock(block: RpcBlock): DecodedBlock {
  * Every pool boundary movement in a decoded block, as `BoundaryDelta` records.
  *
  * WHY THIS LIVES IN SHIPPED CODE RATHER THAN IN THE TEST THAT NEEDS IT.
- * Nothing in this repository drives `PoolState` from a decoded block yet -
- * HANDOFF-12 owns the confirmed-block driver - so the temptation is to write
- * this mapping inside the replay test. A green test would then certify a
- * mapping that exists only in the test file, which is the Sprout defect in a new
- * place: the consumer accepts four pools, and the only producer lives somewhere
- * nothing ships. Putting it here means the assertion exercises the projection
- * the driver will use, and the driver inherits something already exercised.
+ * When it was written nothing in this repository drove `PoolState` from a
+ * decoded block, so the temptation was to write this mapping inside the
+ * replay test. A green test would then have certified a mapping that existed
+ * only in the test file, which is the Sprout defect in a new place: the
+ * consumer accepts four pools, and the only producer lives somewhere nothing
+ * ships. Putting it here meant the assertion exercised the projection the
+ * driver would use, and since HANDOFF-12 `runtime/confirmed-block.ts` is that
+ * driver and inherits something already exercised.
  *
  * A POOL THAT DID NOT MOVE PRODUCES NO DELTA. Same rule as `perPoolZat`: a zero
  * delta is a `ValuePool.apply` that changes nothing and a row in
@@ -254,7 +260,8 @@ export function decodeBlock(block: RpcBlock): DecodedBlock {
  * and the Sprout term is computed in `leak-analyzer.ts` from the raw
  * transaction. Adding a Sprout delta here would mean re-deriving it from a
  * different input than the analyser uses, which is how one quantity comes to
- * have two answers. HANDOFF-12's driver has the raw block and can supply it.
+ * have two answers. The driver has the raw block and supplies it from
+ * `sproutValueBalanceZat`, the analyser's own function.
  *
  * The sign convention is the RPC's own, unchanged: positive means value LEFT
  * the pool, negative means it entered. `ValuePool.apply` moves the balance by

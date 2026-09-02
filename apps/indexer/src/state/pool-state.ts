@@ -99,3 +99,14 @@ export class PoolState<P extends Pool> {
     };
   }
 }
+
+/**
+ * The four pools' state machines as one value - what the confirmed-block
+ * driver maintains and what the mempool analyser reads (HANDOFF-12).
+ *
+ * A mapped type rather than four named fields so the pool literal indexes it:
+ * `states[spend.pool]` is a `PoolState<typeof spend.pool>` and a cross-pool
+ * lookup does not typecheck, which is the same guarantee each index gives on
+ * its own carried up one level.
+ */
+export type PoolStates = { readonly [P in Pool]: PoolState<P> };

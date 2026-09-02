@@ -25,7 +25,7 @@
  * the drain reads this table directly, over a height range, from another process.
  */
 
-import type { Sql } from "postgres";
+import type { Conn } from "./conn.js";
 import type { Hex } from "@zcashreveal/types";
 import { asHex } from "@zcashreveal/types";
 
@@ -62,7 +62,7 @@ export interface BlockTime {
  * which the driver calls before re-applying - this UPDATE is what makes a
  * single-block replacement safe on its own.
  */
-export async function writeBlock(record: BlockTime, conn: Sql): Promise<void> {
+export async function writeBlock(record: BlockTime, conn: Conn): Promise<void> {
   await conn`
     INSERT INTO blocks (height, time_s, hash)
     VALUES (
@@ -92,7 +92,7 @@ export async function writeBlock(record: BlockTime, conn: Sql): Promise<void> {
 export async function readBlockTimes(
   lowHeight: number,
   highHeight: number,
-  conn: Sql,
+  conn: Conn,
 ): Promise<BlockTime[]> {
   const rows = await conn<Array<{ height: number; time_s: string; hash: string }>>`
     SELECT height, time_s, hash
@@ -115,10 +115,32 @@ export async function readBlockTimes(
  * in the same commit that added the fifth; gate round 4.)
  * Returns the number of rows deleted.
  */
-export async function rollbackBlocksToHeight(height: number, conn: Sql): Promise<number> {
+export async function rollbackBlocksToHeight(height: number, conn: Conn): Promise<number> {
   const result = await conn`
     DELETE FROM blocks
     WHERE height > ${height}
   `;
   return result.count;
+}
+
+/**
+ * The lowest and highest rows, which the runtime reads at startup: the lowest
+ * is the BASE the indexer opened at (HANDOFF-12, `runtime/chain-replay.ts`)
+ * and the highest is where it left off. `null` when the table is empty, which
+ * is a cold start and not an error.
+ */
+export async function readLowestBlock(conn: Conn): Promise<BlockTime | null> {
+  const rows = await conn<Array<{ height: number; time_s: string; hash: string }>>`
+    SELECT height, time_s, hash FROM blocks ORDER BY height ASC LIMIT 1
+  `;
+  const r = rows[0];
+  return r === undefined ? null : { height: r.height, timeS: Number(r.time_s), hash: asHex(r.hash) };
+}
+
+export async function readHighestBlock(conn: Conn): Promise<BlockTime | null> {
+  const rows = await conn<Array<{ height: number; time_s: string; hash: string }>>`
+    SELECT height, time_s, hash FROM blocks ORDER BY height DESC LIMIT 1
+  `;
+  const r = rows[0];
+  return r === undefined ? null : { height: r.height, timeS: Number(r.time_s), hash: asHex(r.hash) };
 }
