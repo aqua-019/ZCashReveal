@@ -207,6 +207,16 @@ docker compose logs indexer | grep -i "zmq unavailable"     # expected, once
 docker compose logs indexer | tail -20                      # tip heights advancing
 ```
 
+SINCE HANDOFF-12 THE POLL LOOP IS THE MEMPOOL HALF ONLY. The same process also
+follows CONFIRMED blocks: on a cold database it opens the four pools' state at
+`INDEXER_START_HEIGHT` (NU6.3 activation unless set), on a warm one it replays
+the state from Postgres, and only then does it start the mempool loop, because
+every mempool spend is assessed against that state. What one block costs, what
+a reorg does, and what each fatal line means - including the one that stops
+the process on purpose when its accounting disagrees with the node's - are in
+`docs/2.0/RUNTIME.md`. The line to look for after a restart is
+`chain state replayed`, and the per-block line is `block applied`.
+
 ---
 
 ## 4. Migrations - and 003 is not an ordinary one
