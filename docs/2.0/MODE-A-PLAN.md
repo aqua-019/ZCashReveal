@@ -940,15 +940,36 @@ the count does not reset because a guard shipped.
 
 **Q6. Is the false attribution in the `UNKNOWN_ANCHOR` diagnostic corrected, and by whom?**
 Section 0 established that Zebra #10461 does not reverse the transaction-side anchor byte
-order. Five live sites say it does: `packages/zec-types/src/leaks.ts:537`,
-`packages/zebra-rpc/src/schemas.ts:654`, `apps/indexer/src/decoder/leak-analyzer.ts:894` and
-`:904` (the latter is a **user-visible finding message**), and `docs/2.0/RUNTIME.md:215`. The
-byte-reversal *detector* remains correct and useful - a node whose transaction-side anchor
-spelling disagrees with the recorded roots is a real condition. What is wrong is the
-attribution. **This handoff did not fix it**, because every site is under `apps/` or
-`packages/` and A2 forbids this plan-only branch from touching either; correcting it inside a
-handoff whose whole point is to not build would have removed the approval gate to fix a comment.
-It belongs to the Integration track, which already owes round 4 on `62c4e77` (F-52-2).
+order. **Five files and ten lines say it does**, enumerated rather than sampled - a first draft
+of this question said "five sites", naming four files and four lines, and undercounting the
+scope of a deferred correction is how a brief licenses a smaller fix than the defect needs
+(LEDGER-04a). The measurement:
+
+| File | Lines naming #10461 | Lines restating the byte-order claim without the number |
+|---|---|---|
+| `packages/zec-types/src/leaks.ts` | 537 | - |
+| `packages/zebra-rpc/src/schemas.ts` | 654 | 659 |
+| `apps/indexer/src/analysis/__tests__/live-assessment.test.ts` | 49, 234, 236, **246** | 245, 250 |
+| `apps/indexer/src/decoder/leak-analyzer.ts` | 894, **904**, 1163 | 892, 903 |
+| `docs/2.0/RUNTIME.md` | 215 | - |
+
+The byte-reversal **detector** remains correct and useful: a node whose transaction-side anchor
+spelling disagrees with the roots this build recorded is a real condition, whatever caused it.
+What is wrong is the **attribution**, and it is wrong in a **user-visible finding message**
+(`leak-analyzer.ts:904`).
+
+**And the correction is not comment-only, which the undercount hid.**
+`live-assessment.test.ts:246` asserts the finding message *contains* the string
+`"ZcashFoundation/zebra #10461"`. So changing the message changes a test, which means the fix
+is a behaviour-adjacent commit rather than a prose one, which means under the clause (ii)
+amendment it earns its own review round. That is a materially larger piece of work than "fix a
+comment", and it is the reason to say so here rather than leave whoever picks it up to discover
+it.
+
+**This handoff did not fix it.** Every site is under `apps/` or `packages/`, and A2 forbids this
+plan-only branch from touching either; correcting it inside a handoff whose whole point is to
+not build would have spent the approval gate on a comment. It belongs to the Integration track,
+which already owes round 4 on `62c4e77` (F-52-2).
 
 **Q7. Is `/v2/compact` a Data-track handoff before Mode A, or part of the Mode A build?**
 Section 3.2 recommends Source B first, which needs no migration - so it could be either. If it
