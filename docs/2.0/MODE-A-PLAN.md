@@ -167,8 +167,10 @@ no published single-threaded Zcash wasm artifact.
 | Measured size | UNVERIFIED | keys-only 2,147,533 bytes raw / 1,530,941 gzip -9 |
 
 **Recommendation: build single-threaded first, and treat threads as a later, separately
-approved change.** Five reasons, in order of weight, and the fifth was found while writing
-section 5 rather than this one:
+approved change.** Five reasons. **They are NOT in order of weight** - 1 to 4 are in the order
+they were written, and 5, found while writing section 5, outranks all four, which reason 5 says
+itself. An earlier draft of this line claimed "in order of weight" and was refuted twenty lines
+below by its own last item.
 
 1. **COEP `require-corp` is a site-wide change made for one route.** It is set on the
    document, and every cross-origin no-cors subresource then needs a CORP header or it is
@@ -411,6 +413,12 @@ in 9 Q3 rather than settled by habit.
 - `CompactOrchardAction`: `nullifier`, `cmx`, `ephemeralKey`, `ciphertext` - 32 + 32 + 32 + 52
   = **148 bytes of payload**, 156 encoded, **159 including its slot** (a 156-byte length needs
   a two-byte varint). Ironwood reuses this message.
+- `CompactSaplingSpend`: `nf` only - **32 bytes of payload**, 34 encoded, **36 including its
+  slot**. It carries no ciphertext, so it is not trial-decrypted; a wallet needs it to notice
+  its own notes being *spent*, and the gateway must therefore serve it. **This row was missing
+  from the first draft of this list while section 3.3's table measured a "Sapling spends"
+  column** - the same omission shape as the Ironwood column below, one section apart, and it
+  understated the volume figure by 2.1 per cent.
 
 The 52-byte ciphertext is a *prefix* of the 580-byte `encCiphertext` that ZIP 225 fixes on
 chain - enough to recover a note, not enough to recover the memo.
@@ -503,18 +511,27 @@ Counted from the four committed mainnet captures in `apps/indexer/test/fixtures/
 | 3,444,836 | 2 | 0 | 0 | 0 | 0 |
 | 3,444,837 | 6 | 2 | 0 | 2 | 3 |
 
-**n = 4 blocks, 23 transactions**: 1.50 Sapling outputs, 1.50 Orchard actions and **2.50
-Ironwood actions** per block, which at 124 bytes per output slot and 159 per action slot is
-about **822 compact bytes per block**. Over the Ironwood era so far - activation 3,428,143 to a
-tip of **3,468,549**, about **40,400 blocks** - that is roughly **33 MB**; over a year of blocks
-(**420,480** at the 75-second target; 75.36 s measured across this sample's own 12,707-height
-span) roughly **346 MB**.
+**n = 4 blocks, 23 transactions**: 1.50 Sapling outputs, **0.50 Sapling spends**, 1.50 Orchard
+actions and **2.50 Ironwood actions** per block, which at 124 bytes per output slot, 36 per
+spend slot and 159 per action slot is about **840 compact bytes per block**. Over the Ironwood
+era so far - activation 3,428,143 to a tip of **3,468,549**, about **40,400 blocks** - that is
+roughly **34 MB**; over a year of blocks (**420,480** at the 75-second target; 75.36 s measured
+across this sample's own 12,707-height span) roughly **353 MB**.
+
+**AND THE SPEND COLUMN WAS IN THE TABLE AND OUT OF THE ARITHMETIC.** The figure was **822**,
+computed from outputs and actions only, while the column beside it recorded 2 Sapling spends at
+height 3,441,955. Section 3.2's field list had no `CompactSaplingSpend` row either, so nothing
+in the document said what a spend costs. 2.1 per cent, against the Ironwood column's 48 - but
+it is the same shape, one section away from the paragraph recording it, found by re-executing
+the count rather than by reading. Re-measured: 840 bytes/block, 33.9 MB, 353 MB/year.
 
 **THE FIRST DRAFT OF THIS TABLE HAD NO IRONWOOD COLUMN, AND THAT IS THE EXACT FAILURE SECTION
 1.4 WARNS ABOUT, COMMITTED IN THE DOCUMENT THAT NAMES IT.** Section 1.4 says a decoder reading
 `CompactTx.actions` (field 6) and ignoring `ironwoodActions` (field 9) "silently loses every
 Ironwood note". The measurement did precisely that: it counted `tx.orchard.actions` and not
-`tx.ironwood.actions`, so it missed **10 of the 22 shielded items in the sample** - and Ironwood
+`tx.ironwood.actions`, so it missed **10 of the 22 DECRYPTABLE items in the sample** - outputs and
+actions, the things that carry a ciphertext; the sample holds 24 shielded items in all, the
+other 2 being the Sapling spends the paragraph above restores - and Ironwood
 is the *densest* of the three at 2.50 per block against 1.50 and 1.50. The figure it produced,
 425 bytes per block, understated the real one by 48 per cent, on the pool the default scan in
 section 1.5 exists for. Found by a gate reviewer recounting the fixtures rather than reading the
@@ -531,8 +548,8 @@ failure mode and then exhibits it is evidence about how hard that failure mode i
   blocks a year, which is a 150-second block interval - the *pre-Blossom* target. This
   repository states the right one in `packages/zec-instruments/src/turnstile-accounting.ts:218`
   ("Zcash targets 75 seconds and misses"), and the fixtures' own timestamps measure 75.36 s
-  across 12,707 blocks. The annual figure is **346 MB**, not 89 MB - wrong by a factor of
-  nearly four once the Ironwood column is also restored.
+  across 12,707 blocks. The annual figure is **353 MB**, not 89 MB - wrong by a factor of
+  nearly four once the Ironwood column and the Sapling-spend slot are also restored.
 
 **Three cautions, because a rate without them is not a measurement.** n is four. All four
 blocks lie within 12,707 heights of each other and all are post-NU6.3. And the fixture
@@ -657,8 +674,15 @@ Everything else keeps today's policy on today's routes.
 
 ### 5.1 "The key never leaves the tab" is a claim, and here are its mechanisms
 
-The claim needs mechanisms, and this build already has four. Mode A adds two and must not
-weaken any:
+The claim needs mechanisms, and this build already has four. Mode A adds **three** - M5, M6
+and M7, as the table's own "new" column says - and must not weaken any. (The prose said "two"
+while the table marked three: a count contradicted by the machine-readable rows beside it,
+which is this document's most-repeated defect. **Five instances of it were found in this file
+in one gate round**, all five listed in section 7's GATE ROUNDS: this one; 9 Q6's "five of the
+six sites" against a five-row table; and three in Appendix B alone - a heading reading "the
+four directions" above five, "all five instances" against a six-row table, and an enumeration
+"misses 1, 2, 4 and 5" that stops one short of the same table. Appendix B is the appendix about
+miscounting, and it miscounted three times.)
 
 | # | Mechanism | Status today | What Mode A changes |
 |---|---|---|---|
@@ -840,7 +864,9 @@ rather than to ship Turnstile's shape under Mode A's copy.**
 
 1. **XSS while `'unsafe-inline'` stands** - the precondition, and the only one rated high.
 2. **A leak through generated glue or an error path** - low likelihood, total impact, and the
-   cheapest to close by testing (A2).
+   cheapest to close by testing (A1 for the import section, A2 for the network path, **A12 for
+   the console, DOM and error paths, which is the half A2 does not reach**). An earlier draft
+   named A2 alone, which quantifies only over requests; A12 exists because this line was wrong.
 3. **Supply chain on the wasm artifact** - medium, closed by pinning and hashing (2.4).
 4. **A browser extension reading the page** - out of the site's control; stated, not defended.
 5. **Traffic analysis on the range requests** - a scan's start height is a weak identifier.
@@ -901,6 +927,21 @@ so a fail-side transcript can name **which member** it used, per LEDGER-09a Q2. 
 fail side per assertion is a DATA mutation drawn from that set; where no field can hold an
 excluded value the assertion is type-level and its fail side is a `@ts-expect-error`.
 
+**ASSERTION IDS IN THIS REPOSITORY ARE PER-HANDOFF, AND THIS DOCUMENT CITES THREE NAMESPACES,
+so every `A<n>` below means *this section's* unless it is qualified.** `A11` alone already names
+six different assertions across HANDOFF-03, 04, 04a, 08, 09 and 11 - measured with
+`git ls-files 'handoffs/HANDOFF-*.md' | xargs grep -l '^- \*\*A11\.\*\*'`, and the scope in
+that command is load-bearing: unscoped it returns seven, the seventh being this document's own
+section 7. HANDOFF-11's section 5 records declining to
+add a SECOND `A11` to its own list, noting that section already carried two accidentally
+duplicated IDs and a third would have been the first deliberate one; that is a per-handoff
+decision, not a repo-wide one, and an earlier draft of this sentence reported it as "declined a
+seventh", conflating the two counts. The three in play here: **this section's
+A1-A12 and A5b**, thirteen in all, proposed for the build handoff; **HANDOFF-13's A1-A3**, the plan-only
+constraints this branch is measured against (its A2 is the empty-diff pathspec, cited in 9 Q6);
+and **HANDOFF-11's A11**, the live-node subversion floor, cited in 9 Q4. Unqualified `A2` in
+section 5.1 and in the source list means this section's.
+
 **WRITTEN IN THE FORMAT `check-ledger-structure.mjs`'s R4 CAN READ, because the whole point of
 this section is that it gets pasted into a build handoff's section 5.** A first draft used
 `**A1 - title**` headings and a `*Fail side names:* (by DATA)` clause; R4 matches
@@ -930,6 +971,9 @@ strong one.
 *Exclusion set:* any request whose URL, headers or body contains any 24-character window of the
 key. *Fail side names:* (by DATA) a build with one `fetch(url + key)` added; the spec fails naming the
 request.
+This is the decrypt-path successor to **HANDOFF-04's A11** ("the viewing key cannot leave the
+tab"), which is a different assertion from this section's A11 and from HANDOFF-11's - see the
+namespace note above.
 
 - **A3.** the compact-output seam is proven by round trip, not by fixture.
 The **gateway's real serialiser** produces a range; the **real wasm module** consumes it and
@@ -978,9 +1022,22 @@ The measurement is trial decryption over a named height range, on a named machin
 single-threaded, with the block count stated - and it lands in `docs/2.0/` before any component
 that renders progress does.
 *Exclusion set:* a progress component in the diff while `docs/2.0/` carries no line matching
-`/[\d,]+ blocks\/sec[^.]*n *= *\d/` (a rate with its sample), or a rate recorded without one.
+`/^SINGLE-THREAD RATE: [\d,]+ blocks\/sec \|/m`, the structured form
+`SINGLE-THREAD RATE: <rate> blocks/sec | <machine> | <browser> | blocks <lo>-<hi> | n = <count>`.
 *Fail side names:* (by DATA) a rate written as "about 8,000 blocks/sec" with no machine, no
 browser and no block count; the check fails naming the missing sample.
+**THE PREDICATE WAS A PROSE REGEX AND IT WAS SATISFIED BY THE LINE STATING THE MEASUREMENT
+DOES NOT EXIST.** The first form was `/[\d,]+ blocks\/sec[^.]*n *= *\d/`, and executed against
+`docs/2.0/` it returned two matches, both ChainSafe's FOUR-THREAD figure - one of them section
+1.3's own `| Speed | UNVERIFIED - no measured single-threaded figure exists | ~7,700
+blocks/sec, 4 threads, n=1 machine |`. A6 would have passed on the strength of a row whose text
+says the thing A6 requires has not been measured. That is LEDGER-11 Q5(a) exactly - an
+exclusion-set member the shipped object already exhibits is a clause got wrong, not a test to
+write - and the obvious tightening does not fix it: adding `single-threaded` and `n` as
+conjuncts still matches that same line, because the words "single-threaded" and "n=1" are both
+in it. Executed: prose regex 2 matches, three-conjunct regex 1 match, the structured form above
+**0**. Only a form the prose cannot accidentally satisfy has an empty exclusion set today,
+which is what makes the assertion able to fail.
 **A6 HAD NO FAIL SIDE AT ALL IN THE FIRST DRAFT** - it said "none, this is a measurement
 assertion" - which R4 catches by name and which CLAUDE.md forbids outright: every section 5
 assertion gets a mutation, and an assertion verified by reading is an assertion not verified.
@@ -1019,6 +1076,18 @@ no scan of any page-realm `ArrayBuffer` contains a 24-character window of the ke
 its `Memory`; the assertion finds the key in `memory.buffer` and fails. That fail side is the
 whole reason M7 is a mechanism and not a preference.
 
+- **A12.** no console message, DOM node or error object produced by a decrypt carries the key.
+**ADDED BY THE GATE, because 5.6 rated "a leak through generated glue or an error path" as
+closed by A2 and A2 does not close it.** A2 quantifies over *requests*; A8 over *storage*; A11
+over the page realm's *linear memory*. A glue function that rethrows with the key interpolated
+into `Error.message`, or a component that renders a failed decrypt's detail into the DOM, is
+none of those three, and it is the likeliest shape of the residual risk 5.6 ranks second.
+*Exclusion set:* any string passed to `console.*`, any text node or attribute value in the
+serialised DOM, and any `Error.message` or `Error.stack` observable from a page-realm handler,
+containing a 24-character window of the key.
+*Fail side names:* (by DATA) a build whose worker `catch` rethrows `new Error(\`decrypt failed for ${key}\`)`;
+the assertion finds the window in the propagated `error.message` and fails.
+
 ---
 
 ## 8. What this plan does not answer
@@ -1028,9 +1097,15 @@ Stated so the build handoff does not mistake a gap for a decision:
 - **Whether upstream `librustzcash` compiles for `wasm32-unknown-unknown` today.** Its CI does
   not cover the target. The one existing browser build uses a fork whose diff was not read.
 - **Whether `orchard` 0.15.5 handles the Ironwood `0x03` lead byte.** ZIP 2005 is Proposed.
-- **Whether `zfnd/zebra:6.3.0` starts a `CompactTxStreamer` when `lightwalletd_listen_addr` is
-  set.** The sibling field's server is feature-gated out of the published image; this one's
-  status is unknown.
+- **Whether `zfnd/zebra:6.3.0` exposes a `CompactTxStreamer` under any configuration.** The
+  first draft of this bullet asked whether setting `lightwalletd_listen_addr` starts one, which
+  section 3.2 refutes: that key does not exist in `[rpc]` at the pinned tag, the struct is
+  `serde(deny_unknown_fields)`, and writing it stops the node booting. A question resting on a
+  premise its own document disproves is worse than an open question, because a build handoff
+  would go and try it. Restated to the answerable form: the sibling `indexer_listen_addr`'s
+  server is feature-gated out of the published image, and whether any compact-block service is
+  reachable from `zfnd/zebra:6.3.0` was not established. Source C's real status is *unknown*,
+  not *unavailable* - and section 3.2 recommends Source B regardless.
 - **Any single-threaded trial-decryption rate.** No such figure exists anywhere the session
   could reach. The only measurements are ChainSafe's, at 4 threads, n=1 machine.
 - **Whether a Web Worker inherits the document CSP for wasm.**
@@ -1048,8 +1123,13 @@ Stated so the build handoff does not mistake a gap for a decision:
 
 **Q1. Threads: never, later, or now?** Section 1.3 recommends single-threaded first and names
 COEP `require-corp` as a site-wide cost taken for one route. The counter-argument is that
-building twice is worse than building once. The operator decides whether COEP is acceptable
-site-wide.
+building twice is worse than building once. **And COEP is not only a cost, which this question
+must say rather than leave in 5.2.2 for the operator to find:** cross-origin isolation is also
+the defence against a Spectre-class reader sharing a process with this page, so declining it
+declines that too. The trade is a shared linear memory weakening M7 (the worker realm that keeps
+the key out of page-realm script) against cross-origin isolation strengthening the process
+boundary around the whole page. **Read 5.2.2 and 5.1 before answering.** The operator decides
+whether COEP is acceptable site-wide.
 
 **Q2. Fork or upstream?** If upstream `librustzcash` does not build for the browser, Mode A
 either waits, uses ChainSafe's fork, or carries its own. Each is a different risk and none is
@@ -1063,7 +1143,8 @@ keeps getting wrong. Choosing protobuf adds a dependency and an opaque response.
 leans protobuf, on the seam argument**, and asks rather than decides.
 
 **Q4. Does the Zebra tag ceiling grow a runtime reader?** Deliverable 0a declares the ceiling in
-`scripts/check-compose-zebra-tag.mjs` because it has one reader. A11 checks a *live* node's
+`scripts/check-compose-zebra-tag.mjs` because it has one reader. **HANDOFF-11's** A11 - not
+section 7's, which is about the key and the page realm - checks a *live* node's
 subversion against the floor and would be the natural second reader for the ceiling - an
 operator who pulls a newer image by hand is exactly the case a tag pin cannot see. Moving the
 ceiling into `packages/zebra-rpc/src/version-floor.ts` makes that possible and makes the value
@@ -1094,6 +1175,24 @@ scope of a deferred correction is how a brief licenses a smaller fix than the de
 | `apps/indexer/src/decoder/leak-analyzer.ts` | 894, **904**, 1163 | 892, 903 |
 | `docs/2.0/RUNTIME.md` | 215 | - |
 
+**THE TABLE ENUMERATES TRACKED FILES THAT ASSERT THE ATTRIBUTION, AND SAYING SO IS PART OF THE
+ENUMERATION.** `git ls-files | xargs grep -ln 10461` returns **fourteen**: these five, plus nine
+that *discuss* or *correct* the attribution rather than state it - `CLAUDE.md`, this document,
+`handoffs/LEDGER.md`, `LOG.md`, `HANDOFF-12`, `HANDOFF-13`, `prompts/PROMPT-13.md`,
+`.github/workflows/ci.yml:265` and `scripts/check-compose-zebra-tag.mjs`, whose header is where
+the correction was established. Generated output (`packages/*/dist`, `apps/*/dist`,
+`apps/web/.next`) also carries it and is gitignored; it regenerates from the `src/` files
+already in the table.
+
+**A draft of this very paragraph got its own enumeration wrong, which is the third time in this
+question.** It reported "fourteen paths" from a `grep -rl --include=*.ts --include=*.md`, whose
+filters silently excluded `ci.yml` and `check-compose-zebra-tag.mjs` while including two
+`dist/` artifacts - a different fourteen that happened to equal the right total, so the number
+looked confirmed and the membership was wrong. That is LEDGER-04a exactly: a probe whose output
+is an enumeration, believed because the count matched, without asking the list whether it
+contained a member already known to be in the set. `scripts/check-compose-zebra-tag.mjs` was the
+member to ask for - this session wrote the #10461 correction into it.
+
 The byte-reversal **detector** remains correct and useful: a node whose transaction-side anchor
 spelling disagrees with the roots this build recorded is a real condition, whatever caused it.
 What is wrong is the **attribution**, and it is wrong in a **user-visible finding message**
@@ -1114,9 +1213,9 @@ in the table. A machine-readable row contradicted by the prose beside it is this
 most-recorded defect shape, and here it was load-bearing: it made a judgement call look like a
 constraint.
 
-**The real reason is the sweep rule, and it points the same way.** Five of the six sites *are*
-behind A2. Correcting only `RUNTIME.md` would land a correction in one file while five others
-still state the error - which LEDGER-03 Q3 rates a **HIGH** finding in its own right, worse than
+**The real reason is the sweep rule, and it points the same way.** The table names **five**
+files, and **four** of them are behind HANDOFF-13's A2. Correcting only `RUNTIME.md` would land
+a correction in one file while four others still state the error - which LEDGER-03 Q3 rates a **HIGH** finding in its own right, worse than
 the original, because the tree would then contradict itself about a named upstream change. A
 partial sweep is not a smaller version of the fix; it is a different and worse defect. So the
 whole correction goes together or not at all, and not-at-all is what a plan-only branch can
@@ -1306,9 +1405,11 @@ exactly wrong when the title claims something about the value. The signal is the
 between what the assertion **checks** and what its **name claims**, and neither half is
 mechanically available - the name is prose and the check is an expression.
 
-The four directions, costed:
+**FIVE directions, costed - and the heading said "four" while listing five, in the appendix
+whose subject is a count it got wrong.** The tally below quantifies over the six-row table
+above, not over the five-instance draft this appendix already corrected:
 
-**(i) Mutation as the instrument.** The property that distinguishes all five instances is that a
+**(i) Mutation as the instrument.** The property that distinguishes all six instances is that a
 mutation of the subject leaves them green. *Cost:* a mutation harness over the whole suite;
 minutes to hours per run; a CI budget this project does not have. *Reach:* total - it measures
 the real property. *Verdict:* correct and unaffordable as a gate. **But affordable as a
@@ -1316,12 +1417,12 @@ targeted tool** - see the recommendation.
 
 **(ii) A narrow syntactic rule aimed at instance 3.** A string assertion whose expected value is
 a prefix or substring of a field with an enumerable legal domain. *Cost:* small. *Reach:*
-catches 3, misses 1, 2, 4 and 5. *Verdict:* honest but narrow, and it would not have caught
-either of this session's.
+catches 3, misses 1, 2, 4, 5 and 6. *Verdict:* honest but narrow, and it would not have caught
+any of this session's three.
 
 **(iii) A quantifier rule aimed at instance 2.** A property test whose stated property names an
 aggregate while its body indexes an element. *Cost:* parses the title as prose. *Reach:* 2
-only, with false positives. *Verdict:* the worst ratio of the four.
+only, with false positives. *Verdict:* the worst ratio of the five.
 
 **(iv) Move the cost to the write-back.** Every section 5 assertion already needs a named worked
 case; the guard checks the case is present, not that the assertion is right. *Cost:* trivial.

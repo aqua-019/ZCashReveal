@@ -100,8 +100,25 @@ STATUS: DONE-WITH-ASSUMPTIONS
 
 BRANCH / PR:
   claude/new-session-0defoc, forked from main at 98e87a0.
-  PR #53, opened as a DRAFT and stopping at opened.
-  https://github.com/aqua-019/ZCashReveal/pull/53
+  PR #53 - https://github.com/aqua-019/ZCashReveal/pull/53
+  PR #54 - https://github.com/aqua-019/ZCashReveal/pull/54  (draft, stops at opened)
+
+  **PR #53 WAS MERGED BY THE OPERATOR AT `ef7312f` WHILE GATE ROUND 2 WAS STILL
+  RUNNING**, as `4d86b6b` on main at 12:59 UTC. So `main` carries
+  `docs/2.0/MODE-A-PLAN.md` WITHOUT the eleven defects round 2's third dimension
+  found in it - among them A6's exclusion set being satisfied by the shipped
+  document - and without round 3's four.
+  FOURTH INSTANCE IN THIS PROJECT (PR #39, #50, #51, now #53) and the
+  consequence is identical every time: the merged main holds the artifact and
+  not its corrections. It is recorded here rather than treated as an accident,
+  because three of the four were merged within an hour of a push while a gate
+  was explicitly reported as still running.
+  PR #54 carries the remainder. It is a NEW pull request and not a reopening: a
+  merged PR is finished and cannot track follow-up work, so the two commits were
+  REBASED onto `origin/main` rather than stacked on the merged history, and the
+  branch force-pushed with `--force-with-lease`. Content preserved - the rebase
+  produced no diff against the pre-rebase tree.
+  READ MAIN'S COPY OF THE PLAN AS PROVISIONAL until #54 lands.
 
 DIRECTORS SPAWNED (lead names each + spawn mode proven):
   SPAWN MODE: subagents available, proven by tool attempt before any work - a
@@ -332,8 +349,11 @@ UNVERIFIED (labelled):
      playwright both success); the run on 07b1daf was in progress at the time of
      writing and is re-checked before this PR leaves draft.
 
-GATE ROUNDS: 1 complete (7 dimensions dispatched, 6 returned, 45 findings);
-  round 2 dispatched over the fix commit and not returned at the time of writing.
+GATE ROUNDS: 2 complete, plus a third scoped by clause (ii)'s second amendment.
+  Round 1: 7 dimensions dispatched, 6 returned, 45 findings.
+  Round 2: 4 dimensions over the fix commits, 44 findings.
+  Round 3: the lead's own audit of round 2's fix commit, 4 findings, all its own.
+  93 findings in total. NO ROUND IS CLAIMED AS CONVERGENT - see EXTRAPOLATION.
 
   **THIS BLOCK WAS WRITTEN AT 20 FINDINGS AND 3 DIMENSIONS AND WAS ALREADY STALE
   WHEN IT SHIPPED.** Three more dimensions returned after the write-back commit;
@@ -399,7 +419,7 @@ GATE ROUNDS: 1 complete (7 dimensions dispatched, 6 returned, 45 findings);
     MODE-A-PLAN.md · Appendix B undercounts the population it answers · HIGH
     MODE-A-PLAN.md · the preamble promises a section 10 source for every rate and
       the only benchmark rate had none · HIGH
-    MODE-A-PLAN.md · "single-digit megabytes" survived the 7 MB -> 33 MB
+    MODE-A-PLAN.md · "single-digit megabytes" survived the 7 MB -> 34 MB
       correction eight lines above it · HIGH
     MODE-A-PLAN.md · 1.3's "2 seconds to 9" is the withdrawn 16,700-block era · MEDIUM
     MODE-A-PLAN.md · Q6 credits "section 0", which never mentions #10461 · MEDIUM
@@ -460,14 +480,130 @@ GATE ROUNDS: 1 complete (7 dimensions dispatched, 6 returned, 45 findings);
   clause (ii) amendment it earns its own review round. That round is owed and is
   named in §8 rather than claimed.
 
-  EXTRAPOLATION, STATED RATHER THAN CONVERGENCE CLAIMED: three dimensions
-  produced twenty findings, six of them HIGH, and the two most serious were in
-  work the lead had already reviewed and believed finished - a measurement that
-  committed the failure its own document warns about, and an assertion of the
-  precise shape the same branch specifies a guard against. A second round over
-  the fix commit would probably find one or two more of that reach, most likely
-  in the plan's prose about its own numbers rather than in the guards. Clause
-  (i) is NOT satisfied: round 1 returned findings a reader could see.
+  ROUND 1'S EXTRAPOLATION, KEPT ON THE RECORD BECAUSE IT WAS WRONG: three
+  dimensions produced twenty findings, six HIGH, and it predicted "one or two
+  more of that reach, most likely in the plan's prose about its own numbers
+  rather than in the guards". Round 2 returned FORTY-FOUR. The direction of the
+  error is the one this project has now recorded twice: the prediction flattered
+  the branch, about commits the lead had itself written.
+
+  ROUND 2. BUDGET FIRST, per LEDGER-05 Q5: four dimensions, every finding to be
+  reproduced by the lead by execution before acceptance. All four returned; 44
+  findings; none carried forward unread.
+
+  Round 2 dimension 1-2 (the guards re-read, and the external facts re-fetched)
+  produced 29 findings, fixed across 63bab43, 1091936 and ef7312f. The shape
+  worth recording is that THE FIX COMMIT CREATED DEFECTS, which is what clause
+  (ii) exists for: 07b1daf fixed `V= # leave unset` on the env surface and
+  RE-CREATED it in the compose list branch it added in the same commit, because
+  the list reader was blind to `- "NAME=value"`. Closed by making both surfaces
+  share one `literalValueOf` parser - one parser, two callers. Adding the
+  `inEnvironment` flag then opened two holes of my own, both of which survived
+  their mutation, both closed with `ENV_BLOCK_FIXTURE`.
+
+  ROUND 2 DIMENSION 3 - the plan read against itself - returned 15. Four had
+  already been fixed by ef7312f and were VERIFIED DEAD ON DISK before anything
+  was written (source 34's `main` citation, source 42, the preamble's row
+  pointer, the seam-shape count). ELEVEN WERE LIVE, fixed in 312cad4:
+    MODE-A-PLAN.md · A6's exclusion set is satisfied by the shipped document,
+      and by the very line saying the measurement does not exist · HIGH
+    MODE-A-PLAN.md · 9 Q6 says "five of the six sites" over a five-row table,
+      four of them behind A2 · HIGH
+    MODE-A-PLAN.md · section 8 still asks the pre-correction Source C question,
+      whose premise 3.2 disproves · HIGH
+    MODE-A-PLAN.md · Appendix B's costed directions argue from the count the
+      same appendix corrects · HIGH
+    MODE-A-PLAN.md · 3.3's byte arithmetic omits the Sapling spends its own
+      table measures; 3.2 has no CompactSaplingSpend row · HIGH
+    MODE-A-PLAN.md · 5.1 says "Mode A adds two" over a table marking three
+      new · MEDIUM
+    MODE-A-PLAN.md · 5.6 credits A2 with closing a leak A2 does not
+      quantify over · MEDIUM
+    MODE-A-PLAN.md · A2 and A11 each name two different assertions across three
+      namespaces · MEDIUM
+    MODE-A-PLAN.md · 1.3 claims "in order of weight", refuted by its own fifth
+      reason twenty lines below · LOW
+    MODE-A-PLAN.md · 9 Q1 frames COEP as cost-only, and it is the question the
+      operator answers · MEDIUM
+    docs/2.0/RUNTIME.md · says "there is no version CEILING guard yet", which
+      this branch shipped · MEDIUM
+
+  A6 IS THE ONE TO READ. Its exclusion set was a prose regex; executed against
+  `docs/2.0/` it matched two lines, both ChainSafe's FOUR-THREAD figure, one of
+  them 1.3's own `| Speed | UNVERIFIED - no measured single-threaded figure
+  exists | ... 4 threads, n=1 machine |`. The assertion would have passed on the
+  strength of a row whose text says the thing it requires has not been measured.
+  LEDGER-11 Q5(a), committed by a session that had already committed it once.
+  AND THE OBVIOUS TIGHTENING DOES NOT WORK, which is why this was executed
+  rather than reasoned about: requiring "single-threaded" and an n as conjuncts
+  still matches that same line, because both phrases are in it. Measured - prose
+  regex 2 matches, three-conjunct 1, a structured `SINGLE-THREAD RATE:` record
+  0. A POSITIVE CONTROL was run beside the two polarities, because a predicate
+  that is inert and a predicate whose set is genuinely empty both report zero.
+
+  THE PROSE-AGAINST-TABLE SHAPE, FIVE INSTANCES IN ONE FILE IN ONE ROUND, which
+  is the recurrence clause (b) asks about and the reason it is enumerated here:
+    1. 9 Q6's "five of the six sites" against its five-row table.
+    2. Appendix B's heading "the four directions" above five directions.
+    3. Appendix B's "all five instances" against its six-row table.
+    4. Appendix B's "misses 1, 2, 4 and 5", one short of the same table.
+    5. 5.1's "Mode A adds two" against three rows marked new.
+  Three of the five are in Appendix B, which is the appendix about miscounting.
+  NO GUARD IS PROPOSED FOR IT and that is a decision, not an omission: the
+  predicate is "a cardinal in prose disagrees with the cardinality of a nearby
+  structure", and identifying which structure a sentence refers to is the same
+  judgement Appendix B costs out and declines. It is recorded as an open shape
+  in §8 rather than dressed as covered, per clause (b)'s "recorded AS weaker".
+
+  ROUND 3 - the lead's own audit of 312cad4, scoped by clause (ii)'s second
+  amendment to (a) guard predicates, (b) test assertions and (c) sentences
+  making a checkable claim about runtime behaviour, because round 2 returned no
+  finding in an executable line of the product (there are none: A2's
+  `-- apps packages` diff is empty). Every checkable claim 312cad4 introduced
+  was re-executed. FOUR WERE WRONG, all mine, all in the commit that fixed the
+  other eleven:
+    MODE-A-PLAN.md · "HANDOFF-11 declined to add a seventh A11" - it declined a
+      SECOND in its own section 5; a per-handoff decision reported as a
+      repo-wide one · MEDIUM
+    MODE-A-PLAN.md · the citation `git ls-files | xargs grep -l '^- **A11.**'`
+      returns SEVEN, not the six the sentence states, because it counts this
+      document's own A11. Scoped to `handoffs/HANDOFF-*.md` · MEDIUM
+    MODE-A-PLAN.md · "this section's A1-A11 and A5b" after A12 was added to
+      it · LOW
+    MODE-A-PLAN.md · "all five listed in section 7's GATE ROUNDS" was a forward
+      reference to a list that did not yet exist. It exists above · MEDIUM
+  Both MEDIUMs are the LEDGER-04a shape - a claim built on an enumeration
+  without asking the list for a member already known to be in it.
+
+  TWO MALFORMED PROBES IN ROUND 2, REPORTED RATHER THAN QUIETLY REDONE, which
+  brings this session's total to eleven:
+    P10 the fixture recount read `tx.sapling.outputs` and returned zero Sapling
+        for every block while reproducing Orchard and Ironwood EXACTLY. The
+        fields are `vShieldedOutput` and `vShieldedSpend`. Had the disagreement
+        been read as a defect in the table rather than in the probe, the fix
+        would have deleted a column that was right.
+    P11 a draft of 9 Q6's scope note reported "fourteen paths" from a
+        `grep -rl --include=*.ts --include=*.md`, whose filters excluded
+        `ci.yml` and `check-compose-zebra-tag.mjs` while admitting two `dist/`
+        artifacts. A DIFFERENT FOURTEEN that happened to equal the right total,
+        so the count looked confirmed and the membership was wrong. The member
+        to have asked for was `check-compose-zebra-tag.mjs` - this session wrote
+        the #10461 correction into it.
+
+  EXTRAPOLATION, STATED RATHER THAN CONVERGENCE CLAIMED. Clause (i)(a) is NOT
+  satisfied: round 3 returned four findings a reader could see. Clause (i)(b) is
+  NOT satisfied: the prose-against-table shape has recurred across three rounds
+  and has no guard, by a decision recorded above. THE REACH IS NOT DECAYING - it
+  is FOLLOWING THE FIX COMMITS. Round 1 found 45, round 2 found 44, round 3
+  found 4 in the commit that fixed round 2, and the last three rounds each found
+  defects created by the previous round's fix. A fourth round would probably
+  find one to three more, of round 3's reach: miscounted enumerations and stale
+  cross-references in the newest prose, in (a)/(b)/(c) scope. It would not, on
+  this evidence, find nothing. **This handoff ends at a PLAN AWAITING OPERATOR
+  APPROVAL, and the plan's value is that its numbers and its assertions are
+  right; the honest report is that three of them were wrong after two rounds
+  said they were finished, and that the operator should read section 7's
+  assertions as the part most likely still to carry one.**
 
 PREVIEW URL:
   https://zecreveal-git-claude-new-session-0defoc-aquatic-17b9f112.vercel.app
@@ -476,22 +612,96 @@ PREVIEW URL:
   the operator's to open. No Lighthouse number is claimed: this branch changes
   no route, no component and no stylesheet.
 
-VERIFICATION (all executed on this branch, at 07b1daf unless noted):
-  TEST_RC=0        1400 passed / 124 skipped / 1509 total. NO POSTGRES OR REDIS
-                   in this session, so 121 integration tests skip; the branch
-                   touches ZERO test files, so these are main's totals.
-  CHECK_RC=0       seventeen static guards
-  TYPECHECK_RC=0   LINT_RC=0   VALIDATE_RC=0   BUILD_RC=0
+VERIFICATION (all six gates re-executed on this branch at 312cad4, after the
+round-2 and round-3 fixes; the earlier figures were taken at 07b1daf):
+  TEST_RC=0        1400 passed / 109 skipped / 1509 total. NO POSTGRES OR REDIS
+                   in this session, so the integration suites skip themselves;
+                   the branch touches ZERO test files, so these are main's
+                   totals.
+                   **AN EARLIER DRAFT OF THIS LINE SAID 124 SKIPPED, WHICH DOES
+                   NOT SUM WITH THE OTHER TWO FIGURES BESIDE IT** - 1400 + 124
+                   is 1524, not 1509. Re-executed and aggregated: 109. A
+                   verification block whose own arithmetic is refutable by
+                   addition is the cheapest possible defect to find and it stood
+                   through two gate rounds, which is the argument for
+                   re-executing a claim rather than re-reading it.
+  CHECK_RC=0       seventeen static guards, all green
+  TYPECHECK_RC=0   12/12 packages
+  LINT_RC=0        VALIDATE_RC=0        BUILD_RC=0   8/8 tasks
+  Section 7's assertions transplanted into a synthetic handoff and driven
+  through `check-ledger-structure.mjs`'s own exported `assertionFormatFindings`:
+  optedIn true, **13 assertions**, 0 findings.
   git status --porcelain empty after every fan-out and before every commit.
 ```
 
 ## §8 LEDGER — appended to `handoffs/LEDGER.md` by docs-scribe; read by L2 before the next handoff
 
+**THIS SECTION WAS AN UNFILLED TEMPLATE UNTIL THE FINAL WRITE-BACK**, while
+`handoffs/LEDGER.md` already carried three HANDOFF-13 appends. Found by comparing
+this file against HANDOFF-12, which fills its own §8. The consolidated block is
+below; the ledger's three appends stand as written, because it is append-only and
+a block corrected in place would hide that the earlier reading was ever held.
+
 ```
+GATE ROUND COUNTS: 3 rounds, 93 findings (45 / 44 / 4). NONE CONVERGENT.
+
 QUESTIONS (for the operator / L2):
+  Q1  THE PROSE-AGAINST-TABLE SHAPE RECURRED ACROSS THREE ROUNDS AND HAS NO
+      GUARD, and this entry is the "recorded AS WEAKER" clause (b) requires.
+      Five instances in ONE file in ONE round, three of them in Appendix B,
+      which is the appendix about miscounting. A guard was attempted and
+      abandoned: the predicate is "a cardinal in prose disagrees with the
+      cardinality of a nearby structure", and resolving WHICH structure a
+      sentence refers to is the judgement Appendix B itself costs out and
+      declines. A written rule stands in, with no self-test.
+      THE RULE: a sentence stating a cardinal about a structure in the same
+      document names the structure, and the cardinal is read off it at write
+      time rather than carried from a draft.
+      DECIDE: is the narrower guardable case worth having - a cardinal in the
+      SAME markdown block as a table, counted against that table's rows? It
+      would have caught three of the five and could not have caught the others.
+  Q2  A6 IS THE SECOND LEDGER-11 Q5(a) INSTANCE THIS SESSION COMMITTED, and the
+      finding worth carrying is not that but this: THE OBVIOUS TIGHTENING DOES
+      NOT WORK. Adding "single-threaded" and an n as conjuncts still matches the
+      line that says no single-threaded figure exists, because both phrases are
+      in it. Measured - prose regex 2, three-conjunct 1, structured record 0.
+      PROPOSED AMENDMENT to LEDGER-11 Q5(a): when a clause is found satisfied by
+      a value the object already exhibits, the REPAIRED clause is executed
+      against the object before it is written down, and the transcript carries a
+      POSITIVE CONTROL. A predicate that is inert and one whose set is genuinely
+      empty both report zero, and the reading is not available from the result.
+  Q3  A12 WAS ADDED BY THE GATE, because a COVERAGE CLAIM was wrong rather than
+      a test missing. 5.6 rated a glue or error-path leak as closed by A2; A2
+      quantifies over requests, A8 over storage, A11 over linear memory, and a
+      key in an `Error.message` is none of the three. This is the seam family
+      one level up: three assertions each exhaustive over its own channel, the
+      gap between them covered by none, invisible because each is complete.
+  Q4  SHOULD LEDGER-04a GAIN "the count matching is not the check; name the
+      member"? Two of round 3's four findings are that shape, and one is the
+      diagnostic case: a draft enumeration reported "fourteen paths" from a grep
+      whose filters excluded two files and admitted two build artifacts - a
+      DIFFERENT fourteen that happened to equal the right total, so the matching
+      count read as the check having passed.
+
 INFERRED (non-empty inferences a worker made):
-NOT-MATCHED (patterns handed over that did not apply):
-SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
-GATE ROUND COUNTS:
+  The Sapling-spend slot is 36 bytes - `nf` at 32, plus a tag and length byte
+  for the field and the same for its slot in `CompactTx`. Inferred from the two
+  slot sizes section 3.2 already derives (124, 159) rather than read from a wire
+  capture. It moves the volume figure from 822 to 840 bytes per block, so an
+  error here is bounded at 2 per cent and changes no conclusion in 1.5.
+
+NOT-MATCHED (patterns handed over that did not apply): none in rounds 2 and 3.
+  The three FALSE premises the brief handed down are in §7, not here, because
+  each was checked and refuted before it was built on rather than left unmatched.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews): none.
+
 DEFERRED ASSUMPTIONS:
+  The #10461 attribution correction stays DEFERRED, and the reason is the sweep
+  rule rather than A2. Five tracked files assert it, four behind A2 and
+  `docs/2.0/RUNTIME.md` not; correcting only the reachable one is a HIGH finding
+  under LEDGER-03 Q3. It belongs to the Integration track.
+  ONE HALF OF THAT LINE WAS NOT DEFERRED: RUNTIME.md:215 also said "there is no
+  version CEILING guard yet", which THIS BRANCH SHIPPED. A different fact in the
+  same sentence, correctable without touching any attribution site.
 ```
