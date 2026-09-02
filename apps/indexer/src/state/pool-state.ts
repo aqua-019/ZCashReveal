@@ -29,6 +29,19 @@ import { NullifierIndex } from "./nullifier-index.js";
 import { ValuePool } from "./value-pool.js";
 import { AnchorOutOfBoundsError } from "./errors.js";
 
+/**
+ * Where a pool's state STARTS when it is not indexed from the pool's birth
+ * (HANDOFF-12): the tree size and the balance at the height before the first
+ * block this state will see. Both are the node's own figures for that height -
+ * `trees.<pool>.size` and `valuePools[].chainValueZat` on a verbosity-2 block -
+ * so the state's `commitments.size()` and `value.balance()` are the quantities
+ * the node reports, not counters that happen to start where the indexer did.
+ */
+export interface PoolStateBase {
+  readonly commitmentBase: bigint;
+  readonly openingBalanceZat: bigint;
+}
+
 export class PoolState<P extends Pool> {
   public readonly commitments: CommitmentIndex<P>;
   public readonly anchors: AnchorIndex<P>;
@@ -40,15 +53,19 @@ export class PoolState<P extends Pool> {
    * @param network which network's activation heights the value invariants
    *   use. Passed straight through to `ValuePool`, which is the only component
    *   whose rules are height-dependent. Defaults to mainnet.
+   * @param base the tree size and balance this state opens at. Omitted means
+   *   a pool indexed from its birth - which every existing construction site
+   *   is, and the live indexer is not. See {@link PoolStateBase}.
    */
   constructor(
     public readonly pool: P,
     public readonly network: Network = "mainnet",
+    base?: PoolStateBase,
   ) {
-    this.commitments = new CommitmentIndex<P>(pool);
+    this.commitments = new CommitmentIndex<P>(pool, base?.commitmentBase ?? 0n);
     this.anchors = new AnchorIndex<P>(pool);
     this.nullifiers = new NullifierIndex<P>(pool);
-    this.value = new ValuePool<P>(pool, network);
+    this.value = new ValuePool<P>(pool, network, base?.openingBalanceZat ?? 0n);
   }
 
   /**
@@ -82,3 +99,14 @@ export class PoolState<P extends Pool> {
     };
   }
 }
+
+/**
+ * The four pools' state machines as one value - what the confirmed-block
+ * driver maintains and what the mempool analyser reads (HANDOFF-12).
+ *
+ * A mapped type rather than four named fields so the pool literal indexes it:
+ * `states[spend.pool]` is a `PoolState<typeof spend.pool>` and a cross-pool
+ * lookup does not typecheck, which is the same guarantee each index gives on
+ * its own carried up one level.
+ */
+export type PoolStates = { readonly [P in Pool]: PoolState<P> };

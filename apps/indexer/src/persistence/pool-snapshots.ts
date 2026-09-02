@@ -25,7 +25,7 @@
  * for a clock.
  */
 
-import type { Sql } from "postgres";
+import type { Conn } from "./conn.js";
 import type { Pool, PoolStateSnapshot } from "@zcashreveal/types";
 
 /**
@@ -60,7 +60,7 @@ import type { Pool, PoolStateSnapshot } from "@zcashreveal/types";
  */
 export async function writePoolSnapshot<P extends Pool>(
   record: PoolStateSnapshot<P>,
-  conn: Sql,
+  conn: Conn,
 ): Promise<void> {
   await conn`
     INSERT INTO pool_snapshots
@@ -93,7 +93,7 @@ export async function readPoolSnapshots<P extends Pool>(
   pool: P,
   lowHeight: number,
   highHeight: number,
-  conn: Sql,
+  conn: Conn,
 ): Promise<PoolStateSnapshot<P>[]> {
   const rows = await conn<
     Array<{
@@ -127,7 +127,7 @@ export async function readPoolSnapshots<P extends Pool>(
 export async function rollbackPoolSnapshotsToHeight<P extends Pool>(
   pool: P,
   height: number,
-  conn: Sql,
+  conn: Conn,
 ): Promise<number> {
   const result = await conn`
     DELETE FROM pool_snapshots

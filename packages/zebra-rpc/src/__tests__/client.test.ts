@@ -333,3 +333,67 @@ function rawTx() {
     vout: [],
   };
 }
+
+/* ============================================================================
+   z_gettreestate (HANDOFF-12, deliverable 2)
+   ========================================================================== */
+
+/** The empty Orchard-tree root, as Zebra's own vector spells it and as the Ironwood transaction in capture 3,444,837 cites it. */
+const EMPTY_ORCHARD_ROOT = "ae2935f1dfd8a24aed7c70df7de3a668eb7a49b1319880dde2bbd9031ae5d82f";
+
+/** A post-NU6.3 response, in the shape `z_get_treestate` builds: every present pool carries both keys. */
+function treestate(over: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    hash: "0000000000274151cfae6e6d498f95afe06c8a5b5ee3b4540a0888f4bbbcbcfb",
+    height: 3_444_837,
+    time: 1_756_760_000,
+    sapling: { commitments: { finalRoot: "11".repeat(32), finalState: "01" } },
+    orchard: { commitments: { finalRoot: "22".repeat(32), finalState: "02" } },
+    ironwood: { commitments: { finalRoot: EMPTY_ORCHARD_ROOT.toUpperCase(), finalState: "03" } },
+    ...over,
+  };
+}
+
+describe("z_gettreestate - the Ironwood root's only source", () => {
+  it("sends the selector as a STRING for a height, and as the hash for a hash", async () => {
+    const { rpc, calls } = client([OK(treestate()), OK(treestate())]);
+    await rpc.getTreestate({ height: 3_444_837 });
+    await rpc.getTreestate({ hash: hex64("ab") });
+    expect(calls[0]?.body).toMatchObject({ method: "z_gettreestate", params: ["3444837"] });
+    expect(calls[1]?.body).toMatchObject({ method: "z_gettreestate", params: [hex64("ab")] });
+  });
+
+  it("PASS STATE: a post-NU6.3 response yields an Ironwood root, lowercased and otherwise VERBATIM - no byte reversal at the boundary", async () => {
+    // At the pinned 6.3.0 release the root and the anchors transactions cite
+    // come from the same conversion, so the spelling the node sends IS the
+    // spelling the AnchorIndex is keyed on. The vector is the empty-tree root
+    // that a real Ironwood transaction in the committed capture cites.
+    const { rpc } = client([OK(treestate())]);
+    const t = await rpc.getTreestate({ height: 3_444_837 });
+    expect(t.ironwood?.commitments.finalRoot).toBe(EMPTY_ORCHARD_ROOT);
+    expect(t.sapling.commitments.finalRoot).toBe("11".repeat(32));
+    expect(t.orchard.commitments.finalRoot).toBe("22".repeat(32));
+    expect(t.height).toBe(3_444_837);
+  });
+
+  it("a pre-NU6.3 response carries no ironwood key, and an empty-tree pool carries empty commitments - both parse", async () => {
+    // Zebra's own snapshot for a genesis-era height: `"sapling": {"commitments": {}}`
+    // and no `ironwood` at all. Absent means absent, never a null root.
+    const { rpc } = client([OK({ hash: "05a60a92d99d85997cce3b87616c089f6124d7342af37106edc76126334a2c38", height: 0, time: 1477648033, sapling: { commitments: {} }, orchard: { commitments: {} } })]);
+    const t = await rpc.getTreestate({ height: 0 });
+    expect(t.ironwood).toBeUndefined();
+    expect(t.sapling.commitments.finalRoot).toBeUndefined();
+    expect(t.orchard.commitments.finalRoot).toBeUndefined();
+  });
+
+  it("FAIL STATE, BY DATA: a root that is not 64 hex characters is refused at the boundary, not passed on as an anchor", async () => {
+    const { rpc } = client([OK(treestate({ ironwood: { commitments: { finalRoot: "not-a-root", finalState: "03" } } }))]);
+    await expect(rpc.getTreestate({ height: 3_444_837 })).rejects.toBeInstanceOf(RpcSchemaError);
+  });
+
+  it("a -8 for a height off the best chain is an RpcError, never a retry", async () => {
+    const { rpc, attempts } = client([{ status: 500, body: { jsonrpc: "1.0", id: 1, error: { code: -8, message: "the requested block is not in the main chain" } } }]);
+    await expect(rpc.getTreestate({ height: 99_999_999 })).rejects.toBeInstanceOf(RpcError);
+    expect(attempts()).toBe(1);
+  });
+});

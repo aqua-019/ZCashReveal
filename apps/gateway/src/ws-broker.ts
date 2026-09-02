@@ -2,7 +2,7 @@ import type { WebSocket } from "ws";
 import type { Logger } from "pino";
 import {
   REDIS_CHANNELS,
-  reviveWireZatoshi,
+  reviveWire,
   zecFrameSchema,
   type LeakReport,
   type SnapshotV1,
@@ -198,7 +198,7 @@ export function toZecFrame(channel: string, payload: unknown, now: number): ZecF
       // tip height for a VIEW this arm then discards - a number invented to
       // satisfy a signature, which is how a fabricated measurement gets its
       // first reader.
-      candidate = { type: "tx_added", entry: mempoolRow(reviveWireZatoshi<LeakReport>(p["report"]), now) };
+      candidate = { type: "tx_added", entry: mempoolRow(reviveWire<LeakReport>(p["report"]), now) };
     } else if (p["type"] === "tx_removed") {
       candidate = { type: "tx_removed", txid: p["txid"], reason: p["reason"] };
     }

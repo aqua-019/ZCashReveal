@@ -171,6 +171,23 @@ describe.skipIf(fixturePaths.length === 0)(
       // that reason - every capture is asserted, under one title.
       expect(fixturePaths.length).toBeGreaterThan(0);
 
+      // POOL COVERAGE IS ASSERTED OVER THE SET, NOT PER FILE (HANDOFF-12, fold
+      // 2 of the PR #50 resolution). Until then this loop demanded Sapling,
+      // Orchard AND Ironwood activity of EVERY capture, which turned the
+      // fixtures README's section 2 - selection guidance for choosing a
+      // capture worth having - into a per-file validity rule the README says
+      // it is not. A PREDECESSOR capture is chosen for being the block BEFORE
+      // a conforming one, so that check-capture-consistency.mjs can run its
+      // note-commitment-tree delta arm over a real consecutive pair, and
+      // 3,444,836 is two transactions with no shielded activity at all. What
+      // every file must satisfy is the structural contract inside the loop;
+      // what the SET must satisfy is that each pool is exercised by at least
+      // one capture, so a four-pool decoder is still never certified by a
+      // three-pool corpus.
+      let sawSapling = false;
+      let sawOrchard = false;
+      let sawIronwood = false;
+
       for (const path of fixturePaths) {
         const raw = JSON.parse(readFileSync(path, "utf8")) as RpcBlock;
         const decoded = decodeBlock(raw);
@@ -180,42 +197,51 @@ describe.skipIf(fixturePaths.length === 0)(
         expect(decoded.time, path).toBe(raw.time);
         expect(decoded.txs, path).toHaveLength(raw.tx.length);
 
-        // §2 selection criteria guarantee every pool sees activity in a
-        // capture. Ironwood joined them in HANDOFF-07, and with it the floor
-        // moved to post-NU6.3: a capture that satisfied the old post-NU5 floor
-        // can contain no Ironwood at all, and this suite would then report as
-        // coverage of a four-pool decoder while exercising three.
-        const sawSapling = decoded.txs.some(
-          (t) => t.saplingSpends.length > 0 || t.saplingOutputs.length > 0,
+        const blockSaplingOutputs = decoded.txs.some((t) => t.saplingOutputs.length > 0);
+        const blockSapling =
+          blockSaplingOutputs || decoded.txs.some((t) => t.saplingSpends.length > 0);
+        const blockOrchard = decoded.txs.some((t) => t.orchardActions.length > 0);
+        const blockIronwood = decoded.txs.some((t) => t.ironwoodActions.length > 0);
+        sawSapling = sawSapling || blockSapling;
+        sawOrchard = sawOrchard || blockOrchard;
+        sawIronwood = sawIronwood || blockIronwood;
+
+        // A pool that advanced and HAS a block-level root -> the anchor mirrors
+        // the header root; a pool that did not advance -> no anchor, however
+        // many roots the header carries. That is two pools, not three. Spends
+        // do not advance a tree, so Sapling's gate is OUTPUTS.
+        expect(decoded.saplingAnchor?.root ?? null, path).toBe(
+          blockSaplingOutputs ? (raw.finalsaplingroot ?? null) : null,
         );
-        const sawOrchard = decoded.txs.some((t) => t.orchardActions.length > 0);
-        const sawIronwood = decoded.txs.some((t) => t.ironwoodActions.length > 0);
-        expect(sawSapling, path).toBe(true);
-        expect(sawOrchard, path).toBe(true);
-        expect(sawIronwood, path).toBe(true);
+        expect(decoded.orchardAnchor?.root ?? null, path).toBe(
+          blockOrchard ? (raw.finalorchardroot ?? null) : null,
+        );
 
-        // Every pool that advanced and HAS a block-level root → the anchor
-        // mirrors the header root. That is two pools, not three.
-        expect(decoded.saplingAnchor?.root, path).toBe(raw.finalsaplingroot);
-        expect(decoded.orchardAnchor?.root, path).toBe(raw.finalorchardroot);
-
-        // IRONWOOD IS THE LOAD-BEARING ASSERTION OF THIS SUITE AND IT ASKS A
-        // DIFFERENT QUESTION SINCE HANDOFF-08. It used to assert that the
-        // capture confirmed an inferred `finalironwoodroot`; L2 read Zebra's
-        // source and there is no such field (LEDGER-07 Q5). What a real capture
-        // now settles is the OTHER half - that `trees.ironwood.size` is really
-        // sent, and really equals the tree size, on a block that moved the pool.
-        // A capture failing here means PR #10888's shape is not what this build
-        // parses, which is exactly the outcome wanted.
-        expect(decoded.ironwoodAnchorPendingTreestate, `${path}: block moved Ironwood`).toBe(true);
-        expect(
-          decoded.ironwoodTreeSize,
-          `${path}: trees.ironwood.size absent on a block that moved Ironwood`,
-        ).not.toBeNull();
+        // IRONWOOD ASKS A DIFFERENT QUESTION SINCE HANDOFF-08. It used to
+        // assert that the capture confirmed an inferred finalironwoodroot; L2
+        // read Zebra's source and there is no such field (LEDGER-07 Q5). What a
+        // real capture settles is the OTHER half - that trees.ironwood.size is
+        // really sent and really equals the tree size - and, since HANDOFF-12,
+        // that the pending flag is exactly "this block appended Ironwood
+        // commitments", which is the scheduling signal the confirmed-block
+        // driver reads to decide whether to call z_gettreestate.
+        expect(decoded.ironwoodAnchorPendingTreestate, path).toBe(blockIronwood);
         expect(decoded.ironwoodTreeSize, path).toBe(
           raw.trees?.ironwood?.size === undefined ? null : BigInt(raw.trees.ironwood.size),
         );
+        if (blockIronwood) {
+          expect(
+            decoded.ironwoodTreeSize,
+            `${path}: trees.ironwood.size absent on a block that moved Ironwood`,
+          ).not.toBeNull();
+        }
       }
+
+      // THE SET-LEVEL HALF. A capture failing one of these means the corpus
+      // no longer exercises a pool, which is exactly the outcome wanted.
+      expect(sawSapling, "no capture exercises Sapling").toBe(true);
+      expect(sawOrchard, "no capture exercises Orchard").toBe(true);
+      expect(sawIronwood, "no capture exercises Ironwood").toBe(true);
     });
   },
 );

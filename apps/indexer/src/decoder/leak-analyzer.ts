@@ -7,6 +7,7 @@
  */
 
 import type {
+  ClaimAssessment,
   Hex,
   RpcTransaction,
   LeakReport,
@@ -31,6 +32,7 @@ import { NU6_2_ACTIVATION_MAINNET, NU6_2_ACTIVATION_TESTNET, type Network } from
 import { AnchorRegistry } from "./anchor-depth.js";
 import { guessWallet, isZip317Conventional } from "./fingerprint.js";
 import {
+  asHex,
   canonicalDenomination,
   isBelowMaxResidual,
   isOverMaxCrossing,
@@ -42,12 +44,30 @@ import {
   noPrevOutResolver,
   type PrevOutResolver,
 } from "../analysis/fee.js";
+import { assessRaw } from "../analysis/assessment.js";
+import { rawCandidateRange } from "../analysis/candidate-set.js";
+import type { PoolStates } from "../state/pool-state.js";
 
 export interface AnalyzeContext {
   tipHeight: number;
   seenAt: number;
   anchorRegistry: AnchorRegistry;
   recentAnchorThreshold: number;
+  /**
+   * The four pools' state as the confirmed-block driver maintains it
+   * (HANDOFF-12, A3). When present, every shielded spend whose anchor the
+   * state has recorded carries an `assessment` over its raw candidate set,
+   * and every spend whose anchor it has not is named on `findings[]` as
+   * `UNKNOWN_ANCHOR`. When absent - a caller with no chain state, which is
+   * every caller before HANDOFF-12 and every unit test that is not about
+   * assessments - no spend is assessed and no such finding is raised, because
+   * the absence of a state is not an unknown anchor.
+   *
+   * READ AT EACH CALL, NEVER HELD: the driver REPLACES the state object on a
+   * reorg (it rebuilds from disk rather than undoing in place), so a caller
+   * passes the current one per transaction rather than capturing it once.
+   */
+  chainState?: PoolStates | undefined;
   /**
    * Resolves the value of an output a transaction spends, so the fee can be
    * computed by summing them (HANDOFF-06 deliverable 4).
@@ -195,6 +215,13 @@ export async function analyze(
     }
   }
 
+  // THE ASSESSMENT, OVER THE CHAIN STATE, FOR EVERY SPEND WHOSE ANCHOR IT HAS
+  // (A3). `rawCandidateRange` is Cand_0 - every commitment the anchor sees -
+  // and `assessRaw` is the uniform claim over it. A spend whose anchor the
+  // state has NOT recorded gets no assessment and is named below as a
+  // finding, once per distinct anchor.
+  const unknownAnchors = attachAssessments(spendAnnotations, ctx.chainState);
+
   const outputAnnotations: OutputAnnotation[] = [];
   for (const o of saplingOutputs) {
     outputAnnotations.push({ pool: "sapling", index: o.index, commitment: o.cmu });
@@ -339,6 +366,7 @@ export async function analyze(
     // `0n` in both the "no JoinSplits" case and the "node too old to serialise
     // the field" case, and only this can tell them apart.
     joinSplits: joinSplitObservability(tx),
+    unknownAnchors,
   });
 
   const overallSeverity = highestSeverity(findings);
@@ -856,8 +884,29 @@ function collectFindings(input: {
   proofSize: { expectedBytes: number; actualBytes: number } | null;
   ironwoodKeyMissingOnV6: string[] | null;
   joinSplits: JoinSplitObservability;
+  unknownAnchors: ReadonlyArray<UnknownAnchor>;
 }): Finding[] {
   const out: Finding[] = [];
+
+  // ONE FINDING PER DISTINCT UNKNOWN ANCHOR (HANDOFF-12, A3). The message
+  // carries the count of spends citing it and, when the anchor's byte-reversed
+  // spelling IS recorded, says so - that is the shape a node past Zebra
+  // #10461 produces on every Orchard-shaped spend, and the one place it shows.
+  for (const u of input.unknownAnchors) {
+    out.push({
+      code: "UNKNOWN_ANCHOR",
+      severity: "INFO",
+      message:
+        `${POOL_LABEL[u.pool]}: ${u.spends} spend${u.spends === 1 ? "" : "s"} cite${u.spends === 1 ? "s" : ""} anchor ` +
+        `${u.anchor.slice(0, 16)}..., which this indexer's chain state has not recorded, so no candidate set is claimed` +
+        (u.reversedSpellingKnown
+          ? " - its BYTE-REVERSED spelling IS recorded: the node spells transaction anchors in the opposite byte " +
+            "order from the roots this build recorded (ZcashFoundation/zebra #10461), and every lookup for this pool " +
+            "will miss until the node and this build agree"
+          : ""),
+      field: "anchor",
+    });
+  }
 
   // THE SPROUT TERM MAY BE AN ASSUMPTION RATHER THAN A MEASUREMENT, AND THIS IS
   // WHERE THAT IS SAID OUT LOUD. `sproutValueBalanceZat` returns `0n` both for a
@@ -1041,6 +1090,79 @@ function collectFindings(input: {
   }
 
   return out;
+}
+
+/** An anchor a spend cited that the chain state has not recorded, with how many spends cite it. */
+interface UnknownAnchor {
+  readonly pool: ShieldedPool;
+  readonly anchor: Hex;
+  spends: number;
+  readonly reversedSpellingKnown: boolean;
+}
+
+/**
+ * Attach a raw assessment to every spend whose anchor the chain state has
+ * recorded, and return the anchors it has not, one entry per distinct
+ * (pool, anchor). With no chain state, nothing is attached and nothing is
+ * returned: the absence of a state is not an unknown anchor.
+ */
+function attachAssessments(
+  spends: SpendAnnotation[],
+  chainState: PoolStates | undefined,
+): UnknownAnchor[] {
+  if (chainState === undefined) return [];
+  const unknown = new Map<string, UnknownAnchor>();
+  for (const s of spends) {
+    const assessment = assessSpend(s.pool, s.anchor, chainState);
+    if (assessment !== null) {
+      s.assessment = assessment;
+      continue;
+    }
+    const key = `${s.pool}:${s.anchor}`;
+    const seen = unknown.get(key);
+    if (seen !== undefined) {
+      seen.spends += 1;
+    } else {
+      unknown.set(key, {
+        pool: s.pool,
+        anchor: s.anchor,
+        spends: 1,
+        reversedSpellingKnown: hasRoot(s.pool, reverseHex(s.anchor), chainState),
+      });
+    }
+  }
+  return [...unknown.values()];
+}
+
+/** `assessRaw` over Cand_0 for one pool, with the generic narrowed per pool; `null` when the anchor is unknown. */
+function assessSpend(pool: ShieldedPool, anchor: Hex, states: PoolStates): ClaimAssessment | null {
+  switch (pool) {
+    case "sprout": {
+      const range = rawCandidateRange("sprout", anchor, states.sprout);
+      return range === null ? null : assessRaw(range);
+    }
+    case "sapling": {
+      const range = rawCandidateRange("sapling", anchor, states.sapling);
+      return range === null ? null : assessRaw(range);
+    }
+    case "orchard": {
+      const range = rawCandidateRange("orchard", anchor, states.orchard);
+      return range === null ? null : assessRaw(range);
+    }
+    case "ironwood": {
+      const range = rawCandidateRange("ironwood", anchor, states.ironwood);
+      return range === null ? null : assessRaw(range);
+    }
+  }
+}
+
+function hasRoot(pool: ShieldedPool, root: Hex, states: PoolStates): boolean {
+  return states[pool].anchors.hasRoot(root);
+}
+
+/** The same 32 bytes in the opposite order - the spelling a node past Zebra #10461 gives an Orchard-shaped anchor. */
+function reverseHex(hex: Hex): Hex {
+  return asHex(Buffer.from(hex, "hex").reverse().toString("hex"));
 }
 
 /**

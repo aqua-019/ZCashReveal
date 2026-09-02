@@ -207,6 +207,16 @@ docker compose logs indexer | grep -i "zmq unavailable"     # expected, once
 docker compose logs indexer | tail -20                      # tip heights advancing
 ```
 
+SINCE HANDOFF-12 THE POLL LOOP IS THE MEMPOOL HALF ONLY. The same process also
+follows CONFIRMED blocks: on a cold database it opens the four pools' state at
+`INDEXER_START_HEIGHT` (NU6.3 activation unless set), on a warm one it replays
+the state from Postgres, and only then does it start the mempool loop, because
+every mempool spend is assessed against that state. What one block costs, what
+a reorg does, and what each fatal line means - including the one that stops
+the process on purpose when its accounting disagrees with the node's - are in
+`docs/2.0/RUNTIME.md`. The line to look for after a restart is
+`chain state replayed`, and the per-block line is `block applied`.
+
 ---
 
 ## 4. Migrations - and 003 is not an ordinary one
@@ -643,13 +653,17 @@ docker compose exec -T zebrad curl -s http://127.0.0.1:8232 \
   | python3 -c 'import sys,json; json.dump(json.load(sys.stdin)["result"], sys.stdout)' \
   > "apps/indexer/test/fixtures/blocks/mainnet-$HEIGHT-$SHORT.json"
 
-# SHORT is the first six hex characters of the block hash. Set it before the
-# command above; an unquoted <shorthash> placeholder is parsed by the shell as a
-# redirection and the capture fails with a syntax error rather than a hint.
+# SHORT is the first six hex characters of the block hash AFTER its leading
+# zeros - the fixtures README's naming rule since HANDOFF-12. Every modern
+# mainnet hash begins with ten or more zeros, so "the first six characters"
+# was 000000 for every capture and four files differed only in their height
+# digits. Set it before the command above; an unquoted <shorthash> placeholder
+# is parsed by the shell as a redirection and the capture fails with a syntax
+# error rather than a hint.
 #   SHORT=$(docker compose exec -T zebrad curl -s http://127.0.0.1:8232 \
 #     -H 'content-type: application/json' \
 #     -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"getblockhash\",\"params\":[$HEIGHT]}" \
-#     | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"][:6])')
+#     | python3 -c 'import sys,json; print(json.load(sys.stdin)["result"].lstrip("0")[:6])')
 ```
 
 Selection criteria are in `apps/indexer/test/fixtures/blocks/README.md` and are
@@ -677,15 +691,27 @@ Fill in a row per capture.
 |---|---|---|---|---|
 | 3,432,130 | `000000000009eb351a746b531aac6125982b93161529b5e68821d74034230ddd` | `/Zebra:6.2.1/` | yes, empty on all 5 tx | 1 Sep 2026 |
 | 3,441,955 | `000000000054b709857869a65b4db13bbc723123584b18edd4637ae3d3780791` | `/Zebra:6.2.1/` | yes, empty on all 10 tx | 1 Sep 2026 |
+| 3,444,836 | `00000000001e5057e71a7656ac40e3117c6944e770f71144fbdd23c8aa4ac8b1` | `/Zebra:6.2.1/` | yes, empty on both tx | 1 Sep 2026 |
+| 3,444,837 | `0000000000274151cfae6e6d498f95afe06c8a5b5ee3b4540a0888f4bbbcbcfb` | `/Zebra:6.2.1/` | yes, empty on all 6 tx | 1 Sep 2026 |
 
-Both were taken by L2 (Cowork) against the public endpoint
+All four were taken by L2 (Cowork) against the public endpoint
 `https://zcash-mainnet-zebrad.gateway.tatum.io/` rather than against this VPS,
 because the VPS is not yet provisioned and the standing request had by then
 survived four handoffs (LEDGER-10 Q4). The `subversion` is L2's reading of
 `getnetworkinfo` at capture time and is **not** recoverable from the files -
 a `getblock` result carries no node identity - so it is recorded here on L2's
 report rather than as something a later reader can re-measure from the tree.
-Everything else in these two rows was measured from the committed files.
+Everything else in these rows was measured from the committed files. The
+consecutive pair 3,444,836 / 3,444,837 reached `main` in commit `09b034d`,
+staged under `docs/2.0/capture/` on the operator's instruction, and HANDOFF-12
+moved it into the fixtures directory after checking every consensus value the
+resolution recorded - hashes, merkle roots recomputed from the txids, `nTx`,
+compact sizes, tree sizes and the predecessor link - against the files; the
+capture endpoint itself is unreachable from a session (the container's egress
+proxy refuses the CONNECT with 403). 3,444,836 is the predecessor and does not
+meet section 2 of the fixtures README, which is selection guidance and not a
+per-file rule; it is there so the consistency guard's tree-delta arm runs over
+a real pair.
 
 **THE `vjoinsplit` COLUMN IS DELIVERABLE 2b AND THESE TWO CAPTURES CLOSE HALF
 OF IT.** `packages/zebra-rpc/src/sprout-field.ts` reports the field's absence

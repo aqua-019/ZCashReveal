@@ -514,4 +514,31 @@ export type FindingCode =
    * contribution unknown rather than zero. Raised so a `sproutValueBalanceZat`
    * of `0n` on such a transaction is never read as a measurement.
    */
-  | "SPROUT_FIELD_INDETERMINATE";
+  | "SPROUT_FIELD_INDETERMINATE"
+  /**
+   * A shielded spend cites an anchor this indexer's chain state has not
+   * recorded, so no candidate set - and therefore no `assessment` - can be
+   * claimed for it (HANDOFF-12, A3).
+   *
+   * A FINDING CODE AND NOT A LOG LINE, because that is the one choice that
+   * makes A3's fail side observable IN THE REPORT: a reader of `findings[]`
+   * sees why a spend carries no assessment, where a log string would leave
+   * the absence indistinguishable from a build that never assessed anything.
+   * One finding per distinct (pool, anchor) rather than per spend - an
+   * Orchard-shaped bundle's actions share one anchor, and the anchor is the
+   * unknown thing. INFO: nothing is wrong with the transaction. This build's
+   * state opens at a height, and an anchor older than that height is unknown
+   * to it honestly, as is one from a block it has not applied yet. It agrees
+   * with `SpendAnnotation.anchorHeight: null` rather than duplicating it: the
+   * height comes from the anchor registry and the candidate set from the
+   * chain state, and a spend can have either without the other.
+   *
+   * ITS MESSAGE CARRIES ONE DIAGNOSTIC A LOG WOULD LOSE: whether the anchor's
+   * BYTE-REVERSED spelling IS recorded. ZcashFoundation/zebra PR #10461,
+   * merged after the 6.3.0 release this stack pins, reverses the
+   * transaction-side spelling of Orchard-shaped anchors and not the roots
+   * `getblock` and `z_gettreestate` report; on such a node every lookup misses
+   * in exactly this way, and this message is the one place the drift is
+   * visible rather than a mystery.
+   */
+  | "UNKNOWN_ANCHOR";

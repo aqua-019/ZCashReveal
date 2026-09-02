@@ -83,3 +83,22 @@ export class AnchorOutOfBoundsError extends ZCashRevealStateError {
     this.name = "AnchorOutOfBoundsError";
   }
 }
+
+/**
+ * A replayed commitment's STORED position is not the one the index assigned it.
+ *
+ * `pool_commitments.position` is absolute - an NCT index - and a `PoolState`
+ * opened at a base assigns positions from that base. The two agree when the
+ * state was constructed with the base the rows were written under, and
+ * disagree when it was not: a state opened at zero replaying rows written at
+ * 73,944,723, a row missing from the middle of a run, or two runs written
+ * under different bases. Until HANDOFF-12 `replayInto` ignored the stored
+ * position and renumbered silently, so any of those replayed green and every
+ * candidate set built on it was wrong by the gap.
+ */
+export class ReplayPositionMismatchError extends ZCashRevealStateError {
+  constructor(message: string) {
+    super(message);
+    this.name = "ReplayPositionMismatchError";
+  }
+}

@@ -151,3 +151,32 @@ describe("PoolState (properties)", () => {
     );
   });
 });
+
+describe("PoolState opened at a base (HANDOFF-12)", () => {
+  it("hands the tree size to the commitment index and the balance to the value pool, and nothing to the other two", () => {
+    const s = new PoolState<"ironwood">("ironwood", "mainnet", {
+      commitmentBase: 48_467n,
+      openingBalanceZat: 262_193_768_735_254n,
+    });
+    expect(s.commitments.size()).toBe(48_467n);
+    expect(s.value.balance()).toBe(262_193_768_735_254n);
+    expect(s.anchors.snapshot().anchorCount).toBe(0);
+    expect(s.nullifiers.snapshot().nullifierCount).toBe(0);
+    // recordAnchor's invariant is against the TREE size: an anchor at the
+    // last position before the base is valid the moment the state opens,
+    // which is how a Sapling anchor recorded from a treestate at the start
+    // height can be recorded at all.
+    s.recordAnchor({ pool: "ironwood", root: h(1), maxPosition: 48_466n, heightCreated: 3_444_836 });
+    expect(() =>
+      s.recordAnchor({ pool: "ironwood", root: h(2), maxPosition: 48_467n, heightCreated: 3_444_836 }),
+    ).toThrow(AnchorOutOfBoundsError);
+    expect(s.snapshot(3_444_836)).toEqual({
+      pool: "ironwood",
+      height: 3_444_836,
+      commitmentCount: 48_467n,
+      anchorCount: 1,
+      nullifierCount: 0,
+      balanceZat: 262_193_768_735_254n,
+    });
+  });
+});

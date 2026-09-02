@@ -6,10 +6,11 @@
  * unreachable indexer look the same to a reader, so the summary says which it
  * is in words.
  */
-import { REDIS_KEYS, mempoolViewSchema, reviveWireZatoshi, type LeakReport } from "@zcashreveal/types";
+import { mempoolViewSchema } from "@zcashreveal/types";
 
 import type { GatewayApp, RouteDeps } from "./deps.js";
 import { toStatus } from "./errors.js";
+import { readLiveReports } from "../live-reports.js";
 import { respond } from "../serialize.js";
 import { buildMempoolView } from "../views/mempool.js";
 
@@ -17,7 +18,7 @@ export function registerMempoolRoute(app: GatewayApp, deps: RouteDeps): void {
   app.get("/mempool", async (_req, reply) => {
     try {
       const info = await deps.rpc.getBlockchainInfoFull();
-      const reports = await readLiveReports(deps);
+      const reports = await readLiveReports(deps.redis, deps.log);
       // One extra call, and it is what makes `summary.bytes` a measurement:
       // getrawmempool verbose returns a size per entry in a single request.
       // A failure here degrades the byte total to zero rather than failing the
@@ -32,28 +33,11 @@ export function registerMempoolRoute(app: GatewayApp, deps: RouteDeps): void {
   });
 }
 
-async function readLiveReports(deps: RouteDeps): Promise<LeakReport[]> {
-  if (deps.redis === null) return [];
-  const live = await deps.redis.hgetall(REDIS_KEYS.mempoolLive);
-  const out: LeakReport[] = [];
-  for (const raw of Object.values(live)) {
-    try {
-      // REVIVED, NOT CAST, AND THE CAST WAS A LIVE 500. `apps/indexer` writes
-      // every zatoshi through a `bigint -> string` replacer, so
-      // `JSON.parse(raw) as LeakReport` asserted a shape the value did not
-      // have and `buildMempoolView`'s first `%` on one threw
-      // `TypeError: Cannot mix BigInt and other types`. Every gateway suite
-      // built its reports with real bigints, so nothing here had ever seen the
-      // form the indexer actually stores.
-      out.push(reviveWireZatoshi<LeakReport>(JSON.parse(raw)));
-    } catch {
-      // One malformed entry must not empty the table. The indexer wrote it and
-      // the indexer's own logs are where that belongs; here it is one row.
-      deps.log.warn("skipped a malformed mempool entry");
-    }
-  }
-  return out;
-}
+// `readLiveReports` MOVED TO ../live-reports.ts IN HANDOFF-12, because the
+// connect-time WebSocket frame in server.ts read the same hash with the cast
+// this route had already been cured of. One reader, both callers. The history
+// of the cast - a live 500 on every non-empty mempool, found in HANDOFF-11 -
+// is in that file's header.
 
 async function readSizes(deps: RouteDeps): Promise<Record<string, { size: number }>> {
   try {

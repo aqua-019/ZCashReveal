@@ -6,7 +6,7 @@
  * AnchorIndex is order-independent.
  */
 
-import type { Sql } from "postgres";
+import type { Conn } from "./conn.js";
 import type { Anchor, Pool } from "@zcashreveal/types";
 import { asHex } from "@zcashreveal/types";
 
@@ -19,7 +19,7 @@ import { asHex } from "@zcashreveal/types";
  */
 export async function writePoolAnchor<P extends Pool>(
   record: Anchor<P>,
-  conn: Sql,
+  conn: Conn,
 ): Promise<void> {
   await conn`
     INSERT INTO pool_anchors (pool, root, height_created, max_position)
@@ -39,7 +39,7 @@ export async function writePoolAnchor<P extends Pool>(
  */
 export async function readAllPoolAnchors<P extends Pool>(
   pool: P,
-  conn: Sql,
+  conn: Conn,
 ): Promise<Anchor<P>[]> {
   const rows = await conn<
     Array<{ root: string; height_created: number; max_position: string }>
@@ -65,7 +65,7 @@ export async function readAllPoolAnchors<P extends Pool>(
 export async function rollbackPoolAnchorsToHeight<P extends Pool>(
   pool: P,
   height: number,
-  conn: Sql,
+  conn: Conn,
 ): Promise<number> {
   const result = await conn`
     DELETE FROM pool_anchors

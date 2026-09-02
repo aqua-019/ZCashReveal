@@ -229,6 +229,12 @@ services:
       REDIS_URL: redis://redis:6379
       INDEXER_POLL_INTERVAL_MS: ${INDEXER_POLL_INTERVAL_MS:-2000}
       INDEXER_LOG_LEVEL: ${INDEXER_LOG_LEVEL:-info}
+      INDEXER_NETWORK: ${INDEXER_NETWORK:-mainnet}
+      # The cold-start height of the confirmed-block driver (HANDOFF-12). Read
+      # once, on a database with no base row; a restart replays from the store
+      # and ignores it. Unset in the indexer means NU6.3 activation on
+      # INDEXER_NETWORK, which is what the .env.example value spells out.
+      INDEXER_START_HEIGHT: ${INDEXER_START_HEIGHT:-3428143}
     healthcheck:
       test: ["CMD", "node", "docker-healthcheck.mjs"]
       interval: 30s

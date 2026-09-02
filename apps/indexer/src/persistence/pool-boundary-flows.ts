@@ -18,7 +18,7 @@
  * persistence concern owned here.
  */
 
-import type { Sql } from "postgres";
+import type { Conn } from "./conn.js";
 import type { BoundaryDelta, Pool } from "@zcashreveal/types";
 import { asHex } from "@zcashreveal/types";
 
@@ -34,7 +34,7 @@ import { asHex } from "@zcashreveal/types";
 export async function writePoolBoundaryFlow<P extends Pool>(
   record: BoundaryDelta<P>,
   txSeq: number,
-  conn: Sql,
+  conn: Conn,
 ): Promise<void> {
   await conn`
     INSERT INTO pool_boundary_flows (pool, txid, tx_seq, block_height, delta_zat)
@@ -56,7 +56,7 @@ export async function writePoolBoundaryFlow<P extends Pool>(
  */
 export async function readAllPoolBoundaryFlows<P extends Pool>(
   pool: P,
-  conn: Sql,
+  conn: Conn,
 ): Promise<BoundaryDelta<P>[]> {
   const rows = await conn<
     Array<{ txid: string; block_height: number; delta_zat: string }>
@@ -82,7 +82,7 @@ export async function readAllPoolBoundaryFlows<P extends Pool>(
 export async function rollbackPoolBoundaryFlowsToHeight<P extends Pool>(
   pool: P,
   height: number,
-  conn: Sql,
+  conn: Conn,
 ): Promise<number> {
   const result = await conn`
     DELETE FROM pool_boundary_flows

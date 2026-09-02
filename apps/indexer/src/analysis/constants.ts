@@ -56,3 +56,22 @@ export const MAX_INTERNAL_HOPS = 4n;
  * verified empirically by the round-trip integration tests below.
  */
 export const FEE_TOLERANCE_ZAT = ZIP317_MARGINAL_FEE_ZAT * MAX_INTERNAL_HOPS * 8n;
+
+/**
+ * The target block spacing since Blossom: 75 seconds. A consensus parameter,
+ * not a tuning knob, and declared once so the two windows below cannot
+ * disagree about it.
+ */
+export const BLOCK_TARGET_MS = 75_000;
+
+/**
+ * `MAX_LINK_WINDOW_MS` in BLOCKS, for `timeWindowFilter` (HANDOFF-12).
+ *
+ * The round-trip index matches on wall-clock time because a mempool
+ * transaction has no height; the candidate-set filter narrows by height
+ * because a note-commitment tree has no clock. The two are the same window
+ * stated in the two units, and this is the conversion - 7 days at the target
+ * spacing is 8,064 blocks. Stated as a derivation so that tightening one
+ * tightens the other.
+ */
+export const LINK_WINDOW_BLOCKS = Math.round(MAX_LINK_WINDOW_MS / BLOCK_TARGET_MS);

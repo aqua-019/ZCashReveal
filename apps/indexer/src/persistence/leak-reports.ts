@@ -7,7 +7,7 @@
  */
 
 import postgres, { type Sql } from "postgres";
-import type { LeakReport } from "@zcashreveal/types";
+import { serializeWire, type LeakReport } from "@zcashreveal/types";
 
 export function createDb(url: string): Sql {
   return postgres(url, {
@@ -89,7 +89,7 @@ export async function persistLeakReport(sql: Sql, r: LeakReport): Promise<void> 
       ${r.fingerprint.feeZat === null ? null : r.fingerprint.feeZat.toString()},
       ${r.fingerprint.expiryDelta},
       ${r.fingerprint.likelyWallet},
-      ${sql.json(serializeReport(r) as Parameters<typeof sql.json>[0])}
+      ${sql.json(serializeWire(r) as Parameters<typeof sql.json>[0])}
     )
     ON CONFLICT (txid) DO UPDATE SET
       tip_height_at_seen = EXCLUDED.tip_height_at_seen,
@@ -121,8 +121,12 @@ function unmeasured(r: LeakReport): boolean {
   return r.unsupported !== undefined;
 }
 
-function serializeReport(r: LeakReport): unknown {
-  return JSON.parse(
-    JSON.stringify(r, (_k, v) => (typeof v === "bigint" ? v.toString() : v)),
-  );
-}
+/*
+ * THE JSONB COLUMN CARRIES THE SAME WIRE FORM AS THE REDIS SEAM, from the same
+ * function. A second, private `serializeReport` stood here until HANDOFF-12 -
+ * the same replacer as `index.ts`'s, copied - so one quantity had two writers
+ * that happened to agree. `serializeWire` tags every bigint by value, whatever
+ * its key, and `reviveWire` is the one reader; whoever writes the first reader
+ * of this column inherits one form, and the counts inside an assessment come
+ * back as the bigints the type declares rather than as strings (A3).
+ */

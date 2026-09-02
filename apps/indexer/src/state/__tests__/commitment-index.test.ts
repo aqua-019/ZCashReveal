@@ -196,3 +196,53 @@ describe("CommitmentIndex (properties)", () => {
     );
   });
 });
+
+describe("CommitmentIndex opened at a base (HANDOFF-12)", () => {
+  // The live indexer starts mid-chain. The committed capture's Sapling tree
+  // holds 73,944,723 commitments at height 3,444,836, and the two outputs in
+  // 3,444,837 land at positions 73,944,723 and 73,944,724 - not at 0 and 1.
+  const BASE = 73_944_723n;
+
+  it("assigns absolute positions from the base, and size() is the tree size", () => {
+    const idx = new CommitmentIndex<"sapling">("sapling", BASE);
+    expect(idx.size()).toBe(BASE);
+    expect(idx.indexedCount()).toBe(0n);
+    const p0 = idx.append({ pool: "sapling", cmId: h(1), txid: h(11), height: 3_444_837 });
+    const p1 = idx.append({ pool: "sapling", cmId: h(2), txid: h(12), height: 3_444_837 });
+    expect(p0).toBe(BASE);
+    expect(p1).toBe(BASE + 1n);
+    expect(idx.size()).toBe(BASE + 2n);
+    expect(idx.indexedCount()).toBe(2n);
+  });
+
+  it("atPosition and positionRangeAtHeight speak absolute positions", () => {
+    const idx = new CommitmentIndex<"sapling">("sapling", BASE);
+    idx.append({ pool: "sapling", cmId: h(1), txid: h(11), height: 3_444_837 });
+    idx.append({ pool: "sapling", cmId: h(2), txid: h(12), height: 3_444_837 });
+    expect(idx.atPosition(BASE)?.cmId).toBe(h(1));
+    expect(idx.atPosition(BASE + 1n)?.cmId).toBe(h(2));
+    // Below the base is not "the first commitment"; it is a position this
+    // index never saw.
+    expect(idx.atPosition(0n)).toBeUndefined();
+    expect(idx.atPosition(BASE - 1n)).toBeUndefined();
+    expect(idx.atPosition(BASE + 2n)).toBeUndefined();
+    expect(idx.positionRangeAtHeight(3_444_837)).toEqual({ firstPosition: BASE, count: 2n });
+  });
+
+  it("FAIL STATE, BY DATA: a base of zero on a mid-chain tree understates Cand_0 by the whole tree", () => {
+    // The member of the excluded set: the counter this replaces. Same two
+    // commitments, base 0n, and the "tree size" is 2 where the node says
+    // 73,944,725. A candidate count built on it would be 36 million times too
+    // small, every claim level requires_disclosure, and that is the accusation
+    // this site does not make.
+    const zero = new CommitmentIndex<"sapling">("sapling");
+    zero.append({ pool: "sapling", cmId: h(1), txid: h(11), height: 3_444_837 });
+    zero.append({ pool: "sapling", cmId: h(2), txid: h(12), height: 3_444_837 });
+    expect(zero.size()).toBe(2n);
+    expect(zero.size()).not.toBe(BASE + 2n);
+  });
+
+  it("refuses a negative base", () => {
+    expect(() => new CommitmentIndex<"sapling">("sapling", -1n)).toThrow(TypeError);
+  });
+});

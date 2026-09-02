@@ -16,12 +16,39 @@ export class CommitmentIndex<P extends Pool> {
   private byPosition: Commitment<P>[] = [];
   private byId = new Map<Hex, Commitment<P>>();
 
-  constructor(public readonly pool: P) {}
+  /**
+   * @param pool which pool this tree belongs to.
+   * @param basePosition the NCT position the FIRST appended commitment receives.
+   *
+   * ZERO ONLY FOR A TREE INDEXED FROM ITS BIRTH, AND THAT IS NOT THE LIVE CASE
+   * (HANDOFF-12). The indexer starts at a configured height with millions of
+   * commitments already in every tree - 73,944,723 in Sapling at the committed
+   * capture - and a position is an NCT index, not a row number: `Anchor.
+   * maxPosition` is "the upper bound on commitment positions visible under this
+   * anchor" and `rawCount = maxPosition + 1n` is Cand_0, the whole anonymity
+   * set. An index that numbered from zero at the start height would publish a
+   * candidate count a few thousand wide for a tree seventy million wide, and
+   * every claim level would fall to `requires_disclosure` - an accusation this
+   * site does not make, manufactured by a counter. So the base is the tree size
+   * at the height BEFORE the first indexed block, `size()` is the real tree
+   * size, and a recorded anchor's `maxPosition` is a real position. The
+   * persistence layer stores positions absolute already; `replayInto` now
+   * checks that a replayed record's stored position equals the one this index
+   * assigns, which catches a state replayed against the wrong base.
+   */
+  constructor(
+    public readonly pool: P,
+    public readonly basePosition: bigint = 0n,
+  ) {
+    if (basePosition < 0n) {
+      throw new TypeError(`${pool} commitment index: basePosition must be >= 0n, got ${basePosition}`);
+    }
+  }
 
   /**
    * Append a commitment to the end of the tree. Position is assigned
-   * automatically (monotonic from 0n, contiguous, no gaps). Returns the
-   * assigned position.
+   * automatically (monotonic from `basePosition`, contiguous, no gaps).
+   * Returns the assigned position.
    *
    * @throws CommitmentAlreadyExistsError if `record.cmId` is already in the index.
    */
@@ -31,7 +58,7 @@ export class CommitmentIndex<P extends Pool> {
         `commitment ${record.cmId} already in ${this.pool} index`,
       );
     }
-    const position = BigInt(this.byPosition.length);
+    const position = this.basePosition + BigInt(this.byPosition.length);
     const full: Commitment<P> = {
       pool: record.pool,
       cmId: record.cmId,
@@ -46,9 +73,10 @@ export class CommitmentIndex<P extends Pool> {
 
   /** Returns the commitment at `position`, or undefined if out of range. */
   atPosition(position: bigint): Commitment<P> | undefined {
-    if (position < 0n) return undefined;
-    if (position >= BigInt(this.byPosition.length)) return undefined;
-    return this.byPosition[Number(position)];
+    const local = position - this.basePosition;
+    if (local < 0n) return undefined;
+    if (local >= BigInt(this.byPosition.length)) return undefined;
+    return this.byPosition[Number(local)];
   }
 
   /** Returns the commitment with `cmId`, or undefined if unknown. */
@@ -56,8 +84,17 @@ export class CommitmentIndex<P extends Pool> {
     return this.byId.get(cmId);
   }
 
-  /** Current number of commitments in the tree. */
+  /**
+   * The size of the TREE - `basePosition` plus every commitment appended here -
+   * which is the number `trees.<pool>.size` on a verbosity-2 block reports, and
+   * therefore the cross-check the confirmed-block driver makes on every block.
+   */
   size(): bigint {
+    return this.basePosition + BigInt(this.byPosition.length);
+  }
+
+  /** How many commitments THIS index holds - the part of the tree it has seen. */
+  indexedCount(): bigint {
     return BigInt(this.byPosition.length);
   }
 
