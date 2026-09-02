@@ -114,9 +114,11 @@ pnpm check          # the seventeen static guards CI runs: no emoji, Vercel conf
                     # capture internally consistent (the merkleroot recomputed
                     # from the block's own txids, with "could not be run"
                     # reported as a THIRD OUTCOME and never counted as a pass),
-                    # the Zebra image tag compose pins clearing the floor
-                    # version-floor.ts declares, with an unreadable pin such as
-                    # :latest FAILING because an unknown floor is not a
+                    # the Zebra image tag compose pins sitting inside a
+                    # version window - floor read from version-floor.ts,
+                    # ceiling declared in the guard at the highest tag this
+                    # build has been read against - with an unreadable pin such
+                    # as :latest FAILING because an unknown bound is not a
                     # satisfied one, and no variable a config
                     # module defaults from its own network field carrying a
                     # literal default in a compose file or a .env.example,
