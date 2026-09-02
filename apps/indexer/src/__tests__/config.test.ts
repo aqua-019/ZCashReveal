@@ -37,9 +37,17 @@ describe("INDEXER_START_HEIGHT resolves to NU6.3 activation on the CONFIGURED ne
     expect(cfg.INDEXER_START_HEIGHT).not.toBe(load({ INDEXER_NETWORK: "testnet" }).INDEXER_START_HEIGHT);
   });
 
-  it("an EMPTY value is absent, not zero: `${INDEXER_START_HEIGHT:-}` and a blank .env line both arrive as \"\"", () => {
+  it("a BLANK value is absent, not zero, whichever way it is spelled", () => {
+    // `${INDEXER_START_HEIGHT:-}` and a blank .env line both arrive as "".
     expect(load({ INDEXER_START_HEIGHT: "" }).INDEXER_START_HEIGHT).toBe(NU6_3_ACTIVATION_MAINNET);
     expect(load({ INDEXER_NETWORK: "testnet", INDEXER_START_HEIGHT: "" }).INDEXER_START_HEIGHT).toBe(NU6_3_ACTIVATION_TESTNET);
+    // AND A SINGLE SPACE, which is NOT empty to compose's `:-` and therefore
+    // reaches the schema verbatim. `Number(" ")` is 0, which failed
+    // `.positive()` and threw at module scope before the logger existed - the
+    // crash-loop the empty case was fixed for, by a different door.
+    for (const blank of [" ", "  ", "\t", "\n"]) {
+      expect(load({ INDEXER_START_HEIGHT: blank }).INDEXER_START_HEIGHT, JSON.stringify(blank)).toBe(NU6_3_ACTIVATION_MAINNET);
+    }
   });
 
   it("FAIL STATE, BY DATA: a malformed height is refused rather than coerced", () => {

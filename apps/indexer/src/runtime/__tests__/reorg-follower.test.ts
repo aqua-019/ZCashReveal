@@ -612,6 +612,68 @@ describe("onApplied fails AFTER the block is committed", () => {
   });
 });
 
+describe("a callback that throws after its work is committed", () => {
+  it("FAIL SIDE, BY DATA: a FATAL-shaped error from onApplied still stops the loop - the catch is not a blanket", async () => {
+    // The catch added for the ordinary case must not remove the follower's own
+    // "two kinds of error" invariant. A ChainRuntimeError raised by a callback
+    // is this build disagreeing with itself, and it is still fatal.
+    const cur = cursorAt(BASE);
+    const blocks = buildBranch([[ONE], [ONE]], BASE_HEIGHT + 1, 0, cur);
+    const node = new ScriptedNode(blocks);
+    const store = new MemoryChainStore();
+    await store.writeBase(BASE, 1);
+    const follower = new ChainFollower(createChainState(BASE), {
+      rpc: node,
+      store,
+      log: SILENT,
+      pollIntervalMs: 0,
+      sleep: YIELD_SLEEP,
+      onApplied: () => {
+        throw new ChainRuntimeError("a state error raised by a callback");
+      },
+      onFatal: () => undefined,
+    });
+    await expect(follower.step()).rejects.toThrow(ChainRuntimeError);
+  });
+
+  it("onReorg failing after the rollback committed is named as a loss, not as a retry, and the loop continues", async () => {
+    // The same shape as onApplied, one callback later - and this one has a live
+    // trigger: the shipped onReorg calls forgetAbove, a Postgres write.
+    const built = build({ a: [[ONE], [ONE], [ONE], [ONE]], depth: 2, b: [[ONE], [ONE], [ONE]] });
+    const store = new MemoryChainStore();
+    const node = new ScriptedNode(built.chainA);
+    await store.writeBase(BASE, 1);
+    const { log, lines } = capturing();
+    const follower = new ChainFollower(createChainState(BASE), {
+      rpc: node,
+      store,
+      log,
+      pollIntervalMs: 0,
+      sleep: YIELD_SLEEP,
+      onReorg: () => {
+        throw new Error("postgres: connection terminated (forgetAbove failed)");
+      },
+      onFatal: (err) => {
+        throw err;
+      },
+    });
+    await followUntilIdle(follower);
+    node.switchTo(built.chainB);
+    const steps = await followUntilIdle(follower);
+
+    expect(steps.some((s) => s.startsWith("reorg@"))).toBe(true);
+    expect(steps[steps.length - 1]).toBe("idle");
+    const errors = lines.filter((l) => l.level === "error");
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.msg).toMatch(/onReorg failed AFTER the rollback was committed/);
+    expect(String(errors[0]?.msg)).not.toMatch(/retry/i);
+    // The reorg itself completed: the state is the new branch, as A4 requires.
+    const all = nullifiersOf([...built.chainA, ...built.chainB]);
+    const stringify = (v: unknown) => JSON.stringify(v, (_k, x: unknown) => (typeof x === "bigint" ? x.toString() : x));
+    expect(stringify(fingerprint(follower.chain, all))).toBe(stringify(fingerprint(await freshReplay(built.chainB, node.treestate()), all)));
+  });
+});
+
 describe("a rollback that committed and a replay that did not", () => {
   it("resumes on the next reorg instead of reporting a consensus disagreement", async () => {
     const built = build({ a: [[ONE], [ONE], [ONE], [ONE], [ONE], [ONE]], depth: 3, b: [[ONE], [ONE], [ONE], [ONE]] });

@@ -176,8 +176,10 @@ A block whose `previousblockhash` is not the state's tip hash is a reorg.
    branch's roots keep answering `getHeightForAnchor`, and a mempool spend
    citing one is given a depth measured from an abandoned block. **The Redis
    hot tier is not cleared** and can still answer with the orphaned height
-   until that key's 24-hour TTL expires - and because a Redis hit repopulates
-   the in-process memo, the memo clear does not shorten that window either:
+   until that key's 24-hour TTL expires. A Redis hit repopulates the in-process
+   memo, so the memo now carries the SAME deadline the key does - without that,
+   one read after a reorg pinned the orphaned height for the life of the
+   process and the TTL bounded nothing. The reason the tier is not cleared:
    `check-redis-safety` rule 4 permits
    `DEL` only on a string literal, these keys are computed per root, and a rule
    protecting another project's database is not one this handoff widens. The

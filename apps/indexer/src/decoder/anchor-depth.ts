@@ -6,24 +6,51 @@
 import type { Redis } from "ioredis";
 import type { Sql } from "postgres";
 
+/** How long a recorded anchor lives in the hot tier, and now in the memo too. */
+const ANCHOR_TTL_S = 60 * 60 * 24;
+
 export class AnchorRegistry {
   private readonly redisKey = "zcashreveal:anchor:";
-  private memo = new Map<string, number | null>();
+  /**
+   * THE MEMO EXPIRES, AND IT DID NOT UNTIL A GATE ROUND MEASURED THE SENTENCE
+   * THAT SAID IT DID. `forgetAbove` clears this map on a reorg, but the next
+   * lookup of a forgotten root read Redis - which still holds it, because that
+   * tier cannot be cleared from here - and wrote the orphaned height straight
+   * back into a map with no expiry. So the documented bound, "an orphaned
+   * height answers until the Redis key's TTL elapses", was false: after one
+   * read it answered for the life of the process, TTL or no TTL. A reviewer
+   * proved it by driving the real class against a Redis fake that remembers
+   * what it was told, which the first version of the test could not do.
+   *
+   * The entry now carries the same 24-hour deadline the Redis key does, and an
+   * expired entry is a miss. That makes the sentence in the docblock below,
+   * and in RUNTIME.md section 4, true.
+   */
+  private memo = new Map<string, { height: number | null; expiresAt: number }>();
 
   constructor(
     private readonly redis: Redis,
     private readonly sql: Sql,
+    /** Injectable clock, so the expiry above is testable without waiting a day. */
+    private readonly now: () => number = Date.now,
   ) {}
+
+  private remember(anchor: string, height: number | null): void {
+    this.memo.set(anchor, { height, expiresAt: this.now() + ANCHOR_TTL_S * 1000 });
+  }
 
   async getHeightForAnchor(anchor: string): Promise<number | null> {
     const cached = this.memo.get(anchor);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined) {
+      if (cached.expiresAt > this.now()) return cached.height;
+      this.memo.delete(anchor);
+    }
 
     const rk = this.redisKey + anchor;
     const fromRedis = await this.redis.get(rk);
     if (fromRedis !== null) {
       const h = Number(fromRedis);
-      this.memo.set(anchor, h);
+      this.remember(anchor, h);
       return h;
     }
 
@@ -32,9 +59,9 @@ export class AnchorRegistry {
     `;
     const found = rows[0]?.height ?? null;
     if (found !== null) {
-      await this.redis.set(rk, found, "EX", 60 * 60 * 24);
+      await this.redis.set(rk, found, "EX", ANCHOR_TTL_S);
     }
-    this.memo.set(anchor, found);
+    this.remember(anchor, found);
     return found;
   }
 
@@ -61,14 +88,15 @@ export class AnchorRegistry {
    * because Redis is read before Postgres. What the two tiers cleared here do
    * buy: the answer is no longer permanent, and a process restart (which drops
    * the memo) plus the TTL bounds it at a day rather than forever. The
-   * AND THE MEMO CLEAR BUYS NOTHING WHILE THAT KEY LIVES, WHICH IS WORTH
-   * SAYING RATHER THAN IMPLYING. `getHeightForAnchor` reads memo, then Redis,
-   * then Postgres, and REPOPULATES the memo from a Redis hit - so the very
-   * next lookup of a forgotten root puts the orphaned height back in the memo.
-   * What the two tiers cleared here actually buy is that the answer stops
-   * being PERMANENT: once the Redis key expires, Postgres has no row and the
-   * lookup returns null. The clear matters on the path where Redis has already
-   * expired and the memo has not.
+   * AND THE MEMO CLEAR ONLY BOUNDS ANYTHING BECAUSE THE MEMO NOW EXPIRES.
+   * `getHeightForAnchor` reads memo, then Redis, then Postgres, and
+   * REPOPULATES the memo from a Redis hit - so the next lookup of a forgotten
+   * root puts the orphaned height straight back. While the memo had no
+   * deadline that put it back FOREVER, and the sentence above about the TTL
+   * bounding the window was false; a gate reviewer measured exactly that,
+   * against a Redis double that remembers what it was told. The memo entry now
+   * carries the Redis key's own 24-hour deadline, so the two tiers expire
+   * together and the answer becomes null when they do.
    *
    * The remedies - a real VPS-target proof at the deletion site, or moving the
    * registry's Redis writes behind one - are a ledger question, not a silent
@@ -88,7 +116,7 @@ export class AnchorRegistry {
       VALUES (${anchor}, ${height}, NOW())
       ON CONFLICT (anchor) DO NOTHING
     `;
-    await this.redis.set(this.redisKey + anchor, height, "EX", 60 * 60 * 24);
-    this.memo.set(anchor, height);
+    await this.redis.set(this.redisKey + anchor, height, "EX", ANCHOR_TTL_S);
+    this.remember(anchor, height);
   }
 }
