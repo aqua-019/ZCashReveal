@@ -369,8 +369,25 @@ const FINDINGS = [
     // The docblock above already forbids this shape for the `absent` arm - "a
     // pattern hunting for the bare word would fire on prose doing its job" -
     // and the `present` arm was left open to the same error running the other
-    // way. `static` is now REQUIRED, which is what all four asserting sites
-    // write and what no measurement sentence writes.
+    // way. `static` is now REQUIRED, which is what the three sites below write
+    // and what no measurement sentence writes.
+    //
+    // TWO CLASSES OF SITE, AND THIS ROW GOVERNS ONE, which a gate reviewer
+    // measured after the sweep. COUNT-ASSERTING sites write "N static guards" -
+    // CLAUDE.md, README.md and ci.yml, the three in `sites`. POPULATION-PROSE
+    // sites write "three of its N guards" as a measurement ABOUT the guard
+    // population - CLAUDE.md twice more, and check-config-defaults.mjs's header.
+    // The second class is deliberately outside `present`, because a pattern that
+    // matched it is the pattern that went inert for two handoffs; it is swept by
+    // hand, and the sweep that missed one of them found it by enumerating the
+    // tree rather than by re-reading the registered sites.
+    //
+    // THE LATENT HAZARD IS UNCLOSED AND IS WHAT APPENDIX A OF MODE-A-PLAN.md
+    // RECOMMENDS CLOSING: `present` matches anywhere in the file, so if CLAUDE.md
+    // ever gains a sentence QUOTING this predicate - "seventeen static guards" -
+    // the row goes inert again while an asserting site says something else. That
+    // is not hypothetical: it is exactly how "fourteen (static )? guards" died.
+    // A `presentAntiProbe` field would catch it; this row does not have one yet.
     present: /seventeen static guards/i,
     probe: "# THE SIXTEEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
     antiProbe: "# THE SEVENTEEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",

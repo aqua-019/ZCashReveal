@@ -126,7 +126,22 @@ FILES (created / modified / moved):
   created   scripts/check-config-defaults.mjs          (deliverable 0b, guard 17)
   created   handoffs/prompts/PROMPT-13.md              (protocol step 5)
   modified  scripts/check-compose-zebra-tag.mjs        (deliverable 0a, the ceiling)
-  modified  scripts/check-finding-sites.mjs            (R4-GUARDS row; see below)
+  modified  scripts/check-finding-sites.mjs            (the R4-GUARDS row - the one
+            substantive guard change here besides deliverable 0. Its `present`
+            pattern was `/fourteen (static )?guards/i`, and with `static`
+            optional it was satisfied at CLAUDE.md by a ledger sentence about the
+            guard POPULATION rather than by an assertion of the count - so the
+            row stayed green for two handoffs while CLAUDE.md said sixteen,
+            ci.yml said FOURTEEN and README.md said fourteen. `static` is now
+            required and the count moved to seventeen. A later gate dimension
+            added the distinction the row now records: COUNT-ASSERTING sites
+            write "N static guards" and are the three in `sites`;
+            POPULATION-PROSE sites write "three of its N guards" and are swept by
+            hand, deliberately outside `present`. The LATENT HAZARD is unclosed
+            and named in the row: `present` matches anywhere in the file, so a
+            sentence quoting the predicate would make it inert again exactly as
+            before. Appendix A of the plan recommends the `presentAntiProbe`
+            field that would catch it.)
   modified  .github/workflows/ci.yml                   (the 0b step; the count)
   modified  package.json                               (0b into `pnpm check`)
   modified  CLAUDE.md  README.md                       (the guard-count sweep)
