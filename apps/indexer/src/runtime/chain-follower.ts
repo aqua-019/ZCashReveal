@@ -90,7 +90,25 @@ export class ChainFollower {
         treestate: (hash) => this.opts.rpc.getTreestate({ hash }),
         log: this.opts.log,
       });
-      if (this.opts.onApplied !== undefined) await this.opts.onApplied(applied);
+      if (this.opts.onApplied !== undefined) {
+        try {
+          await this.opts.onApplied(applied);
+        } catch (err) {
+          // THE BLOCK IS ALREADY COMMITTED AND THE CHAIN HAS ALREADY ADVANCED
+          // PAST IT, SO THIS IS NOT A STEP TO RETRY AND MUST NOT BE REPORTED
+          // AS ONE. `applyConfirmedBlock` writes and advances before returning;
+          // letting a side-effect failure out of `step()` sent it to the loop's
+          // generic handler, which logged "retrying after the poll interval"
+          // and then fetched the NEXT block - so the anchors this block
+          // registered were lost with no retry and no backfill, while the log
+          // said the opposite. The loss is now loud, attributable, and named at
+          // the height it happened. Found by a gate reviewer.
+          this.opts.log.error(
+            { err, height: applied.height, anchors: applied.anchors.map((a) => a.root) },
+            "onApplied failed AFTER the block was committed; its anchors are unregistered and will NOT be retried",
+          );
+        }
+      }
       return { kind: "applied", block: applied, tip };
     } catch (err) {
       if (!(err instanceof ChainContinuityError)) throw err;

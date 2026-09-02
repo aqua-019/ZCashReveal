@@ -140,6 +140,24 @@ export async function applyConfirmedBlock(
   }
 
   const decoded = decodeBlock(block);
+
+  // THE TREESTATE IS FETCHED BEFORE ANY MUTATION OF `chain`, NOT AFTER, AND
+  // THE ORDER IS THE WHOLE POINT. `chain.pools.*` is append-only with no undo,
+  // and `TreestateSource`'s own contract above says a transport failure here
+  // leaves the block unapplied "so the follower tries again". That promise was
+  // false while the fetch sat below the commitment loop: the failing attempt
+  // had already appended this block's commitments to the in-memory state the
+  // follower reuses across steps, so the retry threw
+  // `CommitmentAlreadyExistsError` - which `isFatal` reads as a consensus
+  // disagreement, stopping the process over one dropped RPC call. Found by a
+  // gate reviewer reading the order, reproduced by making the suite's own
+  // "the anchor is retried with it" test actually retry, and fixed here rather
+  // than by teaching the retry to tolerate a dirty state.
+  const treestate: GetTreestate | null =
+    decoded.ironwoodAnchorPendingTreestate && decoded.ironwoodTreeSize !== null
+      ? await deps.treestate(block.hash)
+      : null;
+
   const notices: BlockNotice[] = [];
   const commitments: Commitment[] = [];
   const nullifiers: Array<{ record: SpentNullifier; anchorRoot: Hex | null }> = [];
@@ -267,7 +285,7 @@ export async function applyConfirmedBlock(
     anchors.push(anchor);
   }
   if (decoded.ironwoodAnchorPendingTreestate) {
-    const ironwoodAnchor = await ironwoodAnchorFor(block, decoded.ironwoodTreeSize, deps.treestate, notices);
+    const ironwoodAnchor = ironwoodAnchorFrom(block, decoded.ironwoodTreeSize, treestate, notices);
     if (ironwoodAnchor !== null) {
       chain.pools.ironwood.recordAnchor(ironwoodAnchor);
       anchors.push(ironwoodAnchor);
@@ -299,12 +317,12 @@ export async function applyConfirmedBlock(
  * names a different block is refused, because a root from another block is
  * the one thing worse than no root.
  */
-async function ironwoodAnchorFor(
+function ironwoodAnchorFrom(
   block: RpcBlock,
   treeSize: bigint | null,
-  source: TreestateSource,
+  treestate: GetTreestate | null,
   notices: BlockNotice[],
-): Promise<Anchor<"ironwood"> | null> {
+): Anchor<"ironwood"> | null {
   const height = block.height;
   if (treeSize === null) {
     notices.push({
@@ -314,7 +332,6 @@ async function ironwoodAnchorFor(
     });
     return null;
   }
-  const treestate = await source(block.hash);
   if (treestate === null) {
     notices.push({
       code: "IRONWOOD_TREESTATE_ABSENT",

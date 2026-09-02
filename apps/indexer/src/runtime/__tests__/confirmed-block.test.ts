@@ -32,6 +32,12 @@ const CAPTURES = {
 
 const SILENT = pino({ level: "silent" });
 
+/**
+ * The empty Ironwood tree's root, exactly as Zebra's own vector spells it -
+ * and exactly as the committed capture's Ironwood transaction cites it.
+ */
+const IRONWOOD_EMPTY_ROOT = asHex("ae2935f1dfd8a24aed7c70df7de3a668eb7a49b1319880dde2bbd9031ae5d82f");
+
 /** The capture, as `rpc.getBlock()` hands it to the indexer - never as `JSON.parse` would. */
 async function load(name: string, mutate?: (raw: Record<string, unknown>) => void): Promise<RpcBlock> {
   const raw = JSON.parse(readFileSync(join(FIXTURES, name), "utf8")) as Record<string, unknown>;
@@ -263,10 +269,27 @@ describe("deliverable 2 - the Ironwood anchor, from z_gettreestate, at exactly t
   it("a transport failure fetching the treestate propagates: the block is NOT applied, so the anchor is retried with it", async () => {
     const block = await load(CAPTURES.conforming);
     const chain = createChainState(chainBaseFromBlock(block));
+    const store = new MemoryChainStore();
     const failing: TreestateSource = () => Promise.reject(new Error("socket hang up"));
     await expect(
-      applyConfirmedBlock(chain, block, new MemoryChainStore(), { treestate: failing, log: SILENT }),
+      applyConfirmedBlock(chain, block, store, { treestate: failing, log: SILENT }),
     ).rejects.toThrow(/socket hang up/);
     expect(chain.height).toBe(3_444_836);
+
+    // AND THE RETRY ACTUALLY SUCCEEDS, WHICH IS THE HALF THIS TEST'S TITLE
+    // CLAIMED AND DID NOT CHECK. The follower keeps the SAME chain object
+    // across steps, so a fetch that threw after the block's commitments were
+    // already appended left the retry colliding with its own first attempt -
+    // `CommitmentAlreadyExistsError`, which `isFatal` reads as a consensus
+    // disagreement and the process exits on. Found by a gate reviewer reading
+    // the order of operations; reproduced here before the fix, which moves
+    // the fetch above every mutation.
+    const applied = await applyConfirmedBlock(chain, block, store, {
+      treestate: treestateFor(block, IRONWOOD_EMPTY_ROOT),
+      log: SILENT,
+    });
+    expect(chain.height).toBe(3_444_837);
+    expect(applied.anchors.filter((a) => a.pool === "ironwood")).toHaveLength(1);
+    expect(chain.pools.ironwood.commitments.indexedCount()).toBe(3n);
   });
 });
