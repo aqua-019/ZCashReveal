@@ -6,7 +6,7 @@ Written by the HANDOFF-13 session, 2 September 2026, against `main` at `98e87a0`
 Every version number, size and rate below was fetched or executed during that session and
 carries its source in section 10 - a claim a gate reviewer falsified against the first draft,
 which used ChainSafe's benchmark rate as its single most load-bearing external figure and cited
-it nowhere. The missing rows are now there (46-52). Where a number could not be established it
+it nowhere. The missing rows are now there, under "Benchmarks and precedents the body relies on". (An earlier draft of this sentence pointed at "46-52", which were seven PRE-EXISTING threat-model rows - a cross-reference into a list that had two entries numbered 25 and ran out of order. The list is now numbered 1-59 in reading order.) Where a number could not be established it
 is labelled UNVERIFIED rather than estimated, and where a rate is quoted it carries its sample.
 
 ---
@@ -275,7 +275,7 @@ Four blockers, each with the fix that a real Zcash browser build uses:
 | RNG | `getrandom` **0.2** feature `js` | *not* `wasm_js`, *not* a RUSTFLAG. `wasm_js` is the 0.3+ spelling; upstream librustzcash is on the `rand 0.8`/`rand_core 0.6` line, which pulls `getrandom` 0.2 |
 | Clock | `time` crate feature `wasm-bindgen` | reroutes `OffsetDateTime::now_utc()` from `SystemTime::now()` to `js_sys::Date`. Reached through `zcash_client_backend`'s default features |
 | Threads | none, if single-threaded | `std::thread::spawn` **panics** on this target; `std::fs` always errors and `println!` does nothing. Tier 2, large parts of std stubbed |
-| Async | avoid `tokio` proper | it reaches `mio`. WebZjs substitutes `tokio_with_wasm` for `rt`, `sync`, `macros`, `time` |
+| Async | avoid `tokio` proper | it reaches `mio`. WebZjs substitutes `tokio_with_wasm` for `rt`, **`rt-multi-thread`**, `sync`, `macros`, `time` - five features, and an earlier draft of this row listed four, omitting the threading one in a table whose subject is threading |
 
 **A measured note on the `getrandom` version split, because it is the thing most likely to be
 got wrong from memory.** A real Zcash browser build resolves **both** `getrandom` 0.2.17 and
@@ -614,8 +614,9 @@ Three corrections to how that cost is usually described here:
    work.
 3. **A nonce does not get you off `'unsafe-inline'` for styles.** Next.js still emits inline
    styles a nonce-only `style-src` rejects - vercel/next.js issue **#74319** was open at fetch
-   time against built-in pages, and **#83764** reports the route-announcer emitting a style
-   *attribute*. `style-src` covers attributes as well as elements and a nonce cannot attach to
+   time against built-in pages, and **#83764** - CLOSED at fetch time, with no maintainer comment or linked fix
+   visible, so whether it was fixed or closed as stale is UNVERIFIED - reports the
+   route-announcer emitting a style *attribute*. `style-src` covers attributes as well as elements and a nonce cannot attach to
    an attribute; `style-src-attr` with `'unsafe-hashes'` is the mechanism if one is needed.
    **So the honest target is `script-src` without `'unsafe-inline'`, and `style-src` unchanged
    for now**, with the reason recorded. Claiming a clean policy and shipping one with
@@ -1168,29 +1169,29 @@ use (there is exactly one: the Hacken audit in 5.5).
 24. `https://registry.npmjs.org/@chainsafe/webzjs-wallet` - **404, the README's own import target is unpublished**
 
 **Benchmarks and precedents the body relies on** (added after a gate reviewer measured that the document's preamble promised a source for every rate and section 10 carried none for the only one)
-25a. `https://github.com/ChainSafe/zcash-wasm-benchmark` REPORT.md - 7,700 blocks/sec over [2334739, 2442739]; 3,353,402.88 ms over 755,635 blocks; a 4-thread pool on Firefox 124.0.1, 2023 MacBook Air M2. **n = 1 machine, 1 browser, 1 thread count.**
-25b. `https://registry.npmjs.org/@chainsafe/webzjs-zcash-snap` - 0.3.0, 3,113,926 B unpacked across 5 files, published 2026-02-06
-25c. `https://registry.npmjs.org/-/v1/search?text=webzjs&size=25` - 13 results, 12 WebZjs-derived, 2 ChainSafe-scoped
-25d. ZecHub "Turnstile" - the 76 KB in-browser UFVK validator with a server-side scan
-25e. `LeakIX/zcash-web-wallet` - the localStorage anti-pattern in 5.4; its own README says the project is AI-generated experimental code
-25f. `fireice-uk/zecwallet-lite-wasm` - Zecwallet Web's published risk statement in 5.5
-25g. `https://github.com/advisories/GHSA-pjwm-rvh2-c87w` - CVE-2021-4229 scored **8.8 High** by the GitHub advisory database
+25. `https://github.com/ChainSafe/zcash-wasm-benchmark` REPORT.md - 7,700 blocks/sec over [2334739, 2442739]; 3,353,402.88 ms over 755,635 blocks; a 4-thread pool on Firefox 124.0.1, 2023 MacBook Air M2. **n = 1 machine, 1 browser, 1 thread count.**
+26. `https://registry.npmjs.org/@chainsafe/webzjs-zcash-snap` - 0.3.0, 3,113,926 B unpacked across 5 files, published 2026-02-06
+27. `https://registry.npmjs.org/-/v1/search?text=webzjs&size=25` - 13 results, 12 WebZjs-derived, 2 ChainSafe-scoped
+28. ZecHub "Turnstile" - the 76 KB in-browser UFVK validator with a server-side scan
+29. `LeakIX/zcash-web-wallet` - the localStorage anti-pattern in 5.4; its own README says the project is AI-generated experimental code
+30. `fireice-uk/zecwallet-lite-wasm` - Zecwallet Web's published risk statement in 5.5
+31. `https://github.com/advisories/GHSA-pjwm-rvh2-c87w` - CVE-2021-4229 scored **8.8 High** by the GitHub advisory database
 
 **CSP, Next.js, browser platform**
-25. `https://raw.githubusercontent.com/mdn/content/main/files/en-us/web/http/reference/headers/content-security-policy/script-src/index.md` - `'wasm-unsafe-eval'`
-26. `https://raw.githubusercontent.com/w3c/webappsec-csp/main/index.bs` - `EnsureCSPDoesNotBlockWasmByteCompilation`
-27. `https://registry.npmjs.org/@mdn/browser-compat-data/-/browser-compat-data-8.0.13.tgz` - support matrix, n = 14 runtime entries
-28. `https://raw.githubusercontent.com/vercel/next.js/canary/docs/01-app/02-guides/content-security-policy.mdx` - the nonce forces dynamic rendering
-29. `https://raw.githubusercontent.com/vercel/next.js/canary/docs/01-app/02-guides/upgrading/version-16.mdx` - `middleware` renamed to `proxy`
-30. `https://github.com/vercel/next.js/issues/74319` and `https://github.com/vercel/next.js/issues/83764` - un-nonced inline styles
-31. `https://raw.githubusercontent.com/mdn/content/main/files/en-us/web/http/reference/headers/cross-origin-embedder-policy/index.md` - COEP `require-corp` and `credentialless`
-32. `https://registry.npmjs.org/-/package/next/dist-tags` - stable 16.3.4 (this repository pins 15.5.23)
+32. `https://raw.githubusercontent.com/mdn/content/main/files/en-us/web/http/reference/headers/content-security-policy/script-src/index.md` - `'wasm-unsafe-eval'`
+33. `https://raw.githubusercontent.com/w3c/webappsec-csp/main/index.bs` - `EnsureCSPDoesNotBlockWasmByteCompilation`
+34. `https://registry.npmjs.org/@mdn/browser-compat-data/-/browser-compat-data-8.0.13.tgz` - support matrix, n = 14 runtime entries
+35. `https://raw.githubusercontent.com/vercel/next.js/canary/docs/01-app/02-guides/content-security-policy.mdx` - the nonce forces dynamic rendering
+36. `https://raw.githubusercontent.com/vercel/next.js/canary/docs/01-app/02-guides/upgrading/version-16.mdx` - `middleware` renamed to `proxy`
+37. `https://github.com/vercel/next.js/issues/74319` and `https://github.com/vercel/next.js/issues/83764` - un-nonced inline styles
+38. `https://raw.githubusercontent.com/mdn/content/main/files/en-us/web/http/reference/headers/cross-origin-embedder-policy/index.md` - COEP `require-corp` and `credentialless`
+39. `https://registry.npmjs.org/-/package/next/dist-tags` - stable 16.3.4 (this repository pins 15.5.23)
 
 **Zebra**
-33. `https://raw.githubusercontent.com/ZcashFoundation/zebra/main/zebrad/Cargo.toml` - `default-release-binaries`; `indexer` not in it
-34. `https://raw.githubusercontent.com/ZcashFoundation/zebra/main/zebra-rpc/src/config/rpc.rs` - `lightwalletd_listen_addr` exists as a field
-35. `https://raw.githubusercontent.com/ZcashFoundation/zebra/main/CHANGELOG.md` - 6.3.0, 2026-08-10, the newest release
-36. `git tag --contains 1c9b245` over a full clone - PR #10461 is in no released tag
+40. `https://raw.githubusercontent.com/ZcashFoundation/zebra/main/zebrad/Cargo.toml` - `default-release-binaries`; `indexer` not in it
+41. `https://raw.githubusercontent.com/ZcashFoundation/zebra/v6.3.0/zebra-rpc/src/config/rpc.rs` - the PINNED tag: SEVEN fields, `deny_unknown_fields`, and NO `lightwalletd_listen_addr`. (An earlier row cited `.../main/...`, where the field does exist - that row was the source of the section 3.2 error, and correcting 3.2 without sweeping this list left the document citing the object that produced the mistake.)
+42. `https://raw.githubusercontent.com/ZcashFoundation/zebra/main/CHANGELOG.md` - 6.3.0, 2026-08-10, the newest release
+43. `git tag --contains 1c9b245` over a full clone - PR #10461 is in no released tag
 
 **Threat model**
 44. `https://raw.githubusercontent.com/RustCrypto/utils/master/zeroize/src/lib.rs` - the crate's own disclaimers: registers, stack spilling, realloc, no mlock
@@ -1204,13 +1205,13 @@ use (there is exactly one: the Hacken audit in 5.5).
 52. GitHub advisory database: GHSA-jcxm-7... (CVE-2024-54134, `@solana/web3.js`), CVE-2025-59038 (`prebid.js`), CVE-2021-4229 (`ua-parser-js`), GHSA-mh6f-8j2x-4483 (`event-stream`/`flatmap-stream`)
 
 **This repository, read at `98e87a0`**
-37. `apps/gateway/src/routes/index.ts:49` - `API_PREFIXES = ["/v2"]`, `/api` answers 410
-38. `apps/indexer/migrations/002_candidate_analysis.sql:12` - `pool_commitments` has no ciphertext column
-39. `infra/zebrad/zebrad.toml:41` - the `indexer_listen_addr` precedent
-40. `apps/web/next.config.ts` - the current CSP and its stated trade-off
-41. `apps/web/src/components/track/RevealKey.tsx` - M1, M2; the uncontrolled-input gate finding
-42. `apps/web/test/e2e/reveal-key.spec.ts` - the existing request recorder A2 extends
-43. `apps/indexer/test/fixtures/blocks/*.json` - the n=4 compact-volume measurement in 3.3
+53. `apps/gateway/src/routes/index.ts:49` - `API_PREFIXES = ["/v2"]`, `/api` answers 410
+54. `apps/indexer/migrations/002_candidate_analysis.sql:12` - `pool_commitments` has no ciphertext column
+55. `infra/zebrad/zebrad.toml:41` - the `indexer_listen_addr` precedent
+56. `apps/web/next.config.ts` - the current CSP and its stated trade-off
+57. `apps/web/src/components/track/RevealKey.tsx` - M1, M2; the uncontrolled-input gate finding
+58. `apps/web/test/e2e/reveal-key.spec.ts` - the existing request recorder A2 SPLITS (it cannot be extended: a decrypt to completion falsifies its zero-request assertion by construction)
+59. `apps/indexer/test/fixtures/blocks/*.json` - the n=4 compact-volume measurement in 3.3
 
 ---
 
