@@ -7542,3 +7542,48 @@ EXTRAPOLATION, CORRECTED: the second-session block predicted a third round
   reach is NOT decaying across rounds, it is following the fix commits. A
   fourth round would most likely find one or two in `62c4e77`.
 ```
+
+## L2 RESOLUTION — HANDOFF-12 second session, PR #52 (Cowork, 2 Sep 2026)
+
+Appended verbatim under Revolution protocol step 2 by the HANDOFF-13 session. It arrived as an
+attached file on the opening user turn and is archived whole in `handoffs/prompts/PROMPT-13.md`;
+this is its `L2 RESOLUTION` block in full, from the line after its title to the line before the
+`---` that separates it from DELIVERABLE 0, byte for byte. Appended beneath the HANDOFF-12 blocks
+it names, and beneath the round-3 correction to them, because this file is append-only and no
+earlier block - L2's included - is ever rewritten.
+
+Append verbatim to `handoffs/LEDGER.md`.
+
+**VERDICT: MERGE — applied, at `98e87a0`.**
+
+Verified on a clean worktree of `d95213c` with Postgres and Redis up throughout: **1503 passed / 3 skipped / 1506 total**, `TEST_RC=0 CHECK_RC=0 TYPECHECK_RC=0 LINT_RC=0 BUILD_RC=0`, zero "no Postgres reachable" lines. Re-checked on merged main: indexer **534 passed / 0 skipped**.
+
+**THE MERGE WAS URGENT AND THE REASON IS ON THE RECORD.** `main`'s second parent was `5a3893b` — PR #51's head at 01:55 UTC — merged at 10:30 while the session was still gating. `c53f2ba` was not an ancestor of main, measured rather than inferred, so six defects including two HIGH were live in production main for the intervening period. L2 verified one independently rather than reading it: in `runtime/confirmed-block.ts` on merged main the first state append was at line 152 and the first treestate call at line 270 — **mutation before fetch**, so the one external call `applyConfirmedBlock` makes, the call its own docblock promised was retryable, was not: a dropped RPC left commitments appended, the retry threw `CommitmentAlreadyExistsError`, and `isFatal` read that as consensus disagreement and stopped the process. `c53f2ba` is now in main.
+
+### F-52-1 — L2's, and it would have destroyed real work
+
+L2's F-51-1 said PR #51 "shipped with no write-back", that the session "stopped one step short", that "the session that held §8 is gone", and that §8 "cannot be reconstructed". **All four were false.** The timeline, measured: head `5a3893b` at 01:55; the operator merged the DRAFT at 10:30; round 1 at 10:33; round 2 at 10:43; the write-back, §7 and §8 both, at 10:45. The session was mid-gate, not finished.
+
+PROMPT-12c, built on that diagnosis, instructed a session to write §8 as a permanent unrecoverable-absence — **it would have overwritten a real §8 carrying nine questions, citing this project's own evidence-versus-fabrication rule as the justification.** It was withdrawn before it was pasted. What L2 did wrong is narrower than the consequence: it enumerated `main` and concluded about the SESSION. Main is where a merge froze; the branch is where the session lived. One command settles it — whether the branch has commits past the merged head. It had three. And a DRAFT PR is by definition a claim that the session is not finished; L2 wrote "PR opened as draft" in its own PR #50 resolution and did not carry that word's meaning forward one document. Same family it has filed against itself all engagement, at its most expensive: **an exhaustive claim made over the wrong object.**
+
+What worked: L2 read §7 BEFORE starting the gate, the rule it adopted one document earlier, and §7's third paragraph is what surfaced the mid-session merge and the live defects. Run the gate first and it would have found a green branch and reported a routine merge.
+
+### F-52-2 — the runtime has not converged, and round 4 is owed
+
+Three rounds ran on that branch and the reach did not decay:
+
+```
+round 1   6 defects, 2 HIGH
+round 2   2 more, both inside round 1's own fix commit
+round 3   4 more, THREE of them introduced by round 1's fix commit
+```
+
+Twelve in total, and the session's own words are the finding: *"the reach is not decaying across rounds on this branch, it is following the fix commits."* **Round 3's fix commit `62c4e77` has not itself been reviewed**, and the stopping rule is explicit that a fix commit earns a new round unless it changes only prose. `62c4e77` changes executable lines.
+
+L2's extrapolations were low twice, and both are recorded rather than left standing: on PR #50 L2 predicted a first real round would find "one or two"; it found six. The session predicted a third would find "one or two"; it found four. **The runtime's failure paths are not a surface either of us has been estimating well**, and the common cause is that both estimates came from readers who had run the suite and never fault-injected.
+
+This is NOT HANDOFF-13's to fix. It is recorded so that whoever provisions the VPS knows the confirmed-block runtime carries an unreviewed fix commit, and so the next Integration-track handoff opens with round 4 rather than discovering the debt.
+
+### Rulings on §8, in brief — full text in this file's PR #52 block
+
+Q1 posterior stays off `LinkRecord`. Q2 the anchor backfill is a maintenance item and wants a DETECTOR before a pass. **Q3 the tag guard grows a CEILING — deliverable 0 below.** Q4 link records remain a product question. Q5 do not pause the mempool path. **Q6's config-default guard — deliverable 0 below.** Q7 `migrations_zip318` has a reader and no writer, confirmed twice, and needs a decision next Integration handoff. Q8 fix the `ws-broker` uncaught throw if it is one line. Q9 **do not widen `check-redis-safety` rule 4** — declining to widen a safety guard to make your own cleanup convenient was the right call and is recorded as such.
