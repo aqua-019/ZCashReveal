@@ -7831,3 +7831,127 @@ EXTRAPOLATION, REVISED UPWARD AND STATED RATHER THAN CONVERGENCE CLAIMED. The
   Round 2 over the fix commit is dispatched and had not returned when this was
   written. Clause (i) is NOT satisfied.
 ```
+
+## §8 HANDOFF-13 (third append) — rounds 2 and 3, and the four corrections they make to the two blocks above
+
+```
+APPENDED, NOT REWRITTEN. The two HANDOFF-13 blocks above stand as written. Both
+are now wrong in named places and the corrections are here, because the ledger
+is append-only and because a block corrected in place would hide that the
+earlier reading was ever held.
+
+CORRECTIONS TO THE BLOCKS ABOVE:
+  1. "the guard's own exported detector now reports 12 assertions, 0 findings"
+     is now 13. A12 was added by round 2 - see Q3 below.
+  2. "1400 passed / 124 skipped / 1509 total" does not sum: 1400 + 124 is 1524.
+     Re-executed at 312cad4 and aggregated: 1400 / 109 / 1509. A verification
+     line refutable by addition, standing through two gate rounds.
+  3. "Round 2 over the fix commit is dispatched and had not returned" - it
+     returned, with 44 findings across four dimensions.
+  4. Round 1's extrapolation ("one or two more of that reach") was wrong by a
+     factor of twenty-two. Kept above; recorded here.
+
+GATE ROUND COUNTS: 3 rounds, 93 findings (45 / 44 / 4). NONE CONVERGENT.
+
+QUESTIONS (for the operator / L2):
+
+Q1. THE PROSE-AGAINST-TABLE SHAPE HAS RECURRED ACROSS THREE ROUNDS AND HAS NO
+    GUARD, AND THIS ENTRY IS THE "RECORDED AS WEAKER" THAT CLAUSE (b) REQUIRES.
+    Five instances in ONE file in ONE round: 9 Q6's "five of the six sites"
+    against a five-row table; Appendix B's heading "the four directions" above
+    five; Appendix B's "all five instances" against a six-row table; Appendix
+    B's "misses 1, 2, 4 and 5", one short of the same table; 5.1's "Mode A adds
+    two" against three rows marked new. THREE OF THE FIVE ARE IN APPENDIX B,
+    WHICH IS THE APPENDIX ABOUT MISCOUNTING.
+    A guard was attempted and abandoned, which clause (b) requires before a rule
+    may stand in. The predicate is "a cardinal in prose disagrees with the
+    cardinality of a nearby structure", and resolving WHICH structure a sentence
+    refers to is exactly the judgement Appendix B costs out and declines for the
+    tautological-predicate half. A guard that guesses the referent produces
+    false positives on every correct sentence that happens to sit near a table.
+    So: a written rule, recorded AS WEAKER, with no self-test, per clause (b).
+    THE RULE: a sentence stating a cardinal about a structure in the same
+    document names the structure, and the cardinal is read off it at write time
+    rather than carried from a draft.
+    FOR L2: is there a narrower guardable case worth having - a cardinal in the
+    SAME markdown block as a table, counted against that table's rows? It would
+    have caught three of the five and could not have caught 5.1 or 9 Q6.
+
+Q2. A6 IS THE SECOND INSTANCE OF LEDGER-11 Q5(a) THIS SESSION COMMITTED, AND
+    THE FIRST WAS ALSO MINE. Its exclusion set was a prose regex; executed, it
+    matched two lines in docs/2.0/, both ChainSafe's FOUR-THREAD figure, one of
+    them section 1.3's own row reading "UNVERIFIED - no measured single-threaded
+    figure exists". The assertion would have passed on the strength of a line
+    whose text says the thing it requires has not been measured.
+    THE FINDING WORTH CARRYING FORWARD IS NOT THAT, IT IS THIS: THE OBVIOUS
+    TIGHTENING DOES NOT WORK. Adding "single-threaded" and an n as conjuncts
+    still matches that same line, because both phrases are in it. Measured -
+    prose regex 2, three-conjunct 1, a structured `SINGLE-THREAD RATE:` record
+    0. An author who had reasoned rather than executed would have shipped the
+    three-conjunct form believing it fixed.
+    PROPOSED AMENDMENT TO LEDGER-11 Q5(a), for L2 to accept or refuse: when a
+    clause is found satisfied by a value the object already exhibits, THE
+    REPAIRED CLAUSE IS EXECUTED AGAINST THE OBJECT BEFORE IT IS WRITTEN DOWN,
+    and the transcript carries a POSITIVE CONTROL - a well-formed value the
+    predicate must match. A predicate that is inert and a predicate whose set is
+    genuinely empty both report zero matches, and the reading is not available
+    from the result. This is the fail-side rule pointed at the REPAIR rather
+    than at the original.
+
+Q3. A12 WAS ADDED BY THE GATE, and the reason is a coverage claim that was
+    wrong rather than a missing test. Section 5.6 rated "a leak through
+    generated glue or an error path" as closed by A2. A2 quantifies over
+    REQUESTS, A8 over STORAGE, A11 over the page realm's LINEAR MEMORY. A key
+    interpolated into an `Error.message`, or rendered into the DOM by a failed
+    decrypt, is none of those three - and it is the likeliest shape of the risk
+    5.6 ranks second. Section 7 now carries thirteen assertions.
+    FOR L2: this is the seam family again, one level up. Three assertions each
+    exhaustive over their own channel, and the gap between them covered by none,
+    invisible because each is individually complete.
+
+Q4. FOUR OF ROUND 3'S FINDINGS WERE IN THE COMMIT THAT FIXED ROUND 2'S ELEVEN,
+    and two are the LEDGER-04a shape - a claim built on an enumeration without
+    asking the list for a member already known to be in it. The citation
+    `git ls-files | xargs grep -l '^- **A11.**'` returns SEVEN, not the six its
+    sentence states, because it counts the citing document's own A11. And a
+    draft scope note reported "fourteen paths" from a grep whose --include
+    filters excluded two files and admitted two build artifacts: A DIFFERENT
+    FOURTEEN THAT HAPPENED TO EQUAL THE RIGHT TOTAL, so the count looked
+    confirmed and the membership was wrong.
+    THAT COINCIDENCE IS THE ENTRY. LEDGER-04a says to ask the list for a known
+    member. The failure mode it does not yet name is that a matching COUNT reads
+    as that check having passed. FOR L2: should LEDGER-04a gain "the count
+    matching is not the check; name the member"?
+
+INFERRED (non-empty inferences a worker made):
+  The Sapling-spend slot is 36 bytes - `nf` at 32, plus one tag and one length
+  byte for the field, plus one tag and one length byte for its slot in
+  `CompactTx`. Inferred from the two slot sizes section 3.2 already derives
+  (124 for an output, 159 for an action) rather than read from a wire capture.
+  It moves the volume figure from 822 to 840 bytes per block, so an error here
+  is bounded at 2 per cent and does not change any conclusion in section 1.5.
+
+NOT-MATCHED (patterns handed over that did not apply): none this round.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews): none this round.
+
+DEFERRED ASSUMPTIONS:
+  The #10461 attribution correction is still DEFERRED and the reason is
+  unchanged and is the sweep rule, not A2. Five tracked files assert it, four of
+  them behind A2 and `docs/2.0/RUNTIME.md` not. Correcting only the reachable
+  one is a HIGH finding under LEDGER-03 Q3. It belongs to the Integration track.
+  ONE HALF OF THAT LINE WAS NOT DEFERRED AND WAS FIXED HERE: RUNTIME.md:215 also
+  said "there is no version CEILING guard yet", which THIS BRANCH SHIPPED. That
+  is a different fact in the same sentence, and correcting it touches no site of
+  the attribution, so no partial sweep is created.
+
+EXTRAPOLATION, NOT CONVERGENCE. The reach is not decaying; it is FOLLOWING THE
+FIX COMMITS. 45, then 44, then 4 in the commit that fixed the 44 - and each of
+the last three rounds found defects the previous round's fix had created. A
+fourth round would probably find one to three more of round 3's reach, inside
+clause (ii)'s (a)/(b)/(c) scope: miscounted enumerations and stale
+cross-references in the newest prose. It would not find nothing.
+THE OPERATOR SHOULD READ SECTION 7'S ASSERTIONS FIRST. This handoff's product is
+a plan whose value is that its numbers and its assertions are right, and three
+of them were wrong after two rounds had said the document was finished.
+```

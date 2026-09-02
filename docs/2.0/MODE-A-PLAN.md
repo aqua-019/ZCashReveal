@@ -929,9 +929,15 @@ excluded value the assertion is type-level and its fail side is a `@ts-expect-er
 
 **ASSERTION IDS IN THIS REPOSITORY ARE PER-HANDOFF, AND THIS DOCUMENT CITES THREE NAMESPACES,
 so every `A<n>` below means *this section's* unless it is qualified.** `A11` alone already names
-six different assertions across HANDOFF-03, 04, 04a, 08, 09 and 11, and HANDOFF-11's section 5
-records that it deliberately declined to add a seventh. The three in play here: **this section's
-A1-A11 and A5b**, proposed for the build handoff; **HANDOFF-13's A1-A3**, the plan-only
+six different assertions across HANDOFF-03, 04, 04a, 08, 09 and 11 - measured with
+`git ls-files 'handoffs/HANDOFF-*.md' | xargs grep -l '^- \*\*A11\.\*\*'`, and the scope in
+that command is load-bearing: unscoped it returns seven, the seventh being this document's own
+section 7. HANDOFF-11's section 5 records declining to
+add a SECOND `A11` to its own list, noting that section already carried two accidentally
+duplicated IDs and a third would have been the first deliberate one; that is a per-handoff
+decision, not a repo-wide one, and an earlier draft of this sentence reported it as "declined a
+seventh", conflating the two counts. The three in play here: **this section's
+A1-A12 and A5b**, thirteen in all, proposed for the build handoff; **HANDOFF-13's A1-A3**, the plan-only
 constraints this branch is measured against (its A2 is the empty-diff pathspec, cited in 9 Q6);
 and **HANDOFF-11's A11**, the live-node subversion floor, cited in 9 Q4. Unqualified `A2` in
 section 5.1 and in the source list means this section's.
