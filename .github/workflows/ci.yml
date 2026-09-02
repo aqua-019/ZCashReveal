@@ -92,7 +92,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      # THE FOURTEEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose. None of
+      # THE SEVENTEEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose. None of
       # them needs node_modules or a build - they are bash, grep and dependency-free
       # node - and putting them after meant a PR whose build broke never got its
       # verdict on any of them. The Redis one in particular protects another
@@ -255,10 +255,29 @@ jobs:
       # patch down. It could only state it; this checks it. The tag is extracted
       # before comparison, because parseZebraVersion reads a node's subversion
       # and returns null for an image ref by design. Three outcomes, and an
-      # unreadable pin such as :latest FAILS - an unknown floor is not a
+      # unreadable pin such as :latest FAILS - an unknown bound is not a
       # satisfied one.
-      - name: Compose Zebra tag (the pinned image clears the declared floor)
+      #
+      # AND SINCE HANDOFF-13 THERE IS A CEILING TOO (LEDGER-12 Q3). The floor
+      # stops a node too old to be right; nothing stopped an UPGRADE, which is
+      # the direction an operator actually moves. The ceiling is 6.3.0
+      # inclusive - the highest tag this build has been read against - because
+      # ZcashFoundation/zebra #10461 merged twelve days after v6.3.0 shipped
+      # and is in no released tag, so there is no version to set an exclusive
+      # ceiling at. Four outcomes now, and above-ceiling names both versions.
+      - name: Compose Zebra tag (the pinned image sits inside the declared version window)
         run: node scripts/check-compose-zebra-tag.mjs
+
+      # A NETWORK-DEPENDENT DEFAULT IS WRITTEN ONCE, IN THE ONLY PLACE THAT CAN
+      # READ THE NETWORK. LEDGER-12 Q6: INDEXER_START_HEIGHT was defaulted in
+      # loadConfig from INDEXER_NETWORK and ALSO as a mainnet constant in
+      # docker-compose.yml and .env.example, neither of which can read a sibling
+      # variable - so a testnet deployment that touched neither opened its base
+      # 705,857 blocks early, silently. No test could catch it: every test in
+      # this repository runs on mainnet constants, so the two defaults agree
+      # under test and disagree only on the network no test uses.
+      - name: Config defaults (no literal where the network cannot be read)
+        run: node scripts/check-config-defaults.mjs
 
       - name: Install
         run: pnpm install --frozen-lockfile

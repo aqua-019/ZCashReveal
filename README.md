@@ -86,7 +86,7 @@ pnpm build          # turbo, topological
 pnpm typecheck      # all packages
 pnpm lint           # eslint flat config; Math.random is banned repo-wide
 pnpm -r test        # every workspace suite
-pnpm check          # the fourteen static guards CI runs: no emoji, Vercel config,
+pnpm check          # the seventeen static guards CI runs: no emoji, Vercel config,
                     # shared-Redis safety (docs/2.0/SNAPSHOT.md - the managed
                     # store holds another production project's live data),
                     # no stale two-pool unions (the pool model is four pools),
@@ -110,7 +110,19 @@ pnpm check          # the fourteen static guards CI runs: no emoji, Vercel confi
                     # measurement - text in a scaled viewBox paints at
                     # declared x min(sx, sy), so no declared value clears the
                     # 12px floor at every supported width and the labels are
-                    # HTML positioned over the drawing
+                    # HTML positioned over the drawing, every mainnet-*.json
+                    # capture internally consistent (the merkleroot recomputed
+                    # from the block's own txids, with "could not be run"
+                    # reported as a THIRD OUTCOME and never counted as a pass),
+                    # the Zebra image tag compose pins sitting inside a
+                    # version window - floor read from version-floor.ts,
+                    # ceiling declared in the guard at the highest tag this
+                    # build has been read against - with an unreadable pin such
+                    # as :latest FAILING because an unknown bound is not a
+                    # satisfied one, and no variable a config
+                    # module defaults from its own network field carrying a
+                    # literal default in a compose file or a .env.example,
+                    # neither of which can read a sibling variable
 ```
 
 60 of the indexer's tests are Postgres-backed integration tests (37 before HANDOFF-06, 56 before HANDOFF-07). They gate themselves on a

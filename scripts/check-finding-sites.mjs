@@ -327,7 +327,8 @@ const FINDINGS = [
     // RECORDS of what that handoff did and stay at the count of their day. Only
     // the sites that assert the CURRENT count are listed.
     //
-    // FIVE, THEN SEVEN, THEN ELEVEN, THEN TWELVE, THEN THIRTEEN, NOW FOURTEEN.
+    // FIVE, THEN SEVEN, THEN ELEVEN, THEN TWELVE, THEN THIRTEEN, THEN FOURTEEN,
+    // THEN SIXTEEN, NOW SEVENTEEN.
     // This entry tracks the CURRENT count rather than one correction: the shape
     // recurs every time a guard is added, which is exactly what makes it worth a
     // register row instead of a review. Each widening moves `present` and pushes
@@ -340,6 +341,13 @@ const FINDINGS = [
     // fourteen it held the same three sites to the same standard without anyone
     // having to remember them.
     //
+    // FIFTEEN AND SIXTEEN NEVER REACHED THIS ROW AT ALL, which is how the hole
+    // below stayed open: HANDOFF-12 added `check-capture-consistency.mjs` and
+    // `check-compose-zebra-tag.mjs` and moved CLAUDE.md's count to sixteen
+    // without advancing `present`, and the row stayed green anyway for the
+    // reason the next paragraph gives. Seventeen is `check-config-defaults.mjs`
+    // (HANDOFF-13).
+    //
     // THE `absent` ARM GAINS THE SUPERSEDED COUNT, NOT A MENTION OF THE NUMBER.
     // CLAUDE.md's ledger rules quote measurements over the guard population -
     // "three of its thirteen guards have shipped with a self-test that certified
@@ -347,10 +355,43 @@ const FINDINGS = [
     // doing its job, which is the loose-pattern failure recorded for
     // `check-infra-docs`. Only the phrasings that ASSERT the current count are
     // forbidden.
-    present: /fourteen (static )?guards/i,
-    probe: "# THE THIRTEEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
-    antiProbe: "# THE FOURTEEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
-    absent: /five static guards|the five guards|five guards OK|seven static guards|the seven guards|seven guards OK|FOUR STATIC GUARDS|SEVEN STATIC GUARDS|eleven static guards|the eleven guards|eleven guards OK|ELEVEN STATIC GUARDS|twelve static guards|the twelve guards|twelve guards OK|TWELVE STATIC GUARDS|thirteen static guards|the thirteen guards|thirteen guards OK|THIRTEEN STATIC GUARDS/i,
+    // THE OPTIONAL `(static )?` WAS THE HOLE, AND THE ROW WROTE ITS OWN WARNING
+    // ABOUT THE MIRROR IMAGE OF IT ONE PARAGRAPH ABOVE. With `static` optional,
+    // this pattern was satisfied at `CLAUDE.md` by the ledger-rule sentence
+    // "three of its fourteen guards have shipped with a self-test that
+    // certified a hole" - PROSE ABOUT THE GUARD POPULATION, not an assertion of
+    // the current count. So the row stayed green for two handoffs while
+    // CLAUDE.md asserted sixteen, `.github/workflows/ci.yml` asserted FOURTEEN
+    // and `README.md` asserted fourteen: the tree contradicted itself about a
+    // checkable fact at three of four asserting sites, and the guard that
+    // exists to prevent exactly that could not see it.
+    //
+    // The docblock above already forbids this shape for the `absent` arm - "a
+    // pattern hunting for the bare word would fire on prose doing its job" -
+    // and the `present` arm was left open to the same error running the other
+    // way. `static` is now REQUIRED, which is what the three sites below write
+    // and what no measurement sentence writes.
+    //
+    // TWO CLASSES OF SITE, AND THIS ROW GOVERNS ONE, which a gate reviewer
+    // measured after the sweep. COUNT-ASSERTING sites write "N static guards" -
+    // CLAUDE.md, README.md and ci.yml, the three in `sites`. POPULATION-PROSE
+    // sites write "three of its N guards" as a measurement ABOUT the guard
+    // population - CLAUDE.md twice more, and check-config-defaults.mjs's header.
+    // The second class is deliberately outside `present`, because a pattern that
+    // matched it is the pattern that went inert for two handoffs; it is swept by
+    // hand, and the sweep that missed one of them found it by enumerating the
+    // tree rather than by re-reading the registered sites.
+    //
+    // THE LATENT HAZARD IS UNCLOSED AND IS WHAT APPENDIX A OF MODE-A-PLAN.md
+    // RECOMMENDS CLOSING: `present` matches anywhere in the file, so if CLAUDE.md
+    // ever gains a sentence QUOTING this predicate - "seventeen static guards" -
+    // the row goes inert again while an asserting site says something else. That
+    // is not hypothetical: it is exactly how "fourteen (static )? guards" died.
+    // A `presentAntiProbe` field would catch it; this row does not have one yet.
+    present: /seventeen static guards/i,
+    probe: "# THE SIXTEEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
+    antiProbe: "# THE SEVENTEEN STATIC GUARDS RUN BEFORE INSTALL AND BUILD, on purpose.",
+    absent: /five static guards|the five guards|five guards OK|seven static guards|the seven guards|seven guards OK|FOUR STATIC GUARDS|SEVEN STATIC GUARDS|eleven static guards|the eleven guards|eleven guards OK|ELEVEN STATIC GUARDS|twelve static guards|the twelve guards|twelve guards OK|TWELVE STATIC GUARDS|thirteen static guards|the thirteen guards|thirteen guards OK|THIRTEEN STATIC GUARDS|fourteen static guards|sixteen static guards/i,
     sites: [
       "CLAUDE.md",
       "README.md",
