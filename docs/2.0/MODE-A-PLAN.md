@@ -430,11 +430,44 @@ verbosity 0, 1 or 2 (2 = a JSON object with transaction data) and `getrawtransac
 gateway to slice to 52. No schema change; the cost is one RPC round trip per block per request
 and a lot of bytes discarded at the gateway.
 
-**Source C - Zebra's own `CompactTxStreamer`, and there is a trap here this repository has
-already been caught by once.** Zebra's RPC `Config` carries a `lightwalletd_listen_addr:
-Option<SocketAddr>` field, read from the source rather than the book. **Whether the published
-`zfnd/zebra:6.3.0` image starts that server is UNVERIFIED**, and the precedent for doubting it
-is in this repository's own `infra/zebrad/zebrad.toml`, about the sibling field:
+**Source C - Zebra's own `CompactTxStreamer`, and it is WORSE THAN UNVERIFIED: against the
+version this stack pins, the config key does not exist and setting it stops the node booting.**
+A first draft of this section said the field exists and only the server's presence was unknown.
+That was read from `main`. Read from **`v6.3.0`** - the tag this repository actually pins, and
+the tag deliverable 0a's ceiling exists to hold it at - the `[rpc]` `Config` is:
+
+```rust
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct Config {
+    pub listen_addr: Option<SocketAddr>,
+    pub indexer_listen_addr: Option<SocketAddr>,
+    pub parallel_cpu_threads: usize,
+    pub debug_force_finished_sync: bool,
+    pub cookie_dir: PathBuf,
+    pub enable_cookie_auth: bool,
+    pub max_response_body_size: usize,
+}
+```
+
+There is no `lightwalletd_listen_addr`, and the struct carries **`deny_unknown_fields`** - so
+writing that key into `zebrad.toml` against `zfnd/zebra:6.3.0` does not give a key that parses
+and a server that never starts. **It gives a node that refuses to boot.** Concluding about a
+pinned tag from `main` is the enumerate-the-wrong-object error this project files against
+itself, and it is the same error in the same session as the ceiling that exists precisely
+because what `main` does is not what the pinned image does.
+
+**AND THE REPOSITORY ALREADY REFUSES IT, which is the good half.**
+`scripts/check-zebrad-config.mjs` carries `KNOWN_KEYS.rpc`, and it is EXACTLY the seven fields
+above, verified field for field. Placing `lightwalletd_listen_addr` under `[rpc]` in
+`infra/zebrad/zebrad.toml` gives `rc=1` and `unknown key [rpc] lightwalletd_listen_addr`,
+executed and restored. So a future session reaching for Source C from `main`, as this plan's
+first draft did, is stopped by a guard this project already has - and that guard's header
+states the reason: every Zebra config section is `serde(deny_unknown_fields)`, so an invented
+key is a startup failure rather than a warning.
+
+The precedent for the SIBLING field is in `infra/zebrad/zebrad.toml`, and it now reads as the
+milder case rather than the worst one:
 
 > `indexer_listen_addr`. This is NOT the address index. It is Zebra's internal gRPC indexer
 > service, it requires a build with the `indexer` feature, and `default-release-binaries` -
@@ -448,13 +481,16 @@ Confirmed against `zebrad/Cargo.toml`: `default-release-binaries` is
 the sibling and unproven for this field, which is exactly when a plan should say so.
 **Additionally, a browser cannot speak gRPC**: every existing Zcash browser wallet - WebZjs,
 Zecwallet Web - puts a grpc-web proxy in front of lightwalletd, and this project would be
-adding a proxy to reach a service it has not confirmed exists.
+adding a proxy to reach a service that, at the pinned version, has no configuration key.
 
 **Recommendation: Source B for the first build, Source A when the range grows.** B needs no
 migration and no new process, so it gets Mode A working against the real chain; A is the one
 that scales and is a Data-track handoff of its own once B has proven the endpoint's shape.
-Source C is not recommended until someone has run `zfnd/zebra:6.3.0` with
-`lightwalletd_listen_addr` set and watched a port open.
+Source C is not available at the pinned version at all: the key does not exist there,
+`deny_unknown_fields` turns an attempt into a boot failure, and `pnpm check` refuses it before
+an operator ever runs the node. It becomes a question again only ABOVE the ceiling - which is
+another reason the ceiling is the right instrument, because the day someone moves it, this is
+one of the things they have to read.
 
 ### 3.3 Volume, measured, with its n
 
