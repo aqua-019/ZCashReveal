@@ -4,8 +4,10 @@
 
 Written by the HANDOFF-13 session, 2 September 2026, against `main` at `98e87a0`.
 Every version number, size and rate below was fetched or executed during that session and
-carries its source in section 10. Where a number could not be established it is labelled
-UNVERIFIED rather than estimated, and where a rate is quoted it carries its sample size.
+carries its source in section 10 - a claim a gate reviewer falsified against the first draft,
+which used ChainSafe's benchmark rate as its single most load-bearing external figure and cited
+it nowhere. The missing rows are now there (46-52). Where a number could not be established it
+is labelled UNVERIFIED rather than estimated, and where a rate is quoted it carries its sample.
 
 ---
 
@@ -63,17 +65,19 @@ input. Section 7.3 says what a Mode A assertion has to do about it.
   browser tab (apps/web, /reveal)
   ┌──────────────────────────────────────────────────────────────┐
   │  RevealKey.tsx        the field. Uncontrolled, no <form>,     │
-  │                       no fetch. Unchanged.                    │
+  │                       no fetch. Unchanged in the three        │
+  │                       properties HANDOFF-04 paid for; its     │
+  │                       COPY grows - see section 6.             │
   │        │ postMessage(key)  - never a URL, never storage       │
   │        ▼                                                      │
-  │  Web Worker           packages/wasm-keys glue                 │
+  │  Web Worker           apps/web worker entry - it does the fetch │
   │   ┌──────────────────────────────────────────────────┐        │
   │   │ wasm module   parse UFVK/FVK/IVK (bech32m, F4J)   │        │
   │   │               derive ivk/ovk/nk                   │        │
   │   │               trial-decrypt compact outputs       │        │
   │   │               nullifier derivation (FVK only)     │        │
   │   └──────────────────────────────────────────────────┘        │
-  │        │ fetch (worker, same-origin or gateway origin)         │
+  │        │ fetch (the WORKER ENTRY, not the package - see 2.5)   │
   └────────┼──────────────────────────────────────────────────────┘
            ▼
      gateway  GET /v2/compact/:from/:to      compact outputs only
@@ -96,9 +100,18 @@ Four properties this shape exists to have, in the order they constrain the desig
    so, and it is also this project's editorial position: a site arguing that shielded data is
    unrecoverable from public inputs cannot then ask a user to post their viewing key to a
    server.
-4. **`RevealKey.tsx` does not change shape.** It already holds no key in React state, is not
-   in a form, and has no fetch. Mode A adds a worker handle and a result panel; it does not
-   revisit those decisions, which HANDOFF-04's gate already paid for.
+4. **`RevealKey.tsx` does not change shape, and DOES change copy.** It already holds no key in
+   React state, is not in a form, and has no fetch; Mode A adds a worker handle and a result
+   panel and revisits none of those decisions, which HANDOFF-04's gate already paid for. But
+   section 6 requires four statements before the field is usable, and the component's standing
+   empty-state line - "this field has no network path out of it" - **becomes false the moment
+   the worker fetches a range**. It is true today and it is not a sentence Mode A can keep.
+   Section 6 carries that as its fifth item.
+
+5. **`packages/wasm-keys` does not fetch.** The package parses, derives and decrypts over bytes
+   it is HANDED; the worker entry that fetches lives in `apps/web`. That is what makes section
+   2.5's dependency rule and A7 checkable at all - a package that fetched could not honestly
+   declare a graph with no network client in it.
 
 ### 1.2 Crate and version table
 
@@ -154,7 +167,8 @@ no published single-threaded Zcash wasm artifact.
 | Measured size | UNVERIFIED | keys-only 2,147,533 bytes raw / 1,530,941 gzip -9 |
 
 **Recommendation: build single-threaded first, and treat threads as a later, separately
-approved change.** Four reasons, in order of weight:
+approved change.** Five reasons, in order of weight, and the fifth was found while writing
+section 5 rather than this one:
 
 1. **COEP `require-corp` is a site-wide change made for one route.** It is set on the
    document, and every cross-origin no-cors subresource then needs a CORP header or it is
@@ -188,8 +202,11 @@ free choice, and 1.3 said "cost" before section 5 was written.
 **The honest cost of that recommendation, stated rather than buried:** no measured single-
 threaded trial-decryption rate exists, for this project or anyone else. If the single-threaded
 build turns out to be four times slower than ChainSafe's four-thread figure, a full Ironwood-era
-scan moves from about 2 seconds to about 9 - still fine. If it is *forty* times slower, the
-design is unchanged but the progress UI stops being optional. **The build handoff measures this
+scan moves from about 5 seconds to about 21 - still fine. If it is *forty* times slower, that is
+about three and a half minutes: the design is unchanged but the progress UI stops being
+optional. (Both against section 1.5's era length of 40,406 blocks. An earlier draft said "2
+seconds to 9" - the withdrawn 16,700-block era, a number that survived its own correction two
+sections away.) **The build handoff measures this
 before it commits to a UI**, which is section 7's A6.
 
 ### 1.4 The Ironwood lead byte
@@ -287,11 +304,15 @@ is named anywhere the session could read.
 
 Measured, from the published artifacts:
 
-| Artifact | Raw | gzip -9 | Files |
-|---|---|---|---|
-| `@chainsafe/webzjs-keys` 0.1.0 (keys only) | 2,147,533 B | 1,530,941 B | 4 |
-| `@bytezhang/webzjs-wallet` 0.1.0-alpha.23 | 8,044,208 B | 3,595,538 B | 8 |
-| `@chainsafe/webzjs-zcash-snap` 0.3.0 | 3,113,926 B unpacked | - | 5 |
+| Artifact | `_bg.wasm` raw | that file, gzip -9 | whole package unpacked | Files |
+|---|---|---|---|---|
+| `@chainsafe/webzjs-keys` 0.1.0 (keys only) | 2,147,533 B | 1,530,941 B | 2,192,593 B | 4 |
+| `@bytezhang/webzjs-wallet` 0.1.0-alpha.23 | 8,044,208 B | 3,595,538 B | 8,197,027 B | 8 |
+| `@chainsafe/webzjs-zcash-snap` 0.3.0 | - | - | 3,113,926 B | 5 |
+
+**The first two columns are the wasm MODULE and the fourth is the npm PACKAGE**, split after a
+gate reviewer measured that an earlier draft put the module's bytes under a heading beside the
+package's file count - two different objects in one row.
 
 A keys-only bundle costs about a quarter of a full wallet bundle. **Mode A is between the two**
 - more than key parsing, less than a wallet, and with no prover - so a first estimate of 2-4 MB
@@ -315,8 +336,9 @@ This is the part of the build pipeline that is a *threat model* item and is writ
 because it is decided at build time:
 
 - **the artifact is committed or built in CI, and either way its hash is recorded.** A wasm
-  module that decrypts a user's notes must not be a floating npm dependency: the three
-  ChainSafe-adjacent npm packages a search returns include third-party forks
+  module that decrypts a user's notes must not be a floating npm dependency: an npm
+  search for `webzjs` returns twelve WebZjs-derived packages, only TWO of them ChainSafe-scoped;
+  the rest are third-party forks
   (`@bytezhang/*`, `zprotocol-webzjs-wallet`, several rebadged snaps), and the package the
   WebZjs README tells you to import - `@chainsafe/webzjs-wallet` - **is not published at all**
   (the registry answers 404).
@@ -342,7 +364,8 @@ because it is decided at build time:
   published with private-key-exfiltrating malware and live for about five hours on 3 December
   2024 (CVE-2024-54134); `prebid.js` 10.9.2, briefly published with a crypto drainer
   (CVE-2025-59038, Sept 2025); `ua-parser-js` 0.7.29 / 0.8.0 / 1.0.0, account compromise with
-  embedded malware (CVE-2021-4229, CVSS 9.8, Oct 2021); and `event-stream` 3.3.6, which gained
+  embedded malware (CVE-2021-4229, CVSS 8.8 High in the GitHub advisory
+  database this list cites, though other trackers score it 9.8; Oct 2021); and `event-stream` 3.3.6, which gained
   a malicious `flatmap-stream` **transitive** dependency (GHSA-mh6f-8j2x-4483, Nov 2018) - the
   canonical demonstration that pinning your own direct dependencies is not enough.
   **Stated honestly: the session could not source a dated incident of a browser wallet leaking
@@ -479,8 +502,10 @@ failure mode and then exhibits it is evidence about how hard that failure mode i
 blocks lie within 12,707 heights of each other and all are post-NU6.3. And the fixture
 README's selection criteria bias toward blocks *with* shielded activity, so this sample is not
 random with respect to the thing it measures - it is more likely to over-state than
-under-state. The number is good enough to say "the Ironwood era is single-digit megabytes and
-not gigabytes"; it is not good enough to size a cache.
+under-state. The number is good enough to say "the Ironwood era is TENS of megabytes and a year
+of it is HUNDREDS - not gigabytes, and not the single digits an earlier draft of this sentence
+still claimed after the figures above it had been corrected"; it is not good enough to size a
+cache.
 
 ### 3.4 Rate limits, caching, and what the gateway must not do
 
@@ -814,6 +839,15 @@ Four things the screen must state, in the reader's language, before the key fiel
    {tip}**", never "no notes". An unscanned range reported as an empty result is this project's
    own named-absence rule, on the surface where getting it wrong is worst.
 
+5. **The standing empty-state sentence has to change, and it is the one the current component
+   is proudest of.** `RevealKey.tsx` renders "Nothing entered. Nothing has been sent, and
+   nothing will be: this field has no network path out of it." That is TRUE TODAY and Mode A
+   makes it FALSE: the worker fetches block ranges. The replacement must keep what was true -
+   the KEY has no path out - and drop what stops being true: "the page downloads public block
+   data; your key is not part of any request it makes." Getting this wrong is worse than never
+   having written the original, because a reader who learned to trust the strong sentence would
+   be trusting it after it stopped being accurate.
+
 Two rules from the design system apply and are worth naming so they are not rediscovered:
 
 - **Gold is a boundary crossing, never a magnitude.** A decrypted balance is a large number and
@@ -825,92 +859,126 @@ Two rules from the design system apply and are worth naming so they are not redi
 
 ## 7. Proposed section 5 for the build handoff
 
-Each assertion states its **exclusion set** - the set of values the predicate claims to reject -
+Each assertion states its **EXCLUSION SET** - the set of values the predicate claims to reject -
 so a fail-side transcript can name **which member** it used, per LEDGER-09a Q2. At least one
 fail side per assertion is a DATA mutation drawn from that set; where no field can hold an
 excluded value the assertion is type-level and its fail side is a `@ts-expect-error`.
 
-**A1 - the module's import section can perform no I/O.**
+**WRITTEN IN THE FORMAT `check-ledger-structure.mjs`'s R4 CAN READ, because the whole point of
+this section is that it gets pasted into a build handoff's section 5.** A first draft used
+`**A1 - title**` headings and a `*Fail side names:* (by DATA)` clause; R4 matches
+`/^- \*\*(A\d+[a-z]?)\.\*\*/` and requires the clauses `*Exclusion set:*` and
+`*Fail side names:*`, so pasted verbatim it found **zero** assertions and reported the section
+as declaring the amended format while containing none - a vacuous pass, which is the exact
+failure mode this project has recorded three guards shipping. Found by a gate reviewer
+transplanting the section into a scratch file and calling the guard's own exported detector.
+
+- **A1.** the module's import section can perform no I/O.
 A script reads the built `.wasm`'s import section and fails if it names any host function
 outside a declared allow-list.
 *Exclusion set:* any import whose name matches a network, storage or navigation capability.
-*Fail side, by data:* add one `fetch` import to a fixture module; the check fails naming it.
+*Fail side names:* (by DATA) add one `fetch` import to a fixture module; the check fails naming it.
 *Why a script and not a review:* the import section is the artefact, and this session already
 decoded one to prove the shared-memory constraint, so the technique is known to work.
 
-**A2 - no request the page makes carries any fragment of the key, across a full decrypt.**
-Extends `test/e2e/reveal-key.spec.ts`, which already types a real key into a real production
-build and records every request. The extension is that it now types a key **and runs a
-decryption to completion** against a stubbed gateway.
+- **A2.** no request the page makes carries any fragment of the key, across a full decrypt.
+**SPLITS** `test/e2e/reveal-key.spec.ts` rather than extending it, and the distinction is not
+pedantic: that spec asserts, after the field is touched, that NO request was made at all and
+that the page spoke only to 127.0.0.1. A decrypt to completion falsifies both BY CONSTRUCTION.
+So the existing test keeps its zero-request assertion for the GATE-CLOSED path, and a NEW test
+covers the decrypt path with the assertion narrowed from "no request" to "no request carrying
+any 24-character window of the key". An earlier draft said "extends", which would have meant
+either a failing suite or a quietly weakened assertion on the path that still deserves the
+strong one.
 *Exclusion set:* any request whose URL, headers or body contains any 24-character window of the
-key. *Fail side, by data:* a build with one `fetch(url + key)` added; the spec fails naming the
+key. *Fail side names:* (by DATA) a build with one `fetch(url + key)` added; the spec fails naming the
 request.
 
-**A3 - the compact-output seam is proven by round trip, not by fixture.**
+- **A3.** the compact-output seam is proven by round trip, not by fixture.
 The **gateway's real serialiser** produces a range; the **real wasm module** consumes it and
 decrypts a note whose value is known; the assertion is on that value.
 *Exclusion set:* any encoding the gateway can emit that the module cannot read.
-*Fail side, by data:* change one field number in the gateway's encoder; the round trip fails.
+*Fail side names:* (by DATA) change one field number in the gateway's encoder; the round trip fails.
 *Why not a property test:* a property over "any compact output round-trips" quantifies over
 inputs *the test itself builds*, which is precisely the shape that has been green and wrong four
 times here. The worked case is the instrument.
 
-**A4 - an Ironwood note decrypts, and its lead byte is 0x03.**
+- **A4.** an Ironwood note decrypts, and its lead byte is 0x03.
 A fixture carrying a known Ironwood action and a known viewing key; the decrypted note's value
 matches, and the plaintext lead byte is asserted to be `0x03`.
 *Exclusion set:* a decoder that reads `CompactTx.actions` (field 6) and not `ironwoodActions`
 (field 9); a plaintext parser that accepts only `0x02`.
-*Fail side, by data:* feed the Ironwood action to the Orchard-only path; decryption fails and
+*Fail side names:* (by DATA) feed the Ironwood action to the Orchard-only path; decryption fails and
 the test says so, rather than reporting an empty result.
 *Why this is a fixture and not a property:* both failure modes present as "no notes", which is
 indistinguishable from a correct empty result. Only a known-answer case discriminates.
 
-**A5 - the CSP permits the module and forbids everything else, checked by executing it.**
+- **A5.** the module instantiates under the target policy and not without `'wasm-unsafe-eval'`.
 A production build is served with the target policy and the module instantiates; the same build
 with `'wasm-unsafe-eval'` removed fails to instantiate, and the console carries the violation.
-*Exclusion set:* any policy under which the module runs while `script-src` still carries
-`'unsafe-inline'`. *Fail side, by data:* the policy with `'unsafe-inline'` restored; the
-assertion fails.
-*This assertion also settles the two open CSP questions* - worker CSP inheritance, and which
-instantiation paths the directive gates - because it settles them by execution, which is what
-CLAUDE.md requires of a sentence making a checkable claim about runtime behaviour.
+*Exclusion set:* any served `script-src` lacking `'wasm-unsafe-eval'` under which the module
+still instantiates. *Fail side names:* (by DATA) the target policy with `'wasm-unsafe-eval'`
+deleted and nothing else changed; instantiation must fail.
+*A5 also settles the two open CSP questions* - worker CSP inheritance, and which instantiation
+paths the directive gates - because it settles them by execution, which is what CLAUDE.md
+requires of a sentence making a checkable claim about runtime behaviour.
 
-**A6 - the measured scan rate is reported with its n, before any progress UI is designed.**
-Trial decryption over a named range, on a named machine and browser, single-threaded, with the
-block count stated.
-*Exclusion set:* a rate quoted without its sample. *Fail side:* none - this is a measurement
-assertion, and its failure mode is a missing number, which the write-back check catches.
+- **A5b.** the served `script-src` carries no `'unsafe-inline'` on any route that can run the module.
+The header is read off the response, not off `next.config.ts`, because a route-scoped policy is
+the recommendation and only the response says which policy a route actually got.
+*Exclusion set:* any served `script-src` containing `'unsafe-inline'` on a route from which the
+module is reachable. *Fail side names:* (by DATA) `'unsafe-inline'` restored to that route's
+`script-src`; the assertion fails naming the route and the directive.
+**A5 AND A5b ARE SEPARATE BECAUSE A SINGLE ASSERTION COULD NOT DISCRIMINATE, and that was
+measured rather than reasoned.** The first draft was one assertion whose procedure tested
+exactly one token, `'wasm-unsafe-eval'`, while its exclusion set was about `'unsafe-inline'` -
+so its stated DATA mutation, restoring `'unsafe-inline'`, left the procedure passing. A fail
+side that does not fail, in the assertion carrying the precondition this whole handoff turns on,
+and the third instance this session of the shape Appendix B specifies a guard against.
 
-**A7 - `packages/wasm-keys` has no dependency that can reach a network or storage.**
+- **A6.** no progress UI is committed before a single-threaded rate is measured and recorded with its n.
+The measurement is trial decryption over a named height range, on a named machine and browser,
+single-threaded, with the block count stated - and it lands in `docs/2.0/` before any component
+that renders progress does.
+*Exclusion set:* a progress component in the diff while `docs/2.0/` carries no line matching
+`/[\d,]+ blocks\/sec[^.]*n *= *\d/` (a rate with its sample), or a rate recorded without one.
+*Fail side names:* (by DATA) a rate written as "about 8,000 blocks/sec" with no machine, no
+browser and no block count; the check fails naming the missing sample.
+**A6 HAD NO FAIL SIDE AT ALL IN THE FIRST DRAFT** - it said "none, this is a measurement
+assertion" - which R4 catches by name and which CLAUDE.md forbids outright: every section 5
+assertion gets a mutation, and an assertion verified by reading is an assertion not verified.
+Restated so it has an exclusion set a value can be drawn from.
+
+- **A7.** `packages/wasm-keys` has no dependency that can reach a network or storage.
 The mirror of `check-instrument-deps.mjs`, over the new package's graph.
 *Exclusion set:* any transitive dependency importing a fetch, socket or storage API.
-*Fail side, by data:* add such a dependency; the guard fails naming the edge that introduced it.
+*Fail side names:* (by DATA) add such a dependency; the guard fails naming the edge that introduced it.
 
-**A8 - nothing is written to any storage during a full decrypt.**
+- **A8.** nothing is written to any storage during a full decrypt.
 The e2e spec asserts `localStorage`, `sessionStorage` and IndexedDB are empty after a
 decryption completes.
-*Exclusion set:* any key written to any of the three. *Fail side, by data:* a build that caches
+*Exclusion set:* any key written to any of the three. *Fail side names:* (by DATA) a build that caches
 the scan; the assertion fails naming the key.
 
-**A9 - a partial or failed scan never renders as a completed one.**
+- **A9.** a partial or failed scan never renders as a completed one.
 *Exclusion set:* any render of "no notes" that does not name the height range scanned.
-*Fail side, by data:* abort the scan at half the range; the panel must say so.
+*Fail side names:* (by DATA) abort the scan at half the range; the panel must say so.
 
-**A10 - the wasm artifact is fetched with SRI metadata and fails closed on mismatch.**
+- **A10.** the wasm artifact is fetched with SRI metadata and fails closed on mismatch.
 `fetch(url, { integrity })` with a build-time hash, handed to
 `WebAssembly.instantiateStreaming`. Not a hand-rolled hash-then-instantiate: the platform
 check already exists on the `Request` constructor and fails closed.
 *Exclusion set:* a module instantiated from a response fetched without integrity metadata, or
 from bytes whose hash does not match.
-*Fail side, by data:* alter one byte of the artifact; the fetch rejects and instantiation never
+*Fail side names:* (by DATA) alter one byte of the artifact; the fetch rejects and instantiation never
 runs. Second fail side, by code: remove the `integrity` option; a guard reading the call site
 fails.
 
-**A11 - the key is not readable from the page realm.**
+- **A11.** the key is not readable from the page realm.
 After a decryption, page-realm script has no reference to the worker's `WebAssembly.Memory` and
 no scan of any page-realm `ArrayBuffer` contains a 24-character window of the key.
 *Exclusion set:* any page-realm object transitively holding the module's linear memory.
-*Fail side, by data:* instantiate the module in the page realm instead of the worker and expose
+*Fail side names:* (by DATA) instantiate the module in the page realm instead of the worker and expose
 its `Memory`; the assertion finds the key in `memory.buffer` and fails. That fail side is the
 whole reason M7 is a mechanism and not a preference.
 
@@ -929,6 +997,10 @@ Stated so the build handoff does not mistake a gap for a decision:
 - **Any single-threaded trial-decryption rate.** No such figure exists anywhere the session
   could reach. The only measurements are ChainSafe's, at 4 threads, n=1 machine.
 - **Whether a Web Worker inherits the document CSP for wasm.**
+- **Whether `'wasm-unsafe-eval'` alone gates every instantiation path** - `instantiateStreaming`
+  from a fetched `.wasm` against `instantiate` from an ArrayBuffer, plus wasm-bindgen's
+  generated glue. Section 4.1 names this as one of two things it could not establish "and both
+  matter"; an earlier draft of this list carried only the other one.
 - **Whether Vercel runs proxy/middleware before or after the CDN cache lookup.**
 - **The real bundle size.** 2-4 MB is an interpolation between two measured artifacts, not a
   measurement.
@@ -968,8 +1040,11 @@ about each; a sibling risks two guards drifting. This is the origin LEDGER-09b Q
 the count does not reset because a guard shipped.
 
 **Q6. Is the false attribution in the `UNKNOWN_ANCHOR` diagnostic corrected, and by whom?**
-Section 0 established that Zebra #10461 does not reverse the transaction-side anchor byte
-order. **Five files and ten lines say it does**, enumerated rather than sampled - a first draft
+`scripts/check-compose-zebra-tag.mjs`'s header, in commit `87b0fae`, established against the
+merged diff of `1c9b245` that Zebra #10461 does not reverse the transaction-side anchor byte
+order - it preserves the existing reversed display order while re-implementing it. (An earlier
+draft of this question credited "section 0", which corrects three other things and does not
+mention #10461 at all.) **Five files and ten lines say it does**, enumerated rather than sampled - a first draft
 of this question said "five sites", naming four files and four lines, and undercounting the
 scope of a deferred correction is how a brief licenses a smaller fix than the defect needs
 (LEDGER-04a). The measurement:
@@ -1051,10 +1126,19 @@ use (there is exactly one: the Hacken audit in 5.5).
 18. `https://raw.githubusercontent.com/ChainSafe/WebZjs/main/Cargo.toml` - the `librustzcash-nu61` fork pin; `wasm-bindgen` 0.2.100
 19. `https://raw.githubusercontent.com/ChainSafe/WebZjs/main/rust-toolchain.toml` - `nightly-2025-01-07`
 20. `https://raw.githubusercontent.com/ChainSafe/WebZjs/main/justfile` - the exact `wasm-pack` invocation
-21. `https://raw.githubusercontent.com/ChainSafe/WebZjs/main/packages/web-wallet/server.js` - COOP/COEP/CORP; no CSP
+21. `https://raw.githubusercontent.com/ChainSafe/WebZjs/main/packages/web-wallet/server.js` - COOP `same-origin` + COEP `require-corp`; **no CORP header and no CSP at all** (an earlier draft of this row claimed a CORP header the file does not set)
 22. `https://registry.npmjs.org/@chainsafe/webzjs-keys/-/webzjs-keys-0.1.0.tgz` - measured 2,147,533 B; shared memory import
 23. `https://registry.npmjs.org/@bytezhang/webzjs-wallet/-/webzjs-wallet-0.1.0-alpha.23.tgz` - measured 8,044,208 B; shared memory import
 24. `https://registry.npmjs.org/@chainsafe/webzjs-wallet` - **404, the README's own import target is unpublished**
+
+**Benchmarks and precedents the body relies on** (added after a gate reviewer measured that the document's preamble promised a source for every rate and section 10 carried none for the only one)
+25a. `https://github.com/ChainSafe/zcash-wasm-benchmark` REPORT.md - 7,700 blocks/sec over [2334739, 2442739]; 3,353,402.88 ms over 755,635 blocks; a 4-thread pool on Firefox 124.0.1, 2023 MacBook Air M2. **n = 1 machine, 1 browser, 1 thread count.**
+25b. `https://registry.npmjs.org/@chainsafe/webzjs-zcash-snap` - 0.3.0, 3,113,926 B unpacked across 5 files, published 2026-02-06
+25c. `https://registry.npmjs.org/-/v1/search?text=webzjs&size=25` - 13 results, 12 WebZjs-derived, 2 ChainSafe-scoped
+25d. ZecHub "Turnstile" - the 76 KB in-browser UFVK validator with a server-side scan
+25e. `LeakIX/zcash-web-wallet` - the localStorage anti-pattern in 5.4; its own README says the project is AI-generated experimental code
+25f. `fireice-uk/zecwallet-lite-wasm` - Zecwallet Web's published risk statement in 5.5
+25g. `https://github.com/advisories/GHSA-pjwm-rvh2-c87w` - CVE-2021-4229 scored **8.8 High** by the GitHub advisory database
 
 **CSP, Next.js, browser platform**
 25. `https://raw.githubusercontent.com/mdn/content/main/files/en-us/web/http/reference/headers/content-security-policy/script-src/index.md` - `'wasm-unsafe-eval'`
@@ -1149,9 +1233,25 @@ has a written rule against exactly that.
 
 ## Appendix B - deliverable 3: a guard against assertions satisfied by every value they exclude
 
-The shape has now reached **five** instances across five handoffs, not the three HANDOFF-13
-records - and the two new ones are from this session, which is itself evidence about the
-instrument.
+**THE COUNT, RESTATED, BECAUSE THE FIRST DRAFT OF THIS APPENDIX UNDERCOUNTED THE VERY
+POPULATION IT EXISTS TO ANSWER.** It said "five instances across five handoffs", naming four
+handoffs. CLAUDE.md's LEDGER-09a Q2 bullet already records **six** before this session -
+"all six instances of 'an assertion satisfied by every value it was written to exclude' shipped
+WITH a two-polarity transcript" - and it splits them: three MECHANICALLY DECIDABLE (whether a
+pathspec's scope intersects a deliverable's path, whether a fixture makes distinct quantities
+equal, whether an assertion survives deleting its executable body) and the rest judgement,
+"and that half is what HANDOFF-13 specifies a guard for rather than building one".
+
+So the running total is **nine**: the six CLAUDE.md records, plus the three this session
+committed and caught. Three of the six are already known to be mechanically decidable, which
+changes the recommendation's shape - a guard is not impossible for that half, it is
+UNNECESSARY there because those three are decidable by instruments this project already has.
+What remains for a guard is the tautological-predicate half, which is the half CLAUDE.md
+assigns to this document.
+
+The three from this session, listed below as instances 4, 5 and 6 of the newly-counted set,
+are evidence about the INSTRUMENT rather than about any author: all three were committed by a
+session that had the rule in front of it, and all three were found by executing a mutation.
 
 | # | Instance | Why it was invisible |
 |---|---|---|
@@ -1160,6 +1260,7 @@ instrument.
 | 3 | HANDOFF-09 - `owner.startsWith("HANDOFF-")`, satisfied by every wrong answer the field could hold | it made `UNASSIGNED`, the honest value, the only failing one |
 | 4 | **HANDOFF-13, this session** - the ABOVE-CEILING message check asserted the live message contained `show(CEILING.version)` = `"6.3.0"`, which also appears in it as the **floor** and inside the ceiling's own `reason` string | deleting the ceiling from the message left the assertion satisfied by an unrelated occurrence |
 | 5 | **HANDOFF-13, this session** - `check-finding-sites.mjs`'s `present: /fourteen (static )?guards/i`, satisfied at `CLAUDE.md` by prose about the guard population | see Appendix A |
+| 6 | **HANDOFF-13, this session, and it was in THIS DOCUMENT** - section 7's A5 tested exactly one token, `'wasm-unsafe-eval'`, while its exclusion set was about `'unsafe-inline'`, so its stated data mutation left the procedure passing | a fail side that does not fail, in the assertion carrying the precondition the whole handoff turns on. Now split into A5 and A5b |
 
 **The hard part is unchanged and is why this is specified rather than built.** A detector must
 distinguish a **loose** predicate from a **deliberately permissive** one, and that is judgement
