@@ -1,3 +1,4 @@
+import { NU6_3_ACTIVATION_MAINNET, NU6_3_ACTIVATION_TESTNET } from "@zcashreveal/instruments";
 import { assertNotManagedStore } from "@zcashreveal/types";
 import { z } from "zod";
 
@@ -13,6 +14,23 @@ const ConfigSchema = z.object({
 
   INDEXER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
   INDEXER_LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
+
+  /**
+   * The network the node follows (HANDOFF-12). Decides the activation heights
+   * the value invariants and the analyser apply, and the default start height
+   * below. The gateway has `GATEWAY_NETWORK` for the same reason.
+   */
+  INDEXER_NETWORK: z.enum(["mainnet", "testnet"]).default("mainnet"),
+  /**
+   * The first block the confirmed-block driver indexes on a COLD database
+   * (HANDOFF-12). Ignored once a base row is on disk: a warm start replays
+   * from the store and never reads this. Unset means NU6.3 activation on
+   * `INDEXER_NETWORK` - where Ironwood begins, and the earliest height at
+   * which this build's four-pool accounting is checked against the node on
+   * every block it applies. Resolved in `loadConfig`, because a zod default
+   * cannot read a sibling field. See docs/2.0/RUNTIME.md.
+   */
+  INDEXER_START_HEIGHT: z.coerce.number().int().positive().optional(),
 
   /** Anchors within this depth (in blocks) are flagged as "recent" — a tighter
    *  anchor narrows the window during which the spent note could have entered
@@ -39,10 +57,19 @@ const ConfigSchema = z.object({
   ZEBRAD_RPC_RETRIES: z.coerce.number().int().nonnegative().default(2),
 });
 
-export type Config = z.infer<typeof ConfigSchema>;
+/** The parsed environment, with the start height resolved to a number. */
+export type Config = Omit<z.infer<typeof ConfigSchema>, "INDEXER_START_HEIGHT"> & {
+  readonly INDEXER_START_HEIGHT: number;
+};
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const cfg = ConfigSchema.parse(env);
+  const parsed = ConfigSchema.parse(env);
+  const cfg: Config = {
+    ...parsed,
+    INDEXER_START_HEIGHT:
+      parsed.INDEXER_START_HEIGHT ??
+      (parsed.INDEXER_NETWORK === "mainnet" ? NU6_3_ACTIVATION_MAINNET : NU6_3_ACTIVATION_TESTNET),
+  };
   /**
    * The indexer is the highest-volume writer in the project, and the managed store
    * injects a variable name one token away from this one (`SNAPSHOT_REDIS_REDIS_URL`

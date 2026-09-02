@@ -2,10 +2,20 @@
  * Indexer entry point.
  *
  * Flow:
- *   ZMQ hashtx ─┐
- *               ├─▶ fetchAndAnalyze(txid) ─▶ MempoolState.upsert(report)
- *   poll loop ──┘                                      │
+ *   confirmed blocks (poll) ─▶ ChainFollower ─▶ applyConfirmedBlock ─▶ Postgres + PoolStates
+ *                                                                          │
+ *   ZMQ hashtx ─┐                                          chain state, read per call
+ *               ├─▶ fetchAndAnalyze(txid) ─▶ MempoolState.upsert(report)   │
+ *   poll loop ──┘                                      │◀───────────────────┘
  *                                                       └─▶ persist + publish
+ *
+ * STARTUP ORDER IS FIXED, AND `runStartup` IS THE CONTRACT (HANDOFF-12, A2).
+ * The chain state is replayed from the store - or opened at
+ * `INDEXER_START_HEIGHT` on a cold one - BEFORE the confirmed-block follower
+ * starts, and the follower starts before ZMQ or the mempool poll loop does.
+ * The analyser reads the chain state for every spend it assesses, so a
+ * transaction analysed against a state still being replayed would carry an
+ * assessment over a partial tree, published as if over the whole one.
  *
  * The analysis path carries a `PrevOutCache` from HANDOFF-06, because the fee
  * is not on the wire: no node sends one, so it is computed by summing the
@@ -24,6 +34,8 @@ import { createDb, persistLeakReport } from "./persistence/index.js";
 import { AnchorRegistry, analyze } from "./decoder/index.js";
 import { RoundTripIndex } from "./analysis/round-trip.js";
 import { PrevOutCache } from "./analysis/prevout-cache.js";
+import { bootstrapChain, ChainFollower, PostgresChainStore, runStartup } from "./runtime/index.js";
+import type { PoolStates } from "./state/pool-state.js";
 import { asHex, serializeWire, type Hex } from "@zcashreveal/types";
 
 const cfg = loadConfig();
@@ -52,11 +64,22 @@ async function main() {
   // Makes the fee real rather than zero. No node sends a fee, so it is computed
   // by summing the outputs each transaction spends, and those come from here.
   const prevOuts = new PrevOutCache(rpc);
-  const roundTrip = new RoundTripIndex();
+  const store = new PostgresChainStore(sql);
+
+  // THE CHAIN STATE IS READ THROUGH THE FOLLOWER ON EVERY CALL, NEVER HELD. The
+  // follower REPLACES its `chain` on a reorg (it rebuilds from disk rather
+  // than undoing in place), so a captured reference would assess spends
+  // against a branch the node abandoned. `follower` is null until `bootstrap`
+  // resolves, and `runStartup` guarantees nothing that analyses a transaction
+  // runs before then; the getter's `undefined` branch is therefore never the
+  // live path, and it is kept because the two consumers accept it by type.
+  let follower: ChainFollower | null = null;
+  const chainState = (): PoolStates | undefined => follower?.chain.pools;
+  const roundTrip = new RoundTripIndex({ chainState });
   const state = new MempoolState(log);
 
   const info = await rpc.getBlockchainInfo();
-  log.info({ height: info.blocks, chain: info.chain }, "chain context");
+  log.info({ height: info.blocks, chain: info.chain, network: cfg.INDEXER_NETWORK }, "chain context");
   let tipHeight = info.blocks;
 
   state.on("diff", (d: MempoolDiff) => {
@@ -92,11 +115,68 @@ async function main() {
     }
   });
   zmq.on("error", (err) => log.error({ err }, "zmq error"));
-  await zmq.start().catch((err) => {
-    log.warn({ err }, "zmq unavailable — falling back to polling only");
+
+  let pollLoop: NodeJS.Timeout | null = null;
+  let stopping = false;
+  const shutdown = async (code: number) => {
+    if (stopping) return;
+    stopping = true;
+    log.info({ code }, "shutting down");
+    if (pollLoop !== null) clearInterval(pollLoop);
+    await zmq.stop().catch(() => undefined);
+    await follower?.stop();
+    await redis.quit();
+    await sql.end();
+    process.exit(code);
+  };
+  process.on("SIGINT", () => void shutdown(0));
+  process.on("SIGTERM", () => void shutdown(0));
+
+  await runStartup({
+    bootstrap: async () => {
+      const chain = await bootstrapChain({
+        rpc,
+        store,
+        startHeight: cfg.INDEXER_START_HEIGHT,
+        network: cfg.INDEXER_NETWORK,
+        log,
+      });
+      follower = new ChainFollower(chain, {
+        rpc,
+        store,
+        log,
+        pollIntervalMs: cfg.INDEXER_POLL_INTERVAL_MS,
+        // The anchor registry - the depth the analyser reports on every spend -
+        // is fed from the applied block. Before HANDOFF-12 nothing wrote it, so
+        // every spend's depth was null and every anchor read as "unknown".
+        onApplied: async (block) => {
+          for (const a of block.anchors) await anchorRegistry.record(a.root, a.heightCreated);
+          log.info(
+            { height: block.height, anchors: block.anchors.length, notices: block.notices.map((n) => n.code) },
+            "block applied",
+          );
+        },
+        onReorg: (splitHeight, rolledBack) =>
+          log.warn({ splitHeight, rolledBack }, "reorg resolved: rolled back to the split and replayed"),
+        // A consensus disagreement is this build's fault and is never retried:
+        // the follower has already logged it at fatal, and the process exits
+        // non-zero so the supervisor restarts it into a replay rather than
+        // letting the mempool path publish assessments over a state that
+        // stopped advancing.
+        onFatal: () => void shutdown(1),
+      });
+    },
+    startFollower: () => {
+      if (follower === null) throw new Error("startFollower ran before bootstrap; runStartup's order is the contract");
+      follower.start();
+    },
+    startZmq: () =>
+      zmq.start().catch((err) => {
+        log.warn({ err }, "zmq unavailable — falling back to polling only");
+      }),
   });
 
-  const pollLoop = setInterval(async () => {
+  pollLoop = setInterval(async () => {
     try {
       const [info2, txids] = await Promise.all([
         rpc.getBlockchainInfo(),
@@ -114,17 +194,6 @@ async function main() {
     }
   }, cfg.INDEXER_POLL_INTERVAL_MS);
 
-  const shutdown = async () => {
-    log.info("shutting down");
-    clearInterval(pollLoop);
-    await zmq.stop().catch(() => undefined);
-    await redis.quit();
-    await sql.end();
-    process.exit(0);
-  };
-  process.on("SIGINT", () => void shutdown());
-  process.on("SIGTERM", () => void shutdown());
-
   async function fetchAndAnalyze(txid: Hex): Promise<void> {
     try {
       const tx = await rpc.getRawTransaction(txid);
@@ -134,6 +203,8 @@ async function main() {
         anchorRegistry,
         recentAnchorThreshold: cfg.RECENT_ANCHOR_THRESHOLD,
         resolvePrevOut: prevOuts.resolve,
+        chainState: chainState(),
+        network: cfg.INDEXER_NETWORK,
       });
       const newLinks = roundTrip.ingest(report);
       report.links = newLinks;
