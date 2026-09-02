@@ -64,6 +64,13 @@ function treestateFor(block: RpcBlock, ironwoodRoot: Hex | null): TreestateSourc
   };
 }
 
+/** A refused block leaves the state at its base and the store with no block row. */
+async function expectUntouched(chain: ReturnType<typeof createChainState>, store: MemoryChainStore): Promise<void> {
+  expect(chain.height).toBe(chain.base.height);
+  expect(await store.readBlocks(0, 9_999_999)).toEqual([]);
+  expect(await store.readHighestBlock()).toBeNull();
+}
+
 describe("A1 - the driver's per-pool accounting equals the node's, on every committed capture", () => {
   for (const [label, name] of Object.entries(CAPTURES)) {
     it(`${label} (${name}): deltas equal valueDeltaZat, balances equal chainValueZat, counts equal trees sizes`, async () => {
@@ -123,12 +130,16 @@ describe("A1 - the driver's per-pool accounting equals the node's, on every comm
       pools.find((p) => p.id === "sapling")!.valueDeltaZat += 1;
     });
     const chain = createChainState(chainBaseFromBlock(await load(CAPTURES.conforming)));
+    const store = new MemoryChainStore();
     await expect(
-      applyConfirmedBlock(chain, block, new MemoryChainStore(), { treestate: withheld, log: SILENT }),
+      applyConfirmedBlock(chain, block, store, { treestate: withheld, log: SILENT }),
     ).rejects.toThrow(ValueAccountingMismatchError);
     await expect(
       applyConfirmedBlock(createChainState(chainBaseFromBlock(await load(CAPTURES.conforming))), block, new MemoryChainStore(), { treestate: withheld, log: SILENT }),
     ).rejects.toThrow(/sapling at 3444837: this build's delta is 875651408 zat and the node's valueDeltaZat is 875651409/);
+    // Refused means NOT WRITTEN and NOT ADVANCED - the "Block written?" column of
+    // RUNTIME.md section 5, asserted rather than inferred from the throw.
+    await expectUntouched(chain, store);
   });
 
   it("FAIL STATE, BY DATA (A1): a chainValueZat one zatoshi off is refused on the balance", async () => {
@@ -137,9 +148,11 @@ describe("A1 - the driver's per-pool accounting equals the node's, on every comm
       pools.find((p) => p.id === "ironwood")!.chainValueZat += 1;
     });
     const chain = createChainState(chainBaseFromBlock(await load(CAPTURES.conforming)));
+    const store = new MemoryChainStore();
     await expect(
-      applyConfirmedBlock(chain, block, new MemoryChainStore(), { treestate: withheld, log: SILENT }),
+      applyConfirmedBlock(chain, block, store, { treestate: withheld, log: SILENT }),
     ).rejects.toThrow(/ironwood at 3444837: this build's balance is 262194764371577 zat and the node's chainValueZat is 262194764371578/);
+    await expectUntouched(chain, store);
   });
 
   it("FAIL STATE, BY DATA: a tree size one off is refused, naming the pool and both counts", async () => {
@@ -147,9 +160,11 @@ describe("A1 - the driver's per-pool accounting equals the node's, on every comm
       (raw["trees"] as { orchard: { size: number } }).orchard.size += 1;
     });
     const chain = createChainState(chainBaseFromBlock(await load(CAPTURES.conforming)));
+    const store = new MemoryChainStore();
     await expect(
-      applyConfirmedBlock(chain, block, new MemoryChainStore(), { treestate: withheld, log: SILENT }),
+      applyConfirmedBlock(chain, block, store, { treestate: withheld, log: SILENT }),
     ).rejects.toThrow(TreeSizeMismatchError);
+    await expectUntouched(chain, store);
   });
 
   it("a block that does not extend the chain is refused before anything is touched", async () => {
