@@ -399,7 +399,7 @@ GATE ROUNDS: 1 complete (7 dimensions dispatched, 6 returned, 45 findings);
     MODE-A-PLAN.md · Appendix B undercounts the population it answers · HIGH
     MODE-A-PLAN.md · the preamble promises a section 10 source for every rate and
       the only benchmark rate had none · HIGH
-    MODE-A-PLAN.md · "single-digit megabytes" survived the 7 MB -> 33 MB
+    MODE-A-PLAN.md · "single-digit megabytes" survived the 7 MB -> 34 MB
       correction eight lines above it · HIGH
     MODE-A-PLAN.md · 1.3's "2 seconds to 9" is the withdrawn 16,700-block era · MEDIUM
     MODE-A-PLAN.md · Q6 credits "section 0", which never mentions #10461 · MEDIUM
