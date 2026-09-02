@@ -395,13 +395,42 @@ const UNPARSED_REASONS = [
  * `lastColon < lastSlash` both say "the ref carries no tag". A dropped clause
  * that SHARES a message with a surviving one is therefore invisible to this pin
  * - which is exactly the hole the "no tag, slashless" row exists to cover, and
- * that hole was found by mutation rather than by this pin. The pin catches a
- * lost diagnostic; the table catches a lost clause; neither catches both, and
- * a green run is not evidence that it does.
+ * that hole was found by mutation rather than by this pin.
+ *
+ * SO THERE IS A SECOND PIN, `UNPARSED_CLAUSES`, AND IT IS WHY THE ROW-DELETION
+ * HOLE IS NOW CLOSED. It counts the `||`-separated terms of every condition
+ * guarding an UNPARSED return, read out of the function's own source - four -
+ * and requires the table to hold that many rows. Before it, deleting either
+ * same-marker row survived: the diagnostic pin still saw three markers, and the
+ * OK line, which took its count from `UNPARSED_REASONS.length`, then announced
+ * "all 3 unreadable branches" - a TRUE statement about the table and a FALSE
+ * one about the rule, which still had four clauses. A green run that reports a
+ * coverage it no longer has is worse than a red one, and the count is now read
+ * from the rule so the sentence cannot shrink with the table. Measured by a
+ * gate reviewer, verified by re-running the mutations here.
+ *
+ * WHAT IS STILL OPEN, AND IT IS THE MAPPING RATHER THAN THE COUNT: nothing
+ * checks WHICH clause each row exercises. Replacing the slashless probe with a
+ * second registry-port ref keeps the length at four and the markers at three
+ * while `lastColon === -1` loses its only test. Closing that needs the test to
+ * decide which clause a probe fires, which is restating the rule inside its own
+ * check - the move this file refuses two screens above. Recorded as open, per
+ * the rule that a documented bound is weaker than a guard and must say so.
  */
 const UNPARSED_RETURNS = new Set(
   [...extractTagVersion.toString().matchAll(/reason:\s*(?:`|")([^`"$]{6,})/g)].map((m) => m[1].slice(0, 24)),
 ).size;
+
+/**
+ * How many CLAUSES can send `extractTagVersion` down an UNPARSED return - the
+ * `||`-separated terms of every condition guarding one, read out of the
+ * function's own source. Four, against three diagnostics. The table needs a row
+ * per CLAUSE, not per diagnostic, and this is what pins it: see the block above
+ * for what it closed and what it leaves open.
+ */
+const UNPARSED_CLAUSES = [
+  ...extractTagVersion.toString().matchAll(/if \(([^)]*(?:\)[^)]*)*?)\) return \{ kind: "UNPARSED"/g),
+].reduce((n, m) => n + m[1].split("||").length, 0);
 
 function selfTest() {
   const floor = readFloor();
@@ -439,6 +468,19 @@ function selfTest() {
   // share the "carries no tag" marker - so with four rows for three branches,
   // deleting one still satisfied it. Measured: the mutation survived. What has
   // to hold is that every distinct DIAGNOSTIC is exercised.
+  if (UNPARSED_REASONS.length !== UNPARSED_CLAUSES) {
+    // DIRECTION-AWARE, because the two directions are different defects and the
+    // first draft of this message diagnosed both as the first. A code mutation
+    // deleting `lastColon === -1` from the RULE leaves the table over-covered,
+    // and reporting that as "a clause has lost its only probe" sends the reader
+    // to the table when the rule is what moved.
+    const short = UNPARSED_REASONS.length < UNPARSED_CLAUSES;
+    return `extractTagVersion has ${UNPARSED_CLAUSES} clause(s) reaching an UNPARSED return and UNPARSED_REASONS ` +
+      `holds ${UNPARSED_REASONS.length} row(s) - ` +
+      (short
+        ? "a clause has lost its only probe, and the OK line would still report the shrunken count as complete coverage"
+        : "the RULE lost a clause and the table still probes it, so a row now tests a branch that no longer exists");
+  }
   const markers = new Set(UNPARSED_REASONS.map((r) => r.marker));
   if (markers.size !== UNPARSED_RETURNS) {
     return `extractTagVersion gives ${UNPARSED_RETURNS} distinct UNPARSED diagnostic(s) and UNPARSED_REASONS exercises ` +
@@ -680,8 +722,9 @@ console.log(
     `window ${show(floor.version)} ${showCeiling(CEILING)} - floor READ from ${FLOOR_SOURCE}, ceiling declared in this ` +
     `guard (tag extracted before comparison; digest pins, tagless refs and non-semver tags such as :latest all FAIL as ` +
     `UNPARSED, because an unreadable pin is an unknown bound rather than a satisfied one). Self-test drove ` +
-    `${REFERENCE_REFS.length} reference refs across all ${OUTCOMES.length} outcomes and all ${UNPARSED_REASONS.length} ` +
-    `unreadable branches (two of which are checked by message, because their clause cannot change a verdict), both ` +
+    `${REFERENCE_REFS.length} reference refs across all ${OUTCOMES.length} outcomes and all ${UNPARSED_CLAUSES} ` +
+    `unreadable clauses, READ FROM THE RULE so this count cannot shrink with the table (two are checked by message, ` +
+    "because their clause cannot change a verdict), both " +
     `ceiling kinds at and around a synthetic boundary, and ${FIXTURES.length} fixture compose files end to end. THIS PROVES A TAG IS ` +
     "INSIDE A WINDOW, NEVER THAT THIS BUILD IS CORRECT AGAINST THE NODE THAT TAG RUNS - that is A11's question, at " +
     "runtime, against a live subversion.",

@@ -409,9 +409,13 @@ export function composeLiteralFor(line, name, inEnvironment = true) {
     const literal = withoutNested(rest).trim();
     if (HAS_VALUE(literal)) return { form: `\${${name}${op}...}`, literal };
   }
-  const bare = new RegExp(`^${name}\\s*:\\s*(.*)$`).exec(trimmed);
-  if (bare !== null && !bare[1].includes("${") && HAS_VALUE(bare[1])) {
-    return { form: `${name}: <bare>`, literal: bare[1].trim() };
+  // THE MAP FORM `NAME: value`, THROUGH THE SHARED VALUE PARSER. It used to read
+  // its value inline, which is why it was the one reader with no comment strip
+  // and no quote strip - see `valueTextOf`.
+  const bare = new RegExp(`^${name}\\s*:\\s*([\\s\\S]*)$`).exec(trimmed);
+  if (bare !== null && !bare[1].includes("${")) {
+    const value = valueTextOf(bare[1]);
+    if (value !== null) return { form: `${name}: <bare>`, literal: value };
   }
   // COMPOSE HAS TWO `environment:` SYNTAXES AND THE FIRST DRAFT READ ONE.
   // The map form is `NAME: value`; the LIST form is `- NAME=value`, and both are
@@ -455,14 +459,42 @@ export function literalValueOf(assignment, name) {
   if (whole !== null) text = whole[2].trim();
   const m = new RegExp(`^(?:export\\s+)?${name}\\s*=\\s*([\\s\\S]*)$`).exec(text);
   if (m === null) return null;
-  const raw = m[1].trim();
-  // AN INLINE COMMENT IS NOT A VALUE. `V=   # leave unset` is what an operator
-  // writes when they mean "deliberately blank". A QUOTED value keeps its `#`,
-  // because inside quotes it is data - but the quotes are stripped from the
-  // VALUE ONLY after any trailing comment outside them is removed, which the
-  // first draft got wrong and reported `3428143" # mainnet` as the literal.
-  const q = /^(["'])([\s\S]*?)\1\s*(?:#.*)?$/.exec(raw);
-  const value = q !== null ? q[2].trim() : raw.replace(/(^|\s)#.*$/, "").trim();
+  return valueTextOf(m[1]);
+}
+
+/**
+ * THE VALUE ITSELF, SHARED BY ALL THREE READERS - env `V=x`, compose list
+ * `- V=x` and compose map `V: x`.
+ *
+ * AN INLINE COMMENT IS NOT A VALUE. `V=   # leave unset` is what an operator
+ * writes when they mean "deliberately blank". A QUOTED value keeps its `#`,
+ * because inside quotes it is data - but the quotes are stripped from the VALUE
+ * ONLY after any trailing comment outside them is removed, which an early draft
+ * got wrong and reported `3428143" # mainnet` as the literal. The `(^|\s)#`
+ * predicate is right on both surfaces: YAML and dotenv both require a `#` to
+ * begin a line or follow whitespace before it opens a comment, so `3428143#x`
+ * stays a value on either.
+ *
+ * WHY IT IS A THIRD EXTRACTION AND NOT A SECOND. `literalValueOf` was already
+ * factored out once, when the compose LIST branch re-created the env branch's
+ * comment defect inside the very commit that fixed it. That extraction reached
+ * two of the three readers and left the compose MAP branch - `V: x`, the OLDEST
+ * of the three - parsing its value inline with no comment strip and no quote
+ * strip at all. So the correction landed at two sites of three, which
+ * LEDGER-03 Q3 rates a HIGH finding in its own right: `V: # leave unset` FAILED
+ * THE BUILD naming comment prose as the literal default, and `V: "3428143" #
+ * mainnet` reported `"3428143" # mainnet` as the value. Found by a round-2
+ * reviewer reading the round-1 fix against its own third site.
+ *
+ * THE LESSON IS THE ORIGIN, NOT THE FACE (LEDGER-09b Q3): "a value parser is
+ * duplicated per surface" has now produced three faces in three commits. One
+ * parser, three callers, and the SHAPES table drives every caller over every
+ * form so a fourth surface cannot arrive with its own copy unnoticed.
+ */
+export function valueTextOf(raw) {
+  const text = raw.trim();
+  const q = /^(["'])([\s\S]*?)\1\s*(?:#.*)?$/.exec(text);
+  const value = q !== null ? q[2].trim() : text.replace(/(^|\s)#.*$/, "").trim();
   return HAS_VALUE(value) ? value : null;
 }
 
@@ -611,11 +643,11 @@ export function scan(modules, surfaces) {
  * found by executing a probe rather than by reading one.
  */
 const SHAPES = [
-  { surface: "compose", form: "${V:-d}", line: "      V: ${V:-3428143}", literal: true, why: "the form that shipped the defect" },
-  { surface: "compose", form: "${V-d}", line: "      V: ${V-3428143}", literal: true, why: "the same operator without the colon" },
-  { surface: "compose", form: "${V:+d}", line: "      V: ${V:+3428143}", literal: true, why: "a value used when the variable IS set" },
-  { surface: "compose", form: "${V+d}", line: "      V: ${V+3428143}", literal: true, why: "and without the colon" },
-  { surface: "compose", form: "bare", line: "      V: 3428143", literal: true, why: "a bare literal with no operator at all" },
+  { surface: "compose", form: "${V:-d}", line: "      V: ${V:-3428143}", literal: true, value: "3428143", why: "the form that shipped the defect" },
+  { surface: "compose", form: "${V-d}", line: "      V: ${V-3428143}", literal: true, value: "3428143", why: "the same operator without the colon" },
+  { surface: "compose", form: "${V:+d}", line: "      V: ${V:+3428143}", literal: true, value: "3428143", why: "a value used when the variable IS set" },
+  { surface: "compose", form: "${V+d}", line: "      V: ${V+3428143}", literal: true, value: "3428143", why: "and without the colon" },
+  { surface: "compose", form: "bare", line: "      V: 3428143", literal: true, value: "3428143", why: "a bare literal with no operator at all" },
   { surface: "compose", form: "${V:-}", line: "      V: ${V:-}", literal: false, why: "the empty default - what the fix uses" },
   { surface: "compose", form: "${V}", line: "      V: ${V}", literal: false, why: "a plain reference" },
   { surface: "compose", form: "${V:?m}", line: "      V: ${V:?set V in .env}", literal: false, why: "the operand is PROSE, not a value" },
@@ -623,24 +655,34 @@ const SHAPES = [
   { surface: "compose", form: "nested", line: "      V: ${V:-${W}}", literal: false, why: "a nested reference is not a literal" },
   { surface: "compose", form: "commented", line: "      # V: ${V:-3428143}", literal: false, why: "a commented line is not configuration" },
   { surface: "compose", form: "other-variable", line: "      OTHER: ${OTHER:-3428143}", literal: false, why: "another variable's default is not this one's" },
-  { surface: "compose", form: "- V=d", line: "      - V=3428143", literal: true, why: "compose's LIST form, which the first draft could not read at all" },
-  { surface: "compose", form: "- V=${V:-d}", line: "      - V=${V:-3428143}", literal: true, why: "the list form carrying an operator default" },
+  { surface: "compose", form: "- V=d", line: "      - V=3428143", literal: true, value: "3428143", why: "compose's LIST form, which the first draft could not read at all" },
+  { surface: "compose", form: "- V=${V:-d}", line: "      - V=${V:-3428143}", literal: true, value: "3428143", why: "the list form carrying an operator default" },
   { surface: "compose", form: "- V=", line: "      - V=", literal: false, why: "a list entry assigning nothing" },
   { surface: "compose", form: "- V=d inline-comment", line: "      - V=   # set this per network", literal: false, why: "the defect the list branch RE-CREATED in the same commit that fixed it on the env surface" },
-  { surface: "compose", form: "- quoted-whole", line: '      - "V=3428143"', literal: true, why: "a whole-entry quote, a standard compose spelling the first list reader could not see at all" },
-  { surface: "compose", form: "- quoted-value", line: "      - V='3428143'", literal: true, why: "a quoted value inside an unquoted entry" },
-  { surface: "env", form: "V=d", line: "V=3428143", literal: true, why: "the form .env.example shipped" },
-  { surface: "env", form: "export V=d", line: "export V=3428143", literal: true, why: "the exported spelling" },
-  { surface: "env", form: "quoted", line: 'V="3428143"', literal: true, why: "quoted is still a value" },
+  { surface: "compose", form: "- quoted-whole", line: '      - "V=3428143"', literal: true, value: "3428143", why: "a whole-entry quote, a standard compose spelling the first list reader could not see at all" },
+  { surface: "compose", form: "- quoted-value", line: "      - V='3428143'", literal: true, value: "3428143", why: "a quoted value inside an unquoted entry" },
+  // THE MAP FORM'S VALUE SHAPES. The map branch was the third reader and the
+  // last to reach the shared parser: it had no comment strip and no quote strip
+  // at all, so every row below failed before `valueTextOf`. The first is the
+  // one that broke a build - a deliberately-blank line reported as a literal
+  // default whose value was the comment prose.
+  { surface: "compose", form: "bare inline-comment", line: "      V:   # leave unset", literal: false, why: "the map form's copy of the defect fixed twice elsewhere - it FAILED the build on a deliberately blank line" },
+  { surface: "compose", form: "bare value-then-comment", line: "      V: 3428143   # mainnet", literal: true, value: "3428143", why: "the verdict was right and the reported literal was `3428143   # mainnet` - a garbage value in an operator-facing message" },
+  { surface: "compose", form: "bare quoted-then-comment", line: '      V: "3428143"   # mainnet', literal: true, value: "3428143", why: "reported `\"3428143\"   # mainnet`; the map branch stripped neither quotes nor comment" },
+  { surface: "compose", form: "bare quoted-hash", line: '      V: "#3428143"', literal: true, value: "#3428143", why: "inside quotes a hash is data on this surface too" },
+  { surface: "compose", form: "bare hash-in-value", line: "      V: 3428143#x", literal: true, value: "3428143#x", why: "YAML needs whitespace before a `#` to open a comment, so this stays a value - the predicate must not be a bare /#/" },
+  { surface: "env", form: "V=d", line: "V=3428143", literal: true, value: "3428143", why: "the form .env.example shipped" },
+  { surface: "env", form: "export V=d", line: "export V=3428143", literal: true, value: "3428143", why: "the exported spelling" },
+  { surface: "env", form: "quoted", line: 'V="3428143"', literal: true, value: "3428143", why: "quoted is still a value" },
   { surface: "env", form: "#V=d", line: "#V=3428143", literal: false, why: "commented out - what the fix uses" },
   { surface: "env", form: "# V=d", line: "# V=3428143", literal: false, why: "commented with a space" },
   { surface: "env", form: "V=", line: "V=", literal: false, why: "assigned nothing" },
   { surface: "env", form: "prefix-collision", line: "VV=3428143", literal: false, why: "a longer name that merely starts with the same characters" },
   { surface: "env", form: "other-variable", line: "OTHER=3428143", literal: false, why: "another variable" },
   { surface: "env", form: "inline-comment", line: "V=   # leave unset", literal: false, why: "an inline comment is prose, not a value - it was read as one" },
-  { surface: "env", form: "value-then-comment", line: "V=3428143   # the mainnet constant", literal: true, why: "a real value keeps its verdict when a comment follows" },
-  { surface: "env", form: "quoted-hash", line: 'V="#3428143"', literal: true, why: "inside quotes a hash is data, so the comment strip must not run" },
-  { surface: "env", form: "quoted-then-comment", line: 'V="3428143"   # mainnet', literal: true, why: "the quoted arm must strip the trailing comment too - it reported `3428143\" # mainnet` as the literal" },
+  { surface: "env", form: "value-then-comment", line: "V=3428143   # the mainnet constant", literal: true, value: "3428143", why: "a real value keeps its verdict when a comment follows" },
+  { surface: "env", form: "quoted-hash", line: 'V="#3428143"', literal: true, value: "#3428143", why: "inside quotes a hash is data, so the comment strip must not run" },
+  { surface: "env", form: "quoted-then-comment", line: 'V="3428143"   # mainnet', literal: true, value: "3428143", why: "the quoted arm must strip the trailing comment too - it reported `3428143\" # mainnet` as the literal" },
 ];
 const SURFACES = ["compose", "env"];
 const VERDICTS = [true, false];
@@ -665,7 +707,7 @@ const VERDICTS = [true, false];
  * this project that a guard's self-test was found certifying a hole - the first
  * three shipped.
  */
-const COMPOSE_FORMS = ["${V}", "${V:-d}", "${V-d}", "${V:+d}", "${V+d}", "${V:?m}", "${V?m}", "${V:-}", "bare", "nested", "commented", "other-variable", "- V=d", "- V=${V:-d}", "- V=", "- V=d inline-comment", "- quoted-whole", "- quoted-value"];
+const COMPOSE_FORMS = ["${V}", "${V:-d}", "${V-d}", "${V:+d}", "${V+d}", "${V:?m}", "${V?m}", "${V:-}", "bare", "nested", "commented", "other-variable", "- V=d", "- V=${V:-d}", "- V=", "- V=d inline-comment", "- quoted-whole", "- quoted-value", "bare inline-comment", "bare value-then-comment", "bare quoted-then-comment", "bare quoted-hash", "bare hash-in-value"];
 const ENV_FORMS = ["V=d", "export V=d", "quoted", "#V=d", "# V=d", "V=", "prefix-collision", "other-variable", "inline-comment", "value-then-comment", "quoted-hash", "quoted-then-comment"];
 
 /**
@@ -717,12 +759,33 @@ const SYNTHETIC_MODULE = [
 
 function selfTest() {
   // 1. THE SHAPE TABLE, both surfaces, both verdicts.
+  // A literal row without an expected value is a row that cannot see a parser
+  // reporting garbage. Structural, so a new row cannot arrive verdict-only.
+  for (const shape of SHAPES) {
+    if (shape.literal && typeof shape.value !== "string") {
+      return `the ${shape.surface} row ${JSON.stringify(shape.line)} declares literal=true and no expected value - ` +
+        "a verdict-only row is satisfied by every value it was written to exclude";
+    }
+  }
   for (const shape of SHAPES) {
     const got = shape.surface === "compose" ? composeLiteralFor(shape.line, "V") : envLiteralFor(shape.line, "V");
     const isLiteral = got !== null;
     if (isLiteral !== shape.literal) {
       return `the ${shape.surface} shape ${JSON.stringify(shape.line)} (${shape.why}) was read as ` +
         `${isLiteral ? "a literal default" : "no default"}, expected the opposite`;
+    }
+    // THE VALUE, NOT ONLY THE VERDICT. Every row here exists to test a VALUE
+    // PARSER, and for 35 rows this loop compared a BOOLEAN and nothing else - so
+    // a row was satisfied by exactly the values it was written to exclude, which
+    // is this project's most-recorded defect shape wearing a self-test's
+    // clothes. Measured: after the map form was routed through the shared
+    // parser, dropping the quote arm and widening the comment predicate to a
+    // bare /#/ BOTH left every row green, because neither changes a verdict -
+    // only the reported string. The operator reads that string.
+    if (shape.literal && got.literal !== shape.value) {
+      return `the ${shape.surface} shape ${JSON.stringify(shape.line)} (${shape.why}) was correctly read as a ` +
+        `literal default, and its VALUE was ${JSON.stringify(got.literal)} where the rule gives ` +
+        `${JSON.stringify(shape.value)} - the verdict-only check could not see this`;
     }
   }
   for (const surface of SURFACES) {
