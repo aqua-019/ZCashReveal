@@ -176,7 +176,9 @@ A block whose `previousblockhash` is not the state's tip hash is a reorg.
    branch's roots keep answering `getHeightForAnchor`, and a mempool spend
    citing one is given a depth measured from an abandoned block. **The Redis
    hot tier is not cleared** and can still answer with the orphaned height
-   until that key's 24-hour TTL expires: `check-redis-safety` rule 4 permits
+   until that key's 24-hour TTL expires - and because a Redis hit repopulates
+   the in-process memo, the memo clear does not shorten that window either:
+   `check-redis-safety` rule 4 permits
    `DEL` only on a string literal, these keys are computed per root, and a rule
    protecting another project's database is not one this handoff widens. The
    window is bounded by the TTL and by a restart; the remedy is a ledger

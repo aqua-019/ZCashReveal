@@ -61,7 +61,16 @@ export class AnchorRegistry {
    * because Redis is read before Postgres. What the two tiers cleared here do
    * buy: the answer is no longer permanent, and a process restart (which drops
    * the memo) plus the TTL bounds it at a day rather than forever. The
-   * remedies - a real VPS-target proof at the deletion site, or moving the
+   * AND THE MEMO CLEAR BUYS NOTHING WHILE THAT KEY LIVES, WHICH IS WORTH
+   * SAYING RATHER THAN IMPLYING. `getHeightForAnchor` reads memo, then Redis,
+   * then Postgres, and REPOPULATES the memo from a Redis hit - so the very
+   * next lookup of a forgotten root puts the orphaned height back in the memo.
+   * What the two tiers cleared here actually buy is that the answer stops
+   * being PERMANENT: once the Redis key expires, Postgres has no row and the
+   * lookup returns null. The clear matters on the path where Redis has already
+   * expired and the memo has not.
+   *
+   * The remedies - a real VPS-target proof at the deletion site, or moving the
    * registry's Redis writes behind one - are a ledger question, not a silent
    * choice. See docs/2.0/RUNTIME.md section 4.
    */
