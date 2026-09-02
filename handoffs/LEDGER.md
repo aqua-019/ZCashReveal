@@ -7587,3 +7587,157 @@ This is NOT HANDOFF-13's to fix. It is recorded so that whoever provisions the V
 ### Rulings on §8, in brief — full text in this file's PR #52 block
 
 Q1 posterior stays off `LinkRecord`. Q2 the anchor backfill is a maintenance item and wants a DETECTOR before a pass. **Q3 the tag guard grows a CEILING — deliverable 0 below.** Q4 link records remain a product question. Q5 do not pause the mempool path. **Q6's config-default guard — deliverable 0 below.** Q7 `migrations_zip318` has a reader and no writer, confirmed twice, and needs a decision next Integration handoff. Q8 fix the `ws-broker` uncaught throw if it is one line. Q9 **do not widen `check-redis-safety` rule 4** — declining to widen a safety guard to make your own cleanup convenient was the right call and is recorded as such.
+
+## HANDOFF-13 - the plan that stops at a plan, and three of the brief's premises (L3, 2 Sep 2026)
+
+```
+QUESTIONS (for the operator / L2):
+  Q1  THREADS: NEVER, LATER, OR NOW - and the answer decides every other cost in
+      the Mode A build. MEASURED: every published Zcash wasm artifact is a
+      SHARED-MEMORY build (import sections decoded from the npm tarballs; keys-only
+      imports a shared memory with max 1 GiB, the wallet 4 GiB), so cross-origin
+      isolation is mandatory for the threaded path and NO published single-threaded
+      artifact exists. The plan recommends single-threaded first, and the strongest
+      reason arrived late: `WebAssembly.Memory.prototype.buffer` hands the whole
+      linear memory to JS, so what keeps the key from page-realm script is the
+      WORKER'S SEPARATE REALM - and a shared memory is exactly the object that can
+      cross it. The counter-argument is in the plan's 5.2.2 and is real: cross-origin
+      isolation is also the defence against a Spectre-class reader sharing a process.
+      A trade, not a free choice.
+  Q2  FORK OR UPSTREAM. Upstream librustzcash CI has NO wasm32-unknown-unknown job
+      (only wasm32-wasip1), and the one working browser build - ChainSafe WebZjs -
+      builds from a FORK, ChainSafe/librustzcash-nu61 branch feat/snap-nu61, pinning
+      wasm-bindgen 0.2.100 against a current 0.2.127. Four options and none is
+      obviously right; a fourth worth costing is contributing the CI job upstream.
+  Q3  PROTOBUF OR JSON ON `/v2/compact`. Protobuf is what every other Zcash client
+      speaks and what the Rust side decodes natively; JSON is what this gateway does
+      everywhere else. Choosing JSON adds an encoder on one side and a decoder on the
+      other, which is PRECISELY the seam this project keeps getting wrong. The plan
+      leans protobuf on that argument and asks rather than decides.
+  Q4  DOES THE ZEBRA TAG CEILING GROW A RUNTIME READER? Deliverable 0a declares it in
+      the guard because it has ONE reader, and the floor is READ from version-floor.ts
+      because it has two. A11 checks a LIVE node's subversion against the floor and is
+      the natural second reader for the ceiling - an operator who pulls a newer image
+      by hand is exactly the case a tag pin cannot see. Moving it into version-floor.ts
+      makes the value a two-reader quantity, which is when this project's own rule says
+      it must be read rather than restated.
+  Q5  DOES `check-instrument-deps.mjs` WIDEN, OR DOES `packages/wasm-keys` GET A
+      SIBLING? The two rules are the same shape - a package whose reason to exist is
+      what its graph EXCLUDES. This is the origin LEDGER-09b Q3 counts, and the count
+      does not reset because a guard shipped.
+  Q6  THE #10461 FALSE ATTRIBUTION, AND WHO CORRECTS IT. Established here against the
+      merged diff: #10461 does NOT reverse the transaction-side anchor byte order, it
+      PRESERVES the existing reversed display order while re-implementing it. Its
+      second half is correct - the diff touches neither getblock nor z_gettreestate
+      roots. FIVE FILES, TEN LINES say otherwise, one of them a user-visible finding
+      message (leak-analyzer.ts:904), and `live-assessment.test.ts:246` ASSERTS the
+      message contains the PR number - so the fix changes a TEST and earns its own
+      review round, which the first draft of the question hid by undercounting.
+      Not fixed here: five of six sites are behind A2, and correcting only
+      docs/2.0/RUNTIME.md would be a PARTIAL SWEEP, which LEDGER-03 Q3 rates HIGH in
+      its own right. The detector itself stays correct and useful.
+  Q7  IS THE PUBLISHER MEANT TO BE MAINNET-ONLY? `apps/publisher/src/config.ts` has NO
+      network field at all; SNAPSHOT_IRONWOOD_BIRTH_HEIGHT and
+      SNAPSHOT_DRAIN_BASELINE_HEIGHT default unconditionally to NU6_3_MAINNET_HEIGHT
+      and .env.example restates the constant. A gate reviewer filed this as "the
+      identical 705,857-block defect" and that was REJECTED with its reason: LEDGER-12
+      Q6's shape is two copies that DISAGREE on testnet, and here they AGREE, so
+      deleting the env line changes no behaviour and leaves the exposure untouched.
+      Guard 0b cannot see it by construction. Take it or reject it in apps/publisher.
+  Q8  IS `/v2/compact` A DATA-TRACK HANDOFF BEFORE MODE A, OR PART OF THE BUILD? The
+      plan recommends serving it from Zebra getblock/getrawtransaction first, which
+      needs no migration - so it could be either. `pool_commitments` has NO
+      ephemeral_key and NO ciphertext column (measured), so the store the gateway
+      already reads cannot serve a compact output at all; that is migration 006 and a
+      cost of its own. If it is a separate handoff, A3's seam is asserted across two
+      handoffs, and this project's record on cross-handoff seams is why this is asked.
+  Q9  DOES `check-finding-sites.mjs` GAIN A `presentAntiProbe`? Appendix A recommends
+      it, drawn from the live instance this session produced rather than a
+      hypothetical: R4-GUARDS' `present` pattern was satisfied at CLAUDE.md by ledger
+      PROSE about the guard population, so the registry was complete, the row was
+      registered, and it still could not see the tree contradicting itself at three of
+      four asserting sites for two handoffs. Every row already needs a probe matched by
+      `absent`; no row has evidence that its `present` pattern is not satisfied by text
+      that fails to assert the answer.
+
+INFERRED (non-empty inferences a worker made):
+  I1  A2's `main` was read as `origin/main`. The local ref is stale at 8679e03 and
+      would report 252 files. Recorded under SPEC-WAS-AMBIGUOUS.
+  I2  "cites >= 5 upstream sources with versions" (A1) was read as: a numbered
+      source-list row carrying a URL, a ZIP number or a command, AND a version, a
+      date or a field number. Twenty rows qualify.
+  I3  Deliverable 0's two guards were read as licensed exceptions to A2 rather than
+      as violations of it, because the same prompt orders both. The reconciliation is
+      stated in section 7 rather than assumed silently.
+  I4  "the highest tag this build has been read against" was read as the highest
+      RELEASED tag whose CHANGELOG this session actually read - 6.3.0 - rather than
+      the highest tag that exists.
+
+NOT-MATCHED (patterns handed over that did not apply):
+  N1  "Set the ceiling EXCLUSIVE at the first released version carrying #10461" - no
+      such version exists, so the exclusive arm was not taken. It is driven in the
+      self-test against a synthetic ceiling anyway, because it is the arm this row
+      moves to the day one is cut and an untested arm is the worst thing to discover
+      at that moment.
+  N2  `zcash_keys` + `zcash_note_encryption` as the crate set (TRACKING-MATH section
+      5) - the real graph reaches at least seven crates, and not from crates.io.
+  N3  `/api/compact/:range` - the prefix was deleted by HANDOFF-11 and answers 410.
+  N4  The brief's "reverses the transaction-side anchor byte order" - see Q6.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+  S1  A2 NAMES `main..HEAD` WITHOUT SAYING WHICH `main`. Against the session's stale
+      local ref it reports 252 files; against origin/main, zero. The assertion's whole
+      argument is about pathspec precision and it is imprecise about its own base.
+  S2  A2 IS UNSATISFIABLE AS WRITTEN once deliverable 0 exists, because the prompt
+      orders two guards into paths A2 requires to be empty. LEDGER-11 Q5(a): an
+      exclusion set the shipped object is REQUIRED to exhibit is a clause got wrong.
+      Reconciled in section 7 with both halves executed and named, rather than by
+      quietly citing the narrower two-path pathspec - which is the exact move A2's own
+      text exists to prevent.
+  S3  A2 COMPARES COMMITS, so an uncommitted file under apps/ is invisible to it.
+      Found by running its own fail side. The post-fan-out `git status --porcelain`
+      sweep is what actually covers that, not A2.
+
+GATE ROUND COUNTS:
+  Round 1: 7 reviewers dispatched over 7 dimensions; 3 returned within the session,
+  4 did not. 20 findings, 6 HIGH. EVERY ONE REPRODUCED BY THE LEAD BY EXECUTION
+  before acceptance, which LEDGER-10 Q3 makes stronger evidence than a refuter's
+  opinion and which licenses the lead to disposition alone. 19 fixed in 07b1daf, 1
+  REJECTED with its reason (Q7). The 4 outstanding dimensions - the plan's external
+  facts, its internal consistency, the guard-count sweep and the Revolution-protocol
+  steps - are carried as UNVERIFIED work rather than as a trailing log line; the lead
+  self-verified the last of them by execution (reconcile correct against PR #52's
+  merge and HANDOFF-12's DONE status; 18 of 18 front-matter statuses agree with the
+  README table; the LEDGER diff is 45 added and 0 removed beginning at line 7545 of a
+  7544-line file, so pure append; the prompt archive's md5 equals the upload's).
+
+  THE FIX COMMIT CHANGES EXECUTABLE LINES IN BOTH GUARDS, so under the clause (ii)
+  amendment it earns its own round. THAT ROUND IS OWED AND IS NOT CLAIMED.
+
+  Clause (i) is NOT satisfied: round 1 returned findings a reader could see.
+  EXTRAPOLATION: a second round would probably find one or two more of that reach,
+  most likely in the plan's prose about its own numbers rather than in the guards.
+
+  AND THE ROUND'S OWN DIAGNOSIS, WHICH IS WHY APPENDIX B GAINED TWO INSTANCES.
+  The two worst findings were in work the lead had already reviewed and believed
+  finished: a volume measurement that committed the exact failure its own document
+  warns about one section earlier (counting CompactTx.actions and not
+  ironwoodActions, missing 10 of 22 shielded items on the densest pool), and an
+  assertion that computed its expected value BY CALLING THE FUNCTION UNDER TEST -
+  the precise shape this same branch specifies a guard against, committed inside the
+  fix for the first instance of it. Neither was findable by reading. Both were found
+  by executing.
+
+DEFERRED ASSUMPTIONS:
+  D1  Whether upstream librustzcash compiles for wasm32-unknown-unknown.
+  D2  Whether orchard 0.15.5 handles ZIP 2005's 0x03 Ironwood lead byte.
+  D3  Whether zfnd/zebra:6.3.0 starts a CompactTxStreamer when
+      rpc.lightwalletd_listen_addr is set. The SIBLING field's server is gated out of
+      default-release-binaries, verified against zebrad/Cargo.toml; this one is unknown.
+  D4  Any single-threaded trial-decryption rate. None exists anywhere reachable.
+  D5  Whether a Web Worker inherits the document CSP for wasm instantiation.
+  D6  Whether Vercel runs proxy/middleware before or after the CDN cache lookup.
+  D7  The real bundle size. 2-4 MB interpolates two measured artifacts.
+  D8  The preview URL and any Lighthouse number - operator's, unreachable from a
+      session. This branch changes no route, component or stylesheet.
+```

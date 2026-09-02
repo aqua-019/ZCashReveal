@@ -1,7 +1,7 @@
 ---
 handoff: 13
 title: Mode A — viewing-key decryption in the browser (2.1; PLAN ONLY, stop for approval)
-status: in-progress
+status: shipped
 branch: the session-designated branch (name it `feat/v2-13-mode-a-wasm` if you may choose)
 track: 2.1 — plan only
 depends_on: 04, 11
@@ -90,16 +90,319 @@ Produce a design and risk assessment for client-side viewing-key decryption (`pa
 ## §7 REPORT — written by L3 before the PR opens (docs-scribe keeps it)
 
 ```
-STATUS: DONE | DONE-WITH-ASSUMPTIONS | BLOCKED | OUT-OF-DEPTH | NOT CONVERGING
+STATUS: DONE-WITH-ASSUMPTIONS
+
+  Deliverable 0 (both guards) and deliverables 1, 2 and 3 (the plan) are all
+  delivered. The word is DONE-WITH-ASSUMPTIONS rather than DONE because the plan
+  rests on seven questions no session can settle - listed under ASSUMPTIONS and
+  in the plan's own section 8 - and because the handoff ENDS AT A PLAN AWAITING
+  OPERATOR APPROVAL by design. Nothing here is a partial build.
+
 BRANCH / PR:
+  claude/new-session-0defoc, forked from main at 98e87a0.
+  PR #53, opened as a DRAFT and stopping at opened.
+  https://github.com/aqua-019/ZCashReveal/pull/53
+
 DIRECTORS SPAWNED (lead names each + spawn mode proven):
+  SPAWN MODE: subagents available, proven by tool attempt before any work - a
+  `general-purpose` probe returned SPAWN-OK (agent a7b5998dfd901f6df).
+
+  This session ran no director tier. Two WORKFLOW fan-outs, both by the lead:
+    wf_e0c89726-4b7  seven researchers, one per dimension (Zebra releases; the
+                     Rust crates; the WASM build path; browser-wallet
+                     precedents; compact blocks; CSP and Next.js; the threat
+                     model), each fact re-checked against its own cited URL by
+                     a separate verifier that defaults to rejecting.
+    wf_d36babb8-f4c  gate round 1, seven reviewers (the two guards; the plan's
+                     repository claims; its external facts; its internal
+                     consistency; the guard-count sweep; the Revolution-protocol
+                     steps), each finding handed to an adversarial refuter.
+
+  POST-FAN-OUT SWEEP run after each fan-out returned and before each commit:
+  `git status --porcelain` empty both times. No worker wrote to the tree.
+
 FILES (created / modified / moved):
-EVIDENCE (per §5 assertion: pass transcript + fail transcript, provenance Executed/Read/UNVERIFIED):
+  created   docs/2.0/MODE-A-PLAN.md                    (deliverables 1, 2, 3)
+  created   scripts/check-config-defaults.mjs          (deliverable 0b, guard 17)
+  created   handoffs/prompts/PROMPT-13.md              (protocol step 5)
+  modified  scripts/check-compose-zebra-tag.mjs        (deliverable 0a, the ceiling)
+  modified  scripts/check-finding-sites.mjs            (R4-GUARDS row; see below)
+  modified  .github/workflows/ci.yml                   (the 0b step; the count)
+  modified  package.json                               (0b into `pnpm check`)
+  modified  CLAUDE.md  README.md                       (the guard-count sweep)
+  modified  handoffs/LEDGER.md                         (L2 RESOLUTION, appended)
+  modified  handoffs/HANDOFF-12-...md  handoffs/HANDOFF-13-...md  handoffs/README.md
+  UNTOUCHED apps/ and packages/ - `git diff --stat origin/main..HEAD -- apps
+            packages` is empty, which is A2's strongest half. Executed.
+
+EVIDENCE (per §5 assertion: pass transcript + fail transcript, provenance):
+
+  A1  the plan exists, cites >= 5 sourced versions, carries the six sections.
+      PASS (Executed): a probe run inline - not committed, because a new script
+        under scripts/ would widen the deliverable-0 diff - reports
+        "40 headings; 0 required section(s) missing; 20 cited source(s)
+        carrying a version or date", rc=0.
+      FAIL, BY DATA (Executed): a copy with `## 5. Threat model` renamed ->
+        rc=1 "missing section(s): Threat model". A second copy with the source
+        list removed -> rc=1 "only 0 cited sources with versions, need >= 5".
+      EXCLUSION SET: a document missing any of the six sections, or citing
+        fewer than five sources carrying a version. MEMBER USED: both, above.
+
+  A2  `git diff --stat main..HEAD -- apps packages scripts .github` is empty.
+      **RECONCILED, AND THE RECONCILIATION IS REPORTED RATHER THAN ASSUMED.**
+      As written this assertion is UNSATISFIABLE on this branch: the prompt's
+      DELIVERABLE 0 orders two guards into `scripts/` and one CI step into
+      `.github/`. That is the LEDGER-11 Q5(a) case exactly - an exclusion set
+      the shipped object is REQUIRED to exhibit is a clause got wrong, not a
+      test to write. A2's own text says the four-path pathspec exists so a
+      session that BUILT a guard could not cite the narrower two-path version
+      as evidence it had not; citing `-- apps packages` while staying silent
+      about `scripts` is precisely the move it was written to prevent, so it is
+      not made here.
+      RECONCILED FORM, both halves executed:
+        (a) `git diff --stat origin/main..HEAD -- apps packages` -> EMPTY.
+        (b) `git diff --name-only origin/main..HEAD -- scripts .github` -> 4
+            files, every one deliverable 0 or its wiring:
+            .github/workflows/ci.yml, scripts/check-compose-zebra-tag.mjs,
+            scripts/check-config-defaults.mjs, scripts/check-finding-sites.mjs.
+      MEASURED, as A2's text asks: `-- apps packages` reports 0 files,
+        `-- scripts` 3, `-- .github` 1. The pathspecs are disjoint.
+      FAIL, BY DATA (Executed): a file written under `apps/web/src/` makes the
+        working-tree diff non-empty.
+      **AND A BOUND A2 DOES NOT STATE, found by running its own fail side.** The
+        command compares COMMITS, so an UNCOMMITTED file under apps/ is
+        invisible to it - only `git diff HEAD` saw the probe file. What actually
+        covers that gap is the post-fan-out `git status --porcelain` sweep,
+        which was run after every fan-out and came back empty.
+      EXCLUSION SET: any change under apps/ or packages/; any change under
+        scripts/ or .github/ that is not deliverable 0.
+        MEMBER USED: a file under apps/web/src/.
+
+  A3  the report lists every assumption with a disposition.
+      PASS (Executed): the ASSUMPTIONS block below carries nine entries, each
+        marked ACCEPTED, CORRECTED or DEFERRED with its reason.
+      FAIL, BY DATA: an entry with no disposition is visible on inspection of
+        this block; the assertion is structural and its exclusion set is "an
+        assumption named without a disposition". No such entry exists here.
+
+  THE THREE PREMISES THE BRIEF HANDED DOWN, EACH CHECKED BEFORE IT WAS BUILT ON:
+    1 FALSE. "Both files are already parsed by `check-compose.mjs`, so the reach
+      exists." Executed: that script declares
+      COMPOSE_FILES = ["docker-compose.yml", "docker-compose.dev.yml"] and reads
+      nothing else; `.env.example` is read by `check-redis-safety.mjs`. There
+      was no reach to extend, which is what settled 0b as a sibling.
+    2 FALSE IN ITS FIRST HALF. Zebra #10461 "reverses the transaction-side anchor
+      byte order". Read against the merged diff: it PRESERVES the existing
+      reversed display order while re-implementing it - on the Sapling path the
+      `.reverse()` is an unchanged context line. Its second half is CORRECT: the
+      diff touches neither `getblock` nor `z_gettreestate` roots (zero
+      occurrences). The ceiling is kept on the larger real change.
+    3 FALSE. `/api/compact/:range` (handoff section 4). Executed:
+      `API_PREFIXES = ["/v2"]` and `/api` answers 410. The plan names
+      `/v2/compact/...`.
+
+  DELIVERABLE 0a - THE CEILING. Value set at 6.3.0 INCLUSIVE, which is the
+    fallback LEDGER-12 Q3 names, on a measurement rather than an assumption:
+    `git tag --contains 1c9b245` returns EMPTY against a clone holding all 147
+    tags, POSITIVELY CONTROLLED (the same command on v6.3.0's commit returns
+    v6.3.0 plus its eight per-crate tags). #10461 merged 22 Aug 2026, twelve
+    days after v6.3.0, the newest release; CHANGELOG.md on main has no
+    Unreleased section. So there is no released version to set an EXCLUSIVE
+    ceiling at.
+    FAIL SIDES, BY DATA, against the real docker-compose.yml, each restored:
+      zfnd/zebra:6.4.0  -> rc=1 ABOVE-CEILING naming 6.4.0 and <= 6.3.0
+      zfnd/zebra:7.0.0  -> rc=1 ABOVE-CEILING
+      zfnd/zebra:6.2.9  -> rc=1 BELOW-FLOOR
+      zfnd/zebra:latest -> rc=1 UNPARSED
+      zfnd/zebra:6.3.0  -> rc=0 IN-WINDOW  (pass state)
+    EXCLUSION SET: any tag outside [floor, ceiling], and any tag that cannot be
+      read. MEMBERS USED: all four above.
+
+  DELIVERABLE 0b - THE CONFIG DEFAULT. Guard 17.
+    FAIL SIDES, BY DATA, against the real tree, each restored:
+      ${INDEXER_START_HEIGHT:-3428143} into docker-compose.yml -> rc=1 naming
+        the variable and docker-compose.yml:240
+      the .env.example line uncommented with its value -> rc=1 naming
+        .env.example:46
+      the bare form `INDEXER_START_HEIGHT: 3428143` -> rc=1, no-operator form
+      a compose file under infra/ carrying the literal -> rc=1 (the reach fix)
+    EXCLUSION SET: a literal default, in any of compose's operator forms or
+      either `environment:` syntax or a .env assignment, for a variable a config
+      module defaults from its own network field. MEMBERS USED: four above.
+
 ASSUMPTIONS (each: ACCEPTED / CORRECTED / DEFERRED — reason):
+
+  1 CORRECTED. That `check-compose.mjs` parses `.env.example`. It does not;
+    measured. 0b is a sibling and the header records the measurement.
+  2 CORRECTED. That #10461 reverses the transaction-side anchor byte order. It
+    does not; the ceiling's reason is restated on what the diff actually does.
+  3 CORRECTED. That the compact endpoint is `/api/compact/:range`. `/api`
+    answers 410; the plan names `/v2/compact/...`.
+  4 CORRECTED. That a wasm module with no I/O imports makes "the key never
+    leaves the tab" structural. `WebAssembly.Memory.prototype.buffer` hands the
+    whole linear memory to JS; the worker's separate realm is the mechanism,
+    and that became the strongest argument against the threaded build.
+  5 CORRECTED. That SRI does not reach a wasm module. `fetch(url, {integrity})`
+    carries integrity metadata on the Request and fails closed.
+  6 CORRECTED. That Zcash blocks arrive every 2.5 minutes. The target is 75
+    seconds; this repository states it in turnstile-accounting.ts:218 and the
+    fixtures measure 75.36 s across 12,707 blocks.
+  7 CORRECTED. That the newest committed capture is the chain tip. The captures
+    record their own tip in `confirmations`: 3,468,549.
+  8 ACCEPTED. That `apps/indexer/test/fixtures/blocks` is a usable sample for
+    compact VOLUME. It is n=4, spans 12,707 heights, is entirely post-NU6.3 and
+    is selected for shielded activity - all four stated beside the figure. Good
+    enough to say "single-digit to low tens of megabytes, not gigabytes"; not
+    good enough to size a cache, and the plan says so.
+  9 DEFERRED. Every item in the plan's section 8: whether upstream librustzcash
+    builds for wasm32-unknown-unknown; whether orchard 0.15.5 handles the
+    Ironwood 0x03 lead byte; whether zfnd/zebra:6.3.0 starts a CompactTxStreamer
+    when `lightwalletd_listen_addr` is set; any single-threaded decryption rate;
+    worker CSP inheritance; Vercel's proxy-versus-CDN-cache ordering; the real
+    bundle size. None is settleable from a session and each is named where it
+    is relied on.
+
 NOTICED (outside scope, not acted on):
+
+  N1 THE #10461 FALSE ATTRIBUTION IS LIVE AT FIVE FILES AND TEN LINES, and one
+     of them is a USER-VISIBLE finding message (leak-analyzer.ts:904). Enumerated
+     rather than sampled - a first draft said "five sites" naming four files and
+     four lines. `live-assessment.test.ts:246` ASSERTS the message contains
+     "ZcashFoundation/zebra #10461", so the correction changes a test and earns
+     its own review round; it is not the comment fix it first looked like. Not
+     fixed here: five of the six sites are behind A2, and correcting only
+     `docs/2.0/RUNTIME.md` would be a PARTIAL SWEEP, which LEDGER-03 Q3 rates
+     HIGH in its own right. Integration track, alongside F-52-2's round 4.
+
+  N2 THE PUBLISHER IS MAINNET-ONLY BY CONSTRUCTION. `apps/publisher/src/config.ts`
+     has NO network field; `SNAPSHOT_IRONWOOD_BIRTH_HEIGHT` and
+     `SNAPSHOT_DRAIN_BASELINE_HEIGHT` both default unconditionally to
+     `NU6_3_MAINNET_HEIGHT`, and `.env.example` restates the same constant.
+     A gate reviewer filed this as "the identical 705,857-block defect, still
+     live" and that framing is WRONG and was rejected: Q6's shape is two copies
+     that DISAGREE on testnet, and here they AGREE, so deleting the env line
+     changes no behaviour and leaves the exposure. Guard 0b cannot see it by
+     construction - the rule is defined relative to a module's own network field
+     - and that bound is now stated in its header. A product question, in §8.
+
+  N3 LOCAL `main` IS STALE at 8679e03 while origin/main is 98e87a0. A2 names
+     `main..HEAD` without saying which; measured against the local ref it
+     reports 252 files, against origin/main zero. Recorded under
+     SPEC-WAS-AMBIGUOUS; nothing was done to the operator's local refs.
+
+  N4 `handoffs/prompts/PROMPT-12c.md` does not exist and should not - L2 records
+     that PROMPT-12c was withdrawn before it was pasted. Noted only so a later
+     reader does not read the gap in the sequence as a missing archive.
+
 UNVERIFIED (labelled):
-GATE ROUNDS: n · fingerprints (file · rule · severity) per round
-PREVIEW URL (if any):
+
+  U1 Whether ZIP 2005's 0x03 Ironwood lead byte is handled by `orchard` 0.15.5.
+     ZIP 2005 is Proposed. The plan builds assertion A4 on the distinction and
+     labels it the second largest unknown.
+  U2 Whether the published zfnd/zebra image starts a CompactTxStreamer. The
+     SIBLING field's server is feature-gated out of `default-release-binaries`
+     (verified against zebrad/Cargo.toml); this field's status is unknown and
+     the precedent is in this repository's own zebrad.toml.
+  U3 The Hacken audit of the ChainSafe snap (May 2025, reportedly 7 issues) -
+     a search-index snippet, the page egress-blocked. Labelled at its point of
+     use, the only such claim in the document.
+  U4 Every rate quoted from ChainSafe's benchmark: one machine, one browser, a
+     4-thread pool. Quoted with that n throughout.
+  U5 The 2-4 MB bundle estimate. An interpolation between two MEASURED artifacts
+     (2,147,533 B keys-only and 8,044,208 B wallet), not a measurement, and the
+     plan says so.
+  U6 CI on the current head. Green on cd19d70 (typecheck/lint/test and
+     playwright both success); the run on 07b1daf was in progress at the time of
+     writing and is re-checked before this PR leaves draft.
+
+GATE ROUNDS: 1 complete (of 7 dimensions dispatched, 3 returned at the time of
+  writing; the remaining 4 are carried below as UNVERIFIED work, per the
+  truncated-verify rule)
+
+  ROUND 1 VERIFICATION BUDGET, STATED FIRST AS LEDGER-05 Q5 REQUIRES: seven
+  reviewers dispatched, each finding to be settled by an adversarial refuter.
+  Three dimensions returned twenty findings. EVERY ONE WAS REPRODUCED BY THE
+  LEAD BY EXECUTION before it was accepted or rejected, which under LEDGER-10 Q3
+  is the stronger evidence and is what licenses the lead to disposition alone.
+  Four dimensions had not returned: the plan's external facts, its internal
+  consistency, the guard-count sweep and the Revolution-protocol steps. The
+  lead self-verified the last of those four by execution (reconcile, ledger
+  append, prompt archive - all below); the other three are UNVERIFIED work.
+
+  FINGERPRINTS (file · rule · severity):
+    docs/2.0/MODE-A-PLAN.md · section 3.3 omits CompactTx.ironwoodActions,
+      the exact failure section 1.4 names · HIGH
+    docs/2.0/MODE-A-PLAN.md · annual volume computed at a 150-second block
+      target; Zcash targets 75 · HIGH
+    docs/2.0/MODE-A-PLAN.md · the newest fixture used as the chain tip · HIGH
+    docs/2.0/MODE-A-PLAN.md · Q6's stated reason refuted by its own table · HIGH
+    docs/2.0/MODE-A-PLAN.md · Sapling-era block COUNT given as the tip HEIGHT · LOW
+    check-compose-zebra-tag.mjs · message assertion computes its expected value
+      by calling the function under test · HIGH
+    check-compose-zebra-tag.mjs · the pinned-version half satisfied by the ref
+      echo · HIGH
+    check-compose-zebra-tag.mjs · UNPARSED_REASONS unpinned to the rule · HIGH
+    check-compose-zebra-tag.mjs · ABOVE_BY and OUTCOMES unpinned · HIGH
+    check-compose-zebra-tag.mjs · `headroom` has no assertion · MEDIUM
+    check-compose-zebra-tag.mjs · `lastColon === -1` untested · MEDIUM
+    check-compose-zebra-tag.mjs · fixture count hard-coded · LOW
+    check-config-defaults.mjs · OK line asserts a probe that may not have
+      run · HIGH
+    check-config-defaults.mjs · no inertness floor on the surfaces · HIGH
+    check-config-defaults.mjs · compose list-form environment invisible · MEDIUM
+    check-config-defaults.mjs · discovery does not walk the tree it claims · MEDIUM
+    check-config-defaults.mjs · FAIL message overstates a reference as a
+      default · MEDIUM
+    check-config-defaults.mjs · inline comment read as a literal value · LOW
+    check-config-defaults.mjs · a form label unrelated to its line · LOW
+    .env.example · REJECTED, not a finding - see NOTICED N2
+
+  All twenty fixed or rejected in 07b1daf, and every mutation the round found
+  SURVIVING was re-run against the fix: all closed but one, which survives BY
+  DESIGN and is reported in the guard's own header rather than papered over
+  (re-typing the literal fixture count into the summary sentence is caught by
+  nothing, because no assertion reads that sentence, and an assertion over this
+  file's own prose is the loose-pattern shape recorded elsewhere here).
+
+  FOUR MALFORMED PROBES OF THE LEAD'S OWN, reported rather than silently redone,
+  per the rule that a probe which does not discriminate and a guard that is
+  inert produce the same output:
+    P1 two guard mutants run from the scratchpad directory, so they died on tree
+       discovery before the self-test could speak. Re-run from the repository
+       root, BOTH SURVIVED - and both were real holes.
+    P2 a quoting error meant a `blankComments` mutation never applied; the
+       "SURVIVED" it reported was an artefact.
+    P3 a `headroom` mutation whose pattern did not match the source.
+    P4 a PROMPT-13 archive comparison whose line-offset arithmetic added a
+       blank line, reporting a difference where the md5 sums are equal.
+
+  THE FIX COMMIT (07b1daf) CHANGES EXECUTABLE LINES in both guards, so under the
+  clause (ii) amendment it earns its own review round. That round is owed and is
+  named in §8 rather than claimed.
+
+  EXTRAPOLATION, STATED RATHER THAN CONVERGENCE CLAIMED: three dimensions
+  produced twenty findings, six of them HIGH, and the two most serious were in
+  work the lead had already reviewed and believed finished - a measurement that
+  committed the failure its own document warns about, and an assertion of the
+  precise shape the same branch specifies a guard against. A second round over
+  the fix commit would probably find one or two more of that reach, most likely
+  in the plan's prose about its own numbers rather than in the guards. Clause
+  (i) is NOT satisfied: round 1 returned findings a reader could see.
+
+PREVIEW URL:
+  https://zecreveal-git-claude-new-session-0defoc-aquatic-17b9f112.vercel.app
+  Deployment Protection makes it unreachable from a session (302 to SSO, and the
+  egress proxy refuses the CONNECT before that), so it is UNVERIFIED here and is
+  the operator's to open. No Lighthouse number is claimed: this branch changes
+  no route, no component and no stylesheet.
+
+VERIFICATION (all executed on this branch, at 07b1daf unless noted):
+  TEST_RC=0        1400 passed / 124 skipped / 1509 total. NO POSTGRES OR REDIS
+                   in this session, so 121 integration tests skip; the branch
+                   touches ZERO test files, so these are main's totals.
+  CHECK_RC=0       seventeen static guards
+  TYPECHECK_RC=0   LINT_RC=0   VALIDATE_RC=0   BUILD_RC=0
+  git status --porcelain empty after every fan-out and before every commit.
 ```
 
 ## §8 LEDGER — appended to `handoffs/LEDGER.md` by docs-scribe; read by L2 before the next handoff
