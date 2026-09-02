@@ -100,8 +100,25 @@ STATUS: DONE-WITH-ASSUMPTIONS
 
 BRANCH / PR:
   claude/new-session-0defoc, forked from main at 98e87a0.
-  PR #53, opened as a DRAFT and stopping at opened.
-  https://github.com/aqua-019/ZCashReveal/pull/53
+  PR #53 - https://github.com/aqua-019/ZCashReveal/pull/53
+  PR #54 - https://github.com/aqua-019/ZCashReveal/pull/54  (draft, stops at opened)
+
+  **PR #53 WAS MERGED BY THE OPERATOR AT `ef7312f` WHILE GATE ROUND 2 WAS STILL
+  RUNNING**, as `4d86b6b` on main at 12:59 UTC. So `main` carries
+  `docs/2.0/MODE-A-PLAN.md` WITHOUT the eleven defects round 2's third dimension
+  found in it - among them A6's exclusion set being satisfied by the shipped
+  document - and without round 3's four.
+  FOURTH INSTANCE IN THIS PROJECT (PR #39, #50, #51, now #53) and the
+  consequence is identical every time: the merged main holds the artifact and
+  not its corrections. It is recorded here rather than treated as an accident,
+  because three of the four were merged within an hour of a push while a gate
+  was explicitly reported as still running.
+  PR #54 carries the remainder. It is a NEW pull request and not a reopening: a
+  merged PR is finished and cannot track follow-up work, so the two commits were
+  REBASED onto `origin/main` rather than stacked on the merged history, and the
+  branch force-pushed with `--force-with-lease`. Content preserved - the rebase
+  produced no diff against the pre-rebase tree.
+  READ MAIN'S COPY OF THE PLAN AS PROVISIONAL until #54 lands.
 
 DIRECTORS SPAWNED (lead names each + spawn mode proven):
   SPAWN MODE: subagents available, proven by tool attempt before any work - a
