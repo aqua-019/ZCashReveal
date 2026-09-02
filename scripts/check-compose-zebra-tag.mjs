@@ -287,6 +287,15 @@ const REFERENCE_REFS = [
  * a gate reviewer deleting each row in turn and watching every run stay green.
  * This is the same move the floor already makes: read the rule, never restate
  * it beside itself. `Function.prototype.toString` on `checkRef` is the rule.
+ *
+ * WHAT THE DERIVATION DOES NOT DO, measured by a round-2 reviewer rather than
+ * reasoned. The regex sees a STRING LITERAL on an `outcome:` property. An
+ * outcome introduced through a variable or a template is invisible to it, and
+ * the OK line would then print a coverage count one short without complaining.
+ * A literal fifth outcome IS caught; one built from a variable is not. So this
+ * closes the case a hand-written list left open - a literal outcome arriving
+ * untested - and not the general one, and the docblock says so rather than
+ * repeating the too-strong claim the hand-written version carried.
  */
 const OUTCOMES = [...new Set([...checkRef.toString().matchAll(/outcome:\s*"([A-Z-]+)"/g)].map((m) => m[1]))];
 
@@ -332,7 +341,8 @@ const FIXTURES = [
  * component count is derivable from the floor object itself. An emptied
  * ABOVE_BY made its coverage loop vacuous, which a gate reviewer measured.
  */
-const VERSION_COMPONENTS = (floorVersion) => Object.keys(floorVersion).length;
+const VERSION_COMPONENTS = () =>
+  new Set([...cmp.toString().matchAll(/\.(major|minor|patch)\b/g)].map((m) => m[1])).size;
 
 /**
  * BOTH CEILING KINDS, AS DATA, DRIVEN AGAINST A SYNTHETIC CEILING.
@@ -372,14 +382,26 @@ const UNPARSED_REASONS = [
 /**
  * THE UNPARSED TABLE IS PINNED TO THE RULE IT DESCRIBES.
  *
- * `extractTagVersion` has a fixed number of UNPARSED returns; the table must
+ * `extractTagVersion` gives a fixed set of UNPARSED DIAGNOSTICS; the table must
  * exercise every one. Without this, deleting a row deleted the only test of a
  * live clause in silence, and the OK line printed the shrunken count as if it
  * were complete - measured by a gate reviewer deleting each row in turn, all
  * three surviving. Read out of the function's own source, the same move
  * `OUTCOMES` and the floor already make.
+ *
+ * AND THE BOUND, ALSO MEASURED. This pin is over distinct DIAGNOSTICS, not over
+ * CLAUSES, and the function has FOUR unreadable clauses giving THREE
+ * diagnostics: the slashless `lastColon === -1` and the registry-port
+ * `lastColon < lastSlash` both say "the ref carries no tag". A dropped clause
+ * that SHARES a message with a surviving one is therefore invisible to this pin
+ * - which is exactly the hole the "no tag, slashless" row exists to cover, and
+ * that hole was found by mutation rather than by this pin. The pin catches a
+ * lost diagnostic; the table catches a lost clause; neither catches both, and
+ * a green run is not evidence that it does.
  */
-const UNPARSED_RETURNS = [...extractTagVersion.toString().matchAll(/kind:\s*"UNPARSED"/g)].length;
+const UNPARSED_RETURNS = new Set(
+  [...extractTagVersion.toString().matchAll(/reason:\s*(?:`|")([^`"$]{6,})/g)].map((m) => m[1].slice(0, 24)),
+).size;
 
 function selfTest() {
   const floor = readFloor();
@@ -419,8 +441,8 @@ function selfTest() {
   // to hold is that every distinct DIAGNOSTIC is exercised.
   const markers = new Set(UNPARSED_REASONS.map((r) => r.marker));
   if (markers.size !== UNPARSED_RETURNS) {
-    return `extractTagVersion has ${UNPARSED_RETURNS} UNPARSED return(s) and UNPARSED_REASONS exercises ` +
-      `${markers.size} distinct diagnostic(s) - an unreadable branch has no probe, and outcome coverage cannot see it`;
+    return `extractTagVersion gives ${UNPARSED_RETURNS} distinct UNPARSED diagnostic(s) and UNPARSED_REASONS exercises ` +
+      `${markers.size} - a diagnostic has lost its probe, and outcome coverage cannot see it`;
   }
   if (ABOVE_BY.length !== VERSION_COMPONENTS(floor.version)) {
     return `a version has ${VERSION_COMPONENTS(floor.version)} component(s) and ABOVE_BY names ${ABOVE_BY.length} - ` +

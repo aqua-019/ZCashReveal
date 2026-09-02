@@ -311,6 +311,39 @@ export function networkDependentIn(moduleText) {
 /* -------------------------------------------------------------------------- */
 
 /**
+ * A boolean per line: is this line inside an `environment:` block?
+ *
+ * Indentation-based, like `check-compose.mjs`'s service splitter and for the
+ * same reason - this file stays dependency-free so it can run before
+ * `pnpm install`, as every guard here does. A line is inside when it is more
+ * indented than the `environment:` key that opened the block, and the block ends
+ * at the first non-blank line indented at or below that key.
+ *
+ * WHY IT EXISTS. The list form `- NAME=value` is not unique to `environment:` -
+ * compose spells `build.args`, `labels` and others the same way - so a list
+ * reader with no block awareness reports a BUILD ARGUMENT as an environment
+ * default. Measured by a round-2 reviewer. The map form stays unrestricted:
+ * `NAME: value` outside `environment:` is not a shape this rule's variables
+ * appear in, and narrowing it would lose the bare form the self-test drives.
+ */
+export function environmentLineFlags(text) {
+  const lines = text.split("\n");
+  const flags = new Array(lines.length).fill(false);
+  let openIndent = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (line.trim() === "") continue;
+    const indent = line.length - line.trimStart().length;
+    if (openIndent !== -1 && indent > openIndent) {
+      flags[i] = true;
+      continue;
+    }
+    openIndent = /^\s*environment:\s*$/.test(line) ? indent : -1;
+  }
+  return flags;
+}
+
+/**
  * Every balanced `${...}` on one line, as {name, op, rest}.
  *
  * BALANCED RATHER THAN REGEX, because compose permits nesting and the whole
@@ -367,7 +400,7 @@ const HAS_VALUE = (s) => /[A-Za-z0-9]/.test(s);
  * plus the bare form `NAME: 3428143`, which is a default with no operator at
  * all and is the form an editor reaches for first.
  */
-export function composeLiteralFor(line, name) {
+export function composeLiteralFor(line, name, inEnvironment = true) {
   const trimmed = line.trim();
   if (trimmed === "" || trimmed.startsWith("#")) return null;
   for (const { name: n, op, rest } of interpolationsIn(line)) {
@@ -387,32 +420,58 @@ export function composeLiteralFor(line, name) {
   // compose file into a shadow tree and watching the run stay green. The
   // interpolation loop above already covers `- NAME=${NAME:-x}`, because it
   // scans the whole line; this is the literal half.
-  const listItem = /^-\s*(.*)$/.exec(trimmed);
-  if (listItem !== null && !listItem[1].includes("${")) {
-    const kv = new RegExp(`^${name}\\s*=\\s*(.*)$`).exec(listItem[1].trim());
-    if (kv !== null) {
-      const value = kv[1].replace(/^["']|["']$/g, "").trim();
-      if (HAS_VALUE(value)) return { form: `- ${name}=<value>`, literal: value };
-    }
+  const listItem = /^-\s*([\s\S]*)$/.exec(trimmed);
+  if (listItem !== null && !listItem[1].includes("${") && inEnvironment) {
+    const value = literalValueOf(listItem[1], name);
+    if (value !== null) return { form: `- ${name}=<value>`, literal: value };
   }
   return null;
+}
+
+/**
+ * THE VALUE HALF OF `NAME=VALUE`, SHARED BY BOTH SURFACES.
+ *
+ * WHY IT IS ONE FUNCTION NOW. The commit that added compose's list form
+ * (`- NAME=value`) wrote its own value parser, and in doing so RE-CREATED, in
+ * the list branch, the exact defect the SAME COMMIT fixed on the env surface:
+ * `- V=   # set this per network` was read as a literal default whose value was
+ * the comment prose. Two sibling branches, one commit, one fix and one
+ * re-introduction - which is the clause (ii) shape stated exactly, and it was
+ * found by a round-2 reviewer reading that commit against itself.
+ *
+ * It also could not read a WHOLE-ENTRY quote - `- "NAME=3428143"`, a standard
+ * compose spelling - because its key regex was anchored at the name while the
+ * quote stripping ran on the value. A guard blind to a common spelling of the
+ * thing it forbids is the LEDGER-09a "assertion satisfied by every value it was
+ * written to exclude" shape wearing a parser's clothes.
+ *
+ * So: one parser, two callers, and the fail sides below drive both.
+ */
+export function literalValueOf(assignment, name) {
+  // A whole-entry quote wraps `NAME=VALUE` together. Unwrap before splitting,
+  // which is what the list branch could not do.
+  let text = assignment.trim();
+  const whole = /^(["'])([\s\S]*)\1$/.exec(text);
+  if (whole !== null) text = whole[2].trim();
+  const m = new RegExp(`^(?:export\\s+)?${name}\\s*=\\s*([\\s\\S]*)$`).exec(text);
+  if (m === null) return null;
+  const raw = m[1].trim();
+  // AN INLINE COMMENT IS NOT A VALUE. `V=   # leave unset` is what an operator
+  // writes when they mean "deliberately blank". A QUOTED value keeps its `#`,
+  // because inside quotes it is data - but the quotes are stripped from the
+  // VALUE ONLY after any trailing comment outside them is removed, which the
+  // first draft got wrong and reported `3428143" # mainnet` as the literal.
+  const q = /^(["'])([\s\S]*?)\1\s*(?:#.*)?$/.exec(raw);
+  const value = q !== null ? q[2].trim() : raw.replace(/(^|\s)#.*$/, "").trim();
+  return HAS_VALUE(value) ? value : null;
 }
 
 /** Does this `.env.example` line assign NAME a non-empty value, uncommented? */
 export function envLiteralFor(line, name) {
   const trimmed = line.trim();
   if (trimmed === "" || trimmed.startsWith("#")) return null;
-  const m = new RegExp(`^(?:export\\s+)?${name}\\s*=\\s*(.*)$`).exec(trimmed);
-  if (m === null) return null;
-  // AN INLINE COMMENT IS NOT A VALUE. `V=   # leave unset` is the spelling an
-  // operator reaches for when they mean "deliberately blank", and the first
-  // draft read the comment PROSE as the literal default and failed the build
-  // naming it. A quoted value keeps its `#`, because inside quotes it is data.
-  const raw = m[1].trim();
-  const value = /^["']/.test(raw)
-    ? raw.replace(/^["']|["']$/g, "").trim()
-    : raw.replace(/(^|\s)#.*$/, "").trim();
-  if (!HAS_VALUE(value)) return null;
+  const value = literalValueOf(trimmed, name);
+  if (value === null) return null;
   return { form: `${name}=<value>`, literal: value };
 }
 
@@ -493,8 +552,9 @@ export function scan(modules, surfaces) {
   }
   for (const [name, module] of dependent) {
     for (const { file, text } of surfaces.compose) {
+      const envLines = environmentLineFlags(text);
       text.split("\n").forEach((line, i) => {
-        const hit = composeLiteralFor(line, name);
+        const hit = composeLiteralFor(line, name, envLines[i] === true);
         if (hit !== null) {
           findings.push({
             file,
@@ -566,6 +626,9 @@ const SHAPES = [
   { surface: "compose", form: "- V=d", line: "      - V=3428143", literal: true, why: "compose's LIST form, which the first draft could not read at all" },
   { surface: "compose", form: "- V=${V:-d}", line: "      - V=${V:-3428143}", literal: true, why: "the list form carrying an operator default" },
   { surface: "compose", form: "- V=", line: "      - V=", literal: false, why: "a list entry assigning nothing" },
+  { surface: "compose", form: "- V=d inline-comment", line: "      - V=   # set this per network", literal: false, why: "the defect the list branch RE-CREATED in the same commit that fixed it on the env surface" },
+  { surface: "compose", form: "- quoted-whole", line: '      - "V=3428143"', literal: true, why: "a whole-entry quote, a standard compose spelling the first list reader could not see at all" },
+  { surface: "compose", form: "- quoted-value", line: "      - V='3428143'", literal: true, why: "a quoted value inside an unquoted entry" },
   { surface: "env", form: "V=d", line: "V=3428143", literal: true, why: "the form .env.example shipped" },
   { surface: "env", form: "export V=d", line: "export V=3428143", literal: true, why: "the exported spelling" },
   { surface: "env", form: "quoted", line: 'V="3428143"', literal: true, why: "quoted is still a value" },
@@ -577,6 +640,7 @@ const SHAPES = [
   { surface: "env", form: "inline-comment", line: "V=   # leave unset", literal: false, why: "an inline comment is prose, not a value - it was read as one" },
   { surface: "env", form: "value-then-comment", line: "V=3428143   # the mainnet constant", literal: true, why: "a real value keeps its verdict when a comment follows" },
   { surface: "env", form: "quoted-hash", line: 'V="#3428143"', literal: true, why: "inside quotes a hash is data, so the comment strip must not run" },
+  { surface: "env", form: "quoted-then-comment", line: 'V="3428143"   # mainnet', literal: true, why: "the quoted arm must strip the trailing comment too - it reported `3428143\" # mainnet` as the literal" },
 ];
 const SURFACES = ["compose", "env"];
 const VERDICTS = [true, false];
@@ -601,8 +665,8 @@ const VERDICTS = [true, false];
  * this project that a guard's self-test was found certifying a hole - the first
  * three shipped.
  */
-const COMPOSE_FORMS = ["${V}", "${V:-d}", "${V-d}", "${V:+d}", "${V+d}", "${V:?m}", "${V?m}", "${V:-}", "bare", "nested", "commented", "other-variable", "- V=d", "- V=${V:-d}", "- V="];
-const ENV_FORMS = ["V=d", "export V=d", "quoted", "#V=d", "# V=d", "V=", "prefix-collision", "other-variable", "inline-comment", "value-then-comment", "quoted-hash"];
+const COMPOSE_FORMS = ["${V}", "${V:-d}", "${V-d}", "${V:+d}", "${V+d}", "${V:?m}", "${V?m}", "${V:-}", "bare", "nested", "commented", "other-variable", "- V=d", "- V=${V:-d}", "- V=", "- V=d inline-comment", "- quoted-whole", "- quoted-value"];
+const ENV_FORMS = ["V=d", "export V=d", "quoted", "#V=d", "# V=d", "V=", "prefix-collision", "other-variable", "inline-comment", "value-then-comment", "quoted-hash", "quoted-then-comment"];
 
 /**
  * A synthetic config module carrying every discovery case at once, so the
@@ -682,6 +746,43 @@ function selfTest() {
           `which is not in the declared form list - a row cannot buy coverage for a form nobody listed`;
       }
     }
+  }
+
+  // 1b. THE ENVIRONMENT-BLOCK TRACKER, OVER A FIXTURE THAT CONTAINS ITS OWN
+  //     COUNTER-EXAMPLE. Added because a round-2 mutation showed the block
+  //     awareness had NO self-test at all: deleting `&& inEnvironment` and
+  //     making the tracker return true for every line both survived a full run,
+  //     because every SHAPES row is a bare line with no block context and
+  //     `composeLiteralFor` defaults `inEnvironment` to true. A guard clause
+  //     with no probe is a guard clause nobody is testing.
+  const ENV_BLOCK_FIXTURE = [
+    "services:",
+    "  indexer:",
+    "    build:",
+    "      args:",
+    "        - V=3428143",      // NOT environment - a build argument
+    "    labels:",
+    "      - V=3428143",        // NOT environment - a label
+    "    environment:",
+    "      - V=3428143",        // environment
+    "      - W=1",              // environment
+    "    ports:",
+    '      - "8080:80"',        // NOT environment
+  ];
+  const flags = environmentLineFlags(ENV_BLOCK_FIXTURE.join("\n"));
+  const expected = [false, false, false, false, false, false, false, false, true, true, false, false];
+  for (let i = 0; i < expected.length; i += 1) {
+    if (flags[i] !== expected[i]) {
+      return `the environment-block tracker put line ${i + 1} (${JSON.stringify(ENV_BLOCK_FIXTURE[i].trim())}) ` +
+        `${flags[i] ? "INSIDE" : "OUTSIDE"} an environment block, expected the opposite`;
+    }
+  }
+  // And the two halves together: the same text, read as a compose file, must
+  // report the environment entry and NOT the build argument or the label.
+  const envHits = ENV_BLOCK_FIXTURE.map((line, i) => composeLiteralFor(line, "V", flags[i] === true)).filter((h) => h !== null);
+  if (envHits.length !== 1) {
+    return `the list reader found ${envHits.length} literal default(s) for V in the block fixture, expected exactly 1 - ` +
+      "the build argument and the label must not count, and the environment entry must";
   }
 
   // 2. THE DISCOVERY HALF, over the synthetic module.
