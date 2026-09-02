@@ -26,7 +26,7 @@
  * on rollback - and it is that contract A4's fail side mutates.
  */
 import fc from "fast-check";
-import pino from "pino";
+import pino, { type Logger } from "pino";
 import { describe, expect, it } from "vitest";
 import { asHex, type Hex, type Pool, type RpcTransaction } from "@zcashreveal/types";
 import type { GetTreestate, RpcBlock } from "@zcashreveal/zebra-rpc";
@@ -34,7 +34,9 @@ import type { GetTreestate, RpcBlock } from "@zcashreveal/zebra-rpc";
 import { ChainFollower, type FollowerRpc } from "../chain-follower.js";
 import { createChainState, POOLS, type ChainBase, type ChainState } from "../chain-state.js";
 import { MemoryChainStore, type RollbackCounts } from "../chain-store.js";
+import { replayChainState } from "../chain-replay.js";
 import { applyConfirmedBlock, type TreestateSource } from "../confirmed-block.js";
+import { findSplitHeight } from "../reorg.js";
 import { ChainRuntimeError, ValueAccountingMismatchError } from "../errors.js";
 
 const SILENT = pino({ level: "silent" });
@@ -444,6 +446,37 @@ describe("A4 - after a reorg the chain state equals a fresh replay of the new br
     }
     expect(outcome).not.toBe("equal");
   });
+
+  it("FAIL STATE, BY DATA, WITH NO CODE CHANGED: one rolled-back flow row put back into the store makes the replay disagree", async () => {
+    // THE SECOND FAIL SIDE, AND THE ONE THE RULE ACTUALLY ASKS FOR. The case
+    // above sabotages `rollbackToHeight` - a CODE mutation, which proves the
+    // comparison is wired and not that it discriminates over data
+    // (CLAUDE.md, LEDGER-09a Q2). Here every line of shipped code runs
+    // untouched and the mutation is a VALUE drawn from A4's exclusion set: a
+    // boundary-flow row at a height above the split, taken from the branch the
+    // rollback correctly deleted, written straight back into the store's rows.
+    const busy: TxSpec = { saplingOutputs: 1, saplingSpends: 0, saplingDelta: -100n, orchardActions: 1, orchardDelta: 300n, ironwoodActions: 1, ironwoodDelta: -50n };
+    const built = build({ a: [[busy], [busy], [busy], [busy], [busy], [busy]], depth: 3, b: [[busy], [busy], [busy], [busy]] });
+    const store = new MemoryChainStore();
+
+    // Keep one of branch A's flows before the reorg deletes it - a real row
+    // this store really held, at a height above the split.
+    const { follower, node } = await runReorg(built, store);
+    const stale = { id: 10_000, record: { pool: "orchard" as const, txid: idHex(0, 999), height: built.splitHeight + 1, deltaZat: 300n }, txSeq: 0 };
+    const all = nullifiersOf([...built.chainA, ...built.chainB]);
+    const stringify = (v: unknown) => JSON.stringify(v, (_k, x: unknown) => (typeof x === "bigint" ? x.toString() : x));
+    const expected = stringify(fingerprint(await freshReplay(built.chainB, node.treestate()), all));
+
+    // PASS SIDE FIRST, so the comparison is known to be capable of equality on
+    // this store: replaying the untouched store reproduces the follower's own
+    // state, which is the new branch.
+    expect(stringify(fingerprint(await replayChainState(BASE, store, "mainnet"), all))).toBe(expected);
+    expect(stringify(fingerprint(follower.chain, all))).toBe(expected);
+
+    // THE DATA MUTATION. One row back, nothing else touched.
+    store.boundaryFlows.push(stale);
+    expect(stringify(fingerprint(await replayChainState(BASE, store, "mainnet"), all))).not.toBe(expected);
+  });
 });
 
 describe("the follower's two kinds of error", () => {
@@ -512,5 +545,187 @@ describe("the follower's two kinds of error", () => {
     await follower.stop();
     expect(fatal).toBeInstanceOf(ValueAccountingMismatchError);
     expect((await store.readHighestBlock())?.height).toBe(BASE_HEIGHT);
+  });
+});
+
+/* ----------------------------------------------------------------------------
+   The two edges a gate round found: a side effect that fails after the commit,
+   and a rollback whose replay did not land.
+   ------------------------------------------------------------------------- */
+
+/** A logger that keeps what it was told, so a claim about a log line is checked by reading the line. */
+function capturing(): { log: Logger; lines: Array<{ level: string; obj: Record<string, unknown>; msg: string }> } {
+  const lines: Array<{ level: string; obj: Record<string, unknown>; msg: string }> = [];
+  const at = (level: string) => (obj: unknown, msg?: string) => {
+    lines.push({ level, obj: obj as Record<string, unknown>, msg: msg ?? "" });
+  };
+  const log = { info: at("info"), warn: at("warn"), error: at("error"), fatal: at("fatal"), debug: at("debug"), trace: at("trace") } as unknown as Logger;
+  return { log, lines };
+}
+
+const ONE: TxSpec = { saplingOutputs: 1, saplingSpends: 0, saplingDelta: -100n, orchardActions: 1, orchardDelta: 300n, ironwoodActions: 1, ironwoodDelta: -50n };
+
+describe("onApplied fails AFTER the block is committed", () => {
+  it("does not re-apply the block, does not stop the loop, and says the anchors are lost rather than 'retrying'", async () => {
+    // The block is written and the chain advanced before `onApplied` runs, so
+    // a throw there is not a step to retry - the next step fetches the NEXT
+    // block. Before the fix the throw escaped into the loop's generic handler,
+    // which logged "retrying after the poll interval" and then moved on
+    // anyway: the anchors were dropped silently while the log said they would
+    // be retried. Found by a gate reviewer.
+    const cur = cursorAt(BASE);
+    const blocks = buildBranch([[ONE], [ONE], [ONE]], BASE_HEIGHT + 1, 0, cur);
+    const node = new ScriptedNode(blocks);
+    const store = new MemoryChainStore();
+    await store.writeBase(BASE, 1);
+    const { log, lines } = capturing();
+    const seen: number[] = [];
+    const follower = new ChainFollower(createChainState(BASE), {
+      rpc: node,
+      store,
+      log,
+      pollIntervalMs: 0,
+      sleep: YIELD_SLEEP,
+      onApplied: (applied) => {
+        seen.push(applied.height);
+        if (applied.height === BASE_HEIGHT + 1) throw new Error("redis: connection reset");
+      },
+      onFatal: (err) => {
+        throw err;
+      },
+    });
+    const steps = await followUntilIdle(follower);
+
+    // Every block applied exactly once, in order, and the loop reached idle.
+    expect(steps).toEqual(["applied", "applied", "applied", "idle"]);
+    expect(seen).toEqual([BASE_HEIGHT + 1, BASE_HEIGHT + 2, BASE_HEIGHT + 3]);
+    expect(follower.chain.height).toBe(BASE_HEIGHT + 3);
+
+    // And the loss is named at the height it happened, as a loss.
+    const errors = lines.filter((l) => l.level === "error");
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.msg).toMatch(/onApplied failed AFTER the block was committed/);
+    expect(errors[0]?.obj["height"]).toBe(BASE_HEIGHT + 1);
+    expect(String(errors[0]?.msg)).not.toMatch(/retry/i);
+    // The block itself IS in the store - which is why it must not be retried.
+    expect((await store.readBlocks(BASE_HEIGHT + 1, BASE_HEIGHT + 1))[0]?.height).toBe(BASE_HEIGHT + 1);
+  });
+});
+
+describe("a callback that throws after its work is committed", () => {
+  it("FAIL SIDE, BY DATA: a FATAL-shaped error from onApplied still stops the loop - the catch is not a blanket", async () => {
+    // The catch added for the ordinary case must not remove the follower's own
+    // "two kinds of error" invariant. A ChainRuntimeError raised by a callback
+    // is this build disagreeing with itself, and it is still fatal.
+    const cur = cursorAt(BASE);
+    const blocks = buildBranch([[ONE], [ONE]], BASE_HEIGHT + 1, 0, cur);
+    const node = new ScriptedNode(blocks);
+    const store = new MemoryChainStore();
+    await store.writeBase(BASE, 1);
+    const follower = new ChainFollower(createChainState(BASE), {
+      rpc: node,
+      store,
+      log: SILENT,
+      pollIntervalMs: 0,
+      sleep: YIELD_SLEEP,
+      onApplied: () => {
+        throw new ChainRuntimeError("a state error raised by a callback");
+      },
+      onFatal: () => undefined,
+    });
+    await expect(follower.step()).rejects.toThrow(ChainRuntimeError);
+  });
+
+  it("onReorg failing after the rollback committed is named as a loss, not as a retry, and the loop continues", async () => {
+    // The same shape as onApplied, one callback later - and this one has a live
+    // trigger: the shipped onReorg calls forgetAbove, a Postgres write.
+    const built = build({ a: [[ONE], [ONE], [ONE], [ONE]], depth: 2, b: [[ONE], [ONE], [ONE]] });
+    const store = new MemoryChainStore();
+    const node = new ScriptedNode(built.chainA);
+    await store.writeBase(BASE, 1);
+    const { log, lines } = capturing();
+    const follower = new ChainFollower(createChainState(BASE), {
+      rpc: node,
+      store,
+      log,
+      pollIntervalMs: 0,
+      sleep: YIELD_SLEEP,
+      onReorg: () => {
+        throw new Error("postgres: connection terminated (forgetAbove failed)");
+      },
+      onFatal: (err) => {
+        throw err;
+      },
+    });
+    await followUntilIdle(follower);
+    node.switchTo(built.chainB);
+    const steps = await followUntilIdle(follower);
+
+    expect(steps.some((s) => s.startsWith("reorg@"))).toBe(true);
+    expect(steps[steps.length - 1]).toBe("idle");
+    const errors = lines.filter((l) => l.level === "error");
+    expect(errors).toHaveLength(1);
+    expect(errors[0]?.msg).toMatch(/onReorg failed AFTER the rollback was committed/);
+    expect(String(errors[0]?.msg)).not.toMatch(/retry/i);
+    // The reorg itself completed: the state is the new branch, as A4 requires.
+    const all = nullifiersOf([...built.chainA, ...built.chainB]);
+    const stringify = (v: unknown) => JSON.stringify(v, (_k, x: unknown) => (typeof x === "bigint" ? x.toString() : x));
+    expect(stringify(fingerprint(follower.chain, all))).toBe(stringify(fingerprint(await freshReplay(built.chainB, node.treestate()), all)));
+  });
+});
+
+describe("a rollback that committed and a replay that did not", () => {
+  it("resumes on the next reorg instead of reporting a consensus disagreement", async () => {
+    const built = build({ a: [[ONE], [ONE], [ONE], [ONE], [ONE], [ONE]], depth: 3, b: [[ONE], [ONE], [ONE], [ONE]] });
+    const store = new MemoryChainStore();
+    const node = new ScriptedNode(built.chainA);
+    await store.writeBase(BASE, 1);
+    const follower = new ChainFollower(createChainState(BASE), {
+      rpc: node,
+      store,
+      log: SILENT,
+      pollIntervalMs: 0,
+      sleep: YIELD_SLEEP,
+      onFatal: (err) => {
+        throw err;
+      },
+    });
+    await followUntilIdle(follower);
+
+    // THE STATE THIS TEST IS ABOUT, PRODUCED BY DATA RATHER THAN BY A STUB:
+    // the store is rolled back - committed, exactly as `resolveReorg` does -
+    // and the follower's chain is left where it was, which is what happens
+    // when the replay after that rollback fails transiently.
+    await store.rollbackToHeight(built.splitHeight);
+    expect(follower.chain.height).toBe(BASE_HEIGHT + 6);
+    expect((await store.readHighestBlock())?.height).toBe(built.splitHeight);
+
+    // FAIL SIDE: the walk as it was, bounded by the CALLER's tip, asks the
+    // store for a height it has correctly deleted. `isFatal` reads that error
+    // as a consensus disagreement and the process exits on it.
+    const staleWalk = async (): Promise<number> => {
+      const b = built.chainB[built.chainB.length - 1]!;
+      let hash = b.previousblockhash;
+      let height = b.height - 1;
+      while (height >= BASE.height) {
+        const ours = (await store.readBlocks(height, height))[0];
+        if (ours === undefined) throw new ChainRuntimeError(`this store holds no block at ${height}`);
+        if (ours.hash === hash) return height;
+        hash = (await node.getBlockHeader(hash!)).previousblockhash;
+        height -= 1;
+      }
+      throw new Error("below base");
+    };
+    await expect(staleWalk()).rejects.toThrow(ChainRuntimeError);
+
+    // PASS SIDE: the shipped walk, bounded by the STORE's tip, finds the split
+    // and the follower converges on the new branch.
+    node.switchTo(built.chainB);
+    const steps = await followUntilIdle(follower);
+    expect(steps.some((s) => s.startsWith("reorg@"))).toBe(true);
+    const all = nullifiersOf([...built.chainA, ...built.chainB]);
+    const stringify = (v: unknown) => JSON.stringify(v, (_k, x: unknown) => (typeof x === "bigint" ? x.toString() : x));
+    expect(stringify(fingerprint(follower.chain, all))).toBe(stringify(fingerprint(await freshReplay(built.chainB, node.treestate()), all)));
+    expect(await findSplitHeight(follower.chain, store, node, built.chainB[built.chainB.length - 1]!)).toBeGreaterThanOrEqual(built.splitHeight);
   });
 });

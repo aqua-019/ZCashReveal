@@ -119,7 +119,12 @@ p95s (`scratchpad/measure-apply.mts`, not in the tree):
 
 So this build's own work per block is single-digit milliseconds against a
 75-second block target; the follower's catch-up rate is bounded by the node's
-RPC latency and Postgres write latency, neither measured here.
+RPC latency and Postgres write latency, neither measured here. **Those two
+columns are the decode and the accounting only** - they do not include
+`store.writeBlock`, the `z_gettreestate` call, or the per-anchor registry
+writes in `onApplied` (two round trips each, unbatched), all of which are I/O
+this measurement replaced with an in-memory store. The figure is a floor on
+per-block latency, not an estimate of it.
 
 **Replay** (`replayChainState`, the same `replayPool` the persistence layer
 has always had, with a position check on every row): **Executed** over a
@@ -152,6 +157,12 @@ LEDGER-12 question about a base that moves.
 A block whose `previousblockhash` is not the state's tip hash is a reorg.
 `resolveReorg` (`runtime/reorg.ts`):
 
+0. brings the walk's floor to the store's OWN highest block first: heights
+   above it are walked through the node's headers without asking the store,
+   because a height this build does not hold cannot be the split. That is what
+   makes a rollback whose replay failed resumable rather than fatal - the
+   rollback commits, the replay may not, and the next attempt would otherwise
+   ask the store for heights it has just correctly deleted;
 1. walks `getblockheader` back from the fetched block's parent, comparing each
    height's hash with the store's, until the two agree - that height is the
    split;
@@ -159,7 +170,22 @@ A block whose `previousblockhash` is not the state's tip hash is a reorg.
    one transaction;
 3. replays a FRESH state from the base to the split and hands it to the
    follower, which replaces its `chain`;
-4. the next step applies `split + 1` from the new branch.
+4. forgets the anchors the registry recorded above the split - the `anchors`
+   table and the in-process memo - because that table is a seventh place a
+   height is written and the rollback covers six. Without it an orphaned
+   branch's roots keep answering `getHeightForAnchor`, and a mempool spend
+   citing one is given a depth measured from an abandoned block. **The Redis
+   hot tier is not cleared** and can still answer with the orphaned height
+   until that key's 24-hour TTL expires. A Redis hit repopulates the in-process
+   memo, so the memo now carries the SAME deadline the key does - without that,
+   one read after a reorg pinned the orphaned height for the life of the
+   process and the TTL bounded nothing. The reason the tier is not cleared:
+   `check-redis-safety` rule 4 permits
+   `DEL` only on a string literal, these keys are computed per root, and a rule
+   protecting another project's database is not one this handoff widens. The
+   window is bounded by the TTL and by a restart; the remedy is a ledger
+   question;
+5. the next step applies `split + 1` from the new branch.
 
 The property this is held to (A4, `runtime/__tests__/reorg-follower.test.ts`,
 100 runs plus the named 3-block worked case): the state after a reorg equals a
@@ -180,13 +206,15 @@ solved.
 | You see | What happened | Block written? | What to do |
 |---|---|---|---|
 | `the confirmed-block driver disagrees with consensus; stopping` at FATAL, then exit code 1, naming `ValueAccountingMismatchError` or `TreeSizeMismatchError` with the pool, height, this build's figure and the node's | This build's accounting for one block does not match the node's own `valuePools` or `trees` | No | **Do not skip it and do not lower the check.** A restart replays to the same block and fails the same way, which is by design: the disagreement is either a decoder defect here or a node whose figures changed shape (a Zebra upgrade - `check-compose-zebra-tag.mjs` pins the version for this reason). File it with the log line; the two figures in the message are the whole reproduction. |
-| `ReorgBelowBaseError` at FATAL | The split height is below the base row, so the branch this store opened on has been abandoned by the network | No | Wipe the six chain tables and restart at a lower `INDEXER_START_HEIGHT`: `TRUNCATE blocks, pool_commitments, pool_anchors, pool_nullifiers, pool_boundary_flows, pool_snapshots;` in the indexer database. The `anchors` registry table is additive and is left alone. A base more than a few hundred blocks below the tip makes this unreachable in practice. |
+| `ReorgBelowBaseError` at FATAL | The split height is below the base row, so the branch this store opened on has been abandoned by the network | No | Wipe the six chain tables and restart at a lower `INDEXER_START_HEIGHT`: `TRUNCATE blocks, pool_commitments, pool_anchors, pool_nullifiers, pool_boundary_flows, pool_snapshots;` in the indexer database. The `anchors` registry table is not one of the six and is left alone here; an ordinary reorg does prune it above the split (section 4, step 4), but a wipe of the six leaves stale rows in it that are harmless - a root with no matching commitment is never asked about. A base more than a few hundred blocks below the tip makes this unreachable in practice. |
 | `ChainBaseUnavailableError` at startup | The start block carries no `valuePools`, no `valueDeltaZat`, or no `trees.<pool>.size` for a pool it appended to - a node that does not serve verbosity-2 figures, or a height before they existed | Nothing started | Point `ZEBRAD_RPC_URL` at a Zebra 6.3.0 or later, or raise the start height. |
 | `ReplayPositionMismatchError` at startup | The store's `pool_commitments` rows are not contiguous from the base: a row's stored position is not the one replay assigns it | Nothing started | The store is corrupt. Restore the last `pg_dump` (RUNBOOK section 5) or wipe as above. |
 | `confirmed-block step failed; retrying after the poll interval` at ERROR | A transport error - node down, timeout, Postgres unreachable mid-step | No | Wait. The follower retries every poll interval and applies nothing until the step succeeds; the write is one transaction, so a Postgres failure mid-write leaves the previous block in place. |
 | `block applied` with `notices: ["IRONWOOD_TREESTATE_ABSENT"]`, `IRONWOOD_TREESTATE_MISMATCH` or `IRONWOOD_ROOT_ABSENT` | The block appended Ironwood commitments and `z_gettreestate` returned nothing, a different block, or no Ironwood root | Yes, without that anchor | Every mempool spend citing that anchor gets an `UNKNOWN_ANCHOR` finding at INFO and no assessment - the honest outcome. **There is no backfill:** a restart replays from the store, where the anchor is absent. Recorded as a ledger question; the remedy today is a wipe to a base below that height once the node answers. |
 | `block applied` with `VALUE_POOLS_ABSENT`, `TREES_ABSENT` or `IRONWOOD_TREE_SIZE_ABSENT` | The block reports no figure for that pool, so the corresponding A1 check did not run for it | Yes | Should not occur against a pinned Zebra 6.3.0; if it recurs, the node is not the one the pin names. |
 | `UNKNOWN_ANCHOR` findings on every Orchard-shaped spend, each saying `its BYTE-REVERSED spelling IS recorded` | The node spells transaction anchors in the opposite byte order from the roots this build recorded - Zebra after ZcashFoundation/zebra #10461, which reversed the transaction-side anchor and not `getblock`'s or `z_gettreestate`'s roots | Yes | The compose pin is at 6.3.0, where both sides agree (Read: Zebra source at v6.2.1, v6.3.0, 1c9b245 and HEAD ef6325c during HANDOFF-12). Do not upgrade Zebra past the pin until this build follows; there is no version CEILING guard yet, which is a ledger question. |
+| `onApplied failed AFTER the block was committed; its anchors are unregistered and will NOT be retried` at ERROR, with the height and the roots | The block was written and the chain advanced, and then the registry write (Postgres `anchors` plus the Redis hot tier) failed | Yes | The block is NOT re-applied - the next step fetches the next block, by design, because re-applying a committed block is not possible against an append-only state. Those roots have no anchor depth until the height is re-indexed, so every mempool spend citing one reports a null depth. Same remedy and same ledger question as the withheld treestate above. The line names the height and the roots precisely so the loss is attributable; it deliberately does not say "retrying", which is what the generic handler used to say before it was separated out. |
+| `this store holds no block at N although its tip is M; the split cannot be found` (a `ChainRuntimeError`) at FATAL | A height at or below the store's own tip is missing: the six chain tables disagree with each other | No | Real corruption, unlike the case the split walk now tolerates above the store's tip. Restore the last `pg_dump` or wipe as above. If this appears immediately after a reorg, capture the `blocks` table's height range before wiping - it is the evidence. |
 | `startFollower ran before bootstrap` | `runStartup`'s steps were rewired out of order | Nothing started | A code defect, caught by `startup.test.ts`; not reachable from configuration. |
 
 Nothing in this table is retried into a different answer, and nothing skips a

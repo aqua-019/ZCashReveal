@@ -30,7 +30,26 @@ const ConfigSchema = z.object({
    * every block it applies. Resolved in `loadConfig`, because a zod default
    * cannot read a sibling field. See docs/2.0/RUNTIME.md.
    */
-  INDEXER_START_HEIGHT: z.coerce.number().int().positive().optional(),
+  // AN EMPTY STRING IS ABSENT, AND SAYING SO IS WHAT LETS THE DEFAULT BE THE
+  // NETWORK'S. `docker compose` writes `KEY: ""` for a `${VAR:-}` whose VAR is
+  // unset - it never omits the key - and a blank `.env` line does the same, so
+  // "" is how "the operator did not choose one" actually arrives here. Without
+  // this, `Number("") === 0` failed `.positive()` and `loadConfig` threw at
+  // module scope before the logger existed, crash-looping under
+  // `restart: unless-stopped`. Found by a gate reviewer, measured against the
+  // installed zod: bare `.optional()` throws on "", this resolves it to
+  // undefined, and every other malformed value ("abc", "0", "3428143.5")
+  // still throws.
+  INDEXER_START_HEIGHT: z.preprocess(
+    // TRIMMED, because "" was only the most common spelling of blank. A value
+    // exported as a single space is not empty to compose's `${VAR:-}`, which
+    // substitutes only on unset-or-empty, so it arrived here as " ",
+    // coerced to 0 and threw at module scope - the same crash-loop the empty
+    // case was fixed for, by a different door. Found by the gate round that
+    // reviewed that fix.
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.coerce.number().int().positive().optional(),
+  ),
 
   /** Anchors within this depth (in blocks) are flagged as "recent" — a tighter
    *  anchor narrows the window during which the spent note could have entered

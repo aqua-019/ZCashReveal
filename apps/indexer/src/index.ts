@@ -156,8 +156,17 @@ async function main() {
             "block applied",
           );
         },
-        onReorg: (splitHeight, rolledBack) =>
-          log.warn({ splitHeight, rolledBack }, "reorg resolved: rolled back to the split and replayed"),
+        // The anchor registry is a SEVENTH table with a height in it, and the
+        // rollback inside the store covers six. Without this, an orphaned
+        // branch's roots kept answering `getHeightForAnchor` and every spend
+        // citing one was given a depth measured from an abandoned block.
+        onReorg: async (splitHeight, rolledBack) => {
+          const forgotten = await anchorRegistry.forgetAbove(splitHeight);
+          log.warn(
+            { splitHeight, rolledBack, anchorsForgotten: forgotten },
+            "reorg resolved: rolled back to the split, forgot the orphaned anchors, and replayed",
+          );
+        },
         // A consensus disagreement is this build's fault and is never retried:
         // the follower has already logged it at fatal, and the process exits
         // non-zero so the supervisor restarts it into a replay rather than

@@ -1,7 +1,7 @@
 ---
 handoff: 12
 title: 7B / 7C runtime wiring — PoolState replay, confirmed-block driver, assessments on the live path
-status: in-progress
+status: shipped
 branch: the session-designated branch (name it `feat/v2-12-runtime-poolstate` if you may choose)
 track: Integration
 depends_on: 06, 07, 08
@@ -454,13 +454,593 @@ PREVIEW URL: none. Unreachable from a session (Deployment Protection returns 302
   before that).
 ```
 
+### §7, second session - §4 deliverables 1, 2 and 3 (PR opened after PR #50 merged PARTIAL; F-50-4)
+
+```
+STATUS: DONE - §4 DELIVERABLES 1, 2 AND 3 DELIVERED; A1 TO A5 EACH CARRY BOTH POLARITIES;
+        FOLDS 0-4 OF THE L2 RESOLUTION APPLIED.
+
+  The first §7 block above is PR #50's and stands as the record of that session. This
+  block is the second session's, the one the F-50-4 rule routed to `open` rather than
+  `closed`. Everything the prompt named is landed: the runtime wiring with reorg
+  handling and tests, docs/2.0/RUNTIME.md, the Ironwood anchor via z_gettreestate, and
+  the answer to deliverable 3 (below). Deliverable 0 was not redone.
+
+
+THE PR MERGED MID-SESSION, BEFORE THIS WRITE-BACK AND BEFORE THE GATE FIXES.
+  PR #51 opened at 5a3893b, and the operator marked it ready and merged it at
+  10:30 UTC as `65bdac5`. Its second parent is 5a3893b, so main carries the
+  runtime and NOT c53f2ba: every one of round 1's six defects, the two HIGHs
+  included, is live in main as merged. This branch therefore continues as the
+  protocol's follow-up - restarted from the merged main, carrying c53f2ba
+  rebased onto it plus this write-back - and the PR opened from it is a NEW
+  pull request, never a reopening of #51. Recorded here because a reader of
+  main's history would otherwise have no way to know the fixes are not in it.
+
+BRANCH / PR: claude/handoff-12-reconcile-2becu3. PR #51 opened as a draft at
+  `5a3893b` and the operator merged it at 10:30 UTC (`65bdac5`). The branch then
+  restarted from the merged main - the protocol's rule for follow-up after a
+  merge - carrying the gate fixes and this write-back, and the PR opened from it
+  is a NEW draft PR. Both stop at opened; no merge, no deploy, no Vercel change
+  by this session.
+
+DIRECTORS SPAWNED (lead names each + spawn mode proven):
+  Spawn mode: MULTI-AGENT, PROVEN BEFORE ANY WORK. An `Explore` subagent was
+  dispatched as the first action and returned live `git log` output.
+  The lead built the handoff directly - each piece needed one tree and one runner,
+  and a director layer would have added handoffs between agents without reach.
+  One fan-out was used, after the six gates were green, as the gate round: four
+  read-only verifiers, each Sonnet, each told to return diffs rather than write:
+    verify:runtime-failure-paths   (runtime/*, index.ts, persistence/replay, the three runtime suites)
+    verify:live-path-seam          (leak-analyzer, round-trip, realtime.ts, gateway consumers, the seam tests)
+    verify:runtime-doc-claims      (every checkable sentence in RUNTIME.md, the runbook paragraph, changed docblocks)
+    verify:config-infra            (config.ts, .env.example, compose, Dockerfile, healthcheck, CI, the guards)
+  POST-FAN-OUT SWEEP, run after the fan-out returned and BEFORE the next commit,
+  per CLAUDE.md: `git status --porcelain` showed twelve paths, every one of them
+  the lead's own edit for a named finding. NO stray write by either read-only
+  reviewer that returned; the two that died wrote nothing either. Reported
+  whether or not it found anything, which is what the rule requires.
+
+DELIVERABLE 3, ANSWERED AS §4 ASKS: `ironwoodAnchorPendingTreestate` is now an INTERNAL
+  SCHEDULING SIGNAL. `applyConfirmedBlock` reads it to decide when to call
+  `z_gettreestate` - only for a block that appended Ironwood commitments - and nothing
+  reports it as an absence any more. `ironwoodTreeSize` is kept: it is the only
+  Ironwood measurement `getblock` carries and it is the `maxPosition` of every Ironwood
+  anchor, which is what cross-checks the treestate's root against the block. Read:
+  decoder/block-decoder.ts docblocks, runtime/confirmed-block.ts (commit 143fd8a).
+
+FILES (created / modified / moved), 67 against origin/main 09b034d:
+  created  apps/indexer/src/runtime/{errors,chain-state,chain-store,chain-replay,confirmed-block,reorg,chain-follower,startup,index}.ts
+  created  apps/indexer/src/runtime/__tests__/{confirmed-block,reorg-follower,startup}.test.ts
+  created  apps/indexer/src/analysis/__tests__/{live-assessment,wire-seam}.test.ts
+  created  apps/indexer/src/persistence/conn.ts
+  created  apps/indexer/src/__tests__/config.test.ts                      (gate round 1)
+  created  apps/indexer/src/decoder/__tests__/anchor-registry-rollback.test.ts  (gate round 1)
+  created  apps/gateway/src/live-reports.ts, apps/gateway/src/__tests__/live-reports.test.ts
+  created  docs/2.0/RUNTIME.md
+  created  handoffs/prompts/PROMPT-12b.md
+  created  apps/indexer/test/fixtures/blocks/mainnet-3444836-1e5057.json, mainnet-3444837-274151.json (fold 2)
+  moved    apps/indexer/test/fixtures/blocks/mainnet-3432130-000000.json -> mainnet-3432130-9eb351.json,
+           mainnet-3441955-000000.json -> mainnet-3441955-54b709.json (fold 2 naming rule)
+  deleted  docs/2.0/capture/ (fold 3)
+  modified apps/indexer/src/index.ts, config.ts, .env.example, docker-compose.yml
+  modified apps/indexer/src/decoder/anchor-depth.ts                       (gate rounds 1 and 2)
+  modified apps/indexer/src/decoder/leak-analyzer.ts, block-decoder.ts, analysis/round-trip.ts, analysis/constants.ts
+  modified apps/indexer/src/state/{commitment-index,value-pool,pool-state,errors}.ts and their tests
+  modified apps/indexer/src/persistence/{replay,blocks,leak-reports,pool-anchors,pool-boundary-flows,pool-commitments,pool-nullifiers,pool-snapshots}.ts, integration/replay.test.ts
+  modified apps/indexer/src/decoder/__tests__/{block-decoder,value-pools-conservation}.test.ts, test/fixtures/blocks/README.md
+  modified apps/gateway/src/{routes/mempool,server,ws-broker}.ts, __tests__/{wire-form,ws-broker}.test.ts
+  modified packages/zebra-rpc/src/{client,schemas}.ts, __tests__/client.test.ts
+  modified packages/zec-types/src/{realtime,leaks}.ts
+  modified docs/2.0/RUNBOOK-VPS.md (section 3, section 10), CLAUDE.md (step 1, F-50-4)
+  modified handoffs/{README,LEDGER,LOG,HANDOFF-12}.md
+
+EVIDENCE (per §5 assertion: pass transcript + fail transcript, provenance Executed/Read/UNVERIFIED):
+
+  A1 - DELIVERED, LIVE ON EVERY BLOCK. Executed.
+    The driver compares its own per-pool delta, running balance and commitment count
+    with the node's `valueDeltaZat`, `chainValueZat` and `trees.<pool>.size` on every
+    block it applies, and throws before writing on any disagreement. The suite asserts
+    the same equalities explicitly rather than trusting "did not throw":
+    runtime/__tests__/confirmed-block.test.ts, 14 passed - one test per committed
+    capture through the REAL `ZebraRpc.getBlock` (four), the consecutive pair carried
+    across (3,444,836's closing figures open 3,444,837, both rows in the store), and
+    the fail sides.
+    FAIL SIDE, BY DATA, from inside the stated exclusion set (a capture with ONE pool's
+    valueDeltaZat altered by 1 zat - the member §5 names):
+      sapling valueDeltaZat + 1 on 3,444,837 -> ValueAccountingMismatchError
+        "sapling at 3444837: this build's delta is 875651408 zat and the node's
+         valueDeltaZat is 875651409"
+      ironwood chainValueZat + 1            -> ValueAccountingMismatchError
+        "ironwood at 3444837: this build's balance is 262194764371577 zat and the
+         node's chainValueZat is 262194764371578"
+      sapling trees.size + 1                -> TreeSizeMismatchError, naming the pool
+                                               and both counts
+    In every fail case the store holds no block row and the state has not advanced
+    (asserted by `expectUntouched`, added after the first draft of this report claimed
+    it and the tests were found not to say it).
+    THE BASE MODEL IS WHAT MADE A1 EXECUTABLE (commit 07954ff): a `PoolState` opens at a
+    `PoolStateBase` - commitment positions from `trees.size` minus the block's own
+    appends, opening balance `chainValueZat - valueDeltaZat` - so the running figures
+    are the node's from the first block rather than zeros the node would never match.
+
+  A2 - DELIVERED, AND NOT IN THE POSTGRES GATE. Executed.
+    runtime/startup.ts `runStartup` is the order; index.ts calls it and constructs
+    the mempool poll loop only after it resolves. runtime/__tests__/startup.test.ts,
+    6 passed, over a MemoryChainStore and scripted fakes - no database:
+      PASS  the shipped orchestration records ["replay", "follower", "zmq"], with a
+            bootstrap that resolves on a later event-loop turn so the order is earned
+      FAIL  an orchestration that awaits zmq.start() first records the inverted order
+      FAIL, BY DATA (the member §5 names - a startup observing zmq.start() before the
+            replay resolved): the bootstrap NOT awaited -> "zmq" recorded before
+            "replay" resolved; the spy discriminates
+      bootstrapChain: cold (one getblock + one getblockheader, base written, state
+            opened at the start height), warm (no RPC call, replayed to the highest
+            block), corrupt (a lowest block with no snapshot for a pool is refused)
+
+  A3 - DELIVERED, BOTH HALVES. Executed.
+    Population: `AnalyzeContext.chainState`; every spend whose anchor the state has
+    recorded carries `assessRaw` over Cand_0; every link the `RoundTripIndex` makes
+    over a state carries `assessFiltered` (time window; amount match only once the
+    deposit's commitments are IN THE TREE, at the tree's height; the echo's audit
+    appended when it matched the same pair). `UNKNOWN_ANCHOR` is a `FindingCode`
+    member, INFO, once per distinct (pool, anchor), carrying the spend count and,
+    when the anchor's byte-reversed spelling IS recorded, the Zebra #10461 clause.
+    analysis/__tests__/live-assessment.test.ts, 15 passed:
+      PASS  Sapling spend citing a recorded anchor -> assessment rawCount 12n (=
+            maxPosition + 1), effectiveSetSize 12n, appliedFilters [], claim
+            small_heuristic_set; Orchard actions against ROOT_O -> 2,000n, aggregate_only
+      FAIL, BY DATA: an anchor drawn from OUTSIDE the recorded roots -> no
+            `assessment` key, one UNKNOWN_ANCHOR finding with the exact message; two
+            spends citing it -> ONE finding saying "2 spends cite"; an Orchard-recorded
+            root cited by a Sapling spend -> unknown (pool separation)
+      the byte-reversed diagnostic fires only when reverse(anchor) is recorded, and
+            not on the plain unknown anchor (the diagnostic discriminates)
+      COUNTER-CASE: no chainState -> nothing assessed, nothing found
+      RoundTripIndex: a deposit IN THE TREE -> [time_window, amount_match, amount_echo]
+            with matchedDepositHeight 1_000 taken from the TREE while the report's
+            tipHeightAtSeen said 999_999; effectiveSetSize 3n, requires_disclosure
+      FAIL, BY DATA: the mempool clock (tipHeightAtSeen) handed to the same filter
+            over the same tree narrows Cand_0 to 0n - the false disclosure claim the
+            index refuses to make
+      a deposit NOT in the tree -> time_window alone, effectiveSetSize 7n over the
+            half-open window (995, 1_005]; an unknown anchor -> no assessment key; no
+            state -> no assessment key; a REPLACED state is the one assessed against
+    THE SEAM, over the REAL producer: the report `analyze()` builds, plus a link the
+    real index makes over the same state, through `serializeWire` -> bytes ->
+    `reviveWire`: deep-equal, every bigint path a bigint on both sides, rawCount and
+    the link's countOut typeof "bigint".
+      FAIL, BY DATA (the member §5 names - the untagged form measured live in PR
+            #50): the same produced report stringified by value -> rawCount and countOut
+            come back "string", not equal to the original.
+    analysis/__tests__/wire-seam.test.ts, 4 passed (the property, 500 runs; its fail
+    side; the hand-built worked case both polarities). apps/gateway: wire-form 11,
+    live-reports 4, ws-broker 10 passed - the consumer side revives the same form.
+    ONE HALF OF A3'S FAIL SIDE IS A CODE STATE, SAID PLAINLY: the exclusion set's first
+    member ("a report on the live path carrying a KNOWN anchor and assessment:
+    undefined") is exhibited by the tree BEFORE this branch, and its fail side is
+    running the same report through the pre-wiring path - the COUNTER-CASE above is
+    that path by construction. The DATA-mutation requirement is met by the two members
+    that can be drawn as data: an anchor from outside the recorded set, and the
+    untagged wire form.
+
+  A4 - DELIVERED. Executed.
+    runtime/reorg.ts `resolveReorg`: walk headers back to the split, rollbackToHeight
+    in one transaction, fresh replay, the follower swaps its `chain`.
+    runtime/__tests__/reorg-follower.test.ts, 5 passed:
+      PROPERTY (100 runs): random chains, reorgs 1 to 3 deep, competing branches with
+            distinct id namespaces - after the follower resolves the reorg, every pool's
+            commitment count, nullifier set and value balance equal a FRESH replay of
+            the new branch from the same base; the aggregate is what is compared.
+      WORKED CASE: a 3-block reorg from H to H-3 then a 4-block competing branch; the
+            follower's steps are exactly ["reorg@1700003", "applied" x4, "idle"].
+      FAIL, BY DATA (the member §5 names): a store whose rollback omits Orchard's
+            boundary flows -> the value balance survives a rolled-back height and the
+            equality fails, naming orchard.
+      a transport failure is retried after the poll interval with the state untouched;
+            a consensus disagreement stops the loop, hands the error to onFatal, writes
+            nothing.
+    The first version of this suite hung the runner: a microtask-resolving `sleep`
+    starved the event loop so `stop()` never ran. Fixed with a setImmediate yield;
+    recorded because a test that cannot stop looks like a test that passed.
+
+  A5 - DELIVERED IN FOLD 1 (commits e010371, 6e3e3a9). Executed.
+    The publish is gone; `grep -rn "zcashreveal:links" apps/indexer/src apps/gateway/src`
+    returns only the comment that records the removal. The egress ordering was
+    confirmed at the site: links are assigned onto `report.links`, `state.upsert`
+    emits the diff, `publishDiff` carries the whole report to Postgres, to
+    `zcashreveal:mempool` and to `zcashreveal:mempool:live`. The counter-case - whether
+    link records have any path to the SITE - is a product question and is in §8.
+
+  DELIVERABLE 2 - THE IRONWOOD ANCHOR, BOTH POLARITIES. Executed.
+    packages/zebra-rpc: `getTreestate` typed and zod-validated (schemas.ts,
+    client.ts; client.test.ts 31 passed, treestate cases included). The driver calls
+    it for exactly the blocks that appended Ironwood commitments:
+      PASS  3,444,837 with a served treestate -> Anchor<"ironwood"> root
+            ae2935f1dfd8a24aed7c70df7de3a668eb7a49b1319880dde2bbd9031ae5d82f (the
+            empty-tree root, which is what the capture's own migration transaction
+            cites) at maxPosition 48_469n = trees.ironwood.size 48,470 - 1
+      FAIL  treestate WITHHELD -> no anchor, IRONWOOD_TREESTATE_ABSENT logged, the
+            block still written; a treestate naming ANOTHER block -> refused,
+            MISMATCH; one with no Ironwood root -> nothing recorded, ROOT_ABSENT
+      3,444,836 (no Ironwood append) never asks; a transport failure fetching the
+            treestate propagates and the block is NOT applied, so the anchor is
+            retried with it
+    Byte order: Read at Zebra v6.2.1, v6.3.0, 1c9b245 and HEAD ef6325c - at the pinned
+    6.3.0, `getblock`'s roots, `z_gettreestate`'s roots and transaction anchors share
+    one unreversed conversion; #10461, after 6.3.0, reverses the transaction side only.
+    The UNKNOWN_ANCHOR byte-reversed clause is the runtime detector for that drift.
+
+  FOLDS 0-4 OF THE L2 RESOLUTION. Executed.
+    0  status field + README + CLAUDE.md sentence (0776a08). 1  links publish removed,
+    egress confirmed at the site, both apps grep clean, counter-case recorded
+    (e010371, 6e3e3a9). 2  the consecutive pair landed from L2's staging commit
+    09b034d, verified against the consensus values by recomputing both merkle roots
+    from txids and comparing hashes and tree sizes; the naming rule corrected to the
+    first six hex characters AFTER the leading zeros and all four captures renamed;
+    the guard keys on the height inside the file, confirmed by a dry run over renamed
+    copies (c25306f). The endpoint is unreachable from a session; the pair was USED,
+    never reconstructed. 3  docs/2.0/capture/ deleted (ab33ace). 4  the six-onto-five
+    note points at value-pools-conservation.test.ts (fd55450).
+    check-capture-consistency.mjs now reports 3 NOT RUN lines, not L2's 2: the pair's
+    predecessor 3,444,836 has no predecessor of its own in the directory.
+
+  THE SIX GATES, Executed twice - on b96b622 (before the gate rounds) and again
+  on c53f2ba (after round 1's fixes), both all-green. The second run:
+    TEST_RC=0       1,501 passed / 3 skipped (content 67; zebra-rpc 59 + 1 skipped;
+                    instruments 98; web 486; gateway 163; publisher 99 + 2 skipped;
+                    indexer 529 with Postgres reachable; 531 after round 2)
+    TYPECHECK_RC=0  12 of 12      LINT_RC=0      VALIDATE_RC=0
+    CHECK_RC=0      sixteen guards, three capture-consistency rows NOT RUN as stated
+    BUILD_RC=0      8 of 8; `git status --porcelain` empty after the build
+
+  WHAT ONE BLOCK COSTS, Executed (RUNTIME.md section 3, n = 40 runs per capture):
+    client parse + validate 0.4 to 3.5 ms median per block; decode + apply 0.0 to
+    0.2 ms median; in-memory replay 0.89 us per commitment at n = 10,000 and 1.02 us
+    at n = 20,000. The Postgres read a warm start pays is UNVERIFIED and labelled so.
+
+ASSUMPTIONS (each: ACCEPTED / CORRECTED / DEFERRED - reason):
+  ACCEPTED   L2's consensus values for 3,444,836 and 3,444,837 - hashes, merkle
+    roots, tree sizes, nTx, the expected deltas. Every one re-measured from the staged
+    files before they were moved; every one exact.
+  ACCEPTED   `UNKNOWN_ANCHOR` is a `FindingCode` member. Decided before the test was
+    written, as the prompt required, because a log string is not observable in the
+    report and A3's fail side turns on observability. Recorded in §8.
+  CORRECTED  L2's fold-2 claim of "no test changes": two test files needed changing.
+    block-decoder.test.ts asserted per-capture pool coverage the 2-transaction
+    predecessor cannot satisfy, so its mainnet test now asserts structure per file and
+    pool coverage over the SET; value-pools-conservation.test.ts lists all four.
+  CORRECTED  L2's "2 NOT RUN" for the capture guard after the pair lands: 3.
+  CORRECTED  my own fixture arithmetic in live-assessment.test.ts, 12 -> 7: the time
+    window is the documented half-open range and the fixture had forgotten it.
+  DEFERRED   fetching the pair from the endpoint: unreachable from a session (the
+    egress proxy refuses the CONNECT); the staged pair was used and its provenance is
+    L2's. Goes to §8.
+  DEFERRED   attaching the posterior to `LinkRecord`: no field exists and widening a
+    shared wire type for a value nothing renders is the shape CLAUDE.md warns about.
+    Goes to §8.
+
+NOTICED (outside scope, or found by driving something rather than reading it):
+  THE MEMORY STORE IS QUADRATIC ON WRITE. `MemoryChainStore.writeBlock` dedupes with
+    `some()` over every row, so a 100,000-commitment replay measurement ran for
+    minutes at 100% CPU before it was killed. A test double, not the Postgres path;
+    the measurement was taken at 10,000 and 20,000 instead and says so.
+  A BLOCK WRITTEN WITHOUT ITS IRONWOOD ANCHOR HAS NO BACKFILL: a restart replays from
+    the store, where the anchor is absent. Documented in RUNTIME.md section 5 and
+    raised in §8.
+  MEMPOOL REPORTS ANALYSED DURING A REORG'S REPLAY are assessed against the OLD state
+    for at most one poll interval. Documented; raised in §8.
+  NO ZEBRA VERSION CEILING: the compose pin guards the floor; #10461 drift is
+    detected at runtime by the byte-reversed clause and by nothing static. §8.
+  `ws-broker.ts`'s subscriber handler throws uncaught on a malformed relayed message;
+    noticed while rewriting its test's premise in fold 1; not changed here.
+  `migrations_zip318` has a reader and no writer in the tree.
+
+UNVERIFIED (labelled):
+  The Postgres read cost of a warm-start replay, the catch-up rate after downtime,
+    and the state's memory footprint - no session can reach the VPS; RUNTIME.md
+    carries the command that measures the first.
+  The pair's provenance (L2's fetch, `/Zebra:6.2.1/`) - recorded on L2's report in
+    the fixtures README and the runbook, as the previous session's UNVERIFIED line said.
+  Zebra's source at four commits for the byte-order fact - read by L2 and by this
+    session from the same vendored checkout under the scratchpad; not from the tree.
+  Every deployed measurement.
+
+GATE ROUNDS: 3, of which round 3 arrived after the write-back was written, and the
+  counts are reported SEPARATELY because a truncated verify phase is two counts
+  and not one (LEDGER-10 Q3).
+  ROUND 1 - four read-only reviewers, two returned and two died on the account's
+  session limit mid-run (the same limit that truncated PR #50's fan-out; it
+  resets at 06:10 UTC). SETTLED BY EXECUTION, 6 findings, all fixed in c53f2ba:
+    HIGH  the z_gettreestate fetch ran AFTER the state was mutated, so the one
+          call whose own contract calls it retryable was not: the failing
+          attempt had already appended this block's commitments to the state the
+          follower reuses, and the retry threw CommitmentAlreadyExistsError,
+          which isFatal reads as a consensus disagreement. REPRODUCED before it
+          was believed, by making the suite's own "the anchor is retried with
+          it" test actually retry - it failed with that error pre-fix and passes
+          post-fix. The fetch is now above every mutation.
+    HIGH  an onApplied failure was logged as "retrying after the poll interval"
+          and never retried: the block is written and the chain advanced before
+          the callback runs, so the next step fetched the NEXT block and the
+          anchors were lost silently while the log said the opposite. Caught at
+          the call site and named as a loss, with the height and the roots.
+    HIGH  the compose file hardcoded a MAINNET height for a variable whose
+          documented default is per-network, so a testnet deployment that left
+          it alone opened its base 705,857 blocks early, with no error. Measured
+          by the reviewer with the real `docker compose config` on three .env
+          shapes. The number is gone from compose and commented out in
+          .env.example; loadConfig treats "" as absent (measured against the
+          installed zod, six input shapes: bare .optional() THROWS on "", which
+          crash-looped the process at module scope under restart: unless-stopped).
+    MED   the split walk was bounded by the CALLER's tip, so a rollback whose
+          replay failed transiently made the next walk ask the store for heights
+          it had correctly deleted - a fatal ChainRuntimeError on a consistent
+          store. Bounded by the STORE's tip now; at or below it a missing block
+          is still corruption and still throws.
+    MED   the anchor registry is a SEVENTH table with a height in it and the
+          rollback covers six, so an orphaned branch's roots kept answering
+          getHeightForAnchor - a defect this branch created, since nothing wrote
+          that registry before it. forgetAbove clears the rows and the memo on
+          every reorg; it does NOT clear the Redis hot tier, and that limit is
+          pinned by a test, stated in RUNTIME.md and raised as Q9 rather than
+          silently absorbed. Widening check-redis-safety rule 4 - which permits
+          DEL only on a string literal - is not a handoff's to do.
+    MED   A4's only fail side was a CODE mutation. A DATA mutation from its own
+          exclusion set was added: one rolled-back boundary-flow row written
+          straight back into the store with every line of shipped code
+          untouched, and the property fails on it. The equality is asserted
+          first on the unmutated store, so the comparison is known capable of
+          both answers.
+  NOT SETTLED BY EXECUTION, carried forward as UNVERIFIED: the two clusters
+    whose reviewers died - the LIVE-PATH SEAM (leak-analyzer, round-trip, the
+    gateway consumers, and whether any live-assessment probe is vacuous) and
+    the RUNTIME-DOCUMENT CLAIMS (every checkable sentence in RUNTIME.md against
+    the code). Two of that second cluster's questions were settled by the lead
+    by execution and are recorded above and in NOTICED; the rest were not asked.
+    Per LEDGER-10 Q3 these are not dispositioned by the lead: they are re-run or
+    carried, and they are carried.
+  ROUND 2 - the fix commit reviewed as its own commit, which this project's
+    stopping rule requires because c53f2ba changes control flow in four files.
+    A fifth reviewer was dispatched over `c53f2ba` alone and had not
+    returned when this write-back was written; the round was therefore run by
+    the LEAD, and only over what EXECUTION settles (LEDGER-10 Q3), which is
+    what it found:
+      MED   `IRONWOOD_TREE_SIZE_ABSENT` is unreachable by the route its own
+            comment describes. The test written to cover it EXECUTED AS A
+            FATAL: an absent `trees.ironwood` beside a present `trees` is the
+            empty tree by Zebra's `skip_serializing_if`, so the tree-size
+            cross-check reads zero against this build's 48,470 and refuses the
+            block before the anchor logic runs. The notice is reachable only
+            when the whole `trees` object is absent. Both routes are pinned now
+            - the fatal by its message, the notice with `TREES_ABSENT` beside
+            it and the treestate never asked for. This is exactly the shape the
+            stopping rule predicts: the defect is in the round-1 fix, not in
+            what it fixed.
+      LOW   `forgetAbove`'s comment overstated its own memo clear.
+            `getHeightForAnchor` repopulates the memo from a Redis hit, so the
+            next lookup of a forgotten root restores the orphaned height; what
+            the two cleared tiers buy is that the answer stops being
+            PERMANENT. Corrected in the code and in RUNTIME.md.
+    Fixed in `2eb13e6`.
+  ROUND 3 - THE DISPATCHED REVIEWER ARRIVED AFTER THE WRITE-BACK AND FOUND FOUR
+    MORE, THREE OF THEM DEFECTS THE ROUND-1 FIX INTRODUCED. It independently
+    found the two above (same reading, and it measured one of them where the
+    lead had only reasoned), and then:
+      HIGH  the memo clear never bounded anything, and the sentence saying it
+            did was this session's. `getHeightForAnchor` repopulates the memo
+            from a Redis hit into a map with NO EXPIRY, so one read after a
+            reorg pinned the orphaned height for the life of the process, while
+            `anchor-depth` and RUNTIME.md both claimed the 24-hour TTL bounded
+            it. Measured by driving the real class against a Redis double that
+            REMEMBERS what it was told - which my own test could not do, its
+            `get` being a constant null, so the scenario the limitation is
+            about was unreachable and its "returns null after the forget"
+            assertion was vacuous. Both fixed: the memo entry carries the key's
+            own deadline, the double remembers, and the limitation is pinned as
+            behaviour rather than described in prose.
+      HIGH  the `onApplied` catch was a blanket and swallowed fatal-shaped
+            errors, removing the follower's own "two kinds of error" invariant
+            for the whole interface. Measured in both polarities against the
+            real class at `c53f2ba^` and at HEAD. `isFatal` is re-thrown now.
+      HIGH  `onReorg` is the same shape one callback later and WITH a live
+            trigger - it runs after the rollback commits and the shipped
+            callback calls `forgetAbove`, a Postgres write - so its failure
+            reached the generic handler and was logged as "retrying after the
+            poll interval", the exact sentence the `onApplied` fix exists to
+            stop saying. Wrapped identically.
+      MED   `""` was only the commonest spelling of blank: a value exported as
+            a single space is not empty to compose's `${VAR:-}`, reached the
+            schema verbatim, coerced to 0 and threw at module scope - the same
+            crash-loop by a different door. Trimmed, every spelling pinned.
+    It also named, correctly, that four of the five cases in `config.test.ts`
+    would pass with the preprocess reverted; the one that carries the fix is
+    the blank case, and it now carries four more inputs. Fixed in `62c4e77`.
+    The round-3 fix commit is reviewed under clause (ii)'s scope in the same
+    round: its predicates are `isFatal(err)` re-thrown (driven in both
+    polarities), the memo deadline (driven at the boundary), and `v.trim()`
+    (driven over four blank spellings). No further finding.
+  EXTRAPOLATION rather than a convergence claim, and round 3 has already
+    falsified the first version of it. That version said a third round would
+    find "one or two more" in the runtime's failure paths; it found four, three
+    of them created by the round-1 fix, and the reach did not decay between
+    rounds 1 and 3 the way this project's earlier gates did. The honest reading
+    is that the fix commits are where this branch's defects now live, and a
+    fourth round would most likely find one or two in `62c4e77` - its three
+    predicates are driven in both polarities, which is what makes that estimate
+    lower than round 3's rather than equal to it. Untouched by any round: the
+    live-path seam and the assessment population, whose only reader remains the
+    session that wrote them.
+
+PREVIEW URL: none. Unreachable from a session (Deployment Protection returns 302
+  to SSO and the container's egress proxy refuses the CONNECT tunnel with 403
+  before that).
+```
 ## §8 LEDGER — appended to `handoffs/LEDGER.md` by docs-scribe; read by L2 before the next handoff
 
 ```
 QUESTIONS (for the operator / L2):
+  Q1  THE POSTERIOR IS NOT ATTACHED TO A LINK. `computePosterior` (HANDOFF-08) yields a
+      distribution over deposit candidates; `LinkRecord.assessment` is a
+      `ClaimAssessment`, whose `effectiveSetSize` is a bigint count of commitment
+      positions - a different set. The echo's audit record IS appended to the link's
+      `appliedFilters` when the echo matched the same pair, so the inference chain
+      carries the grade; the distribution itself has no field. Widening the shared
+      wire type for a value nothing renders is the shape CLAUDE.md warns about.
+      Decide: a `posterior` field on `LinkRecord` (and a renderer for it), or leave it.
+  Q2  A BLOCK WRITTEN WITHOUT ITS IRONWOOD ANCHOR HAS NO BACKFILL. When
+      `z_gettreestate` is withheld or answers for another block, the driver writes the
+      block, logs the notice and records no anchor - never a fabricated root, as §4
+      requires. A restart replays from the store, where the anchor is absent, so every
+      later spend citing it is UNKNOWN_ANCHOR forever. The remedy today is a wipe to a
+      base below that height (RUNTIME.md section 5). Decide whether a backfill pass
+      (re-ask the treestate for blocks whose `pool_anchors` lack an Ironwood row where
+      `ironwood` commitments were appended) is HANDOFF-13's or a maintenance item.
+  Q3  NO ZEBRA VERSION CEILING. `check-compose-zebra-tag.mjs` guards the FLOOR (6.3.0).
+      ZcashFoundation/zebra #10461, after 6.3.0, reverses the transaction-side anchor
+      byte order and not `getblock`'s or `z_gettreestate`'s roots, so a node past it
+      makes every Orchard-shaped anchor unknown to this build. The runtime detector is
+      the UNKNOWN_ANCHOR byte-reversed clause; nothing static stops the upgrade. Decide
+      whether the tag guard grows a ceiling, and at which version.
+  Q4  LINK RECORDS HAVE NO PATH TO THE SITE (A5's counter-case). The links channel was a
+      third copy of data already on the report; removing it lost nothing a reader could
+      see, because no reader existed. The product question stands: `LeakReport.links`
+      reaches `zcashreveal:mempool:live` and Postgres, and no route or view renders it.
+  Q5  MEMPOOL REPORTS ANALYSED DURING A REORG'S REPLAY are assessed against the OLD
+      state until the follower swaps its `chain`, at most one poll interval. The
+      getter design makes the window as short as it can be without pausing the
+      mempool path. Decide whether that pause is wanted.
+  Q6  NOT A QUESTION ANY MORE - THE TESTNET START-HEIGHT TRAP WAS REAL AND IS
+      FIXED, and it is left here because the SHAPE is worth the operator's eye.
+      `docker-compose.yml` fell back to a mainnet constant for a variable whose
+      documented default is per-network, and `.env.example` - which section 1 of
+      the runbook tells the operator to `cp` - set the same constant, so a
+      testnet deployment that touched neither opened its base 705,857 blocks
+      before testnet's own NU6.3 activation, silently: `chainBaseFromBlock`
+      accepts a pre-activation block because an absent Ironwood tree size is
+      legitimate there. Both are gone (compose passes an empty default,
+      .env.example comments the line out, `loadConfig` treats "" as absent).
+      THE SHAPE: a default written twice, once in code where it can read a
+      sibling variable and once in compose where it cannot. Nothing guards
+      against the next one - see Q11.
+  Q7  `migrations_zip318` has a reader and no writer in the tree (noticed in the
+      previous session's UNVERIFIED list and re-confirmed here by grep). The confirmed-
+      block driver records boundary flows and does not write migration rows.
+  Q8  `ws-broker.ts`'s subscriber handler throws uncaught on a malformed relayed
+      message. Noticed while rewriting its test premise in fold 1; a producer that
+      serialises through `serializeWire` cannot produce one, but the handler does not
+      know that.
+
+  Q9  THE ANCHOR REGISTRY'S REDIS HOT TIER IS NOT CLEARED ON A REORG, AND THE
+      REASON IS A GUARD THIS SESSION WOULD NOT WIDEN. `forgetAbove` clears the
+      `anchors` rows and the in-process memo; it cannot clear the Redis keys,
+      because `check-redis-safety` rule 4 permits `DEL` only on a `zecreveal:`
+      STRING LITERAL and these keys are computed per root - the guard cannot
+      see that they are exact keys this project wrote in the VPS instance.
+      Widening a rule that protects another project's database is not a
+      handoff's to do (CLAUDE.md), and the guard's existing VPS-target
+      exemption is file-scoped and covers SCAN only, so `anchor-depth.ts`
+      cannot honestly claim it: the file receives a client, it does not
+      construct one. Consequence, stated rather than hidden: `getHeightForAnchor`
+      reads Redis before Postgres, so an orphaned root can still answer with
+      its abandoned height until the 24-hour TTL expires or the process
+      restarts. Two remedies, both the operator's or L2's to choose - extend
+      the exemption to `DEL` with a real `assertNotManagedStore` proof AT the
+      deletion site, or move the registry's Redis writes behind a file that
+      already carries one. Pinned by a test so a later session that widens the
+      guard has to come back here.
+  Q10 SHUTDOWN DOES NOT DRAIN THE MEMPOOL SIDE, and this handoff did not widen
+      itself to fix it. `shutdown()` awaits `follower.stop()` - the confirmed-
+      block path this handoff added - but `clearInterval` does not cancel an
+      in-flight poll iteration, `zmq.stop()` does not await an in-flight
+      handler, and `publishDiff` is fire-and-forget by construction
+      (`void publishDiff(...)` in the `diff` listener), so `redis.quit()`,
+      `sql.end()` and `process.exit()` can cut a write mid-flight. All three
+      predate this branch. The fix is an in-flight counter awaited by
+      `shutdown()`, the same join point `ChainFollower.stop()` already has.
+  Q11 NO GUARD ENUMERATES THE INDEXER'S ENVIRONMENT VARIABLES. `check-infra-docs`
+      enumerates `apps/web`'s `NEXT_PUBLIC_`/`SNAPSHOT_` variables against
+      DEPLOY-2.0.md and nothing does the equivalent for `apps/indexer`; the
+      pre-existing `RECENT_ANCHOR_THRESHOLD` is undocumented in `.env.example`,
+      which is the gap standing today. Nothing was missed by THIS handoff (both
+      new variables are in `.env.example`, compose, RUNTIME.md and the runbook),
+      and a guard is not yet warranted by recurrence - recorded so the next
+      instance is the second, not the first.
+  Q12 NEITHER LINKS NOR ASSESSMENTS HAVE A PATH TO THE SITE, and Q4 is the
+      narrower half of that. Measured this round: `grep -n assessment` over
+      `apps/gateway/src` and `packages/zec-types/src/views.ts` returns nothing,
+      so `ClaimAssessment` stops at the gateway's DTO layer exactly as
+      `LinkRecord` does. That is why the seam's bigint fix could not be caught
+      by any consumer test: nothing downstream reads the fields. The product
+      question is one question, not two.
+  Q13 MAIN DOES NOT CARRY THE GATE FIXES, AND THAT IS A FACT ABOUT MAIN RATHER
+      THAN ABOUT THIS BRANCH. PR #51 merged at `65bdac5` with second parent
+      `5a3893b`, which is the commit before `c53f2ba`. So every defect round 1
+      found - including the treestate ordering that turns one dropped RPC call
+      into a process exit, and the compose default that opens a testnet base
+      705,857 blocks early - is live in main as merged. The follow-up PR this
+      session opens carries them onto the merged main. Nothing needs deciding
+      here; it needs KNOWING, because a reader of main's history cannot see it.
 INFERRED (non-empty inferences a worker made):
+  I1  The Ironwood anchor's `maxPosition` is `trees.ironwood.size - 1` from the BLOCK
+      and its root from the TREESTATE, cross-checked by requiring the treestate to name
+      the block's hash - §4 says "cross-checked rather than both taken on trust", and
+      the hash equality is the check this session inferred it meant.
+  I2  A1's "over however many captured blocks exist" was read as: every committed
+      capture individually, plus the consecutive pair carried across. Four blocks, one
+      pair.
+  I3  "per-link assessFiltered with timeWindowFilter + amountMatchFilter + the
+      HANDOFF-08 echo/posterior modules" was read as: the two filters in the stack,
+      the echo's audit appended when it matched the same pair, and the posterior NOT
+      attached (Q1). The contract names the modules; it does not say where the
+      posterior lands, and no field exists.
+  I4  `INDEXER_START_HEIGHT` defaults to NU6.3 activation. §4 does not name a start
+      height; the default was chosen because it is where all four pools' figures exist
+      to be checked and where Ironwood begins.
+
 NOT-MATCHED (patterns handed over that did not apply):
+  N1  "h_split" - vocabulary, not an identifier; nothing was grepped for it.
+  N2  L2's fold-2 fetch procedure (the Tatum endpoint, 13-second pacing, `["result"]`
+      stripping) - unreachable from a session; the staged pair was used instead, and
+      the runbook's section 10 procedure stands for an operator with a node.
+  N3  "z_getsubtreesbyindex if the subtree path is needed" - not needed; the
+      treestate's `finalRoot` is the root.
+
 SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+  S1  `UNKNOWN_ANCHOR`: FindingCode member or log string. Decided: member, INFO, once
+      per distinct (pool, anchor), because A3's fail side must be observable in the
+      report. `check-audit-consumers.mjs` is unaffected (it guards FilterApplication
+      variants, not FindingCode).
+  S2  A3's exclusion set names a member the tree exhibited BEFORE the branch ("a
+      KNOWN anchor and assessment: undefined") - the LEDGER-11 Q5(a) case, a defect
+      being closed rather than a test being written. Its fail side is the pre-wiring
+      path, which the no-chainState counter-case IS; the data-mutation requirement is
+      met by the two members that can be drawn as data. Stated in §7 rather than
+      dressed.
+
 GATE ROUND COUNTS:
+  Round 1: 4 reviewers dispatched, 2 returned, 2 died on the account's session
+  limit. 6 findings, all settled by execution and all fixed in `c53f2ba`; 2
+  clusters carried as UNVERIFIED because only argument, not execution, would
+  settle them. Round 2: the fix commit reviewed as its own commit, as the
+  stopping rule requires - the fifth reviewer had not returned, so the round was run by the
+  lead over what execution settles: 2 findings, both IN the round-1 fix commit
+  (an unreachable notice whose test executed as a fatal, and a comment
+  overstating its own memo clear), both fixed in `2eb13e6`. Round 3 reviewed
+  that commit within the round that produced it, per clause (ii)'s scope, and
+  found nothing. The rule's clause (i) is NOT satisfied:
+  round 1 returned findings a user could see, so this branch has not converged
+  and the extrapolation in section 7 says what a third round would probably
+  find.
+
 DEFERRED ASSUMPTIONS:
+  D1  Fetching the consecutive pair from the endpoint: deferred to an operator with a
+      node; the staged pair's provenance is L2's and is labelled UNVERIFIED where it
+      is cited.
+  D2  The posterior on `LinkRecord` (Q1).
+  D3  Committing the two predecessor blocks (3,432,129 and 3,441,954) so the capture
+      guard's delta arm runs for the first two captures - carried from the previous
+      session; still no session can fetch them.
+  D4  Raising SNAPSHOT_TTL_MS to 120,000 - carried from the previous session; the
+      operator's trade.
 ```

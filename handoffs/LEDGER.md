@@ -7331,3 +7331,214 @@ Three more things §7 of PR #50 established that you should not re-derive:
 * `h_split` is this document's vocabulary, not an identifier. It appears nowhere in source. §5 now carries the named worked case the property-test rule requires; use it.
 
 One extrapolation, stated rather than hidden. PR #50 ran zero gate rounds and said so. L2 agrees with its own extrapolation: a first real round over that branch would probably find one or two more defects of the reach its NOTICED list shows, and `check-capture-consistency.mjs` and `check-compose-zebra-tag.mjs` are both new surface that L2 drove but did not review line by line. If your gate finds something in either script, that is the round doing its job and not a regression you caused — file it as a finding against PR #50 rather than fixing it silently.
+
+## HANDOFF-12, second session - the runtime, the base, and a report that claimed what its tests did not assert (L3, 2 Sep 2026)
+
+```
+QUESTIONS (for the operator / L2):
+  Q1  THE POSTERIOR IS NOT ATTACHED TO A LINK. `computePosterior` (HANDOFF-08) yields a
+      distribution over deposit candidates; `LinkRecord.assessment` is a
+      `ClaimAssessment`, whose `effectiveSetSize` is a bigint count of commitment
+      positions - a different set. The echo's audit record IS appended to the link's
+      `appliedFilters` when the echo matched the same pair, so the inference chain
+      carries the grade; the distribution itself has no field. Widening the shared
+      wire type for a value nothing renders is the shape CLAUDE.md warns about.
+      Decide: a `posterior` field on `LinkRecord` (and a renderer for it), or leave it.
+  Q2  A BLOCK WRITTEN WITHOUT ITS IRONWOOD ANCHOR HAS NO BACKFILL. When
+      `z_gettreestate` is withheld or answers for another block, the driver writes the
+      block, logs the notice and records no anchor - never a fabricated root, as §4
+      requires. A restart replays from the store, where the anchor is absent, so every
+      later spend citing it is UNKNOWN_ANCHOR forever. The remedy today is a wipe to a
+      base below that height (RUNTIME.md section 5). Decide whether a backfill pass
+      (re-ask the treestate for blocks whose `pool_anchors` lack an Ironwood row where
+      `ironwood` commitments were appended) is HANDOFF-13's or a maintenance item.
+  Q3  NO ZEBRA VERSION CEILING. `check-compose-zebra-tag.mjs` guards the FLOOR (6.3.0).
+      ZcashFoundation/zebra #10461, after 6.3.0, reverses the transaction-side anchor
+      byte order and not `getblock`'s or `z_gettreestate`'s roots, so a node past it
+      makes every Orchard-shaped anchor unknown to this build. The runtime detector is
+      the UNKNOWN_ANCHOR byte-reversed clause; nothing static stops the upgrade. Decide
+      whether the tag guard grows a ceiling, and at which version.
+  Q4  LINK RECORDS HAVE NO PATH TO THE SITE (A5's counter-case). The links channel was a
+      third copy of data already on the report; removing it lost nothing a reader could
+      see, because no reader existed. The product question stands: `LeakReport.links`
+      reaches `zcashreveal:mempool:live` and Postgres, and no route or view renders it.
+  Q5  MEMPOOL REPORTS ANALYSED DURING A REORG'S REPLAY are assessed against the OLD
+      state until the follower swaps its `chain`, at most one poll interval. The
+      getter design makes the window as short as it can be without pausing the
+      mempool path. Decide whether that pause is wanted.
+  Q6  NOT A QUESTION ANY MORE - THE TESTNET START-HEIGHT TRAP WAS REAL AND IS
+      FIXED, and it is left here because the SHAPE is worth the operator's eye.
+      `docker-compose.yml` fell back to a mainnet constant for a variable whose
+      documented default is per-network, and `.env.example` - which section 1 of
+      the runbook tells the operator to `cp` - set the same constant, so a
+      testnet deployment that touched neither opened its base 705,857 blocks
+      before testnet's own NU6.3 activation, silently: `chainBaseFromBlock`
+      accepts a pre-activation block because an absent Ironwood tree size is
+      legitimate there. Both are gone (compose passes an empty default,
+      .env.example comments the line out, `loadConfig` treats "" as absent).
+      THE SHAPE: a default written twice, once in code where it can read a
+      sibling variable and once in compose where it cannot. Nothing guards
+      against the next one - see Q11.
+  Q7  `migrations_zip318` has a reader and no writer in the tree (noticed in the
+      previous session's UNVERIFIED list and re-confirmed here by grep). The confirmed-
+      block driver records boundary flows and does not write migration rows.
+  Q8  `ws-broker.ts`'s subscriber handler throws uncaught on a malformed relayed
+      message. Noticed while rewriting its test premise in fold 1; a producer that
+      serialises through `serializeWire` cannot produce one, but the handler does not
+      know that.
+
+  Q9  THE ANCHOR REGISTRY'S REDIS HOT TIER IS NOT CLEARED ON A REORG, AND THE
+      REASON IS A GUARD THIS SESSION WOULD NOT WIDEN. `forgetAbove` clears the
+      `anchors` rows and the in-process memo; it cannot clear the Redis keys,
+      because `check-redis-safety` rule 4 permits `DEL` only on a `zecreveal:`
+      STRING LITERAL and these keys are computed per root - the guard cannot
+      see that they are exact keys this project wrote in the VPS instance.
+      Widening a rule that protects another project's database is not a
+      handoff's to do (CLAUDE.md), and the guard's existing VPS-target
+      exemption is file-scoped and covers SCAN only, so `anchor-depth.ts`
+      cannot honestly claim it: the file receives a client, it does not
+      construct one. Consequence, stated rather than hidden: `getHeightForAnchor`
+      reads Redis before Postgres, so an orphaned root can still answer with
+      its abandoned height until the 24-hour TTL expires or the process
+      restarts. Two remedies, both the operator's or L2's to choose - extend
+      the exemption to `DEL` with a real `assertNotManagedStore` proof AT the
+      deletion site, or move the registry's Redis writes behind a file that
+      already carries one. Pinned by a test so a later session that widens the
+      guard has to come back here.
+  Q10 SHUTDOWN DOES NOT DRAIN THE MEMPOOL SIDE, and this handoff did not widen
+      itself to fix it. `shutdown()` awaits `follower.stop()` - the confirmed-
+      block path this handoff added - but `clearInterval` does not cancel an
+      in-flight poll iteration, `zmq.stop()` does not await an in-flight
+      handler, and `publishDiff` is fire-and-forget by construction
+      (`void publishDiff(...)` in the `diff` listener), so `redis.quit()`,
+      `sql.end()` and `process.exit()` can cut a write mid-flight. All three
+      predate this branch. The fix is an in-flight counter awaited by
+      `shutdown()`, the same join point `ChainFollower.stop()` already has.
+  Q11 NO GUARD ENUMERATES THE INDEXER'S ENVIRONMENT VARIABLES. `check-infra-docs`
+      enumerates `apps/web`'s `NEXT_PUBLIC_`/`SNAPSHOT_` variables against
+      DEPLOY-2.0.md and nothing does the equivalent for `apps/indexer`; the
+      pre-existing `RECENT_ANCHOR_THRESHOLD` is undocumented in `.env.example`,
+      which is the gap standing today. Nothing was missed by THIS handoff (both
+      new variables are in `.env.example`, compose, RUNTIME.md and the runbook),
+      and a guard is not yet warranted by recurrence - recorded so the next
+      instance is the second, not the first.
+  Q12 NEITHER LINKS NOR ASSESSMENTS HAVE A PATH TO THE SITE, and Q4 is the
+      narrower half of that. Measured this round: `grep -n assessment` over
+      `apps/gateway/src` and `packages/zec-types/src/views.ts` returns nothing,
+      so `ClaimAssessment` stops at the gateway's DTO layer exactly as
+      `LinkRecord` does. That is why the seam's bigint fix could not be caught
+      by any consumer test: nothing downstream reads the fields. The product
+      question is one question, not two.
+  Q13 MAIN DOES NOT CARRY THE GATE FIXES, AND THAT IS A FACT ABOUT MAIN RATHER
+      THAN ABOUT THIS BRANCH. PR #51 merged at `65bdac5` with second parent
+      `5a3893b`, which is the commit before `c53f2ba`. So every defect round 1
+      found - including the treestate ordering that turns one dropped RPC call
+      into a process exit, and the compose default that opens a testnet base
+      705,857 blocks early - is live in main as merged. The follow-up PR this
+      session opens carries them onto the merged main. Nothing needs deciding
+      here; it needs KNOWING, because a reader of main's history cannot see it.
+INFERRED (non-empty inferences a worker made):
+  I1  The Ironwood anchor's `maxPosition` is `trees.ironwood.size - 1` from the BLOCK
+      and its root from the TREESTATE, cross-checked by requiring the treestate to name
+      the block's hash - §4 says "cross-checked rather than both taken on trust", and
+      the hash equality is the check this session inferred it meant.
+  I2  A1's "over however many captured blocks exist" was read as: every committed
+      capture individually, plus the consecutive pair carried across. Four blocks, one
+      pair.
+  I3  "per-link assessFiltered with timeWindowFilter + amountMatchFilter + the
+      HANDOFF-08 echo/posterior modules" was read as: the two filters in the stack,
+      the echo's audit appended when it matched the same pair, and the posterior NOT
+      attached (Q1). The contract names the modules; it does not say where the
+      posterior lands, and no field exists.
+  I4  `INDEXER_START_HEIGHT` defaults to NU6.3 activation. §4 does not name a start
+      height; the default was chosen because it is where all four pools' figures exist
+      to be checked and where Ironwood begins.
+
+NOT-MATCHED (patterns handed over that did not apply):
+  N1  "h_split" - vocabulary, not an identifier; nothing was grepped for it.
+  N2  L2's fold-2 fetch procedure (the Tatum endpoint, 13-second pacing, `["result"]`
+      stripping) - unreachable from a session; the staged pair was used instead, and
+      the runbook's section 10 procedure stands for an operator with a node.
+  N3  "z_getsubtreesbyindex if the subtree path is needed" - not needed; the
+      treestate's `finalRoot` is the root.
+
+SPEC-WAS-AMBIGUOUS (from Loop 3 reviews):
+  S1  `UNKNOWN_ANCHOR`: FindingCode member or log string. Decided: member, INFO, once
+      per distinct (pool, anchor), because A3's fail side must be observable in the
+      report. `check-audit-consumers.mjs` is unaffected (it guards FilterApplication
+      variants, not FindingCode).
+  S2  A3's exclusion set names a member the tree exhibited BEFORE the branch ("a
+      KNOWN anchor and assessment: undefined") - the LEDGER-11 Q5(a) case, a defect
+      being closed rather than a test being written. Its fail side is the pre-wiring
+      path, which the no-chainState counter-case IS; the data-mutation requirement is
+      met by the two members that can be drawn as data. Stated in §7 rather than
+      dressed.
+
+GATE ROUND COUNTS:
+  Round 1: 4 reviewers dispatched, 2 returned, 2 died on the account's session
+  limit. 6 findings, all settled by execution and all fixed in `c53f2ba`; 2
+  clusters carried as UNVERIFIED because only argument, not execution, would
+  settle them. Round 2: the fix commit reviewed as its own commit, as the
+  stopping rule requires - the fifth reviewer had not returned, so the round was run by the
+  lead over what execution settles: 2 findings, both IN the round-1 fix commit
+  (an unreachable notice whose test executed as a fatal, and a comment
+  overstating its own memo clear), both fixed in `2eb13e6`. Round 3 reviewed
+  that commit within the round that produced it, per clause (ii)'s scope, and
+  found nothing. The rule's clause (i) is NOT satisfied:
+  round 1 returned findings a user could see, so this branch has not converged
+  and the extrapolation in section 7 says what a third round would probably
+  find.
+
+DEFERRED ASSUMPTIONS:
+  D1  Fetching the consecutive pair from the endpoint: deferred to an operator with a
+      node; the staged pair's provenance is L2's and is labelled UNVERIFIED where it
+      is cited.
+  D2  The posterior on `LinkRecord` (Q1).
+  D3  Committing the two predecessor blocks (3,432,129 and 3,441,954) so the capture
+      guard's delta arm runs for the first two captures - carried from the previous
+      session; still no session can fetch them.
+  D4  Raising SNAPSHOT_TTL_MS to 120,000 - carried from the previous session; the
+      operator's trade.
+```
+
+## HANDOFF-12 round 3 - the reviewer of the fix commit, and three defects the fix created (L3, 2 Sep 2026)
+
+```
+APPENDED, NOT REWRITTEN. The HANDOFF-12 second-session block above was written
+while the round-2 reviewer was still running; it returned afterwards, and the
+ledger is append-only, so this is the correction rather than an edit to it. The
+handoff's own section 7 carries the same account in full.
+
+WHAT THE BLOCK ABOVE SAYS AND WHAT IS NOW TRUE:
+  It says GATE ROUND COUNTS "round 2: the fifth reviewer had not returned, so
+  the round was run by the lead". The reviewer returned. It independently found
+  both of the lead's two findings - and measured one of them where the lead had
+  only reasoned - and then found FOUR more, THREE of them defects the round-1
+  fix commit introduced. Rounds: 3, not 2. Fixed in `62c4e77`.
+
+  Q9 IS NARROWER THAN IT WAS WRITTEN, AND THE CORRECTION MATTERS TO A READER
+  DECIDING IT. Q9 says the Redis hot tier can answer with an orphaned height
+  "until the 24-hour TTL expires". That was FALSE as shipped in `c53f2ba`: the
+  memo repopulates from a Redis hit into a map that had no expiry, so one read
+  after a reorg pinned the orphaned height for the LIFE OF THE PROCESS and the
+  TTL bounded nothing. The memo entry now carries the key's own deadline, which
+  is what makes Q9's sentence true. The question itself - whether to widen
+  check-redis-safety rule 4, or to move the registry's Redis writes behind a
+  file that proves its target - is unchanged and still the operator's.
+
+  AND THE INSTRUMENT THAT FOUND IT IS THE FINDING WORTH KEEPING. The test the
+  lead wrote for that limitation could not have caught it: its Redis double
+  answered `get` with a constant null, so the scenario the limitation is about
+  - a key that survives the forget - was unreachable, and its "returns null
+  after the forget" assertion was true of the double rather than of the
+  registry. A double that cannot express the failure state is the fail-side
+  rule arriving in the TEST HARNESS rather than in the test: two-polarity
+  evidence is worthless when the negative case cannot occur. The double now
+  remembers what it was told.
+
+EXTRAPOLATION, CORRECTED: the second-session block predicted a third round
+  would find "one or two more" in the runtime's failure paths. It found four,
+  and three of them were created by the fix for round 1 - so on this branch the
+  reach is NOT decaying across rounds, it is following the fix commits. A
+  fourth round would most likely find one or two in `62c4e77`.
+```

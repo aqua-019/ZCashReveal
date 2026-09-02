@@ -42,6 +42,20 @@ export interface ReorgResolution {
 /**
  * The highest height at which the store's block hash equals the hash on the
  * node's chain that `block` extends.
+ *
+ * THE WALK IS BOUNDED BY THE STORE'S OWN TIP, NOT BY THE CALLER'S, AND THAT
+ * DISTINCTION IS A RESUMABLE FAILURE RATHER THAN A CORRUPT ONE. `resolveReorg`
+ * rolls the store back in a committed transaction and replays afterwards; if
+ * the replay fails transiently - a dropped connection mid-read - the caller's
+ * `chain` still names a tip the store has already, correctly, deleted. Asking
+ * the store for those heights and throwing when they are missing turned a
+ * database hiccup into a `ChainRuntimeError`, which `isFatal` reads as a
+ * consensus disagreement and the process exits on. Above the store's tip the
+ * node's headers are walked without consulting the store, because a height we
+ * do not hold cannot be the split; at or below it a missing block is what it
+ * always was - real corruption - and still throws. The replay at the end of
+ * `resolveReorg` then rebuilds the state from the store, so the stale tip
+ * heals itself. Found by a gate reviewer.
  */
 export async function findSplitHeight(
   chain: ChainState,
@@ -49,17 +63,19 @@ export async function findSplitHeight(
   rpc: HeaderSource,
   block: RpcBlock,
 ): Promise<number> {
+  const highest = await store.readHighestBlock();
+  const storeTip = highest === null ? chain.base.height : highest.height;
   let hash = block.previousblockhash;
   let height = block.height - 1;
   while (height >= chain.base.height) {
     if (hash === undefined) {
       throw new ChainRuntimeError(`the node's chain names no predecessor at height ${height + 1}; the split cannot be found`);
     }
-    const ours = (await store.readBlocks(height, height))[0];
-    if (ours === undefined) {
-      throw new ChainRuntimeError(`this store holds no block at ${height} although its tip is ${chain.height}; the split cannot be found`);
+    const ours = height > storeTip ? undefined : (await store.readBlocks(height, height))[0];
+    if (ours === undefined && height <= storeTip) {
+      throw new ChainRuntimeError(`this store holds no block at ${height} although its tip is ${storeTip}; the split cannot be found`);
     }
-    if (ours.hash === hash) return height;
+    if (ours !== undefined && ours.hash === hash) return height;
     const header = await rpc.getBlockHeader(hash);
     if (header.height !== height) {
       throw new ChainRuntimeError(`the header for ${hash} says height ${header.height} where ${height} was expected`);

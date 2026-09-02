@@ -90,14 +90,61 @@ export class ChainFollower {
         treestate: (hash) => this.opts.rpc.getTreestate({ hash }),
         log: this.opts.log,
       });
-      if (this.opts.onApplied !== undefined) await this.opts.onApplied(applied);
+      if (this.opts.onApplied !== undefined) {
+        try {
+          await this.opts.onApplied(applied);
+        } catch (err) {
+          // A FATAL-SHAPED ERROR IS STILL FATAL, EVEN HERE. Swallowing every
+          // error unconditionally removed the follower's own "two kinds of
+          // error" invariant for the whole `onApplied` interface: a
+          // ChainRuntimeError or a state error raised by a callback would have
+          // stopped the loop before this try/catch existed and silently did
+          // not after it. A gate reviewer measured both sides against the real
+          // class. No shipped callback raises one today, which is exactly the
+          // consumer-correct-by-accident shape this project keeps finding in
+          // fix commits.
+          if (isFatal(err)) throw err;
+          // THE BLOCK IS ALREADY COMMITTED AND THE CHAIN HAS ALREADY ADVANCED
+          // PAST IT, SO THIS IS NOT A STEP TO RETRY AND MUST NOT BE REPORTED
+          // AS ONE. `applyConfirmedBlock` writes and advances before returning;
+          // letting a side-effect failure out of `step()` sent it to the loop's
+          // generic handler, which logged "retrying after the poll interval"
+          // and then fetched the NEXT block - so the anchors this block
+          // registered were lost with no retry and no backfill, while the log
+          // said the opposite. The loss is now loud, attributable, and named at
+          // the height it happened. Found by a gate reviewer.
+          this.opts.log.error(
+            { err, height: applied.height, anchors: applied.anchors.map((a) => a.root) },
+            "onApplied failed AFTER the block was committed; its anchors are unregistered and will NOT be retried",
+          );
+        }
+      }
       return { kind: "applied", block: applied, tip };
     } catch (err) {
       if (!(err instanceof ChainContinuityError)) throw err;
       this.opts.log.warn({ height: block.height, tip: this.chain.height }, err.message);
       const resolution = await resolveReorg(this.chain, this.opts.store, this.opts.rpc, block, this.opts.log);
       this.chain = resolution.chain;
-      if (this.opts.onReorg !== undefined) await this.opts.onReorg(resolution.splitHeight, resolution.rolledBack);
+      // THE SAME SHAPE, ONE CALLBACK LATER, AND IT HAD A LIVE TRIGGER THE
+      // FIRST ONE DID NOT. `onReorg` runs after the rollback has committed and
+      // after `this.chain` has been replaced, so a throw there is not a step to
+      // retry either - and the shipped callback calls
+      // `anchorRegistry.forgetAbove`, a Postgres write that can fail
+      // transiently. Left unwrapped, it reached the loop's generic handler and
+      // was logged as "retrying after the poll interval", which is the exact
+      // sentence the `onApplied` fix was written to stop saying. Found by the
+      // gate round that reviewed that fix.
+      if (this.opts.onReorg !== undefined) {
+        try {
+          await this.opts.onReorg(resolution.splitHeight, resolution.rolledBack);
+        } catch (err) {
+          if (isFatal(err)) throw err;
+          this.opts.log.error(
+            { err, splitHeight: resolution.splitHeight },
+            "onReorg failed AFTER the rollback was committed; the anchor registry may still hold orphaned rows and will NOT be retried",
+          );
+        }
+      }
       return { kind: "reorg", splitHeight: resolution.splitHeight, rolledBack: resolution.rolledBack, tip };
     }
   }

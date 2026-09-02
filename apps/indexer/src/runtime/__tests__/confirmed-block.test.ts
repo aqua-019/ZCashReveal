@@ -32,6 +32,12 @@ const CAPTURES = {
 
 const SILENT = pino({ level: "silent" });
 
+/**
+ * The empty Ironwood tree's root, exactly as Zebra's own vector spells it -
+ * and exactly as the committed capture's Ironwood transaction cites it.
+ */
+const IRONWOOD_EMPTY_ROOT = asHex("ae2935f1dfd8a24aed7c70df7de3a668eb7a49b1319880dde2bbd9031ae5d82f");
+
 /** The capture, as `rpc.getBlock()` hands it to the indexer - never as `JSON.parse` would. */
 async function load(name: string, mutate?: (raw: Record<string, unknown>) => void): Promise<RpcBlock> {
   const raw = JSON.parse(readFileSync(join(FIXTURES, name), "utf8")) as Record<string, unknown>;
@@ -243,6 +249,48 @@ describe("deliverable 2 - the Ironwood anchor, from z_gettreestate, at exactly t
     expect(b.notices.map((n) => n.code)).toEqual(["IRONWOOD_ROOT_ABSENT"]);
   });
 
+  it("no trees.ironwood on a block that MOVED Ironwood is FATAL, not a notice - the A1 check fires first", async () => {
+    // WRITTEN AS A NOTICE TEST AND EXECUTED AS A FATAL ONE, which is why it is
+    // here. An absent `trees.ironwood` beside a present `trees` is the empty
+    // tree by Zebra's own `skip_serializing_if`, so the tree-size check reads
+    // it as zero and this build counted 48,470 - a disagreement with
+    // consensus, and the block is refused before the anchor logic is reached.
+    // The IRONWOOD_TREE_SIZE_ABSENT notice is therefore UNREACHABLE by this
+    // route; the route that does reach it is the next test.
+    const block = await load(CAPTURES.conforming, (raw) => {
+      delete (raw["trees"] as Record<string, unknown>)["ironwood"];
+    });
+    const chain = createChainState(chainBaseFromBlock(await load(CAPTURES.conforming)));
+    await expect(
+      applyConfirmedBlock(chain, block, new MemoryChainStore(), { treestate: withheld, log: SILENT }),
+    ).rejects.toThrow(/ironwood at 3444837: this build counts 48470 commitments and the node reports 0/);
+  });
+
+  it("no trees OBJECT AT ALL: the tree-size checks stand down, the anchor is not fabricated, and no treestate is asked for", async () => {
+    // THE BRANCH THE ROUND-1 FIX MOVED. The tree-size check used to live
+    // inside the helper, after the fetch; hoisting the fetch above every
+    // mutation moved the condition to the call site, so this is where the two
+    // could have drifted - a fetch made for a block that can never yield an
+    // anchor, or a notice that stopped being emitted. Neither happens.
+    const block = await load(CAPTURES.conforming, (raw) => {
+      delete raw["trees"];
+    });
+    const chain = createChainState(chainBaseFromBlock(await load(CAPTURES.conforming)));
+    let calls = 0;
+    const counting: TreestateSource = (hash) => {
+      calls += 1;
+      return treestateFor(block, IRONWOOD_EMPTY_ROOT)(hash);
+    };
+    const applied = await applyConfirmedBlock(chain, block, new MemoryChainStore(), { treestate: counting, log: SILENT });
+    expect(calls).toBe(0);
+    expect(applied.notices.map((n) => n.code)).toContain("IRONWOOD_TREE_SIZE_ABSENT");
+    expect(applied.notices.filter((n) => n.code === "TREES_ABSENT")).toHaveLength(3);
+    expect(applied.anchors.filter((a) => a.pool === "ironwood")).toHaveLength(0);
+    // The block itself is still applied: a node that reports no trees costs
+    // the cross-check and the anchor, not the block.
+    expect(chain.height).toBe(3_444_837);
+  });
+
   it("a block that did NOT move Ironwood never asks for a treestate", async () => {
     // 3,444,836 is the predecessor: two transactions, no Ironwood actions.
     // "At exactly the heights decodeBlock marks" has a fail side too - the
@@ -263,10 +311,27 @@ describe("deliverable 2 - the Ironwood anchor, from z_gettreestate, at exactly t
   it("a transport failure fetching the treestate propagates: the block is NOT applied, so the anchor is retried with it", async () => {
     const block = await load(CAPTURES.conforming);
     const chain = createChainState(chainBaseFromBlock(block));
+    const store = new MemoryChainStore();
     const failing: TreestateSource = () => Promise.reject(new Error("socket hang up"));
     await expect(
-      applyConfirmedBlock(chain, block, new MemoryChainStore(), { treestate: failing, log: SILENT }),
+      applyConfirmedBlock(chain, block, store, { treestate: failing, log: SILENT }),
     ).rejects.toThrow(/socket hang up/);
     expect(chain.height).toBe(3_444_836);
+
+    // AND THE RETRY ACTUALLY SUCCEEDS, WHICH IS THE HALF THIS TEST'S TITLE
+    // CLAIMED AND DID NOT CHECK. The follower keeps the SAME chain object
+    // across steps, so a fetch that threw after the block's commitments were
+    // already appended left the retry colliding with its own first attempt -
+    // `CommitmentAlreadyExistsError`, which `isFatal` reads as a consensus
+    // disagreement and the process exits on. Found by a gate reviewer reading
+    // the order of operations; reproduced here before the fix, which moves
+    // the fetch above every mutation.
+    const applied = await applyConfirmedBlock(chain, block, store, {
+      treestate: treestateFor(block, IRONWOOD_EMPTY_ROOT),
+      log: SILENT,
+    });
+    expect(chain.height).toBe(3_444_837);
+    expect(applied.anchors.filter((a) => a.pool === "ironwood")).toHaveLength(1);
+    expect(chain.pools.ironwood.commitments.indexedCount()).toBe(3n);
   });
 });

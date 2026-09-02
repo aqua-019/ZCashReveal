@@ -82,3 +82,36 @@ Three more things §7 of PR #50 established that you should not re-derive:
 * `h_split` is this document's vocabulary, not an identifier. It appears nowhere in source. §5 now carries the named worked case the property-test rule requires; use it.
 
 One extrapolation, stated rather than hidden. PR #50 ran zero gate rounds and said so. L2 agrees with its own extrapolation: a first real round over that branch would probably find one or two more defects of the reach its NOTICED list shows, and `check-capture-consistency.mjs` and `check-compose-zebra-tag.mjs` are both new surface that L2 drove but did not review line by line. If your gate finds something in either script, that is the round doing its job and not a regression you caused — file it as a finding against PR #50 rather than fixing it silently.
+
+## Mid-session messages, verbatim (Revolution protocol step 5)
+
+Four arrived after the kickoff. None changed the scope; they are archived because
+the rule is every message that steered the session, not every message that
+redirected it.
+
+**1 - after the context window rolled, 2 Sep 2026 (the session was mid-commit E, the
+live-path assessments):**
+
+```
+Continue from where you left off.
+```
+
+**2 - during the runtime build:**
+
+```
+continue
+```
+
+**3 - after the four gate reviewers were dispatched and two had returned:**
+
+```
+resume
+```
+
+**4 - a scheduled check-in this session armed for itself, fired 02:57 UTC, delivered as
+a user turn (it is the session's own text, archived because it steered what happened
+next - the PR re-read that found the merge):**
+
+```
+Scheduled check-in on aqua-019/ZCashReveal#51 (HANDOFF-12, branch claude/handoff-12-reconcile-2becu3). Re-read the PR's current head: merge state, CI check runs on the latest commit, open review threads, and the Claude Approvals check run if the repo runs it. Act on anything actionable per the drive-to-green rules (fix and push, or one standing-down comment naming the blocker). If the write-back (section 7, section 8, LOG row, README table, status shipped) has not landed yet because the four gate reviewers had not returned, check whether they have now and finish it. If nothing changed, re-arm this check-in silently for another hour without messaging the user or commenting on the PR. Stop re-arming once the PR is merged or closed.
+```
