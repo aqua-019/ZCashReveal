@@ -132,6 +132,8 @@ FILES (created / modified / moved):
   modified  CLAUDE.md  README.md                       (the guard-count sweep)
   modified  handoffs/LEDGER.md                         (L2 RESOLUTION, appended)
   modified  handoffs/HANDOFF-12-...md  handoffs/HANDOFF-13-...md  handoffs/README.md
+  modified  handoffs/LOG.md                          (protocol step 4; omitted from the
+            first draft of this list, which named 13 paths against a 14-path diff)
   UNTOUCHED apps/ and packages/ - `git diff --stat origin/main..HEAD -- apps
             packages` is empty, which is A2's strongest half. Executed.
 
@@ -315,19 +317,31 @@ UNVERIFIED (labelled):
      playwright both success); the run on 07b1daf was in progress at the time of
      writing and is re-checked before this PR leaves draft.
 
-GATE ROUNDS: 1 complete (of 7 dimensions dispatched, 3 returned at the time of
-  writing; the remaining 4 are carried below as UNVERIFIED work, per the
-  truncated-verify rule)
+GATE ROUNDS: 1 complete (7 dimensions dispatched, 6 returned, 45 findings);
+  round 2 dispatched over the fix commit and not returned at the time of writing.
+
+  **THIS BLOCK WAS WRITTEN AT 20 FINDINGS AND 3 DIMENSIONS AND WAS ALREADY STALE
+  WHEN IT SHIPPED.** Three more dimensions returned after the write-back commit;
+  a gate reviewer found the mismatch between this section, section 8 and the LOG
+  row on one side and the branch tip on the other. Corrected here rather than
+  left, because a section 7 that understates its own gate is the defect this
+  project has twice shipped and once measured.
 
   ROUND 1 VERIFICATION BUDGET, STATED FIRST AS LEDGER-05 Q5 REQUIRES: seven
   reviewers dispatched, each finding to be settled by an adversarial refuter.
-  Three dimensions returned twenty findings. EVERY ONE WAS REPRODUCED BY THE
-  LEAD BY EXECUTION before it was accepted or rejected, which under LEDGER-10 Q3
-  is the stronger evidence and is what licenses the lead to disposition alone.
-  Four dimensions had not returned: the plan's external facts, its internal
-  consistency, the guard-count sweep and the Revolution-protocol steps. The
-  lead self-verified the last of those four by execution (reconcile, ledger
-  append, prompt archive - all below); the other three are UNVERIFIED work.
+  SIX dimensions returned 45 findings - 7 on the Zebra tag guard, 8 on the
+  config-default guard, 5 on the plan's repository claims, 12 on the plan read
+  against itself, 9 on its external facts re-fetched, 4 on the Revolution
+  protocol. EVERY ONE WAS REPRODUCED BY THE LEAD BY EXECUTION before it was
+  accepted or rejected, which under LEDGER-10 Q3 is the stronger evidence and is
+  what licenses the lead to disposition alone.
+
+  ONE DIMENSION DID NOT RETURN - the guard-count sweep - and is UNVERIFIED WORK,
+  listed here with the others rather than as a trailing log line. The lead
+  self-verified that ground by execution anyway: the count is seventeen against
+  package.json's own `check` script, five asserting sites were swept, and the
+  R4-GUARDS row fires at each when mutated. That is corroboration, not the
+  dimension's own answer.
 
   FINGERPRINTS (file · rule · severity):
     docs/2.0/MODE-A-PLAN.md · section 3.3 omits CompactTx.ironwoodActions,
@@ -357,7 +371,58 @@ GATE ROUNDS: 1 complete (of 7 dimensions dispatched, 3 returned at the time of
     check-config-defaults.mjs · a form label unrelated to its line · LOW
     .env.example · REJECTED, not a finding - see NOTICED N2
 
-  All twenty fixed or rejected in 07b1daf, and every mutation the round found
+  AND THE FINGERPRINTS FROM THE THREE LATER DIMENSIONS (fixed in 5937c3e and
+  87a5ae1):
+    MODE-A-PLAN.md · section 3.2 Source C read `lightwalletd_listen_addr` from
+      `main`; at v6.3.0 the field DOES NOT EXIST and the struct is
+      `deny_unknown_fields`, so setting it stops the node booting · HIGH
+    MODE-A-PLAN.md · section 7's assertions are in a format R4 cannot read, so
+      transplanted they give a vacuous pass · HIGH
+    MODE-A-PLAN.md · A5's fail side cannot fail - its predicate reads
+      'wasm-unsafe-eval' and its exclusion set is about 'unsafe-inline' · HIGH
+    MODE-A-PLAN.md · A6 has no fail side at all · MEDIUM
+    MODE-A-PLAN.md · Appendix B undercounts the population it answers · HIGH
+    MODE-A-PLAN.md · the preamble promises a section 10 source for every rate and
+      the only benchmark rate had none · HIGH
+    MODE-A-PLAN.md · "single-digit megabytes" survived the 7 MB -> 33 MB
+      correction eight lines above it · HIGH
+    MODE-A-PLAN.md · 1.3's "2 seconds to 9" is the withdrawn 16,700-block era · MEDIUM
+    MODE-A-PLAN.md · Q6 credits "section 0", which never mentions #10461 · MEDIUM
+    MODE-A-PLAN.md · CVE-2021-4229 is 8.8 in the cited database, not 9.8 · MEDIUM
+    MODE-A-PLAN.md · the size table puts the wasm module's bytes beside the npm
+      package's file count · MEDIUM
+    MODE-A-PLAN.md · A2 says it "extends" a spec a decrypt falsifies · MEDIUM
+    MODE-A-PLAN.md · 1.1 puts the gateway fetch inside `packages/wasm-keys`,
+      which 2.5 and A7 forbid · MEDIUM
+    MODE-A-PLAN.md · 1.1 calls RevealKey "Unchanged" while section 6 requires
+      copy changes, one of which Mode A makes false · MEDIUM
+    MODE-A-PLAN.md · section 4.1 names two unestablished CSP questions, section
+      8 carries one · MEDIUM
+    MODE-A-PLAN.md · "three ChainSafe-adjacent npm packages" is twelve · LOW
+    MODE-A-PLAN.md · source 21 claims a CORP header server.js does not set · LOW
+    MODE-A-PLAN.md · 1.3 announces four reasons and lists five · LOW
+    MODE-A-PLAN.md · section 10's numbering runs 1-36, 44-52, 37-43 · LOW
+    handoffs/README.md · the prose says 13 IS `in-progress` while the row it
+      sits beside says `shipped` · MEDIUM
+    HANDOFF-13 section 7 · FILES omits `handoffs/LOG.md`, 13 paths against a
+      14-path diff · LOW
+    HANDOFF-13 sections 7/8 + LOG.md · a gate count the branch tip had already
+      passed · MEDIUM
+    commit 1c9c789 · its message says "the sweep two commits ago" and it is
+      three · LOW, UNFIXABLE without rewriting history, recorded instead
+
+  AND A FALSE CLAIM IN A COMMIT MESSAGE, FOUND BY ME AFTER THE FACT AND RECORDED
+  RATHER THAN LEFT: `5937c3e`'s body leads with the Zebra v6.3.0 correction and
+  THE EDIT WAS NOT IN THE COMMIT. The script that applied it asserted each of
+  three patterns matched - correctly, which is LEDGER-09b Q6's rule working -
+  threw on the third, and because it writes the file only at the end, the first
+  two were discarded with it. I verified the OTHER corrections by grep and
+  carried this one forward on the strength of having written it. The rule caught
+  the bad replacement; I defeated the rule by not re-checking the file on disk.
+  Applied in `87a5ae1`, which says so in its own message, and the other sixteen
+  claims from `5937c3e` were then audited one at a time by grep - all present.
+
+  All twenty of round 1's first three dimensions fixed or rejected in 07b1daf, and every mutation the round found
   SURVIVING was re-run against the fix: all closed but one, which survives BY
   DESIGN and is reported in the guard's own header rather than papered over
   (re-typing the literal fixture count into the summary sentence is caught by

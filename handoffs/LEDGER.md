@@ -7741,3 +7741,93 @@ DEFERRED ASSUMPTIONS:
   D8  The preview URL and any Lighthouse number - operator's, unreachable from a
       session. This branch changes no route, component or stylesheet.
 ```
+
+## HANDOFF-13 - the gate's later dimensions, and a commit message that claimed a fix it did not carry (L3, 2 Sep 2026)
+
+```
+APPENDED, NOT REWRITTEN, AND THE CHOICE IS THE PRECEDENT'S. The HANDOFF-13 block
+above was written when three of seven gate dimensions had returned. Three more
+returned afterwards. LEDGER.md is append-only, and the HANDOFF-12 round-3 block
+faced exactly this - a block written while a reviewer was still running - and
+appended rather than edited. This session first corrected its own block IN PLACE,
+noticed within the minute that the rule does not carve out "your own block from
+this session", and reverted to this.
+
+WHAT THE BLOCK ABOVE SAYS AND WHAT IS NOW TRUE:
+  It says "3 returned within the session, 4 did not. 20 findings, 6 HIGH."
+  SIX of seven dimensions returned. 45 findings:
+      7  the Zebra tag guard (deliverable 0a)
+      8  the config-default guard (deliverable 0b)
+      5  the plan's claims about this repository, executed
+     12  the plan read against itself
+      9  the plan's external facts, re-fetched independently
+      4  the Revolution-protocol steps
+  ONE dimension - the guard-count sweep - never returned and is UNVERIFIED WORK.
+  The lead self-verified that ground by execution as corroboration: seventeen
+  guards counted off package.json's own `check` script, five asserting sites
+  swept, and the R4-GUARDS row shown to fire at each under mutation.
+
+THE THREE LATER DIMENSIONS FOUND ONE WRONG FACT, TWO DEAD ASSERTIONS AND A
+DOCUMENT CONTRADICTING ITSELF IN NINE PLACES.
+  - `lightwalletd_listen_addr` DOES NOT EXIST in Zebra v6.3.0's `[rpc]` Config,
+    which is `deny_unknown_fields`. The plan had read it from `main` and filed
+    only the server's presence as unknown. Setting that key against the pinned
+    image does not give a key that parses and a server that never starts; it
+    gives a node that refuses to boot. Enumerating `main` and concluding about a
+    pinned tag, in the same session as a ceiling that exists because those are
+    different objects. The good half, executed: `KNOWN_KEYS.rpc` in
+    `check-zebrad-config.mjs` is exactly v6.3.0's seven fields, and the key gives
+    `rc=1  unknown key [rpc] lightwalletd_listen_addr`.
+  - The PROPOSED SECTION 5 could not be pasted into the thing it exists to be
+    pasted into: its assertions used `**A1 - title**` headings where R4 matches
+    `- **A1.**` and requires `*Exclusion set:*` / `*Fail side names:*`.
+    Transplanted verbatim the guard found ZERO assertions and reported the
+    section as declaring the amended format while containing none. Rewritten; the
+    guard's own exported detector now reports 12 assertions, 0 findings.
+  - A5's FAIL SIDE COULD NOT FAIL - its procedure tested `'wasm-unsafe-eval'`
+    while its exclusion set was about `'unsafe-inline'`. Third instance this
+    session of the shape Appendix B specifies a guard against, in the assertion
+    carrying the precondition the whole handoff turns on. A6 had no fail side at
+    all. Both restated; A5 split into A5 and A5b.
+
+AND THE FINDING THAT IS ABOUT THIS SESSION'S OWN REPORTING RATHER THAN ITS WORK.
+  Commit `5937c3e`'s message leads with the Zebra correction AND THE EDIT WAS NOT
+  IN THE COMMIT. The script asserted each of three patterns matched - LEDGER-09b
+  Q6's rule, working - threw on the third, and writes the file only at the end,
+  so the first two were discarded with it. The other corrections were verified by
+  grep; this one was carried forward on the strength of having been written.
+  THE RULE CAUGHT THE BAD REPLACEMENT AND THE SESSION DEFEATED THE RULE BY NOT
+  RE-CHECKING THE FILE ON DISK. Fixed in `87a5ae1`, which says so in its own
+  message; the other sixteen claims from `5937c3e` were then audited one at a
+  time by grep and are all present.
+
+  THE AMENDMENT THIS SUGGESTS, offered rather than adopted, because it is L2's or
+  the operator's to weigh: LEDGER-09b Q6 says every scripted replacement asserts
+  its pattern matched. That is necessary and it is not sufficient. The second
+  half is that a multi-replacement script must be ALL-OR-NOTHING AND VERIFIED ON
+  DISK - either it writes after every assertion passes and the caller then greps
+  for each change, or it writes incrementally so a later failure cannot silently
+  discard an earlier success. This session had the first half and lost three
+  edits to the gap.
+
+FOUR MORE, ALL REAL, ALL SMALL:
+  - `handoffs/README.md`'s prose said "13 IS `in-progress`" four lines from a
+    table cell reading `shipped` - the machine-readable field contradicted by the
+    note beside it, in the paragraph that names that shape.
+  - section 7's FILES list named 13 paths against a 14-path diff, omitting
+    `handoffs/LOG.md`, which the same commit wrote.
+  - section 7, section 8 and the LOG row all stated a gate count the branch tip
+    had already passed.
+  - commit `1c9c789`'s message says "the sweep two commits ago" and it is three.
+    Unfixable without rewriting history; recorded here instead.
+
+EXTRAPOLATION, REVISED UPWARD AND STATED RATHER THAN CONVERGENCE CLAIMED. The
+  earlier block predicted a second round would find "one or two more, most likely
+  in the plan's prose about its own numbers rather than in the guards". Three
+  further dimensions then found twenty-five more, including a wrong external
+  fact and two assertions that could not fail - so that prediction was low, in
+  the same direction and for the same reason L2's have been low twice: it was
+  made by a reader who had run the suite and not fault-injected the document.
+  Round 2 over the fix commit is dispatched and had not returned when this was
+  written. Clause (i) is NOT satisfied.
+```
