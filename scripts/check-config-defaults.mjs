@@ -73,10 +73,10 @@
  *      service-block splitter, and its own docblock scopes it "over the compose
  *      files". The compose half of this rule is its cheap half.
  *   2. That script is 685 lines behind one shared self-test. Three of this
- *      project's fourteen guards have shipped with a self-test that certified a
- *      hole; adding a fourth concern with its own discovery, its own file class
- *      and its own data table makes that self-test's coverage argument harder
- *      to hold, not easier.
+ *      project's seventeen guards have shipped with a self-test that certified
+ *      a hole; adding a fourth concern with its own discovery, its own file
+ *      class and its own data table makes that self-test's coverage argument
+ *      harder to hold, not easier.
  *   3. A separate `pnpm check` step names the rule on its own line, which is
  *      how every other guard here is wired and what an operator reads on a red
  *      build.
