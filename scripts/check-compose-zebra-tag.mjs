@@ -275,8 +275,20 @@ const REFERENCE_REFS = [
   { ref: "zfnd/zebra:6.3.0-rc1", expect: "UNPARSED" },
   { ref: "zfnd/zebra@sha256:" + "a".repeat(64), expect: "UNPARSED" },
   { ref: "registry.local:5000/zfnd/zebra", expect: "UNPARSED" },
+  // The slashless ref - the only input that reaches `lastColon === -1`.
+  { ref: "zebra", expect: "UNPARSED" },
 ];
-const OUTCOMES = ["IN-WINDOW", "BELOW-FLOOR", "ABOVE-CEILING", "UNPARSED"];
+/**
+ * EVERY OUTCOME `checkRef` CAN RETURN, READ OUT OF ITS OWN SOURCE.
+ *
+ * A hand-written list made both coverage loops vacuous: deleting a row from it
+ * deleted the requirement that the row's outcome be exercised, so "a new outcome
+ * cannot arrive untested" - which the docblock claimed - was false. Measured by
+ * a gate reviewer deleting each row in turn and watching every run stay green.
+ * This is the same move the floor already makes: read the rule, never restate
+ * it beside itself. `Function.prototype.toString` on `checkRef` is the rule.
+ */
+const OUTCOMES = [...new Set([...checkRef.toString().matchAll(/outcome:\s*"([A-Z-]+)"/g)].map((m) => m[1]))];
 
 /**
  * THE THREE WAYS A VERSION CAN BE ABOVE THE CEILING, AS DATA, BECAUSE THE
@@ -291,6 +303,36 @@ const OUTCOMES = ["IN-WINDOW", "BELOW-FLOOR", "ABOVE-CEILING", "UNPARSED"];
  * synthetic 6.3.1. Same comparator, same three components, same standard.
  */
 const ABOVE_BY = ["patch", "minor", "major"];
+
+/**
+ * The fixture compose files, at module scope so the OK line can DERIVE its count
+ * instead of writing `4` beside three counts that are derived. A fifth fixture
+ * used to leave the guard announcing four - measured by a gate reviewer adding
+ * one and grepping the summary.
+ *
+ * AND A MUTATION THAT SURVIVES BY DESIGN, REPORTED RATHER THAN QUIETLY LEFT:
+ * writing the literal back into the summary sentence is not caught by anything,
+ * because no assertion reads the OK line's text. Derivation removes the way this
+ * number goes stale on its own; it does not stop someone re-typing it. An
+ * assertion over a summary string would be a probe against this file's own
+ * prose, which is the loose-pattern shape recorded elsewhere in this repository,
+ * so the honest move is the one the two verdict-neutral clauses above already
+ * take - say so, rather than build a check that looks like coverage.
+ */
+const FIXTURES = [
+  { name: "below-floor.yml", pin: "zfnd/zebra:6.2.9", expect: "BELOW-FLOOR" },
+  { name: "latest.yml", pin: "zfnd/zebra:latest", expect: "UNPARSED" },
+  { name: "above-ceiling.yml", pin: "zfnd/zebra:6.4.0", expect: "ABOVE-CEILING" },
+  { name: "in-window.yml", pin: "zfnd/zebra:6.3.0", expect: "IN-WINDOW" },
+];
+
+/**
+ * AND ABOVE_BY IS PINNED TO THE COMPARATOR'S ARITY rather than to a number
+ * written twice: a `ZebraVersion` has exactly the fields `cmp` walks, so the
+ * component count is derivable from the floor object itself. An emptied
+ * ABOVE_BY made its coverage loop vacuous, which a gate reviewer measured.
+ */
+const VERSION_COMPONENTS = (floorVersion) => Object.keys(floorVersion).length;
 
 /**
  * BOTH CEILING KINDS, AS DATA, DRIVEN AGAINST A SYNTHETIC CEILING.
@@ -317,8 +359,27 @@ const CEILING_KINDS = [
 const UNPARSED_REASONS = [
   { reason: "digest-pinned", marker: "digest-pinned", probe: "zfnd/zebra@sha256:" + "a".repeat(64) },
   { reason: "no tag", marker: "carries no tag", probe: "registry.local:5000/zfnd/zebra" },
+  // THE SLASHLESS REF, WHICH IS THE ONLY INPUT THAT REACHES `lastColon === -1`.
+  // The header claims both halves of step 2 are tested by message. That was true
+  // of `lastColon < lastSlash` and false of this half: the registry-port probe
+  // above has a slash, so it exercises the OTHER clause, and deleting
+  // `lastColon === -1` left the self-test green while the guard reported a bare
+  // `zebra` pin as UNPARSED for the wrong reason. Measured by a gate reviewer.
+  { reason: "no tag, slashless", marker: "carries no tag", probe: "zebra" },
   { reason: "not semver", marker: "is not a bare MAJOR.MINOR.PATCH", probe: "zfnd/zebra:latest" },
 ];
+
+/**
+ * THE UNPARSED TABLE IS PINNED TO THE RULE IT DESCRIBES.
+ *
+ * `extractTagVersion` has a fixed number of UNPARSED returns; the table must
+ * exercise every one. Without this, deleting a row deleted the only test of a
+ * live clause in silence, and the OK line printed the shrunken count as if it
+ * were complete - measured by a gate reviewer deleting each row in turn, all
+ * three surviving. Read out of the function's own source, the same move
+ * `OUTCOMES` and the floor already make.
+ */
+const UNPARSED_RETURNS = [...extractTagVersion.toString().matchAll(/kind:\s*"UNPARSED"/g)].length;
 
 function selfTest() {
   const floor = readFloor();
@@ -350,6 +411,24 @@ function selfTest() {
   }
   for (const outcome of OUTCOMES) {
     if (!REFERENCE_REFS.some((r) => r.expect === outcome)) return `no REFERENCE_REFS row exercises the ${outcome} outcome`;
+  }
+  // PINNED ON THE DISTINCT MARKERS, NOT THE ROW COUNT. The first pin compared
+  // `UNPARSED_REASONS.length` to the number of UNPARSED returns, and two rows
+  // share the "carries no tag" marker - so with four rows for three branches,
+  // deleting one still satisfied it. Measured: the mutation survived. What has
+  // to hold is that every distinct DIAGNOSTIC is exercised.
+  const markers = new Set(UNPARSED_REASONS.map((r) => r.marker));
+  if (markers.size !== UNPARSED_RETURNS) {
+    return `extractTagVersion has ${UNPARSED_RETURNS} UNPARSED return(s) and UNPARSED_REASONS exercises ` +
+      `${markers.size} distinct diagnostic(s) - an unreadable branch has no probe, and outcome coverage cannot see it`;
+  }
+  if (ABOVE_BY.length !== VERSION_COMPONENTS(floor.version)) {
+    return `a version has ${VERSION_COMPONENTS(floor.version)} component(s) and ABOVE_BY names ${ABOVE_BY.length} - ` +
+      "each component of the comparator can be wrong on its own, so each needs a row above the ceiling";
+  }
+  if (OUTCOMES.length < 4) {
+    return `only ${OUTCOMES.length} outcome(s) were read out of checkRef's source - the derivation is broken, ` +
+      "so every outcome-coverage loop below is vacuous";
   }
   for (const component of ABOVE_BY) {
     if (!REFERENCE_REFS.some((r) => r.above === component)) {
@@ -401,12 +480,40 @@ function selfTest() {
   // run. A synthetic ceiling whose version shares no digits with the floor is
   // what makes the check discriminate, and the ceiling is required WITH its
   // bound operator so a bare version cannot satisfy it either.
-  const msgCeiling = { version: { major: 9, minor: 1, patch: 0 }, inclusive: true, reason: "synthetic, for the self-test" };
-  const above = checkRef("zfnd/zebra:9.2.0", floor.version, msgCeiling);
-  if (above.outcome !== "ABOVE-CEILING") return `the message probe did not produce ABOVE-CEILING, it gave ${above.outcome}`;
-  for (const [what, needed] of [["the pinned version", "9.2.0"], ["the ceiling with its bound operator", showCeiling(msgCeiling)]]) {
-    if (!above.message.includes(needed)) {
-      return `the ABOVE-CEILING message does not name ${what} ("${needed}"): "${above.message}"`;
+  //
+  // THE THIRD DRAFT OF THIS CHECK, AND THE FIRST TWO WERE BOTH SATISFIED BY
+  // VALUES THEY WERE WRITTEN TO EXCLUDE. Draft one asserted the LIVE message
+  // contained `show(CEILING.version)` = "6.3.0", which also appears in it as the
+  // FLOOR. Draft two moved to a synthetic ceiling but wrote the expectation as
+  // `showCeiling(msgCeiling)` - COMPUTING THE EXPECTED VALUE BY CALLING THE
+  // FUNCTION UNDER TEST, so every string `showCeiling` can return satisfied it
+  // and a comparator that always rendered "<=", or rendered the wrong version
+  // entirely, shipped green. And `includes("9.2.0")` was satisfied by the
+  // `${ref}` the message echoes back, whatever the template did with the
+  // extracted version. Both measured by a gate reviewer, both SURVIVED a full
+  // run. So: expectations are LITERALS, the ref echo is stripped before the
+  // version is looked for, and BOTH bound kinds are covered - the exclusive one
+  // being the spelling this file says the row moves to the day a release
+  // carrying #10461 is cut.
+  const MESSAGE_CASES = [
+    { inclusive: true, ref: "zfnd/zebra:9.2.0", expectCeiling: "<= 9.1.0", expectVersion: "9.2.0" },
+    { inclusive: false, ref: "zfnd/zebra:9.1.0", expectCeiling: "< 9.1.0", expectVersion: "9.1.0" },
+  ];
+  for (const c of MESSAGE_CASES) {
+    const msgCeiling = { version: { major: 9, minor: 1, patch: 0 }, inclusive: c.inclusive, reason: "synthetic, for the self-test" };
+    const above = checkRef(c.ref, floor.version, msgCeiling);
+    if (above.outcome !== "ABOVE-CEILING") {
+      return `the ${c.inclusive ? "inclusive" : "exclusive"} message probe gave ${above.outcome}, expected ABOVE-CEILING`;
+    }
+    if (!above.message.includes(c.expectCeiling)) {
+      return `the ABOVE-CEILING message does not render the ceiling as the literal "${c.expectCeiling}": "${above.message}"`;
+    }
+    // THE REF ECHO IS STRIPPED FIRST. The template opens with `${ref}`, and the
+    // version was extracted FROM that ref, so searching the whole message for
+    // the version finds the echo rather than the rendering.
+    const withoutEcho = above.message.split(c.ref).join("");
+    if (!withoutEcho.includes(c.expectVersion)) {
+      return `the ABOVE-CEILING message names the pinned version only inside its echo of the ref: "${above.message}"`;
     }
   }
 
@@ -434,6 +541,20 @@ function selfTest() {
     return `against a synthetic 6.3.1 floor, "zfnd/zebra:6.3.1" was not IN-WINDOW - the comparator rejects an equal version`;
   }
 
+  // `headroom` DECIDES WHETHER THE OPERATOR SEES THE NO-HEADROOM LINE, AND HAD
+  // NO ASSERTION AT ALL. Its "some" arm is unreachable against the live window:
+  // floor and ceiling are both 6.3.0 inclusive, so the only IN-WINDOW version is
+  // 6.3.0 exactly and headroom is always "none" - a gate reviewer enumerated all
+  // 900 versions 0.0.0-8.9.9 and measured none=1, some=0. So a one-token change
+  // could delete the operator's warning and ship green. Both arms are reachable
+  // against the wide synthetic window, which is the only place to drive them.
+  if (checkRef("zfnd/zebra:6.3.1", patchFloor, patchCeiling).headroom !== "none") {
+    return "a version EQUAL to the floor did not report headroom \"none\" - the operator's NO-HEADROOM warning is dead";
+  }
+  if (checkRef("zfnd/zebra:6.4.0", patchFloor, patchCeiling).headroom !== "some") {
+    return "a version ABOVE the floor did not report headroom \"some\" - the NO-HEADROOM warning fires on every pin";
+  }
+
   // EACH UNREADABLE BRANCH, BY ITS MESSAGE. This is where the digest arm and the
   // registry-port arm are actually tested: both reach UNPARSED whether or not
   // their clause exists, so only the message distinguishes a working clause from
@@ -454,12 +575,7 @@ function selfTest() {
   // a scanner that matches nothing produces the same silence as a clean tree.
   // Fold 3's two fixture compose files, written and scanned end to end.
   const dir = mkdtempSync(join(tmpdir(), "zebra-tag-"));
-  const fixtures = [
-    { name: "below-floor.yml", pin: "zfnd/zebra:6.2.9", expect: "BELOW-FLOOR" },
-    { name: "latest.yml", pin: "zfnd/zebra:latest", expect: "UNPARSED" },
-    { name: "above-ceiling.yml", pin: "zfnd/zebra:6.4.0", expect: "ABOVE-CEILING" },
-    { name: "in-window.yml", pin: "zfnd/zebra:6.3.0", expect: "IN-WINDOW" },
-  ];
+  const fixtures = FIXTURES;
   for (const f of fixtures) {
     const path = join(dir, f.name);
     writeFileSync(path, `services:\n  zebrad:\n    image: ${f.pin}\n    restart: unless-stopped\n  postgres:\n    image: postgres:16-alpine\n`);
@@ -544,7 +660,7 @@ console.log(
     `UNPARSED, because an unreadable pin is an unknown bound rather than a satisfied one). Self-test drove ` +
     `${REFERENCE_REFS.length} reference refs across all ${OUTCOMES.length} outcomes and all ${UNPARSED_REASONS.length} ` +
     `unreadable branches (two of which are checked by message, because their clause cannot change a verdict), both ` +
-    `ceiling kinds at and around a synthetic boundary, and 4 fixture compose files end to end. THIS PROVES A TAG IS ` +
+    `ceiling kinds at and around a synthetic boundary, and ${FIXTURES.length} fixture compose files end to end. THIS PROVES A TAG IS ` +
     "INSIDE A WINDOW, NEVER THAT THIS BUILD IS CORRECT AGAINST THE NODE THAT TAG RUNS - that is A11's question, at " +
     "runtime, against a live subversion.",
 );

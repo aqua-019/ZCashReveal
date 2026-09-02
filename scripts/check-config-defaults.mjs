@@ -60,6 +60,26 @@
  * a variable dropping out of it is then visible in CI output rather than
  * silent.
  *
+ * AND THE BOUND THAT MATTERS MOST, WHICH THE FIRST DRAFT OF THIS HEADER DID NOT
+ * STATE AT ALL. A module that declares NO network field is never scanned - it
+ * cannot be, because the rule is defined relative to a module's OWN network
+ * field. So a module that hard-codes a per-network constant with no network
+ * variable to read is invisible here, and `apps/publisher/src/config.ts` is
+ * exactly that module today: it has no network field, and
+ * `SNAPSHOT_IRONWOOD_BIRTH_HEIGHT` defaults unconditionally to
+ * `NU6_3_MAINNET_HEIGHT` with `.env.example` restating the same constant.
+ *
+ * THAT IS NOT THE LEDGER-12 Q6 DEFECT AND CALLING IT ONE WOULD BE WRONG, which
+ * is worth writing down because a gate reviewer reported it as "the identical
+ * 705,857-block defect, still live". Q6's shape is a default written TWICE that
+ * DISAGREES on testnet, and the guard's fix is to delete one copy. Here the two
+ * copies AGREE - both are the mainnet constant - so deleting the `.env.example`
+ * line changes no behaviour at all and would leave the actual exposure
+ * untouched. The exposure is that the publisher is mainnet-only BY
+ * CONSTRUCTION, which is a product decision to take or reject in
+ * `apps/publisher`, not a duplicate to remove. It is recorded in HANDOFF-13
+ * section 8 as a question rather than fixed by a guard that cannot see it.
+ *
  * WHY A SIBLING RATHER THAN A FOURTH RULE INSIDE `check-compose.mjs`, decided
  * by measurement rather than by taste. The brief proposed extending it, on the
  * premise that "both files are already parsed by check-compose.mjs, so the
@@ -360,6 +380,21 @@ export function composeLiteralFor(line, name) {
   if (bare !== null && !bare[1].includes("${") && HAS_VALUE(bare[1])) {
     return { form: `${name}: <bare>`, literal: bare[1].trim() };
   }
+  // COMPOSE HAS TWO `environment:` SYNTAXES AND THE FIRST DRAFT READ ONE.
+  // The map form is `NAME: value`; the LIST form is `- NAME=value`, and both are
+  // valid and common. A guard that sees only the map form is silent on a file
+  // that is not unusual - found by a gate reviewer writing a valid list-form
+  // compose file into a shadow tree and watching the run stay green. The
+  // interpolation loop above already covers `- NAME=${NAME:-x}`, because it
+  // scans the whole line; this is the literal half.
+  const listItem = /^-\s*(.*)$/.exec(trimmed);
+  if (listItem !== null && !listItem[1].includes("${")) {
+    const kv = new RegExp(`^${name}\\s*=\\s*(.*)$`).exec(listItem[1].trim());
+    if (kv !== null) {
+      const value = kv[1].replace(/^["']|["']$/g, "").trim();
+      if (HAS_VALUE(value)) return { form: `- ${name}=<value>`, literal: value };
+    }
+  }
   return null;
 }
 
@@ -369,7 +404,14 @@ export function envLiteralFor(line, name) {
   if (trimmed === "" || trimmed.startsWith("#")) return null;
   const m = new RegExp(`^(?:export\\s+)?${name}\\s*=\\s*(.*)$`).exec(trimmed);
   if (m === null) return null;
-  const value = m[1].replace(/^["']|["']$/g, "").trim();
+  // AN INLINE COMMENT IS NOT A VALUE. `V=   # leave unset` is the spelling an
+  // operator reaches for when they mean "deliberately blank", and the first
+  // draft read the comment PROSE as the literal default and failed the build
+  // naming it. A quoted value keeps its `#`, because inside quotes it is data.
+  const raw = m[1].trim();
+  const value = /^["']/.test(raw)
+    ? raw.replace(/^["']|["']$/g, "").trim()
+    : raw.replace(/(^|\s)#.*$/, "").trim();
   if (!HAS_VALUE(value)) return null;
   return { form: `${name}=<value>`, literal: value };
 }
@@ -416,19 +458,25 @@ function discoverConfigModules() {
   return found;
 }
 
+/**
+ * WALKED FROM THE REPOSITORY ROOT, NOT FROM A LIST OF DIRECTORIES.
+ *
+ * The first draft read the root with `readdirSync(".")` and then walked only
+ * `apps/` and `packages/`, so a compose file or an env template anywhere else -
+ * `infra/`, which this repository already uses for deployment configuration -
+ * was silently outside the scan. There is no live gap today (all four real
+ * surfaces are under the old scope, measured against `git ls-files`), and that
+ * is exactly the condition under which a reach gap ships: nothing fails, so
+ * nothing says. Found by a gate reviewer writing a compose file into `infra/`
+ * and watching the count stay at two.
+ */
 function discoverSurfaces() {
   const compose = [];
   const env = [];
-  for (const file of readdirSync(".")) {
-    if (/^docker-compose.*\.ya?ml$/.test(file)) compose.push(file);
-  }
-  if (existsSync(".env.example")) env.push(".env.example");
-  for (const root of SEARCH_ROOTS) {
-    if (!existsSync(root)) continue;
-    for (const file of walk(root, [])) {
-      if (file.endsWith("/.env.example")) env.push(file);
-      if (/\/docker-compose.*\.ya?ml$/.test(file)) compose.push(file);
-    }
+  for (const file of walk(".", [])) {
+    const rel = file.startsWith("./") ? file.slice(2) : file;
+    if (/(^|\/)docker-compose.*\.ya?ml$/.test(rel)) compose.push(rel);
+    if (rel === ".env.example" || rel.endsWith("/.env.example")) env.push(rel);
   }
   return { compose: compose.sort(), env: env.sort() };
 }
@@ -455,9 +503,12 @@ export function scan(modules, surfaces) {
             module,
             surface: "compose",
             message:
-              `${file}:${i + 1} gives ${name} the literal default "${hit.literal}" as ${hit.form}, but ` +
-              `${module} defaults it from the network. Compose cannot read a sibling variable, so this ` +
-              `constant applies on EVERY network and silently wins wherever the operator left the variable alone.`,
+              `${file}:${i + 1} gives ${name} the literal default "${hit.literal}" as ${hit.form}, and ` +
+              `${module} computes ${name} from its network field. Compose cannot read a sibling variable, so a ` +
+              `constant here applies on EVERY network and wins wherever the operator left the variable alone. ` +
+              `(This guard sees an identifier REFERENCE, not a data flow: if ${name} is validated against the ` +
+              `network rather than defaulted from it, the reference is the same and the remedy is not - say so ` +
+              `here rather than deleting a value the stack needs.)`,
           });
         }
       });
@@ -473,9 +524,11 @@ export function scan(modules, surfaces) {
             module,
             surface: "env",
             message:
-              `${file}:${i + 1} sets ${name}="${hit.literal}", but ${module} defaults it from the network. ` +
-              `Section 1 of the VPS runbook opens with \`cp .env.example .env\`, so this constant reaches ` +
-              `every deployment whether or not the operator chose it. Comment the line out instead.`,
+              `${file}:${i + 1} sets ${name}="${hit.literal}", and ${module} computes ${name} from its network ` +
+              `field. Section 1 of the VPS runbook opens with \`cp .env.example .env\`, so this constant reaches ` +
+              `every deployment whether or not the operator chose it; commenting the line out is the usual remedy. ` +
+              `(This guard sees an identifier REFERENCE, not a data flow: if ${name} is validated against the ` +
+              `network rather than defaulted from it, the reference is the same and the remedy is not.)`,
           });
         }
       });
@@ -510,6 +563,9 @@ const SHAPES = [
   { surface: "compose", form: "nested", line: "      V: ${V:-${W}}", literal: false, why: "a nested reference is not a literal" },
   { surface: "compose", form: "commented", line: "      # V: ${V:-3428143}", literal: false, why: "a commented line is not configuration" },
   { surface: "compose", form: "other-variable", line: "      OTHER: ${OTHER:-3428143}", literal: false, why: "another variable's default is not this one's" },
+  { surface: "compose", form: "- V=d", line: "      - V=3428143", literal: true, why: "compose's LIST form, which the first draft could not read at all" },
+  { surface: "compose", form: "- V=${V:-d}", line: "      - V=${V:-3428143}", literal: true, why: "the list form carrying an operator default" },
+  { surface: "compose", form: "- V=", line: "      - V=", literal: false, why: "a list entry assigning nothing" },
   { surface: "env", form: "V=d", line: "V=3428143", literal: true, why: "the form .env.example shipped" },
   { surface: "env", form: "export V=d", line: "export V=3428143", literal: true, why: "the exported spelling" },
   { surface: "env", form: "quoted", line: 'V="3428143"', literal: true, why: "quoted is still a value" },
@@ -518,6 +574,9 @@ const SHAPES = [
   { surface: "env", form: "V=", line: "V=", literal: false, why: "assigned nothing" },
   { surface: "env", form: "prefix-collision", line: "VV=3428143", literal: false, why: "a longer name that merely starts with the same characters" },
   { surface: "env", form: "other-variable", line: "OTHER=3428143", literal: false, why: "another variable" },
+  { surface: "env", form: "inline-comment", line: "V=   # leave unset", literal: false, why: "an inline comment is prose, not a value - it was read as one" },
+  { surface: "env", form: "value-then-comment", line: "V=3428143   # the mainnet constant", literal: true, why: "a real value keeps its verdict when a comment follows" },
+  { surface: "env", form: "quoted-hash", line: 'V="#3428143"', literal: true, why: "inside quotes a hash is data, so the comment strip must not run" },
 ];
 const SURFACES = ["compose", "env"];
 const VERDICTS = [true, false];
@@ -542,8 +601,8 @@ const VERDICTS = [true, false];
  * this project that a guard's self-test was found certifying a hole - the first
  * three shipped.
  */
-const COMPOSE_FORMS = ["${V}", "${V:-d}", "${V-d}", "${V:+d}", "${V+d}", "${V:?m}", "${V?m}", "${V:-}", "bare", "nested", "commented", "other-variable"];
-const ENV_FORMS = ["V=d", "export V=d", "quoted", "#V=d", "# V=d", "V=", "prefix-collision", "other-variable"];
+const COMPOSE_FORMS = ["${V}", "${V:-d}", "${V-d}", "${V:+d}", "${V+d}", "${V:?m}", "${V?m}", "${V:-}", "bare", "nested", "commented", "other-variable", "- V=d", "- V=${V:-d}", "- V="];
+const ENV_FORMS = ["V=d", "export V=d", "quoted", "#V=d", "# V=d", "V=", "prefix-collision", "other-variable", "inline-comment", "value-then-comment", "quoted-hash"];
 
 /**
  * A synthetic config module carrying every discovery case at once, so the
@@ -764,6 +823,19 @@ if (networkFieldCount === 0) {
   process.exit(1);
 }
 
+// THE SURFACES NEED THE SAME FLOOR THE MODULES HAVE, and the paragraph that
+// justifies the module floor argues for this one word for word: a discovery
+// that stopped matching produces the same silence as a clean tree. Without it
+// a broken `discoverSurfaces` prints "no literal default ... in 0 compose
+// file(s) or 0 env template(s)" and exits 0, which reads as coverage.
+if (names.compose.length === 0 || names.env.length === 0) {
+  console.error(
+    `[config-defaults] FAIL: discovery found ${names.compose.length} compose file(s) and ${names.env.length} env ` +
+      "template(s). This repository has both; a tree with neither is a discovery that stopped matching, not a clean tree.",
+  );
+  process.exit(1);
+}
+
 const probe = realTreeProbe(modules, surfaces);
 if (probe.outcome === "FAILED") {
   console.error(`[config-defaults] SELF-TEST FAILED against the real tree: ${probe.reason}`);
@@ -790,8 +862,9 @@ console.log(
   `[config-defaults] OK: ${dependent.size} network-dependent default(s) (${[...dependent.keys()].join(", ") || "none"}) ` +
     `across ${modules.length} config module(s); no literal default for any of them in ${names.compose.length} compose ` +
     `file(s) or ${names.env.length} env template(s). Self-test drove ${SHAPES.length} value shapes across both ` +
-    "surfaces and both verdicts, one synthetic module through discovery plus a code mutation of it, and one real-tree " +
-    "data mutation. THIS PROVES A LITERAL IS ABSENT, NEVER THAT THE RESOLVER'S DEFAULT IS RIGHT - and a default that " +
+    "surfaces and both verdicts, and one synthetic module through discovery plus a code mutation of it; the real-tree " +
+    `data mutation ${probe.outcome === "RAN" ? "RAN" : "did NOT run (" + probe.reason + ")"}. ` +
+    "THIS PROVES A LITERAL IS ABSENT, NEVER THAT THE RESOLVER'S DEFAULT IS RIGHT - and a default that " +
     "reaches the network through an indirection no regex can follow is invisible to the discovery half, which is why " +
     "the discovered set is printed by name above.",
 );

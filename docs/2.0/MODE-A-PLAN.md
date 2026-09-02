@@ -215,9 +215,11 @@ first task is to answer it against the crate source.
 
 A viewing key does not say when its account was created. Wallets solve this with a *birthday
 height* the user supplies; without one, a correct scan starts at Sapling activation and reads
-about 3.4 million blocks.
+about **3.05 million blocks** - tip 3,468,549 less `SAPLING_ACTIVATION_MAINNET` 419,200, both
+constants this repository already carries. (An earlier draft said "3.4 million", which is the
+tip HEIGHT rather than the block COUNT - a subtraction nobody did.)
 
-At ChainSafe's measured 7,700 blocks/sec (4 threads, n=1 machine) that is roughly **7.4
+At ChainSafe's measured 7,700 blocks/sec (4 threads, n=1 machine) that is roughly **6.6
 minutes**, and their own longer run - 755,635 blocks from Orchard activation to tip - took
 3,353,402.88 ms, about 56 minutes, because block density through the DoS-attack period is much
 higher than the average. Those are the only published figures and they are one machine, one
@@ -225,9 +227,10 @@ browser, one thread count.
 
 **The plan's position: Mode A scans the Ironwood era by default and asks for a birthday for
 anything earlier.** The default range is NU6.3 activation (**3,428,143**, ZIP 258, and the
-constant this repository already carries) to tip, which is about 16,700 blocks at the time of
-writing - two orders of magnitude smaller than a full scan and the range this site is actually
-about. Sapling and Orchard history is offered behind an explicit second action that states the
+constant this repository already carries) to tip, which is about **40,400 blocks** at the tip
+the committed captures themselves record (3,468,549, from height plus `confirmations`) - about
+5 seconds at ChainSafe's rate, seventy-five times smaller than a full scan, and the range this
+site is actually about. Sapling and Orchard history is offered behind an explicit second action that states the
 time cost before it starts, with a birthday field. This is also the honest framing: a forensics
 site that decrypts *the new pool* is doing what it says on the tin, and one that silently reads
 eight years of a stranger's history because the default was convenient is not.
@@ -434,17 +437,43 @@ Source C is not recommended until someone has run `zfnd/zebra:6.3.0` with
 
 Counted from the four committed mainnet captures in `apps/indexer/test/fixtures/blocks`:
 
-| Height | nTx | Sapling outputs | Sapling spends | Orchard actions |
-|---|---|---|---|---|
-| 3,432,130 | 5 | 2 | 0 | 2 |
-| 3,441,955 | 10 | 2 | 2 | 2 |
-| 3,444,836 | 2 | 0 | 0 | 0 |
-| 3,444,837 | 6 | 2 | 0 | 2 |
+| Height | nTx | Sapling outputs | Sapling spends | Orchard actions | **Ironwood actions** |
+|---|---|---|---|---|---|
+| 3,432,130 | 5 | 2 | 0 | 2 | 1 |
+| 3,441,955 | 10 | 2 | 2 | 2 | 6 |
+| 3,444,836 | 2 | 0 | 0 | 0 | 0 |
+| 3,444,837 | 6 | 2 | 0 | 2 | 3 |
 
-**n = 4 blocks, 23 transactions**: 1.50 Sapling outputs and 1.50 Orchard actions per block,
-which at 124 and 159 bytes per slot is about **425 compact bytes per block**. Over the
-Ironwood era so far (3,428,143 to 3,444,837, about 16,700 blocks) that is roughly **7 MB**;
-over a year of blocks, roughly **89 MB**.
+**n = 4 blocks, 23 transactions**: 1.50 Sapling outputs, 1.50 Orchard actions and **2.50
+Ironwood actions** per block, which at 124 bytes per output slot and 159 per action slot is
+about **822 compact bytes per block**. Over the Ironwood era so far - activation 3,428,143 to a
+tip of **3,468,549**, about **40,400 blocks** - that is roughly **33 MB**; over a year of blocks
+(**420,480** at the 75-second target; 75.36 s measured across this sample's own 12,707-height
+span) roughly **346 MB**.
+
+**THE FIRST DRAFT OF THIS TABLE HAD NO IRONWOOD COLUMN, AND THAT IS THE EXACT FAILURE SECTION
+1.4 WARNS ABOUT, COMMITTED IN THE DOCUMENT THAT NAMES IT.** Section 1.4 says a decoder reading
+`CompactTx.actions` (field 6) and ignoring `ironwoodActions` (field 9) "silently loses every
+Ironwood note". The measurement did precisely that: it counted `tx.orchard.actions` and not
+`tx.ironwood.actions`, so it missed **10 of the 22 shielded items in the sample** - and Ironwood
+is the *densest* of the three at 2.50 per block against 1.50 and 1.50. The figure it produced,
+425 bytes per block, understated the real one by 48 per cent, on the pool the default scan in
+section 1.5 exists for. Found by a gate reviewer recounting the fixtures rather than reading the
+table. It is left recorded rather than quietly corrected because a plan that warns about a
+failure mode and then exhibits it is evidence about how hard that failure mode is to see.
+
+**Two more corrections in the same pass, both arithmetic and both in the unsafe direction:**
+
+- **The tip is not the newest fixture.** The first draft took 3,444,837 - the highest captured
+  height - as the tip and got "about 16,700 blocks". The captures record their own tip: each
+  carries a `confirmations` field, and height plus confirmations gives **3,468,549** on the two
+  newest. The era is **40,406 blocks**, two and a half times the first figure.
+- **Zcash targets 75 seconds, not 150.** The first draft's "89 MB per year" implies 209,658
+  blocks a year, which is a 150-second block interval - the *pre-Blossom* target. This
+  repository states the right one in `packages/zec-instruments/src/turnstile-accounting.ts:218`
+  ("Zcash targets 75 seconds and misses"), and the fixtures' own timestamps measure 75.36 s
+  across 12,707 blocks. The annual figure is **346 MB**, not 89 MB - wrong by a factor of
+  nearly four once the Ironwood column is also restored.
 
 **Three cautions, because a rate without them is not a measurement.** n is four. All four
 blocks lie within 12,707 heights of each other and all are post-NU6.3. And the fixture
@@ -966,10 +995,23 @@ amendment it earns its own review round. That is a materially larger piece of wo
 comment", and it is the reason to say so here rather than leave whoever picks it up to discover
 it.
 
-**This handoff did not fix it.** Every site is under `apps/` or `packages/`, and A2 forbids this
-plan-only branch from touching either; correcting it inside a handoff whose whole point is to
-not build would have spent the approval gate on a comment. It belongs to the Integration track,
-which already owes round 4 on `62c4e77` (F-52-2).
+**This handoff did not fix it, and the first draft of this paragraph gave a reason that its own
+table five lines above refutes.** It said "every site is under `apps/` or `packages/`, and A2
+forbids this plan-only branch from touching either". `docs/2.0/RUNTIME.md` is neither, and it is
+in the table. A machine-readable row contradicted by the prose beside it is this project's
+most-recorded defect shape, and here it was load-bearing: it made a judgement call look like a
+constraint.
+
+**The real reason is the sweep rule, and it points the same way.** Five of the six sites *are*
+behind A2. Correcting only `RUNTIME.md` would land a correction in one file while five others
+still state the error - which LEDGER-03 Q3 rates a **HIGH** finding in its own right, worse than
+the original, because the tree would then contradict itself about a named upstream change. A
+partial sweep is not a smaller version of the fix; it is a different and worse defect. So the
+whole correction goes together or not at all, and not-at-all is what a plan-only branch can
+honestly do.
+
+It belongs to the Integration track, which already owes round 4 on `62c4e77` (F-52-2), and
+section 8 of this handoff carries it so that track opens with it rather than discovering it.
 
 **Q7. Is `/v2/compact` a Data-track handoff before Mode A, or part of the Mode A build?**
 Section 3.2 recommends Source B first, which needs no migration - so it could be either. If it
