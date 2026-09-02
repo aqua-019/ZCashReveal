@@ -7500,3 +7500,45 @@ DEFERRED ASSUMPTIONS:
   D4  Raising SNAPSHOT_TTL_MS to 120,000 - carried from the previous session; the
       operator's trade.
 ```
+
+## HANDOFF-12 round 3 - the reviewer of the fix commit, and three defects the fix created (L3, 2 Sep 2026)
+
+```
+APPENDED, NOT REWRITTEN. The HANDOFF-12 second-session block above was written
+while the round-2 reviewer was still running; it returned afterwards, and the
+ledger is append-only, so this is the correction rather than an edit to it. The
+handoff's own section 7 carries the same account in full.
+
+WHAT THE BLOCK ABOVE SAYS AND WHAT IS NOW TRUE:
+  It says GATE ROUND COUNTS "round 2: the fifth reviewer had not returned, so
+  the round was run by the lead". The reviewer returned. It independently found
+  both of the lead's two findings - and measured one of them where the lead had
+  only reasoned - and then found FOUR more, THREE of them defects the round-1
+  fix commit introduced. Rounds: 3, not 2. Fixed in `62c4e77`.
+
+  Q9 IS NARROWER THAN IT WAS WRITTEN, AND THE CORRECTION MATTERS TO A READER
+  DECIDING IT. Q9 says the Redis hot tier can answer with an orphaned height
+  "until the 24-hour TTL expires". That was FALSE as shipped in `c53f2ba`: the
+  memo repopulates from a Redis hit into a map that had no expiry, so one read
+  after a reorg pinned the orphaned height for the LIFE OF THE PROCESS and the
+  TTL bounded nothing. The memo entry now carries the key's own deadline, which
+  is what makes Q9's sentence true. The question itself - whether to widen
+  check-redis-safety rule 4, or to move the registry's Redis writes behind a
+  file that proves its target - is unchanged and still the operator's.
+
+  AND THE INSTRUMENT THAT FOUND IT IS THE FINDING WORTH KEEPING. The test the
+  lead wrote for that limitation could not have caught it: its Redis double
+  answered `get` with a constant null, so the scenario the limitation is about
+  - a key that survives the forget - was unreachable, and its "returns null
+  after the forget" assertion was true of the double rather than of the
+  registry. A double that cannot express the failure state is the fail-side
+  rule arriving in the TEST HARNESS rather than in the test: two-polarity
+  evidence is worthless when the negative case cannot occur. The double now
+  remembers what it was told.
+
+EXTRAPOLATION, CORRECTED: the second-session block predicted a third round
+  would find "one or two more" in the runtime's failure paths. It found four,
+  and three of them were created by the fix for round 1 - so on this branch the
+  reach is NOT decaying across rounds, it is following the fix commits. A
+  fourth round would most likely find one or two in `62c4e77`.
+```

@@ -746,7 +746,7 @@ UNVERIFIED (labelled):
     session from the same vendored checkout under the scratchpad; not from the tree.
   Every deployed measurement.
 
-GATE ROUNDS: 2 dispatched, 1 complete at the time the branch merged, and the
+GATE ROUNDS: 3, of which round 3 arrived after the write-back was written, and the
   counts are reported SEPARATELY because a truncated verify phase is two counts
   and not one (LEDGER-10 Q3).
   ROUND 1 - four read-only reviewers, two returned and two died on the account's
@@ -822,18 +822,55 @@ GATE ROUNDS: 2 dispatched, 1 complete at the time the branch merged, and the
             next lookup of a forgotten root restores the orphaned height; what
             the two cleared tiers buy is that the answer stops being
             PERMANENT. Corrected in the code and in RUNTIME.md.
-    Fixed in `2eb13e6`. ROUND 3, within the round that produced it: that commit
-    changes a comment, two document sentences and two test cases, so it was
-    reviewed under clause (ii)'s scope - guard predicates, test assertions, and
-    sentences making a checkable claim about runtime behaviour, each checked by
-    EXECUTING the behaviour. No finding. The dispatched reviewer's report, if
-    it arrives, is the next session's or this PR's, whichever comes first.
-  EXTRAPOLATION rather than a convergence claim: round 1 reached two HIGHs in
-    the runtime's failure paths and one in configuration; a third round of the
-    same instrument would probably find one or two more of that reach, most
-    likely where round 1 could not look - the live-path seam, which no reviewer
-    has yet read, and the assessment population, whose only reader so far is
-    the session that wrote it.
+    Fixed in `2eb13e6`.
+  ROUND 3 - THE DISPATCHED REVIEWER ARRIVED AFTER THE WRITE-BACK AND FOUND FOUR
+    MORE, THREE OF THEM DEFECTS THE ROUND-1 FIX INTRODUCED. It independently
+    found the two above (same reading, and it measured one of them where the
+    lead had only reasoned), and then:
+      HIGH  the memo clear never bounded anything, and the sentence saying it
+            did was this session's. `getHeightForAnchor` repopulates the memo
+            from a Redis hit into a map with NO EXPIRY, so one read after a
+            reorg pinned the orphaned height for the life of the process, while
+            `anchor-depth` and RUNTIME.md both claimed the 24-hour TTL bounded
+            it. Measured by driving the real class against a Redis double that
+            REMEMBERS what it was told - which my own test could not do, its
+            `get` being a constant null, so the scenario the limitation is
+            about was unreachable and its "returns null after the forget"
+            assertion was vacuous. Both fixed: the memo entry carries the key's
+            own deadline, the double remembers, and the limitation is pinned as
+            behaviour rather than described in prose.
+      HIGH  the `onApplied` catch was a blanket and swallowed fatal-shaped
+            errors, removing the follower's own "two kinds of error" invariant
+            for the whole interface. Measured in both polarities against the
+            real class at `c53f2ba^` and at HEAD. `isFatal` is re-thrown now.
+      HIGH  `onReorg` is the same shape one callback later and WITH a live
+            trigger - it runs after the rollback commits and the shipped
+            callback calls `forgetAbove`, a Postgres write - so its failure
+            reached the generic handler and was logged as "retrying after the
+            poll interval", the exact sentence the `onApplied` fix exists to
+            stop saying. Wrapped identically.
+      MED   `""` was only the commonest spelling of blank: a value exported as
+            a single space is not empty to compose's `${VAR:-}`, reached the
+            schema verbatim, coerced to 0 and threw at module scope - the same
+            crash-loop by a different door. Trimmed, every spelling pinned.
+    It also named, correctly, that four of the five cases in `config.test.ts`
+    would pass with the preprocess reverted; the one that carries the fix is
+    the blank case, and it now carries four more inputs. Fixed in `62c4e77`.
+    The round-3 fix commit is reviewed under clause (ii)'s scope in the same
+    round: its predicates are `isFatal(err)` re-thrown (driven in both
+    polarities), the memo deadline (driven at the boundary), and `v.trim()`
+    (driven over four blank spellings). No further finding.
+  EXTRAPOLATION rather than a convergence claim, and round 3 has already
+    falsified the first version of it. That version said a third round would
+    find "one or two more" in the runtime's failure paths; it found four, three
+    of them created by the round-1 fix, and the reach did not decay between
+    rounds 1 and 3 the way this project's earlier gates did. The honest reading
+    is that the fix commits are where this branch's defects now live, and a
+    fourth round would most likely find one or two in `62c4e77` - its three
+    predicates are driven in both polarities, which is what makes that estimate
+    lower than round 3's rather than equal to it. Untouched by any round: the
+    live-path seam and the assessment population, whose only reader remains the
+    session that wrote them.
 
 PREVIEW URL: none. Unreachable from a session (Deployment Protection returns 302
   to SSO and the container's egress proxy refuses the CONNECT tunnel with 403
