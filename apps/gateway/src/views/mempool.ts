@@ -17,6 +17,7 @@
 import type {
   Hex,
   LeakReport,
+  MempoolDrain,
   MempoolRow,
   MempoolView,
   RpcTransaction,
@@ -53,6 +54,15 @@ export function buildMempoolView(
    * summary says which.
    */
   sizes: Readonly<Record<string, { size: number }>> = {},
+  /**
+   * How complete the indexer says this view is, or null when nothing said.
+   *
+   * A SEPARATE ARGUMENT FOR THE SAME REASON `sizes` IS ONE, and the docblock
+   * above says it: the reports do not carry it, so a view that derived it here
+   * would be inventing it. Defaulting to null rather than to a complete drain
+   * is the difference between "nothing told us" and "everything is fine".
+   */
+  drain: MempoolDrain | null = null,
 ): MempoolView {
   const entries = reports.map((r) => mempoolRow(r, now));
 
@@ -189,6 +199,7 @@ export function buildMempoolView(
   return {
     tipHeight,
     entries,
+    drain,
     summary: {
       unconfirmed: entries.length,
       shielded,

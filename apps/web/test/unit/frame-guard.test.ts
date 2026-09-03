@@ -273,3 +273,82 @@ describe("A5 - the gateway's { channel, payload } envelope", () => {
     expect(asFrame({ channel: "zcashreveal:tip" })).toBeNull();
   });
 });
+
+describe("HANDOFF-15's drain field, at the seam between the schema and the guard", () => {
+  // THE INSTRUMENT IS THE ONE LEDGER-11 NAMES: one side actually produces the
+  // value and hands it to the other. `zecFrameSchema` is the shared contract
+  // and `asFrame` is the hand-written guard `apps/web` ships instead of it -
+  // two readers of one wire form, which is precisely the pair this project's
+  // four seam defects lived between.
+  const withDrain = { type: "snapshot", view: MEMPOOL_VIEW } as const;
+
+  it("PASS STATE: both accept a frame carrying a drain, and both produce the same drain", () => {
+    const guarded = asFrame(JSON.parse(JSON.stringify(withDrain, jsonish)));
+    const parsed = zecFrameSchema.parse(JSON.parse(JSON.stringify(withDrain, jsonish)));
+    expect(guarded).not.toBeNull();
+    expect(guarded?.type).toBe("snapshot");
+    if (guarded?.type !== "snapshot" || parsed.type !== "snapshot") throw new Error("wrong frame");
+    expect(guarded.view.drain).not.toBeNull();
+    expect(guarded.view.drain).toEqual(parsed.view.drain);
+    expect(guarded.view.drain?.complete).toBe(true);
+    expect(guarded.view.drain?.observed).toBe(MEMPOOL_VIEW.entries.length);
+  });
+
+  it("AN OLDER GATEWAY OMITS THE KEY, AND BOTH READ THAT AS null RATHER THAN REJECTING", () => {
+    // The compatibility case the schema's `.default(null)` exists for. Without
+    // it, one added field empties /track for every reader on a stack that has
+    // not been redeployed - which is what `CLASSES` records happening twice
+    // through an added enum member.
+    const raw = JSON.parse(JSON.stringify(withDrain, jsonish)) as {
+      view: Record<string, unknown>;
+    };
+    delete raw.view["drain"];
+    const guarded = asFrame(raw);
+    const parsed = zecFrameSchema.parse(raw);
+    expect(guarded).not.toBeNull();
+    if (guarded?.type !== "snapshot" || parsed.type !== "snapshot") throw new Error("wrong frame");
+    expect(guarded.view.drain).toBeNull();
+    expect(parsed.view.drain).toBeNull();
+  });
+
+  it("FAIL STATE, BY DATA: a MALFORMED drain is refused by both, and the guard does not quietly degrade it", () => {
+    // THE MEMBER OF THE EXCLUSION SET. `analysed: "three"` is a count that is
+    // not a count. The first draft of `asDrain` collapsed this onto null and
+    // rendered the view with the drain missing - half a measurement presented
+    // whole, and a divergence from the schema this file's own describe block
+    // above forbids.
+    const raw = JSON.parse(JSON.stringify(withDrain, jsonish)) as {
+      view: { drain: Record<string, unknown> };
+    };
+    raw.view.drain["analysed"] = "three";
+    expect(asFrame(raw)).toBeNull();
+    expect(zecFrameSchema.safeParse(raw).success).toBe(false);
+  });
+
+  it("FAIL STATE, BY DATA: a negative age is refused, because a count is nonnegative", () => {
+    const raw = JSON.parse(JSON.stringify(withDrain, jsonish)) as {
+      view: { drain: Record<string, unknown> };
+    };
+    raw.view.drain["updatedSecondsAgo"] = -1;
+    expect(asFrame(raw)).toBeNull();
+    expect(zecFrameSchema.safeParse(raw).success).toBe(false);
+  });
+
+  it("a null completeSecondsAgo survives BOTH, because never-complete is not zero seconds ago", () => {
+    const raw = JSON.parse(JSON.stringify(withDrain, jsonish)) as {
+      view: { drain: Record<string, unknown> };
+    };
+    raw.view.drain["completeSecondsAgo"] = null;
+    raw.view.drain["complete"] = false;
+    const guarded = asFrame(raw);
+    const parsed = zecFrameSchema.parse(raw);
+    if (guarded?.type !== "snapshot" || parsed.type !== "snapshot") throw new Error("wrong frame");
+    expect(guarded.view.drain?.completeSecondsAgo).toBeNull();
+    expect(parsed.view.drain?.completeSecondsAgo).toBeNull();
+  });
+});
+
+/** The wire replacer: JSON cannot carry a bigint, so a zatoshi goes as a decimal string. */
+function jsonish(_k: string, v: unknown): unknown {
+  return typeof v === "bigint" ? v.toString() : v;
+}

@@ -563,6 +563,36 @@ const fmt = (zat: bigint): string => {
 export const MEMPOOL_VIEW: MempoolView = {
   tipHeight: 3_456_854,
   entries: [...ENTRIES],
+  /**
+   * A COMPLETE DRAIN, STATED RATHER THAN OMITTED, AND THE TWO ARE NOT THE SAME.
+   *
+   * `drain: null` would mean "nothing knows how complete this view is", which
+   * is a true statement about a live stack with no indexer and a false one
+   * about a bundled document whose fourteen rows ARE the whole of the mempool
+   * it describes. The fixture knows its own completeness exactly, so it says
+   * so; a reader on the fixture build then sees the same affordance a live
+   * reader sees, rather than an absence that exists only because nobody filled
+   * a field in.
+   *
+   * LEDGER-14 Q2 IS WHY THIS IS SPELLED OUT. The committed snapshot fixture
+   * carries `residual: null` - the site's headline figure rendered as an
+   * absence - and nobody had said whether that was deliberate. A fixture field
+   * left null by omission and one left null on purpose are indistinguishable
+   * from the file, so this one carries its reason.
+   */
+  drain: {
+    observed: ROWS.length,
+    analysed: ROWS.length,
+    complete: true,
+    deferred: 0,
+    refused: false,
+    completeSecondsAgo: 0,
+    updatedSecondsAgo: 0,
+    // Unmetered: a bundled document was not fetched under a ceiling, and
+    // inventing one here would put a rate on the page that nothing measured.
+    ceilingPerMinute: null,
+    txPerMinute: null,
+  },
   summary: {
     unconfirmed: ROWS.length,
     shielded,

@@ -25,6 +25,8 @@
 // `pnpm lint` and `pnpm check` were all green on the commit that shipped it,
 // because none of them runs a production Next build; the Vercel deployment on
 // the PR is the first thing that does. Noted in the report.
+import type { MempoolDrain } from "@zcashreveal/types";
+
 import { fmtInt } from "./format";
 
 /** The four counts /track prints beside each other in the block header. */
@@ -83,4 +85,97 @@ export function mempoolHeaderText(counts: MempoolCounts, feeWeather: string): st
     `${fmtInt(counts.migrations)} migrations - ${fmtInt(counts.transparent)} transparent` +
     `${remainder} - fee weather: ${feeWeather}`
   );
+}
+
+/* ============================================================================
+   How complete the view is (HANDOFF-15 deliverable 3)
+   ========================================================================== */
+
+/**
+ * What /track says about the completeness of the mempool it is showing.
+ *
+ * A DISCRIMINATED RESULT RATHER THAN A STRING, ON `SnapshotAge`'s PRECEDENT
+ * (`lib/snapshot/source.ts`). The renderer has to treat "nothing told us how
+ * complete this is" differently from "this is 3 of 9" - the first is a named
+ * absence and the second is a measurement - and a function returning one string
+ * for both forces the page to re-derive the distinction from the words. That is
+ * the second producer this file's own header exists to prevent.
+ */
+export type DrainNotice =
+  | { readonly known: false; readonly condition: string }
+  | {
+      readonly known: true;
+      readonly complete: boolean;
+      /** "3 of 9 analysed". Never "3" alone, and never "9" alone. */
+      readonly headline: string;
+      /** Why it is partial, and how long since it last was not. */
+      readonly detail: string;
+    };
+
+/** "just now", "45 s ago", "3 min ago". Seconds in, prose out. */
+function agoText(seconds: number): string {
+  if (seconds < 5) return "just now";
+  if (seconds < 90) return `${fmtInt(seconds)} s ago`;
+  return `${fmtInt(Math.round(seconds / 60))} min ago`;
+}
+
+/**
+ * The completeness notice.
+ *
+ * SECTION 3's CONTRACT IN ONE FUNCTION: "a reader must never be shown five
+ * transactions and left to assume that is the mempool". So the partial form
+ * always prints BOTH numbers, and the reason - a budget, or a refusal - is
+ * named rather than left as a gap between them.
+ *
+ * `null` IN, A NAMED ABSENCE OUT, AND NEVER A CLAIM OF COMPLETENESS. A missing
+ * drain state means an indexer that predates HANDOFF-15, or none running, or a
+ * gateway that could not read the key. Rendering any of those as "complete"
+ * publishes exactly the confidence the field exists to withhold.
+ */
+export function mempoolDrainNotice(drain: MempoolDrain | null): DrainNotice {
+  if (drain === null) {
+    return {
+      known: false,
+      condition:
+        "no indexer reported how much of the mempool it analysed, so the rows below may be part of it rather than all of it",
+    };
+  }
+
+  const headline = `${fmtInt(drain.analysed)} of ${fmtInt(drain.observed)} analysed`;
+  const lastComplete =
+    drain.completeSecondsAgo === null
+      ? "this view has not been complete since the indexer started"
+      : `last complete ${agoText(drain.completeSecondsAgo)}`;
+
+  if (drain.complete) {
+    // THE RATE IS PRINTED EVEN WHEN THE DRAIN IS COMPLETE, because a reader
+    // deciding whether to trust a live table wants to know it is fed at three
+    // transactions a minute before the mempool gets busy, not after.
+    const rate =
+      drain.txPerMinute === null
+        ? ""
+        : ` - the indexer is metered at ${fmtInt(drain.ceilingPerMinute ?? 0)} requests a minute, which affords ${fmtInt(drain.txPerMinute)} transactions a minute`;
+    return {
+      known: true,
+      complete: true,
+      headline,
+      detail: `every transaction the node reported has been analysed, ${agoText(drain.updatedSecondsAgo)}${rate}`,
+    };
+  }
+
+  const why = drain.refused
+    ? "the endpoint rate-limited the indexer mid-drain"
+    : drain.deferred > 0
+      ? `${fmtInt(drain.deferred)} deferred by the indexer's per-tick request budget`
+      : "the indexer has not finished this drain";
+  const rate =
+    drain.txPerMinute === null
+      ? ""
+      : ` - it analyses ${fmtInt(drain.txPerMinute)} a minute at its configured ceiling`;
+  return {
+    known: true,
+    complete: false,
+    headline,
+    detail: `${why}${rate}. ${lastComplete}.`,
+  };
 }
