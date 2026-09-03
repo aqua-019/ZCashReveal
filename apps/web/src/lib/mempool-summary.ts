@@ -176,6 +176,12 @@ export function mempoolDrainNotice(drain: MempoolDrain | null): DrainNotice {
     known: true,
     complete: false,
     headline,
-    detail: `${why}${rate}. ${lastComplete}.`,
+    // SEMICOLON RATHER THAN A FULL STOP, because `lastComplete` begins
+    // lowercase and a full stop in front of it produced "...at its configured
+    // ceiling. last complete 14 min ago." - a sentence starting mid-word-case,
+    // on the page, in the copy this deliverable exists to add. Found by
+    // executing the function to transcribe RUNTIME.md section 8.5's table
+    // rather than by reading it.
+    detail: `${why}${rate}; ${lastComplete}.`,
   };
 }

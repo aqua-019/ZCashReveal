@@ -81,7 +81,9 @@ describe("mempoolDrainNotice", () => {
     expect(notice.known).toBe(true);
     if (!notice.known) return;
     expect(notice.detail).toContain("rate-limited the indexer mid-drain");
-    expect(notice.detail).toContain("last complete 4 min ago");
+    // THE SEPARATOR IS PART OF THE COPY AND IS ASSERTED. A full stop here
+    // produced "...mid-drain. last complete 4 min ago." on the page.
+    expect(notice.detail).toContain("; last complete 4 min ago.");
   });
 
   it("renders an absent drain state as a named absence and never as completeness", () => {
