@@ -104,10 +104,48 @@ const Schema = z.object({
 
   /** The VPS Redis. Tip pub/sub. Guarded below - it must never be the managed store. */
   REDIS_URL: z.string().default("redis://localhost:6379"),
-  /** The indexer's Postgres. Guarded below for the same reason. */
-  DATABASE_URL: z
-    .string()
-    .default("postgres://zcashreveal:zcashreveal@localhost:5432/zcashreveal"),
+
+  /**
+   * The indexer's Postgres, or ABSENT for RPC-only mode. Guarded below for the
+   * same reason as `REDIS_URL`.
+   *
+   * OPTIONAL SINCE HANDOFF-14, AND THE DEFAULT IT LOST IS THE WHOLE CHANGE. This
+   * read used to be
+   * `.default("postgres://zcashreveal:zcashreveal@localhost:5432/zcashreveal")`,
+   * so `cfg.DATABASE_URL` was a string in every configuration and the
+   * composition root could open a connection unconditionally - which it did.
+   * `ChainInputsDeps` has typed all four queries `| null` since HANDOFF-09b,
+   * each with the comment "or null when there is no database", and nothing could
+   * ever reach that branch because no configuration could express its absence.
+   *
+   * WHICH PANELS EACH MODE PUBLISHES. Both modes publish the same DOCUMENT -
+   * `schema`, `height`, `hash`, `time`, `publishedAt`, `pools`, `lastReports`
+   * and `labelsVersion` - because those come from the tip and the node.
+   *
+   *   FULL (`DATABASE_URL` set): `residual`, `drain`, `migrationHist` and
+   *   `neffSeries` are all measurable. Each still publishes `null` if its own
+   *   query or estimator refuses, with the reason logged - that is unchanged.
+   *
+   *   RPC-ONLY (`DATABASE_URL` absent): `drain`, `migrationHist` and
+   *   `neffSeries` are `null`, because each reads a table. `residual` is
+   *   MEASURED, because `turnstileResidual` takes the pool balances and
+   *   `chainSupply`, and both arrive on `getblockchaininfo`. Three absences,
+   *   not four, and the fourth panel being present is a property of this mode
+   *   rather than an accident - HANDOFF-14 asserts it positively (A1b) for that
+   *   reason.
+   *
+   * A NULL PANEL IS A STATED ABSENCE AND NEVER A ZERO (SNAPSHOT.md section 8.1).
+   * That is what makes RPC-only a configuration rather than a degraded mode:
+   * the document says which panels nothing measured, and the site renders that
+   * as an absence. A mode that published `0` for an unmeasured panel would be
+   * fabricating a measurement, and no amount of logging would fix it.
+   *
+   * EMPTY IS ABSENT, and `databaseUrl` below is where that is decided rather
+   * than here, for the reason `managedStoreUrl` gives: an operator who writes
+   * `DATABASE_URL=` in a `.env` to turn the database off means it, and a
+   * `.min(1)` here would refuse to start instead.
+   */
+  DATABASE_URL: z.string().optional(),
 
   PUBLISHER_LOG_LEVEL: z
     .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
@@ -220,6 +258,25 @@ export function managedStoreUrl(cfg: PublisherConfig): string | null {
   if (kv !== undefined && kv.length > 0) return kv;
   const legacy = cfg.SNAPSHOT_REDIS_REDIS_URL;
   if (legacy !== undefined && legacy.length > 0) return legacy;
+  return null;
+}
+
+/**
+ * The indexer's Postgres URL, or null when this publisher runs on RPC alone.
+ *
+ * THE SAME EMPTY-IS-ABSENT RULE `managedStoreUrl` USES, and for the same reason:
+ * a variable set to the empty string is how a `.env` or a compose file turns
+ * something off, and reading `""` as a present-but-broken URL would refuse to
+ * start on a configuration the operator wrote deliberately.
+ *
+ * ONE PLACE DECIDES THE MODE. Every caller asks this function rather than
+ * testing `cfg.DATABASE_URL` itself, so the composition root, the logged mode
+ * line and the assertions cannot disagree about which mode a process is in -
+ * which is the same argument `fmtSnapshotAge` makes for its two call sites.
+ */
+export function databaseUrl(cfg: PublisherConfig): string | null {
+  const url = cfg.DATABASE_URL;
+  if (url !== undefined && url.length > 0) return url;
   return null;
 }
 

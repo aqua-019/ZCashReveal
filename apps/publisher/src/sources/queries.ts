@@ -36,15 +36,66 @@ import type {
   OrchardSeriesRow,
 } from "./chain-inputs.js";
 
-/** Every query `readSnapshotInputs` needs, bound to one connection. */
+/**
+ * Every query `readSnapshotInputs` needs - each bound to a connection, or null.
+ *
+ * NULLABLE SINCE HANDOFF-14, WHICH IS WHAT LETS ONE TYPE DESCRIBE BOTH MODES.
+ * `ChainInputsDeps` has typed these four `| null` since HANDOFF-09b, with the
+ * comment "or null when there is no database" written beside each; this
+ * interface did not, so the composition root had no way to hand
+ * `readSnapshotInputs` the absence its own type accepted. The two now agree, and
+ * `NO_CHAIN_QUERIES` below is the RPC-only value.
+ */
 export interface ChainQueries {
+  readonly queryMigrations: MigrationQuery | null;
+  readonly queryOrchardSeries: OrchardSeriesQuery | null;
+  readonly queryDrainBaseline: DrainBaselineQuery | null;
+  readonly queryIronwoodSpends: IronwoodSpendQuery | null;
+}
+
+/**
+ * The same four, all PRESENT - what a connection actually yields.
+ *
+ * TWO TYPES BECAUSE THERE ARE TWO FACTS AND ONLY ONE OF THEM IS NULLABLE.
+ * `makeChainQueries` takes an open `Sql` and cannot return a null query: the
+ * absence is a property of the CONFIGURATION, decided one level up in
+ * `chainAccessFor`. Collapsing them into the nullable form would have made
+ * every caller of `makeChainQueries` - the integration suite included - narrow
+ * a value that is never null, which is the kind of defensive narrowing that
+ * trains a reader to stop believing the type.
+ *
+ * Assignable to {@link ChainQueries}, so the composition root holds one type
+ * and does not care which branch produced it.
+ */
+export interface BoundChainQueries extends ChainQueries {
   readonly queryMigrations: MigrationQuery;
   readonly queryOrchardSeries: OrchardSeriesQuery;
   readonly queryDrainBaseline: DrainBaselineQuery;
   readonly queryIronwoodSpends: IronwoodSpendQuery;
 }
 
-export function makeChainQueries(sql: Sql): ChainQueries {
+/**
+ * RPC-only mode: no database, so no query.
+ *
+ * A NAMED CONSTANT RATHER THAN FOUR `null`s AT THE CALL SITE, so that adding a
+ * fifth query breaks HERE - one place, with the type - instead of silently
+ * leaving the new query bound to a connection that does not exist in RPC-only
+ * mode. That is the shape LEDGER-09b Q3 names: a new member arriving without
+ * inheriting a convention every existing member has.
+ *
+ * `readSnapshotInputs` reads each null as "this panel is not measurable", logs
+ * nothing (an absent query is not a fault - a FAILING one is) and publishes the
+ * panel as `null`, which SNAPSHOT.md section 8.1 defines as a stated absence
+ * rather than a zero.
+ */
+export const NO_CHAIN_QUERIES: ChainQueries = {
+  queryMigrations: null,
+  queryOrchardSeries: null,
+  queryDrainBaseline: null,
+  queryIronwoodSpends: null,
+};
+
+export function makeChainQueries(sql: Sql): BoundChainQueries {
   return {
     queryMigrations: (lowHeight, highHeight) =>
       sql<MigrationRow[]>`
