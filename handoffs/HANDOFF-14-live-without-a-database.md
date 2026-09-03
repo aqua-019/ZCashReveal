@@ -1,7 +1,7 @@
 ---
 handoff: 14
 title: Live without a database - the publisher on RPC alone (rung 1 of three)
-status: in-progress
+status: shipped
 branch: the session-designated branch (name it `feat/v2-14-live-without-a-database` if you may choose)
 track: Integration
 depends_on: 12
@@ -212,8 +212,267 @@ repository the whole time. The operator was right and pushed twice. Check §1's 
 
 ## §7 REPORT
 
-*Filled by the executing session before the PR opens.*
+```
+STATUS: DONE-WITH-ASSUMPTIONS
+
+Nothing here is a partial build. Every deliverable is in the tree and every
+assertion carries a two-polarity transcript. The one thing this session could
+not execute is the LIVE half of deliverable 2 - a reading from a real public
+RPC endpoint - because no session in this environment can reach one. That half
+is shipped as `scripts/prove-rpc-only.mjs`, driven in four directions against a
+local stand-in node, and it is the operator's to run.
+
+SPAWN MODE: subagents available, proven by a tool attempt before any work -
+one Haiku worker returned `SPAWN-PROOF-OK` (agentId a4e464258d56eabed).
+NO FAN-OUT WAS USED. This handoff is small and mostly deletion, as section 6
+said; one lead did the publisher path, the web absence rendering and the age
+fix in sequence. The post-fan-out sweep rule therefore has nothing to report
+for a fan-out, and the sweep it mandates was run anyway before every commit:
+`git status --porcelain` was read before each of the six, and once caught a
+live mutation left in the tree (below).
+
+FORK POINT: 04237c5, recorded as section 7 requires.
+  `git merge-base --is-ancestor 4e622ff origin/main` -> exit 0 (Executed).
+  HEAD and origin/main were the same commit at fork, 04237c5f44e98cb.
+```
+
+### Deliverables
+
+**0. HANDOFF-14 written from the prompt's sections 1-6.** *Executed* (commit
+`8f8b0e0`). Written as given with ONE correction applied rather than footnoted,
+and the prompt archived verbatim in `handoffs/prompts/PROMPT-14.md`.
+
+**THE CORRECTION, AND IT IS LEDGER-11 Q5(a) DOING ITS WORK.** The prompt's
+section 4 deliverable 2 said "four panels null" and its section 5 A1 said "whose
+four analysis panels are null" - two paragraphs after its own executed transcript
+showing THREE. An exclusion-set member is checked against the shipped object
+before it is written, and an assertion stating a property the object does not
+exhibit misfiles a reading of the object as a test to write. Re-executed here
+against `REAL_INSTRUMENTS` with all four queries null, before section 5 was
+written (*Executed*):
+
+```
+top-level keys: schema, height, hash, time, publishedAt, pools, residual,
+                drain, migrationHist, neffSeries, lastReports, labelsVersion
+  migrationHist  null - NOT MEASURED
+  neffSeries     null - NOT MEASURED
+  residual       PRESENT
+  drain          null - NOT MEASURED
+  pools length: 5
+```
+
+A1 now asserts the three database-derived panels are null; **A1b asserts
+`residual` is MEASURED, positively**, because that is a property of this rung
+rather than an accident.
+
+**1. `DATABASE_URL` optional in `apps/publisher`.** *Executed* (`d76b82a`).
+`config.ts` loses the localhost default and gains `databaseUrl(cfg)`, which
+decides empty-is-absent in one place on `managedStoreUrl`'s precedent.
+`queries.ts` splits `ChainQueries` (nullable, what the composition root holds)
+from `BoundChainQueries` (what a connection yields, never null) and adds
+`NO_CHAIN_QUERIES`. `index.ts` replaces the unconditional `postgres(...)` at
+line 97 with `chainAccessFor(cfg, connect)`. The config docblock states which
+panels each mode publishes. One `info` line at startup names the mode.
+
+**2. The no-database publish path, proven end to end.** *Executed* for every
+link a session can reach; *UNVERIFIED* for one, labelled.
+`rpc-only.integration.test.ts` builds the document with all four queries null,
+publishes it through the real `SnapshotPublisher` to a **local** Redis
+(`127.0.0.1:6379`) and the file sink, and reads it back **through a separate
+client** - a second connection, so the assertion proves the value reached the
+server rather than a buffer. The three absences are checked on the far side of
+`JSON.stringify` and the server, and in the RAW TEXT (`"drain":null`), because
+the failure guarded against is a serialiser writing `0` where the document holds
+null.
+
+**THE LIVE ENDPOINT IS UNREACHABLE FROM ANY SESSION HERE, MEASURED TWICE**
+(*Executed*):
+
+```
+curl ... https://zcash-mainnet-zebrad.gateway.tatum.io/  -> CONNECT tunnel failed, response 403
+curl ... https://mainnet.lightwalletd.com/               -> CONNECT tunnel failed, response 403
+
+$HTTPS_PROXY/__agentproxy/status recentRelayFailures:
+  connect_rejected zcash-mainnet-zebrad.gateway.tatum.io:443
+    - gateway answered 403 to CONNECT (policy denial or upstream failure)
+  connect_rejected mainnet.lightwalletd.com:443
+    - gateway answered 403 to CONNECT (policy denial or upstream failure)
+```
+
+Two different hosts, so the wall is not host-specific. It is the same class of
+refusal CLAUDE.md already records between a session and a Vercel preview, the
+VPS, a live gateway and `upstash.com`, and the proxy README's instruction is to
+report a policy denial rather than route around it. So the live half ships as
+`scripts/prove-rpc-only.mjs`, driven in four directions (*Executed*):
+
+```
+no url                            exit 2, usage
+complete stand-in node            exit 0, five lanes, residual measured, 3 absent
+first call 429, then answers      exit 0, "rate limited, waiting 14s", then the tip
+no chainSupply, no ironwood lane  exit 1, BOTH reasons named
+the real endpoint                 exit 1, "getblockchaininfo: HTTP 403 Forbidden"
+```
+
+The 429 case is the one L2's first harness got wrong; this one checks the status
+before the body, so a rate limit cannot arrive disguised as a missing field.
+
+**3. `docs/2.0/RUNTIME.md` section 7, "RPC-only mode".** *Executed* (`c2ddbe6`).
+The env set, the two calls per tip with their call sites, the panel table, why it
+is honest rather than degraded, and how to check it from the outside.
+
+**4. The `snapshot age` defect.** *Executed* (`c2ddbe6`). `SnapshotAge` is a
+discriminated result; `snapshotAge()` decides; `fmtSnapshotAge` renders
+`unknown` with no digit at all; `EpochClock` tracks `sawTipFrame` as its own
+state and carries `data-age`. **The narrowing is deliberate and asserted**: only
+a `fixture` document with no frame is unknown, because on a published document
+the publisher's height IS the page's best evidence of the tip.
+
+**5. `docs/2.0/CUTOVER-1.0.md`.** *Executed* (`c2ddbe6`, corrected `120723f`).
+The operator's path for this rung only, ending at a site showing live balances.
+
+### Section 5 assertions - two-polarity transcripts
+
+**A1.** *Executed.* Pass: `rpc-only.integration.test.ts` - five lanes equal to
+the node's own `valuePools` by value, the lockbox excluded (six pools in, five
+lanes out), `migrationHist`/`drain`/`neffSeries` all null.
+**Fail side, DATA, from inside the exclusion set:** the same code with
+`DATABASE_URL` pointed at a live Postgres holding rows in `migrations_zip318`,
+`pool_snapshots`, `blocks`, `pool_nullifiers` and `pool_anchors`, through
+`chainAccessFor`'s own branch - all three panels come back NON-null. Both halves
+ran; the "no reachable Postgres" marker is the one that skipped.
+
+**A1b.** *Executed.* Pass: `residual` measured, `supplySource` names
+`getblockchaininfo`, `unprovableZat` equals `sprout + orchard` - and is asserted
+NOT to equal every-shielded-lane-summed, because that was this session's own
+first wrong reading. **Fail side, DATA:** a node reporting no supply from either
+source gives a NULL residual and `supplySource` "not reported by the node" - and
+is asserted not to be `{unprovableZat: 0n}` by name.
+
+**A2.** *Executed.* Pass: zero calls to the injected factory in RPC-only mode,
+`sql` null, all four queries null. **Fail side:** the SAME spy with
+`DATABASE_URL` set records exactly one call - the discriminating half, since a
+spy reading zero in both modes proves the factory is unreachable rather than that
+the branch works. Third case: `DATABASE_URL=""` also constructs nothing.
+**Mutation (Executed):** `chainAccessFor`'s null branch changed to open a
+connection anyway -> A2 fails, "the factory must not be reached in RPC-only
+mode"; restored, 109 pass.
+
+**A3.** *Executed.* Pass: `rpc-only-document.test.tsx` puts the RPC-only SHAPE
+through the real `snapshotV1Schema` and the plane renders a named absence with a
+condition and no `\b0\b` on any lane. **Fail side, DATA:** the same document with
+a MEASURED zero `migrationHist` - both draw no marks, which is why the marks
+cannot be the discriminator and the test reads the READING: null against
+`countedCrossings: 0` with a real window, and `not-measured` against
+`measured-zero`.
+
+**A4.** *Executed.* Both polarities in one test: the fixture document with no
+frame reads `data-age="unknown"` and does NOT match
+`/snapshot age: [\d,]+ blocks?/`; a frame naming +14,175 blocks makes it
+`data-age="14175"`. Two more cases: a frame naming the SAME height gives a
+known `0` (the case a height comparison cannot see, which is why `sawTipFrame`
+is its own state), and `redis-rest`/`redis`/`gateway` all read `0` with no
+frame. **Pre-fix mutation (Executed):** `snapshotAge` reverted to always-known
+-> `expected '0' to be 'unknown'`, twice; restored, 15 pass.
+
+**A5.** *Executed*, both directions over the 19 files this branch changed.
+Direction one: **no added file READS a `SNAPSHOT_REDIS_*` variable** - every hit
+is prose in a docblock or a handoff. Direction two: every endpoint the added
+tests and scripts dial is `127.0.0.1` or `localhost`
+(`redis://127.0.0.1:6379`, `postgres://...@localhost:5432/...`,
+`http://127.0.0.1:8899`). `check-redis-safety.mjs` exits 0 over the whole tree
+and its 53 fixtures self-test in four directions.
+
+**A6.** *Executed*, and the exit codes are `$?` read directly from each `pnpm`
+process, never through a pipe:
+
+```
+TEST_RC=0  TYPECHECK_RC=0  LINT_RC=0  VALIDATE_RC=0  CHECK_RC=0  BUILD_RC=0
+
+packages/content         67 passed
+packages/zebra-rpc       59 passed | 1 skipped
+packages/zec-instruments 98 passed
+apps/web                495 passed
+apps/gateway            163 passed
+apps/publisher          109 passed | 4 skipped
+apps/indexer            534 passed
+                       ----
+                       1525 passed | 5 skipped | 1530 total
+zero "no Postgres reachable" lines
+```
+
+**ALL FIVE SKIPS ARE THE INVERSE MARKERS**, named individually: four are the
+"no local Redis / no reachable Postgres" cases, which skip precisely BECAUSE
+both were up and the real integration halves ran; the fifth is
+`version-floor-smoke`, which needs a live node and is the operator's standing
+capture task. An earlier run of this suite returned 93 passed / 20 skipped and
+exit 0 - a green run reporting coverage it did not have - because a `pkill`
+of this session's stand-in RPC servers had killed Postgres and Redis with them.
+Caught by reading the counts rather than the exit code, services restarted, and
+the figures above are from the complete environment.
+
+### Provenance of every claim above
+
+*Executed* (output shown) for all six deliverables, all six assertions, both
+mutations and the six gates. *Read* (file + commit) for: the two RPC call sites
+in `index.ts`; `redis-topology.ts`'s "The current snapshot. No TTL.";
+`sinks/redis.ts`'s `SNAPSHOT_TTL_SECONDS` docblock; `turnstileResidual`'s
+`U = Bal^sprout + Bal^orchard`. *UNVERIFIED*, labelled: that a real public
+endpoint returns the figures L2 measured, and the "5 requests/minute keyless
+ceiling" in section 1's table - neither is reachable from here, and
+`prove-rpc-only.mjs` is what settles both.
+
+### Assumptions, dispositioned
+
+- **CORRECTED.** "Four analysis panels are null in RPC-only mode." Three are;
+  `residual` is measured. Applied to sections 4 and 5 rather than noted.
+- **CORRECTED.** "Removing `chainSupply` gives a null residual." It does not -
+  `readChainValues` has a documented `valuePools` sum fallback (`fromNode ??
+  fromPools`). The probe was wrong and the code was right; the behaviour it
+  accidentally found is now pinned as its own test.
+- **CORRECTED.** "`U` is every shielded lane." It is `sprout + orchard`.
+- **CORRECTED.** "Stopping the publisher rolls the site back." It does not;
+  `latest` and `height` carry no TTL. Gate round 1.
+- **ACCEPTED.** Section 1's "two calls per tip" and the `pools`-not-`lanes`
+  field name - both re-checked against the tree.
+- **DEFERRED to section 8.** Whether the keyless endpoint's 5/minute ceiling is
+  real, and whether the site should read the endpoint's rate-limit headers -
+  rung 2's subject.
+
+### Gate
+
+**Budget, stated in the first line as LEDGER-05 Q5 requires: this gate ran ONE
+round, by the lead, over the whole diff, with every finding verified by
+execution and none carried forward unread.**
+
+Round 1 returned **one finding**, and it was in clause (c) - a sentence making a
+checkable claim about runtime behaviour. Four such sentences in the two new
+documents were checked by EXECUTING them; three held (the `node -e` snippet
+runs, `dist/index.js` is the real entry point, the two quoted log strings match
+`index.ts` byte for byte) and one was false: CUTOVER-1.0's rollback section said
+the site reverts on its own when the publisher stops. Fixed in `120723f`, and
+the corrected fact swept - two other hits, both correct as written and left
+alone (DEPLOY-2.0's build-preset fallback, RUNTIME.md line 179's VPS anchor hot
+tier, which is a different key that genuinely has a 24-hour TTL).
+
+**No finding in an executable line of the product.** The fix commit changes only
+document sentences - no control flow, no predicate, no schema, no fixture - so
+by clause (ii) as amended it is reviewed WITHIN this round rather than earning a
+new one, and it was.
+
+**THE POST-FAN-OUT SWEEP CAUGHT SOMETHING EVEN WITH NO FAN-OUT.** A2's mutation
+was left in `index.ts` when the restoring `cp` failed - the shell's working
+directory had moved mid-command, so the copy targeted a path that did not exist.
+`git status --porcelain` before the next commit is what found it;
+`git checkout --` restored it and the suite went back to 109 passed. Recorded
+because it is the rule working in the case it was not written for.
+
+**EXTRAPOLATION, not a claim of convergence.** A second round would probably
+find one more of round 1's kind - a sentence in `RUNTIME.md` section 7 or
+`CUTOVER-1.0.md` asserting something about the publisher that has not been
+executed against it. The product surface here is small and mostly deletion; the
+prose surface is 300 new lines of operator instruction, and that is where round
+1's finding was and where the next one would be.
 
 ## §8 LEDGER
 
-*Appended to `handoffs/LEDGER.md`, append-only.*
+Appended to `handoffs/LEDGER.md`, append-only, as `§8 HANDOFF-14`.

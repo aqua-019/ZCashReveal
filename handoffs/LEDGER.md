@@ -8042,3 +8042,120 @@ find one more of round 4's kind, in the newest guard code. It would not find
 nothing - and on this handoff's evidence the place it would find it is the
 commit that fixed the last one.
 ```
+
+## §8 HANDOFF-14 — live without a database, and four probes that were wrong before the code was (L3, 3 Sep 2026)
+
+```
+GATE ROUNDS: 1 round, by the lead, over the whole diff. One finding, in a
+document sentence making a checkable claim about runtime behaviour. NO finding
+in an executable line of the product.
+
+WHAT THIS RUNG ACTUALLY CHANGED, stated first because it is smaller than it
+reads: `apps/publisher/src/index.ts:97` opened `postgres(cfg.DATABASE_URL)`
+unconditionally, and `DATABASE_URL` carried a localhost default, so
+`cfg.DATABASE_URL` was a string in every configuration this repository could
+express. `ChainInputsDeps` had typed its four queries `| null` since
+HANDOFF-09b with the comment "or null when there is no database" written four
+times. THE BRANCH EXISTED IN THE TYPE AND WAS UNREACHABLE FROM THE COMPOSITION
+ROOT. That is a new shape for this ledger and it is worth a name:
+
+  A NULLABLE DEPENDENCY WHOSE NULL NO CONFIGURATION CAN PRODUCE IS NOT A
+  BRANCH, IT IS A COMMENT. It typechecks, it reads as designed-for, it is
+  covered by no test because no test can reach it, and the cost is invisible
+  until someone asks for the mode it describes. Four `| null`s and four
+  identical comments were carried for two handoffs while the one line that
+  would have made them reachable sat unwritten. The tell is mechanical and
+  greppable: a parameter typed `| null` whose only production caller passes a
+  value that cannot be null.
+
+Q1. FOUR OF THIS SESSION'S PROBES WERE WRONG BEFORE THE CODE WAS, AND ALL FOUR
+    WERE CAUGHT BY THE SAME MOVE - CHECKING THE PROBE BEFORE JUDGING THE CODE.
+    LEDGER-05 fold 7's converse, four times in one handoff:
+      1. A1b's first fail side removed `chainSupply` expecting a null residual.
+         The residual came back MEASURED, because `readChainValues` has a
+         documented `valuePools` sum fallback - `fromNode ?? fromPools` - that
+         the probe's author had not read. The code was right.
+      2. The publisher fixture set `chainSupply` EQUAL to the pool sum, so no
+         assertion on `supplyZat` could tell the two supply sources apart. That
+         is "a fixture makes two distinct quantities equal", already on
+         CLAUDE.md's mechanically-decidable list, arriving again.
+      3. `U` was asserted as every shielded lane. It is `sprout + orchard`.
+      4. The A3 fixture inherited `residual: null` from the committed web
+         fixture and then asserted it was measured.
+    NONE of the four was a defect in the product. All four looked like one.
+    FOR L2: the pattern across HANDOFF-14 is that every probe written against a
+    module the author had not read line-by-line was wrong, and every probe
+    written after reading it was right. Is "read the module before writing the
+    probe that judges it" worth stating as a rule, or is it already what the
+    fail-side rules mean?
+
+Q2. THE COMMITTED WEB FIXTURE CARRIES `residual: null`, WHICH MEANS THE SITE
+    RENDERS ITS OWN HEADLINE FIGURE AS AN ABSENCE TODAY.
+    `apps/web/src/lib/api/fixtures/snapshot.ts:93`. This session found it by
+    writing a test that assumed otherwise and watching it fail. So the panel
+    this rung turns ON - the unprovable-supply figure, which is what this whole
+    project is an argument about - is currently not on the page at all, and
+    nothing had said so. It is now asserted, so it cannot quietly stop being
+    true.
+    FOR L2: was that deliberate when the fixture was written, or is it a fourth
+    absence nobody has counted? The plan's section 3.2 figure is the site's
+    headline, and a fixture that omits it is a different site from the one the
+    plan describes.
+
+Q3. A RUNBOOK SENTENCE ABOUT ROLLBACK IS THE MOST DANGEROUS PROSE IN THIS
+    PROJECT, AND CLAUSE (c) IS WHAT CAUGHT IT. `CUTOVER-1.0.md`'s first draft
+    said stopping the publisher lets the site fall back "until its TTL
+    expires". `zecreveal:snapshot:latest` and `:height` carry NO TTL - by
+    design, because a store that expires the latest snapshot produces the empty
+    dashboard the fallback exists to prevent. An operator following that
+    sentence would have stopped the process, believed they had rolled back, and
+    left a FROZEN page up: this project's own recurring shape, a stale site
+    that renders and reports no fault, written into the runbook meant to
+    prevent it.
+    The finding cost one grep of the constant. What produced it was clause
+    (c)'s instruction to EXECUTE a sentence rather than read it: four sentences
+    were checked that way and three held.
+    FOR L2: clause (c) currently names "sentences making a checkable claim
+    about runtime behaviour". Every rollback and recovery step in an operator
+    document is one by construction. Worth naming as a standing sub-class that
+    gets checked every gate, rather than relying on a round happening to reach
+    it?
+
+Q4. THE LIVE ENDPOINT IS UNREACHABLE AND THE WALL IS NOT HOST-SPECIFIC.
+    Two public Zcash RPC hosts, both refused at CONNECT with 403 by the
+    session's egress proxy, recorded in the proxy's own
+    `recentRelayFailures`. Same class as the Vercel preview, the VPS, a live
+    gateway and `upstash.com`. So section 1's "5 requests/minute keyless
+    ceiling" and L2's lane figures are UNVERIFIED here and stay labelled.
+    `scripts/prove-rpc-only.mjs` is what settles both, and it was driven in
+    four directions against a local stand-in so that the operator runs a script
+    whose success AND failure paths have both been executed.
+
+INFERRED: that "proven end to end against a real public RPC endpoint" means
+every link a session can reach, plus a runnable artefact for the link it
+cannot. Stated rather than assumed, because the alternative reading is that
+this deliverable cannot be completed by any session and the handoff should have
+said so.
+
+NOT-MATCHED: none.
+
+SPEC-WAS-AMBIGUOUS: section 4 deliverable 2 and section 5 A1 both said "four
+panels null" against the prompt's own transcript showing three. Resolved by
+LEDGER-11 Q5(a) - checked against the shipped object, corrected in the handoff,
+and A1b written to assert the surviving panel positively.
+
+DEFERRED ASSUMPTIONS:
+  Whether the keyless endpoint's rate limit is 5/minute, and whether the
+  publisher should read rate-limit headers rather than infer from a 429 - rung
+  2's subject, since rung 2 is entirely about a call that can be rate limited.
+  Whether `apps/web`'s committed fixture should carry a `residual` at all
+  (Q2 above).
+
+EXTRAPOLATION. One round, one finding, and it was in prose. A second round
+would probably find one more of the same kind - a sentence in RUNTIME.md
+section 7 or CUTOVER-1.0.md asserting something about the publisher that has
+not been executed against it. The product surface this handoff adds is about
+120 executable lines and mostly deletion; the prose surface is about 300 lines
+of operator instruction, and both round 1's finding and the next one live
+there.
+```
