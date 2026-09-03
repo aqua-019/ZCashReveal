@@ -672,6 +672,8 @@ Everything else keeps today's policy on today's routes.
 
 ## 5. Threat model
 
+> **This section is UNVERIFIED and has failed verification twice.** `verify:threat-model` returned 0 verified and 0 rejected in gate round 1 across 54 attempts, and every lens was killed by a usage limit again in round 4, whose findings were then lost with the container (LEDGER-13 Q1 and Q2). **Zero facts in this section have been independently checked.** It rests on the lead's own reading and nothing else. **Do not build Mode A against it until it has been verified** - this is the argument that a viewing key cannot leave the tab, and it is the least-evidenced part of this document. The section's individual UNVERIFIED labels mark facts; this marks the section.
+
 ### 5.1 "The key never leaves the tab" is a claim, and here are its mechanisms
 
 The claim needs mechanisms, and this build already has four. Mode A adds **three** - M5, M6
