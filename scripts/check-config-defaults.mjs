@@ -400,10 +400,63 @@ const HAS_VALUE = (s) => /[A-Za-z0-9]/.test(s);
  * plus the bare form `NAME: 3428143`, which is a default with no operator at
  * all and is the form an editor reaches for first.
  */
+/**
+ * THE CODE HALF OF A LINE: everything before a `#` that begins the line or
+ * follows whitespace OUTSIDE quotes.
+ *
+ * WHY IT IS A FOURTH EXTRACTION AND WHERE IT GOES. `valueTextOf` strips a
+ * comment from a VALUE. Both `${` pre-checks below, and the interpolation scan
+ * above them, ran on the RAW line - so the comment reached them and the guard
+ * was wrong in BOTH directions on the same surface:
+ *
+ *   V: 3428143   # or ${V}          MISSED a real literal default
+ *   - "V=3428143"   # mainnet       MISSED a real literal default
+ *   - V=3428143 # or ${V}           MISSED a real literal default
+ *   V: ${V:-}   # was ${V:-3428143} FAILED a build that was correct
+ *
+ * Ground truth from docker compose v5.1.1 on exactly these lines: the first
+ * three resolve to `3428143` and the fourth to the empty string. So three are
+ * violations escaping the guard and the fourth is the guard breaking a build
+ * that has done nothing wrong - the worse of the two, because an operator who
+ * writes a comment explaining what the default USED to be is doing the right
+ * thing and gets a red build for it.
+ *
+ * The env surface has no `${` pre-check, so it caught `V=3428143 # or ${V}`
+ * while compose missed it: TWO SURFACES DISAGREEING ABOUT ONE OPERATOR
+ * SPELLING, which is the seam shape this project keeps finding, arriving inside
+ * a single file.
+ *
+ * The defect was the POSITION of the pre-checks, not their existence: deleting
+ * `!bare[1].includes("${")` does not silently pass, it trips the self-test on
+ * the `${V:-}` row. So the fix moves the comment strip earlier rather than
+ * removing a check.
+ *
+ * Quote-aware, because `V: "#3428143"` and `V: 'a # b'` are data and
+ * `V: 3428143#x` has no comment at all - YAML and dotenv both require a `#` to
+ * begin a line or follow whitespace, and compose confirms all three.
+ */
+export function withoutComment(line) {
+  let quote = null;
+  for (let i = 0; i < line.length; i += 1) {
+    const c = line[i];
+    if (quote !== null) {
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      quote = c;
+      continue;
+    }
+    if (c === "#" && (i === 0 || /\s/.test(line[i - 1]))) return line.slice(0, i);
+  }
+  return line;
+}
+
 export function composeLiteralFor(line, name, inEnvironment = true) {
-  const trimmed = line.trim();
+  const code = withoutComment(line);
+  const trimmed = code.trim();
   if (trimmed === "" || trimmed.startsWith("#")) return null;
-  for (const { name: n, op, rest } of interpolationsIn(line)) {
+  for (const { name: n, op, rest } of interpolationsIn(code)) {
     if (n !== name) continue;
     if (op === "" || op === ":?" || op === "?") continue;
     const literal = withoutNested(rest).trim();
@@ -671,6 +724,14 @@ const SHAPES = [
   { surface: "compose", form: "bare quoted-then-comment", line: '      V: "3428143"   # mainnet', literal: true, value: "3428143", why: "reported `\"3428143\"   # mainnet`; the map branch stripped neither quotes nor comment" },
   { surface: "compose", form: "bare quoted-hash", line: '      V: "#3428143"', literal: true, value: "#3428143", why: "inside quotes a hash is data on this surface too" },
   { surface: "compose", form: "bare hash-in-value", line: "      V: 3428143#x", literal: true, value: "3428143#x", why: "YAML needs whitespace before a `#` to open a comment, so this stays a value - the predicate must not be a bare /#/" },
+  // A COMMENT REACHED THE `${` PRE-CHECKS AND THE INTERPOLATION SCAN, because
+  // both ran on the RAW line while only the VALUE was being stripped. Ground
+  // truth for all five from docker compose v5.1.1.
+  { surface: "compose", form: "bare literal, ${} in comment", line: "      V: 3428143   # or ${V}", literal: true, value: "3428143", why: "compose gives V=3428143; the guard MISSED it because the comment naming ${V} tripped the bare branch's pre-check" },
+  { surface: "compose", form: "empty default, ${V:-d} in comment", line: "      V: ${V:-}   # was ${V:-3428143}", literal: false, why: "compose gives V=\"\"; the guard FAILED A CORRECT BUILD because the interpolation scan read the comment - the worse direction, since documenting the old default is the right thing to do" },
+  { surface: "compose", form: "- quoted-whole + comment", line: '      - "V=3428143"   # mainnet', literal: true, value: "3428143", why: "the whole-entry quote unwrap needs the quote at the END, so a trailing comment defeated it" },
+  { surface: "compose", form: "- V=d, ${} in comment", line: "      - V=3428143 # or ${V}", literal: true, value: "3428143", why: "the list branch's pre-check, same defect as the map branch's" },
+  { surface: "compose", form: "bare single-quoted hash", line: "      V: 'a # b'", literal: true, value: "a # b", why: "a hash inside single quotes is data, so the line-level strip must be quote-aware too" },
   { surface: "env", form: "V=d", line: "V=3428143", literal: true, value: "3428143", why: "the form .env.example shipped" },
   { surface: "env", form: "export V=d", line: "export V=3428143", literal: true, value: "3428143", why: "the exported spelling" },
   { surface: "env", form: "quoted", line: 'V="3428143"', literal: true, value: "3428143", why: "quoted is still a value" },
@@ -707,7 +768,7 @@ const VERDICTS = [true, false];
  * this project that a guard's self-test was found certifying a hole - the first
  * three shipped.
  */
-const COMPOSE_FORMS = ["${V}", "${V:-d}", "${V-d}", "${V:+d}", "${V+d}", "${V:?m}", "${V?m}", "${V:-}", "bare", "nested", "commented", "other-variable", "- V=d", "- V=${V:-d}", "- V=", "- V=d inline-comment", "- quoted-whole", "- quoted-value", "bare inline-comment", "bare value-then-comment", "bare quoted-then-comment", "bare quoted-hash", "bare hash-in-value"];
+const COMPOSE_FORMS = ["${V}", "${V:-d}", "${V-d}", "${V:+d}", "${V+d}", "${V:?m}", "${V?m}", "${V:-}", "bare", "nested", "commented", "other-variable", "- V=d", "- V=${V:-d}", "- V=", "- V=d inline-comment", "- quoted-whole", "- quoted-value", "bare inline-comment", "bare value-then-comment", "bare quoted-then-comment", "bare quoted-hash", "bare hash-in-value", "bare literal, ${} in comment", "empty default, ${V:-d} in comment", "- quoted-whole + comment", "- V=d, ${} in comment", "bare single-quoted hash"];
 const ENV_FORMS = ["V=d", "export V=d", "quoted", "#V=d", "# V=d", "V=", "prefix-collision", "other-variable", "inline-comment", "value-then-comment", "quoted-hash", "quoted-then-comment"];
 
 /**
