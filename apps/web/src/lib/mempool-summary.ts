@@ -146,6 +146,17 @@ export function mempoolDrainNotice(drain: MempoolDrain | null): DrainNotice {
     drain.completeSecondsAgo === null
       ? "this view has not been complete since the indexer started"
       : `last complete ${agoText(drain.completeSecondsAgo)}`;
+  // THE LAST TICK IS PRINTED BESIDE THE LAST COMPLETE DRAIN, AND WITHOUT IT A
+  // STOPPED INDEXER READS EXACTLY LIKE A METERED ONE. `drain-state.ts` already
+  // states, as the reason its key carries no TTL, that "a key whose
+  // `updatedAtMs` is an hour old means the indexer stopped - the gateway
+  // renders those differently". It did not: the partial branch named only the
+  // last COMPLETE drain, so a process that died an hour ago went on saying
+  // "409 deferred by the per-tick budget; last complete 14 min ago" forever,
+  // with nothing on the line moving. That is this project's own recurring
+  // shape - a stale surface that renders and reports no fault - and the
+  // sentence claiming otherwise was in the tree before the behaviour was.
+  const lastTick = `last tick ${agoText(drain.updatedSecondsAgo)}`;
 
   if (drain.complete) {
     // THE RATE IS PRINTED EVEN WHEN THE DRAIN IS COMPLETE, because a reader
@@ -182,6 +193,9 @@ export function mempoolDrainNotice(drain: MempoolDrain | null): DrainNotice {
     // on the page, in the copy this deliverable exists to add. Found by
     // executing the function to transcribe RUNTIME.md section 8.5's table
     // rather than by reading it.
-    detail: `${why}${rate}; ${lastComplete}.`,
+    // SEMICOLON RATHER THAN A FULL STOP BEFORE `lastTick`, because both
+    // clauses begin lowercase and a full stop in front of one produced
+    // "...at its configured ceiling. last complete 14 min ago." on the page.
+    detail: `${why}${rate}; ${lastTick}, ${lastComplete}.`,
   };
 }

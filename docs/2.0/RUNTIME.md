@@ -485,11 +485,19 @@ draft of this table did, which is how it came to quote a deferred count of 6
 where the function says 409 and to drop the rate clause the complete case
 appends. Both were wrong in this document before they were wrong anywhere else.
 
-| | Keyless, 5/min | A provider key, 600/min | No indexer |
-|---|---|---|---|
-| headline | `3 of 412 analysed` | `412 of 412 analysed` | mempool completeness: not measured |
-| detail | `409 deferred by the indexer's per-tick request budget - it analyses 3 a minute at its configured ceiling; last complete 14 min ago.` | `every transaction the node reported has been analysed, just now - the indexer is metered at 600 requests a minute, which affords 598 transactions a minute` | `no indexer reported how much of the mempool it analysed, so the rows below may be part of it rather than all of it` |
-| `data-complete` | `false` | `true` | (the element is a named absence instead) |
+| | Keyless, 5/min | A provider key, 600/min | Indexer stopped an hour ago | No indexer |
+|---|---|---|---|---|
+| headline | `3 of 412 analysed` | `412 of 412 analysed` | `3 of 412 analysed` | mempool completeness: not measured |
+| detail | `409 deferred by the indexer's per-tick request budget - it analyses 3 a minute at its configured ceiling; last tick 12 s ago, last complete 14 min ago.` | `every transaction the node reported has been analysed, just now - the indexer is metered at 600 requests a minute, which affords 598 transactions a minute` | `409 deferred by the indexer's per-tick request budget - it analyses 3 a minute at its configured ceiling; last tick 60 min ago, last complete 74 min ago.` | `no indexer reported how much of the mempool it analysed, so the rows below may be part of it rather than all of it` |
+| `data-complete` | `false` | `true` | `false` | (the element is a named absence instead) |
+
+**Column three is why `last tick` is printed at all.** A stopped indexer and a
+metered one produce the same counts forever; only the tick age moves. Without
+it the page would have gone on saying "409 deferred by the per-tick budget" an
+hour after the process died, which is this project's own recurring shape - a
+stale surface that renders and reports no fault - and `drain-state.ts` already
+gave "the gateway renders those differently" as the reason its key carries no
+TTL. It did not, until executing that sentence found it.
 
 **Three of four hundred is an honest number and a small one.** A keyless
 endpoint cannot feed a live mempool table for mainnet, and this mode says so on

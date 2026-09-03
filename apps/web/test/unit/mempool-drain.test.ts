@@ -48,7 +48,13 @@ describe("mempoolDrainNotice", () => {
     // AND IT SAYS IT HAS NEVER BEEN COMPLETE, rather than reporting an age of
     // zero - `completeSecondsAgo: null` is not "zero seconds ago".
     expect(notice.detail).toContain("has not been complete since the indexer started");
-    expect(notice.detail).not.toContain("just now");
+    // TIGHTENED FROM `not.toContain("just now")`, WHICH WAS OVER-BROAD AND
+    // BECAME WRONG. That assertion existed to prove a never-complete drain does
+    // not report an age; it did so by forbidding a STRING, and "just now" now
+    // legitimately appears in the neighbouring `last tick` clause. The property
+    // was always "the last-complete clause carries no time", so it says that.
+    expect(notice.detail).not.toContain("last complete");
+    expect(notice.detail).toContain("last tick");
   });
 
   it("does NOT say partial when the drain was complete", () => {
@@ -82,8 +88,47 @@ describe("mempoolDrainNotice", () => {
     if (!notice.known) return;
     expect(notice.detail).toContain("rate-limited the indexer mid-drain");
     // THE SEPARATOR IS PART OF THE COPY AND IS ASSERTED. A full stop here
-    // produced "...mid-drain. last complete 4 min ago." on the page.
-    expect(notice.detail).toContain("; last complete 4 min ago.");
+    // produced "...mid-drain. last tick ..." on the page.
+    expect(notice.detail).toContain("; last tick just now, last complete 4 min ago.");
+  });
+
+  it("A STOPPED INDEXER DOES NOT READ LIKE A METERED ONE, which is the claim drain-state.ts makes about its own TTL", () => {
+    // `drain-state.ts` gives as the reason its key carries no TTL that "a key
+    // whose `updatedAtMs` is an hour old means the indexer stopped - the
+    // gateway renders those differently". It did not: the partial branch named
+    // only the last COMPLETE drain, so a dead process went on printing the same
+    // sentence forever with nothing on the line moving. The sentence was in the
+    // tree before the behaviour was, and executing it is what found that.
+    const metered = mempoolDrainNotice({
+      ...COMPLETE,
+      analysed: 3,
+      complete: false,
+      deferred: 409,
+      observed: 412,
+      completeSecondsAgo: 840,
+      updatedSecondsAgo: 12,
+      ceilingPerMinute: 5,
+      txPerMinute: 3,
+    });
+    const stopped = mempoolDrainNotice({
+      ...COMPLETE,
+      analysed: 3,
+      complete: false,
+      deferred: 409,
+      observed: 412,
+      completeSecondsAgo: 840 + 3_600,
+      updatedSecondsAgo: 3_600,
+      ceilingPerMinute: 5,
+      txPerMinute: 3,
+    });
+    if (!metered.known || !stopped.known) throw new Error("both are known");
+    // `agoText` reports seconds from 5 up, so 12 is "12 s ago" and not "just
+    // now". The first draft of this probe asserted "just now" for
+    // `updatedSecondsAgo: 12` and was wrong about its own fixture.
+    expect(metered.detail).toContain("last tick 12 s ago");
+    expect(stopped.detail).toContain("last tick 60 min ago");
+    // THE DISCRIMINATION IS THE POINT: the two must not be the same sentence.
+    expect(stopped.detail).not.toBe(metered.detail);
   });
 
   it("renders an absent drain state as a named absence and never as completeness", () => {
