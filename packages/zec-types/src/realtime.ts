@@ -7,6 +7,8 @@
  * `reviveWire`, both below; nothing else stringifies or revives one.
  */
 
+import { z } from "zod";
+
 import type { Hex } from "./transactions.js";
 import type { LeakReport } from "./leaks.js";
 
@@ -65,28 +67,40 @@ export type TipChannelPayload = {
  * render that as an absence. A staleness of 0 on a view that has never been
  * complete is the `snapshot age: 0 blocks` defect HANDOFF-14 removed from the
  * system bar, on a different surface.
+ *
+ * A SCHEMA AND NOT ONLY A TYPE, BECAUSE THE READER USED TO CAST. The gateway's
+ * `readDrainState` did `JSON.parse(raw) as MempoolDrainState`, which is the
+ * exact construct `live-reports.ts`'s own header records costing this project a
+ * live 500 on every non-empty mempool in HANDOFF-11. Executed against a
+ * truncated document `{"observed": 5}`: the cast produced
+ * `updatedSecondsAgo: NaN`, `mempoolViewSchema` rejected the view, `respond`
+ * threw `DtoViolation` and `/v2/mempool` answered 500 - so one malformed key on
+ * a Redis took down the WHOLE mempool view rather than the one figure it
+ * carries. The type is now derived from this schema, so a producer that adds a
+ * field and a reader that validates cannot drift apart.
  */
-export type MempoolDrainState = {
+export const mempoolDrainStateSchema = z.object({
   /** Transactions the node reported in the mempool at the last tick. */
-  observed: number;
+  observed: z.number().int().nonnegative(),
   /** Transactions this process holds an analysed report for. */
-  analysed: number;
+  analysed: z.number().int().nonnegative(),
   /** True when the last tick left nothing unanalysed. */
-  complete: boolean;
+  complete: z.boolean(),
   /** How many the last tick deferred because its budget ran out. */
-  deferred: number;
+  deferred: z.number().int().nonnegative(),
   /** True when a 429 cut the last tick short. */
-  refused: boolean;
+  refused: z.boolean(),
   /** `Date.now()` at the last COMPLETE drain, or null if there has never been one. */
-  completeAtMs: number | null;
+  completeAtMs: z.number().nullable(),
   /** `Date.now()` at the last tick, complete or not. */
-  updatedAtMs: number;
+  updatedAtMs: z.number(),
   /** The ceiling this process is metering itself against, or null when unmetered. */
-  ceilingPerMinute: number | null;
+  ceilingPerMinute: z.number().int().positive().nullable(),
   /** Transactions per minute the plan affords, or null when unmetered. */
-  txPerMinute: number | null;
-};
+  txPerMinute: z.number().int().nonnegative().nullable(),
+});
 
+export type MempoolDrainState = z.infer<typeof mempoolDrainStateSchema>;
 /* ============================================================================
    The wire form, and getting back from it
    ========================================================================== */

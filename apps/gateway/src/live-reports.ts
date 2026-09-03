@@ -22,10 +22,10 @@ import type { Logger } from "pino";
 import type { Redis } from "ioredis";
 import {
   REDIS_KEYS,
+  mempoolDrainStateSchema,
   reviveWire,
   type LeakReport,
   type MempoolDrain,
-  type MempoolDrainState,
 } from "@zcashreveal/types";
 
 export async function readLiveReports(redis: Redis | null, log: Logger): Promise<LeakReport[]> {
@@ -72,7 +72,24 @@ export async function readDrainState(
   try {
     const raw = await redis.get(REDIS_KEYS.mempoolDrain);
     if (raw === null) return null;
-    const state = JSON.parse(raw) as MempoolDrainState;
+    // VALIDATED, NOT CAST, AND THIS FILE IS WHERE THAT LESSON IS WRITTEN DOWN.
+    // The first draft read `JSON.parse(raw) as MempoolDrainState`, which is the
+    // construct the header above records costing a live 500 on every non-empty
+    // mempool in HANDOFF-11 - the same file, the same Redis, one field over.
+    // Executed against a truncated `{"observed": 5}`: the cast produced
+    // `updatedSecondsAgo: NaN`, `mempoolViewSchema` rejected the whole view,
+    // `respond` threw `DtoViolation`, and `/v2/mempool` answered 500. One
+    // malformed key would have taken the entire mempool table off the page to
+    // protect a single staleness figure.
+    const parsed = mempoolDrainStateSchema.safeParse(JSON.parse(raw));
+    if (!parsed.success) {
+      log.warn(
+        { issue: parsed.error.issues[0]?.path.join(".") },
+        "the mempool drain state does not match its schema; the view will not state its own completeness",
+      );
+      return null;
+    }
+    const state = parsed.data;
     // FLOORED AT ZERO. A gateway whose clock is behind the indexer's would
     // otherwise publish a negative age, which `countSchema` rejects - so the
     // whole view would 500 on a clock skew of one second.

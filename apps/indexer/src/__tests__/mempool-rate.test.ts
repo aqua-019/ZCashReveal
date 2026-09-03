@@ -26,7 +26,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import pino from "pino";
 import { MockRpcEndpoint, RateGate, RpcRateLimitError, ZebraRpc } from "@zcashreveal/zebra-rpc";
-import type { Hex, MempoolDrainState } from "@zcashreveal/types";
+import { mempoolDrainStateSchema, type Hex, type MempoolDrainState } from "@zcashreveal/types";
 
 import { MempoolTicker, type AnalyzeOutcome } from "../mempool-tick.js";
 import { planMempoolPoll } from "../mempool-plan.js";
@@ -367,6 +367,95 @@ describe("A8 - with no database, every database-derived quantity is an absence",
     // silent no-op would hide a caller that thought it did.
     expect(NO_CHAIN_WRITES.forgetAnchorsAbove).toBeNull();
     expect(NO_CHAIN_WRITES.recordAnchor).toBeNull();
+  });
+});
+
+describe("the drain state the ticker PRODUCES is the one the gateway VALIDATES", () => {
+  it("round-trips through JSON into mempoolDrainStateSchema, every field intact", async () => {
+    // LEDGER-11's INSTRUMENT, APPLIED TO A NEW SEAM. Two processes, one wire
+    // form: the indexer writes this document to Redis and the gateway reads it.
+    // Both sides have tests, and this project's four seam defects all lived in
+    // the gap where each side built its own input. So the REAL ticker produces
+    // the value, it goes through the REAL `JSON.stringify` a Redis SET does,
+    // and the REAL schema the gateway parses with reads it back.
+    const pool = txids(4);
+    const endpoint = new MockRpcEndpoint({
+      mempool: pool,
+      transactions: transactionsFor(pool),
+    });
+    const url = await endpoint.start();
+    try {
+      const rpc = new ZebraRpc({ url, retries: 0 });
+      const state = fakeState();
+      const published: MempoolDrainState[] = [];
+      const ticker = new MempoolTicker({
+        rpc,
+        state,
+        analyzeOne: async (txid) => {
+          await rpc.getRawTransaction(txid);
+          state.held.add(txid);
+          return "analysed" as AnalyzeOutcome;
+        },
+        plan: planMempoolPoll({ perMinute: 5, requestedIntervalMs: 2_000 }),
+        publish: (d) => {
+          published.push(d);
+          return Promise.resolve();
+        },
+        onTip: () => undefined,
+        log,
+        ceilingPerMinute: 5,
+      });
+      await ticker.tick();
+
+      const onTheWire: unknown = JSON.parse(JSON.stringify(published[0]));
+      const parsed = mempoolDrainStateSchema.safeParse(onTheWire);
+      // A FAILURE HERE IS THE SEAM DEFECT ITSELF, so the issue path is surfaced
+      // rather than left as a bare false.
+      expect(parsed.success ? null : parsed.error.issues).toBeNull();
+      expect(parsed.success && parsed.data).toEqual(published[0]);
+    } finally {
+      await endpoint.stop();
+    }
+  });
+
+  it("and a NEVER-COMPLETE drain survives the same round trip with its null intact", async () => {
+    // The nullable field is the one a schema is most likely to disagree about,
+    // and `completeAtMs: null` is the value that must not become 0 anywhere on
+    // the path. The tick above is partial by construction - a budget of 3
+    // against a mempool of 4 - so this is the state it actually produces.
+    const pool = txids(4);
+    const endpoint = new MockRpcEndpoint({ mempool: pool, transactions: transactionsFor(pool) });
+    const url = await endpoint.start();
+    try {
+      const rpc = new ZebraRpc({ url, retries: 0 });
+      const state = fakeState();
+      const published: MempoolDrainState[] = [];
+      const ticker = new MempoolTicker({
+        rpc,
+        state,
+        analyzeOne: async (txid) => {
+          await rpc.getRawTransaction(txid);
+          state.held.add(txid);
+          return "analysed" as AnalyzeOutcome;
+        },
+        plan: planMempoolPoll({ perMinute: 5, requestedIntervalMs: 2_000 }),
+        publish: (d) => {
+          published.push(d);
+          return Promise.resolve();
+        },
+        onTip: () => undefined,
+        log,
+        ceilingPerMinute: 5,
+      });
+      await ticker.tick();
+      expect(published[0]?.complete).toBe(false);
+      expect(published[0]?.completeAtMs).toBeNull();
+      const parsed = mempoolDrainStateSchema.parse(JSON.parse(JSON.stringify(published[0])));
+      expect(parsed.completeAtMs).toBeNull();
+      expect(parsed.completeAtMs).not.toBe(0);
+    } finally {
+      await endpoint.stop();
+    }
   });
 });
 

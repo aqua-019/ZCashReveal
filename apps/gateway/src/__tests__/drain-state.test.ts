@@ -97,6 +97,42 @@ describe("readDrainState", () => {
     ).toBeNull();
   });
 
+  it("FAIL SIDE, BY DATA: a TRUNCATED document answers null rather than taking the whole view down", async () => {
+    // THE MEMBER OF THE EXCLUSION SET, AND THE FIRST DRAFT SHIPPED IT.
+    // `JSON.parse(raw) as MempoolDrainState` is the construct this file's own
+    // header records costing a live 500 on every non-empty mempool in
+    // HANDOFF-11. Executed against `{"observed": 5}` the cast produced
+    // `updatedSecondsAgo: NaN`; `mempoolViewSchema` then rejected the WHOLE
+    // view, `respond` threw `DtoViolation`, and `/v2/mempool` answered 500 -
+    // one malformed key taking the entire mempool table off the page to protect
+    // a single staleness figure.
+    //
+    // Note the instrument as well as the defect: a capture that serialised the
+    // returned object with `JSON.stringify` rendered that NaN as `null` and
+    // made it look benign. `JSON.stringify(NaN)` is `null`, so the probe
+    // UNDERSTATED what it found (LEDGER-04a's rule about instruments).
+    const drain = await readDrainState(
+      redisHolding({ [REDIS_KEYS.mempoolDrain]: JSON.stringify({ observed: 5 }) }),
+      log,
+      1_000_000,
+    );
+    expect(drain).toBeNull();
+  });
+
+  it("FAIL SIDE, BY DATA: a field of the WRONG TYPE is refused, not coerced", async () => {
+    // A producer that writes `analysed` as a string is a producer with a bug,
+    // and the honest answer here is the same absence - never a figure built
+    // from whatever survived the cast.
+    const drain = await readDrainState(
+      redisHolding({
+        [REDIS_KEYS.mempoolDrain]: JSON.stringify({ ...STATE, analysed: "three" }),
+      }),
+      log,
+      1_180_000,
+    );
+    expect(drain).toBeNull();
+  });
+
   it("reads the VPS key and not the managed store's namespace", async () => {
     // A5. `zcashreveal:` is the VPS instance; `zecreveal:` is the shared
     // managed store, one letter apart, and SNAPSHOT.md exists because of that.
