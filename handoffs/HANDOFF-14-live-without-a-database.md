@@ -466,7 +466,44 @@ directory had moved mid-command, so the copy targeted a path that did not exist.
 `git checkout --` restored it and the suite went back to 109 passed. Recorded
 because it is the rule working in the case it was not written for.
 
-**EXTRAPOLATION, not a claim of convergence.** A second round would probably
+**ROUND 2 WAS RUN BY CI, AND IT FOUND A DEFECT ALL SIX LOCAL GATES ARE BLIND
+TO.** `scripts/assert-no-skipped-integration.mjs` failed on the PR head: the two
+`runIf` markers in `rpc-only.integration.test.ts` were not on its `ALLOWED_SKIPS`
+list, so the guard read them as integration coverage silently lost. **Every test
+passed** - 707 total, 702 passed, 0 failed, 5 skipped - and the job was red on
+the guard alone.
+
+The guard is right and the suite was wrong. Its header says a new marker must be
+"a deliberate edit and not an accident", and naming the two is exactly the edit
+it asks for. **This is the fifth face of LEDGER-09b Q3's origin** - a new suite
+arriving without inheriting a convention every existing member has - and the
+count does not reset because a guard shipped.
+
+Reproduced, fixed and discriminated, all *Executed*:
+
+```
+guard before the fix, same reports CI used   exit 1, both markers named UNEXPECTED
+guard after naming the two markers            exit 0, "every integration test executed"
+guard with Redis GENUINELY DOWN               exit 1, and it names the REAL test -
+  "deliverable 2 ... writes the three keys and reads back a document that
+   validates, with three absences" - not the marker
+```
+
+That third line is the fix's own fail side: the allowlist names the MARKER
+titles, never the real ones, so a genuine loss of integration coverage still
+turns the guard red.
+
+**AND THE SECOND FINDING IS WHY IT REACHED CI AT ALL: NO LOCAL COMMAND RUNS THAT
+GUARD.** It needs vitest JSON reports, which only `ci.yml` asks for, so
+`pnpm check` and `pnpm -r test` are both blind to it. That is the second time in
+this project a gate has existed only in CI - the first was `pnpm build`,
+HANDOFF-07, and CLAUDE.md's workflow section records it as the reason `pnpm
+build` was added to the required list. Recorded rather than fixed here:
+restructuring the test pipeline to emit JSON locally is a change to every
+package's test invocation and would widen this PR well past its scope. It is
+LEDGER-14's Q5.
+
+**EXTRAPOLATION, not a claim of convergence.** A third round would probably
 find one more of round 1's kind - a sentence in `RUNTIME.md` section 7 or
 `CUTOVER-1.0.md` asserting something about the publisher that has not been
 executed against it. The product surface here is small and mostly deletion; the

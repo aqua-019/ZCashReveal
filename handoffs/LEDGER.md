@@ -8159,3 +8159,70 @@ not been executed against it. The product surface this handoff adds is about
 of operator instruction, and both round 1's finding and the next one live
 there.
 ```
+
+## §8 HANDOFF-14 (second append) — round 2, run by CI, in a gate no local command runs (L3, 3 Sep 2026)
+
+```
+APPENDED, NOT REWRITTEN. The HANDOFF-14 block above stands as written.
+
+GATE ROUNDS: now 2. Round 2 was run by CI on the PR head and returned one
+finding, in a guard's DATA rather than in the product.
+
+Q5. A GATE THAT EXISTS ONLY IN CI IS A GATE A SESSION CANNOT CLEAR, AND THIS IS
+    THE SECOND ONE THIS PROJECT HAS FOUND THE SAME WAY.
+    `scripts/assert-no-skipped-integration.mjs` failed on the PR head. Every
+    test passed - 707 total, 702 passed, 0 FAILED, 5 skipped - and the job was
+    red on the guard alone: the two `runIf` markers in the new
+    `rpc-only.integration.test.ts` were not on `ALLOWED_SKIPS`, so the guard
+    read them as integration coverage silently lost.
+    THE GUARD IS RIGHT AND THE SUITE WAS WRONG. Its own header says a new
+    marker must be "a deliberate edit and not an accident"; naming the two is
+    the edit it asks for, and the fix's fail side is that the allowlist names
+    the MARKER titles and never the real ones - proven by stopping Redis and
+    watching the guard catch "writes the three keys and reads back a document
+    that validates, with three absences" by name.
+    WHY IT REACHED CI: the guard needs vitest JSON reports, which only
+    `ci.yml` asks for. `pnpm check` does not run it and `pnpm -r test` does not
+    produce its input. All six gates in CLAUDE.md's workflow list passed
+    locally on the commit CI rejected.
+    THE PRECEDENT IS EXACT. HANDOFF-07 pushed a branch green on five gates
+    whose web build failed on CI and on the Vercel preview, and the answer was
+    to add `pnpm build` to the required list - CLAUDE.md still records it as
+    "added after a session satisfied this list exactly and shipped something
+    the list did not cover". This is the same sentence about a different
+    script.
+    FOR L2: does the required list gain a seventh entry? The obstacle is that
+    this guard consumes JSON reports rather than running standalone, so adding
+    it means every package's `test` script emits one - a change to seven
+    package.json files and to how a developer runs one suite. The cheaper half
+    is a `pnpm check:skips` that runs the three suites with the reporter and
+    then the guard; the honest objection is that a seventh command nobody runs
+    is not a gate either. Recorded rather than chosen, because restructuring
+    the test pipeline is well past this handoff's scope.
+
+Q6. AND THE ORIGIN COUNT MOVES TO FIVE. LEDGER-09b Q3 tracks "a new workspace
+    member or suite arrives without inheriting a convention every existing
+    member has": a missing CI step twice (`zebra-rpc`, then
+    `packages/zec-instruments`), a missing vitest JSON report, a missing
+    `globalSetup` - and now a new integration suite whose skip markers are not
+    on the allowlist every existing marker is on. Five faces, and the count
+    does not reset because a guard shipped: `assert-no-skipped-integration.mjs`
+    IS one of the guards that closed an earlier face, and it is the surface
+    this one arrived on.
+
+INFERRED: that naming the two markers is the correct fix rather than widening
+the guard to a pattern. The guard's header states the intent explicitly, and a
+pattern over "SKIPPED, WITH ITS REASON:" would admit every future marker
+without a reader ever seeing it - which is the property the list exists to
+deny.
+
+NOT-MATCHED: none.
+
+SPEC-WAS-AMBIGUOUS: none.
+
+EXTRAPOLATION. Two rounds, two findings, neither in an executable line of the
+product: one in an operator document's rollback path, one in a guard's data.
+A third round would most likely find a third of that kind rather than a first
+of the other kind - the product surface this handoff adds is about 120 lines
+and mostly deletion, and both findings so far have been in what surrounds it.
+```
