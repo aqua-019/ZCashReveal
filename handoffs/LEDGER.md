@@ -8226,3 +8226,103 @@ A third round would most likely find a third of that kind rather than a first
 of the other kind - the product surface this handoff adds is about 120 lines
 and mostly deletion, and both findings so far have been in what surrounds it.
 ```
+
+## L2 RESOLUTION — HANDOFF-14 (PR #56)
+
+Arrived in the HANDOFF-15 session kickoff, fenced as `L2 RESOLUTION`, and appended here verbatim
+under the revolution protocol's step 2, beneath the two HANDOFF-14 blocks it rules on. Its verdict
+is MERGE with no changes requested. Its folds were applied in the commit that carries this append:
+**F-56-1** into CLAUDE.md's fail-side rules, **stopping-rule clause (c)'s rollback sub-class** into
+the clause itself, and **LEDGER-14 Q4's corrected scope** — container-scoped, not stack-scoped —
+recorded below rather than by rewriting the block above, which is append-only. The prompt that
+carried it is archived at `handoffs/prompts/PROMPT-15.md`, Message 1.
+
+Two of its statements settle things this session then measured for itself, and both are recorded in
+HANDOFF-15 §7 with the polarity this container returned rather than the one L2's container did:
+the 5/minute ceiling is carried forward as FACT, and the endpoint's reachability is re-probed.
+
+```
+# L2 RESOLUTION - HANDOFF-14 (PR #56)
+
+**VERDICT: MERGE.** No changes requested. Verified independently on a clean worktree at `9553842`.
+
+## What L2 executed
+
+Six gates, every exit code read from `$?` directly and never through a pipe (F-53-1):
+
+```
+INSTALL_RC=0  TEST_RC=0  TYPECHECK_RC=0  LINT_RC=0  CHECK_RC=0  BUILD_RC=0
+```
+
+First run gave **1419 passed / 111 skipped** - the degraded shape section 7 warns about by name. L2's container had no Postgres and no Redis. Started both, created the `zcashreveal` role and database, re-ran the three affected suites:
+
+```
+apps/publisher   109 passed |  4 skipped
+apps/indexer     534 passed |  0 skipped
+apps/gateway     163 passed |  0 skipped
+                 ----
+TOTAL           1525 passed |  5 skipped | 1530 total
+```
+
+**An exact match to section 7's figures.** `git status --porcelain` empty. The throwaway `proof-rung1.test.ts` is NOT in the tree, which is correct.
+
+## RUNG 1 IS PROVEN LIVE. THE HANDOFF'S ONE UNVERIFIED IS NOW VERIFIED
+
+Section 7 and LEDGER-14 Q4 report the live endpoint unreachable and label the lane figures UNVERIFIED. **L2 ran `scripts/prove-rpc-only.mjs` against real mainnet and it exits 0:**
+
+```
+Two calls to https://zcash-mainnet-zebrad.gateway.tatum.io/
+height 3470960   hash 0000000000301fe326bd...   2026-09-03T22:44:05Z
+  transparent  11987581.74 ZEC  71.13%      sprout      22591.46 ZEC  0.13%
+  sapling        522771.56 ZEC   3.10%      orchard    458122.37 ZEC  2.71%
+  ironwood      3861085.66 ZEC  22.91%     (lockbox     60855.19 ZEC, NOT a lane)
+  residual   MEASURED: 480713.83 ZEC unprovable of 16913007.98 ZEC supply
+  drain / migrationHist / neffSeries   null - NOT MEASURED
+PROVE_RC=0
+```
+
+Three arithmetic checks L2 ran on that output, none of which the script itself makes:
+
+| check | result |
+|---|---|
+| five lanes + lockbox vs the node's `chainSupply` | **16,913,007.98 = 16,913,007.98 EXACT** |
+| `residual` vs `sprout + orchard` | **480,713.83 = 480,713.83 EXACT** |
+| transparent share computed over five lanes, not six | 71.13%, as printed |
+
+**The script's failure paths are real too.** Its 429 branch, its missing-lane branch and its usage branch all behave as section 7 claims.
+
+## AND THE 5/MINUTE CEILING IS NOW MEASURED, NOT ASSUMED - THIS IS RUNG 2's GATING FACT
+
+Sixteen `getblockchaininfo` calls in a 1.4-second burst against the keyless endpoint:
+
+```
+req  1-5   200
+req  6-16  429      succeeded before first refusal: 5
+```
+
+**Exactly five, then refused, and it stays refused.** L2's section 1 table in PROMPT-14 offered this as a hypothesis to check. It is now a measurement. Carry it into HANDOFF-15 as fact.
+
+## Three adversarial mutations, none of them the session's own
+
+| mutation | result |
+|---|---|
+| `databaseUrl` treats `""` as PRESENT | **1 failed** |
+| `NO_CHAIN_QUERIES.queryMigrations` returns a MEASURED ZERO instead of null | **1 failed** - *"queryMigrations must be null with no connection"* |
+| the `sawTipFrame` guard removed from `snapshotAge` | **3 failed**, across two files - *"expected '0' to be 'unknown'"* |
+
+The second is the contract this whole rung rests on and the third reproduces the original defect exactly. Both are load-bearing.
+
+## Ruling on the four section 8 questions
+
+**Q1 - is "read the module before writing the probe that judges it" worth stating as a rule? ADOPTED, as F-56-1.** It is NOT already what the fail-side rules mean: those govern the SHAPE of a fail side (a DATA mutation from the exclusion set) and say nothing about whether its author has read the module. Four probes in one handoff were wrong before the code was, all four looked like product defects, and none was. **F-56-1: a fail side that mutates a module the author has not read line-by-line is a hypothesis about that module, not a probe of it. Read it first, or label the probe UNVERIFIED.** The session's own move - check the probe before judging the code - is what caught all four and is the rule's operational half.
+
+**Q2 - was `residual: null` in the committed web fixture deliberate? NO. It is a fourth absence nobody counted, and L2 confirms it independently:** `apps/web/src/lib/api/fixtures/snapshot.ts:93`, present on `main` at `04237c5`, untouched by this PR. So the site's headline figure - the unprovable-supply number this entire project is an argument about - renders as an absence today and nothing said so. **The disposition is that rung 1 fixes it rather than the fixture does:** L2's live run above shows `residual` is computable from the two RPC calls this rung already makes, 480,713.83 ZEC of 16,913,007.98. The moment the cutover runs, the figure turns on. The session was right to assert it rather than patch the fixture, because patching it would put a fabricated headline on the page.
+
+**Q3 - is rollback prose a standing sub-class of clause (c)? ADOPTED.** Every rollback, recovery and "stop the process" step in an operator document makes a checkable claim about runtime behaviour by construction, so it never needs a round to happen to reach it. **Clause (c) now names them explicitly: every rollback and recovery step in an operator document is executed, not read, every gate.** The finding that produced this cost one grep and would have left an operator staring at a frozen page believing they had rolled back - this project's own recurring shape, written into the runbook meant to prevent it.
+
+**Q4 - SETTLED BY EXECUTION, and the ledger sentence needs one correction.** The finding is sound and shipping the script was the right call regardless. But the sentence *"THE LIVE ENDPOINT IS UNREACHABLE AND THE WALL IS NOT HOST-SPECIFIC"* over-scopes: **both probed hosts answer from L2's container right now**, including `zcash-mainnet-zebrad.gateway.tatum.io`, the exact host recorded as `connect_rejected ... 403`. The wall is **container-scoped, not stack-scoped** - two hostnames measured is evidence about one egress policy, not about the project. `mainnet.lightwalletd.com` does fail from here too, so that host may be independently down. **This is the probe-scope family again: a conclusion whose reach exceeds what was measured.** L2 has committed the same error repeatedly this engagement and names it here rather than only when someone else does it. HANDOFF-15 should carry the corrected wording into the ledger: *this session's container* cannot reach it; another Aqua Stack session can.
+
+## One defect in L2's own prompt, which the session caught and fixed correctly
+
+PROMPT-14 section 4 deliverable 2 and section 5 A1 both said **"four panels null"** two paragraphs after L2's own executed transcript showing **three**. The session re-executed against `REAL_INSTRUMENTS` before writing section 5, corrected both, and added **A1b asserting `residual` is measured positively** rather than leaving it as the absence of an absence. That is the right handling and it is a better assertion than the one L2 wrote. The defect was L2's.
+```

@@ -121,39 +121,84 @@ composition-root finding is this handoff's §1.
 
 ## §5 ASSERTIONS — each needs both polarities, and each names its EXCLUSION SET
 
-- **A1.** At a configured ceiling of 5/min the loop runs, never exceeds it, and publishes real
-  reports. *Exclusion set: any minute in which the loop issues a sixth request.* **Fail side by
-  DATA:** a mock that counts requests per rolling minute and fails the test when the count exceeds
-  the ceiling — the member drawn from the set is a run whose sixth request is issued.
-- **A2.** A 429 mid-drain backs off and resumes without losing or duplicating a report. *Exclusion
-  set: a completed drain whose report set differs from the mempool's txid set — any omission, any
-  duplicate.* **Fail side:** the mock 429s on request 3 of 8; the drain completes across two ticks
-  with the same set.
-- **A3.** A partial drain renders as "N of M analysed" and never as M. *Exclusion set: a rendered
-  mempool summary whose stated total equals its analysed count while the drain was partial.* **Fail
-  side:** force a partial and assert the copy; then a complete drain and assert it does not say
-  "partial".
+The format is the amended one (LEDGER-09a Q2, enforced for PRESENCE by
+`scripts/check-ledger-structure.mjs` R4 and for CORRECTNESS by nobody): each assertion states the
+set of values its predicate exists to reject, and §7's fail-side transcript names WHICH MEMBER of
+that set it used, so a reader sees at a glance whether the fail side came from inside the set or
+from outside it. **At least one fail side per assertion is a DATA mutation**; the type-level exit
+(LEDGER-11 Q5(c)) is taken only where no field can hold the excluded value, and is marked as such.
+
+- **A1.** At a configured ceiling of 5 requests/minute the loop runs, never exceeds it, and
+  publishes real reports.
+  *Exclusion set:* any rolling minute in which the loop issues a sixth request to the endpoint —
+  `getrawmempool`, `getrawtransaction` and `getblockchaininfo` counted together, because the ceiling
+  counts requests and not methods.
+  *Fail side names:* a run whose sixth request is issued inside one rolling minute. The mock counts
+  every request it receives and the test fails on the sixth, so the member is drawn from inside the
+  set rather than from a deleted callback.
+
+- **A2.** A 429 mid-drain backs off and resumes without losing or duplicating a report.
+  *Exclusion set:* a completed drain whose published report set differs from the mempool's txid set
+  — any omission, any duplicate, any report published twice under one txid.
+  *Fail side names:* a drain in which the mock 429s on request 3 of 8. The member is the eight-txid
+  mempool whose drain is interrupted; the assertion is that the set after two ticks equals the set
+  the mock served, and the pre-fix client turns that 429 into `RpcTransportError` after burning two
+  more requests.
+
+- **A3.** A partial drain renders as "N of M analysed" and never as M.
+  *Exclusion set:* any rendered mempool summary whose stated total equals its analysed count while
+  the drain was in fact partial — the absence-versus-zero rule on a counting surface.
+  *Fail side names:* a view built from a drain of 3 of 9. The member is that view; the assertion is
+  that the copy names both numbers, and the complete-drain polarity asserts the same surface does
+  NOT say "partial" when nothing was left.
+
 - **A4.** Every report on this path round-trips through `serializeWire`/`reviveWire` with bigints
-  intact. *Exclusion set: any field whose revived `typeof` is `string` where the declared type is
-  `bigint`.* **Fail side by DATA:** a report carrying a non-`Zat`-suffixed bigint —
-  `ClaimAssessment.rawCount` — must survive, which the pre-HANDOFF-12 reviver would have failed.
-- **A5.** Nothing on this path reaches the managed store. *`SNAPSHOT.md` rule 5. Exclusion set:
-  any Redis client in `apps/indexer` or `apps/gateway` constructed from a managed-store URL.*
+  intact.
+  *Exclusion set:* any field whose revived `typeof` is `string` where the declared type is
+  `bigint` — the four non-`Zat`-suffixed bigints on `ClaimAssessment` are the members this
+  project has already been bitten by.
+  *Fail side names:* `ClaimAssessment.rawCount`, a bigint whose key does not end in `Zat`. It is
+  carried through the REAL producer and the REAL reviver, and the pre-HANDOFF-12 key-guessing
+  reviver returns it as `string`.
+
+- **A5.** Nothing on this path reaches the managed store.
+  *Exclusion set:* any Redis client constructed in `apps/indexer` or `apps/gateway` from a
+  managed-store URL, and any key written outside `zecreveal:` — `SNAPSHOT.md` rule 5.
+  *Fail side names:* a `REDIS_URL` naming an Upstash host handed to `loadConfig`. The member is that
+  URL; `assertNotManagedStore` must throw, and the positive polarity is the VPS URL starting
+  normally.
+
 - **A6.** `pnpm -r test` green with a **real** exit code, captured directly and never through a pipe
   (**F-53-1**). **AND THE COUNTS ARE READ, NOT JUST THE CODE:** a run with Postgres or Redis down
   still exits 0 while silently skipping the integration halves — HANDOFF-14's §7 caught exactly that
   at 93 passed / 20 skipped, and L2's own first verification run of PR #56 reproduced it at
   1419 / 111. State the passed AND skipped counts, and name every skip.
+  *Exclusion set:* any reported figure taken from a run whose exit code reached the report through a
+  pipe, and any run reported as green whose skipped count is not enumerated by name.
+  *Fail side names:* the degraded run itself — the services stopped, the counts read, the skip list
+  printed. That transcript is the member, and it is shown beside the healthy one rather than
+  described.
+
 - **A7. F-56-1, this handoff's new rule, applied to itself.** Every fail side here mutates
   `apps/indexer/src/index.ts`, `packages/zebra-rpc` or the mempool view. **Read each line-by-line
   before writing the probe that judges it**, and say in §7 which modules were read that way.
   HANDOFF-14 had FOUR probes that were wrong before the code was, all four looking exactly like
   product defects; every one was written against a module its author had not read.
+  *Exclusion set:* any probe in this branch whose target module is not on §7's read list — the rule
+  is about the probe's provenance, so the excluded value is a probe rather than a datum.
+  *Fail side names:* §7 lists the modules read line-by-line and the probes written against each. A
+  probe naming a module absent from that list is the member, and the check is that the list and the
+  probe set agree in both directions.
+
 - **A8.** With `DATABASE_URL` unset the mempool path runs, publishes, and reports every
-  database-derived quantity as an absence. *Exclusion set: any anchor depth, any persisted row, any
-  numeric zero standing where a database read did not happen.* **Fail side by DATA:** a spend whose
-  anchor is in neither the memo nor Redis must produce `null`, and the probe asserts the analyser's
-  rendered depth is the "unknown" branch — not `0`.
+  database-derived quantity as an absence.
+  *Exclusion set:* any anchor depth, persisted row or numeric ZERO standing where a database read
+  did not happen. A `0` here is the excluded value and `null` is the required one — CLAUDE.md's
+  absence-versus-zero rule, and LEDGER-06's `NOT NULL` reading applied to a dependency rather than
+  a column.
+  *Fail side names:* a shielded spend whose anchor root is in neither the memo nor Redis, driven
+  with no cold tier. The member is that root; `getHeightForAnchor` must return `null` and the
+  rendered depth must be the "unknown" branch, never `0`.
 
 ## §6 DISPATCH HINTS
 
