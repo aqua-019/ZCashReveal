@@ -1,7 +1,7 @@
 ---
 handoff: 14
 title: Live without a database - the publisher on RPC alone (rung 1 of three)
-status: shipped
+status: closed
 branch: the session-designated branch (name it `feat/v2-14-live-without-a-database` if you may choose)
 track: Integration
 depends_on: 12
