@@ -363,7 +363,9 @@ GATE ROUNDS: 4. NO ROUND IS CLAIMED AS CONVERGENT - see EXTRAPOLATION.
   Round 3  the lead's own (a)/(b)/(c)-scoped audit of round 2's fix commit,
            4 findings, all its own.
   Round 4  wf_acd764e6-4a0  6 dimensions over commit 07b7919 plus the three
-           dimensions that died; in flight at the time of writing.
+           dimensions that died. 147 agents, 56 done, 91 KILLED BY A USAGE
+           LIMIT. 1 confirmed finding reached the lead; it was HIGH and real.
+           **THE ROUND'S OWN RECORD NO LONGER EXISTS** - see below.
 
   **TWO NUMBERS IN THIS BLOCK DISAGREED AND BOTH ARE PRINTED RATHER THAN
   RECONCILED SILENTLY.** An earlier draft said "round 1: 45 findings" and
@@ -665,6 +667,63 @@ GATE ROUNDS: 4. NO ROUND IS CLAIMED AS CONVERGENT - see EXTRAPOLATION.
       is PARTIAL rather than absent.
     Round 4 re-dispatches all three. Until it returns these are UNVERIFIED work
     listed here with the findings, not a trailing log line.
+
+  ROUND 4, AND IT IS THE WORST-INSTRUMENTED ROUND OF THIS HANDOFF. 91 of its
+  147 agents died on a usage limit, and the container then restarted and wiped
+  BOTH `/tmp` and `~/.claude/.../journal.jsonl`. So the workflow's structured
+  result and its per-agent transcripts are GONE. What survives is the single
+  confirmed finding quoted verbatim in the completion notice, and the failure
+  list naming which agents died. This is stated first because everything below
+  is bounded by it.
+    VERIFY PHASE, BY DIMENSION - only ONE of six completed:
+      config-defaults-parser    all three lenses ran; 1 finding CONFIRMED.
+      config-defaults-selftest  every lens killed.
+      zebra-tag-ceiling         every lens killed.
+      csp-nextjs                every lens killed (again - second round running).
+      threat-model              every lens killed (again - second round running).
+      writeback-and-count       every lens killed (again - second round running).
+    Their REVIEW agents did run. Whatever those five dimensions found was never
+    verified, and its text is no longer recoverable. That is not "nothing was
+    found"; it is "the finding list was destroyed with the sample". A round
+    reported as clean on that basis would be a green run that means nothing,
+    which is the shape this handoff has spent four rounds on.
+
+  THE ONE CONFIRMED FINDING, REPRODUCED BY THE LEAD BEFORE IT WAS ACCEPTED
+  (fixed in 3d662b2). Both `${` pre-checks and the interpolation scan in
+  `composeLiteralFor` ran on the RAW line while only the VALUE was stripped of
+  its comment, so a trailing comment changed the verdict.
+    GROUND TRUTH, docker compose v5.1.1, executed in this container:
+      A: 3428143   # or ${A}          -> "3428143"    a real literal default
+      B: ${B:-}   # was ${B:-3428143} -> ""           NOT a literal default
+      C: "#3428143"                   -> "#3428143"   quoted hash is data
+      D: 3428143#x                    -> "3428143#x"  no comment at all
+    Against that the shipped guard MISSED three real literal defaults and
+    FAILED ONE CORRECT BUILD. The last is the worse direction: an operator who
+    records what the default used to be in a comment is doing the right thing.
+    BOTH SIDES on the real docker-compose.yml, exactly inverted:
+      a real literal default   pre-fix rc=0 (MISS)    post-fix rc=1
+      not a literal default    pre-fix rc=1 (FALSE)   post-fix rc=0
+    AND THE TWO SURFACES DISAGREED ABOUT ONE SPELLING - env has no `${`
+    pre-check, so it caught `V=3428143 # or ${V}` while compose missed it. The
+    seam shape, inside one file rather than between two processes.
+    The defect was the POSITION of the pre-checks, not their existence:
+    deleting one does not silently pass, it trips the self-test on the `${V:-}`
+    row. So the fix moved the strip earlier rather than removing a check.
+
+  ONE ASYMMETRY FOUND AND DELIBERATELY LEFT: on the env surface `V=${V:-}`
+  reports the literal `${V:-}`, the mirror of the compose false positive. A
+  `.env.example` is a template and that spelling is meaningless there - this
+  repo's own uses `#INDEXER_START_HEIGHT=`. Pinning behaviour the lead thinks
+  is questionable is worse than recording it as unexamined, so it is recorded.
+
+  THREE DIMENSIONS HAVE NOW DIED TWICE, and the two counts are unchanged:
+    SETTLED BY EXECUTION - the write-back counts, re-run again at this tip.
+    SETTLED ONLY BY ARGUMENT - section 5's threat model and section 4's CSP
+    claims are STILL UNVERIFIED after two attempts. `threat-model` has produced
+    zero facts across both rounds. Section 5 is the argument that a viewing key
+    cannot leave the tab, and no refuter has yet read it. This is the single
+    most important thing in this handoff that remains unchecked, and the
+    operator should treat section 5 as the lead's reading and nothing more.
 
   EXTRAPOLATION, STATED RATHER THAN CONVERGENCE CLAIMED. Clause (i)(a) is NOT
   satisfied: round 3 returned four findings a reader could see. Clause (i)(b) is
