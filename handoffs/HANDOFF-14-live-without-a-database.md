@@ -185,11 +185,13 @@ predicate claims to exclude — except where the assertion is type-level and say
   `zcuck.xyz` today, drawn from inside the set, since it is the input that produces the false zero
   this deliverable exists to remove. Both polarities in one test.
 - **A5.** Nothing in the suite or any new script reaches the managed store.
-  *Exclusion set:* any `SNAPSHOT_REDIS_*` variable read, any Upstash host, and any forbidden command
-  (`FLUSHDB`, `FLUSHALL`, `SWAPDB`, `SCRIPT FLUSH`, `KEYS`, unbounded `SCAN`) appearing in a test, a
-  fixture, a script or a runbook step this handoff adds.
-  *Fail side names:* `check-redis-safety.mjs` driven over a file carrying a bare `KEYS *` against the
-  managed store — drawn from inside the set, and the guard must fail on it; grep in both directions.
+  *Exclusion set:* any `SNAPSHOT_REDIS_*` variable read, any Upstash host, and any member of the
+  forbidden command set `SNAPSHOT.md` rule 2 and rule 3 name — spelled there and deliberately not
+  here — appearing in a test, a fixture, a script or a runbook step this handoff adds.
+  *Fail side names:* `check-redis-safety.mjs`' own self-test, which iterates the rule's data
+  structure and drives every detector over a line drawn from inside the set, including the
+  "destructive command named in prose" case this handoff's own first draft of `CUTOVER-1.0.md`
+  tripped; grep in both directions.
 - **A6.** `pnpm -r test` green with a **real** exit code — captured directly, never through a pipe
   (**F-53-1**: L2's own harness read `tail`'s status for four PRs).
   *Exclusion set:* any exit code read from a process other than the one under test — `tail`'s,

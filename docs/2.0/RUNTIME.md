@@ -238,3 +238,121 @@ docker compose exec postgres psql -U zcashreveal zcashreveal -c \
   "SELECT pool, height, balance_zat, commitment_count FROM pool_snapshots
    WHERE height = (SELECT MAX(height) FROM blocks) ORDER BY pool;"
 ```
+
+## 7. RPC-only mode: the publisher with no database
+
+**The publisher runs without `DATABASE_URL`, and that is a configuration rather
+than a degraded mode.** Everything above this section is `apps/indexer`, which
+needs Postgres and a node it can follow. This section is `apps/publisher`, which
+needs neither: it can publish a live document from a node's `getblockchaininfo`
+alone, with the panels that read a table published as stated absences.
+
+Added by HANDOFF-14, which is rung 1 of three. Rung 2 adds the mempool; rung 3
+adds crossings. Each ships alone.
+
+### 7.1 The env set
+
+```bash
+# Required. The node. Any Zcash RPC endpoint that serves getblockchaininfo
+# and getblockheader - your own zebrad, or a public gateway.
+ZEBRAD_RPC_URL=https://<host>/
+ZEBRAD_RPC_USER=...          # omitted by a keyless public endpoint
+ZEBRAD_RPC_PASSWORD=...
+
+# Required. The VPS Redis, which carries the tip channel this publisher
+# subscribes to. NEVER the managed store (SNAPSHOT.md section 2).
+REDIS_URL=redis://localhost:6379
+
+# Required. Where the file sink writes; SNAPSHOT.md section 8.5 marks it
+# `required: yes`.
+SNAPSHOT_FILE=./snapshot.json
+
+# OMITTED. This is the whole of RPC-only mode.
+# DATABASE_URL=
+
+# Optional. Either TCP spelling of the managed store. Absent both, the
+# publisher runs file-only, which is what a laptop does.
+SNAPSHOT_REDIS_KV_URL=
+```
+
+`DATABASE_URL=` (set, empty) means the same thing as omitting it: `databaseUrl`
+in `apps/publisher/src/config.ts` reads empty as absent, on the same rule
+`managedStoreUrl` uses, because an empty value in a `.env` is how an operator
+turns something off.
+
+### 7.2 What it costs
+
+**Two RPC calls per tip**, and no other network traffic besides the sinks:
+
+| Call | Where | What for |
+|---|---|---|
+| `getblockchaininfo` | `readChainInfo`, once per publish | the five lane balances (`valuePools`) and the supply (`chainSupply`) |
+| `getblockheader` | the tip source's `onTip`, once per publish | the BLOCK's own timestamp, which is not on the tip channel |
+
+At the 75-second mainnet block target that is **about 1.6 requests a minute**,
+which fits inside a 5-requests-per-minute keyless public endpoint with room to
+spare. **Read** (`apps/publisher/src/index.ts`, the two call sites); the rate is
+arithmetic over the block target rather than a measurement of any endpoint.
+
+The managed store is unaffected: still three writes per tip inside one `MULTI`,
+five commands on the wire, charged against `SNAPSHOT_REDIS_MONTHLY_BUDGET`
+(SNAPSHOT.md section 5). RPC-only mode changes what the document CONTAINS, never
+how often or how much it is written.
+
+### 7.3 What the reader sees, and what they do not
+
+| Panel | Full mode | RPC-only | Why |
+|---|---|---|---|
+| `pools` - the five lanes and their shares | measured | **measured** | `valuePools` on `getblockchaininfo` |
+| `residual` - unprovable supply | measured | **measured** | `turnstileResidual` needs the pool balances and a supply figure, and both are on the same call |
+| `drain` - the Orchard drain and its two velocities | measured | **absent** | reads `pool_snapshots` joined to `blocks` for the block times |
+| `migrationHist` - the Orchard-to-Ironwood lens | measured | **absent** | reads `migrations_zip318` |
+| `neffSeries` - the anonymity-set series | measured | **absent** | reads `pool_nullifiers` joined to `pool_anchors` |
+| `lastReports` | absent in both | absent | the mempool view is the gateway's; rung 2 |
+
+**Three absences, not four, and `residual` being present is the surprise worth
+naming.** The obvious reading of "the analysis panels need the database" puts
+all four on the far side of Postgres. It is wrong about `residual`, because
+`U = Bal^sprout + Bal^orchard` and `Supply` all arrive on one RPC call. A site
+in RPC-only mode therefore still publishes the unprovable-supply figure - the
+one this project's headline is about - live.
+
+### 7.4 Why this is honest and not degraded
+
+**A null panel is a stated absence and never a zero** (SNAPSHOT.md section 8.1).
+The document says which panels nothing measured; `apps/web` renders each as a
+named absence; `lib/plane.ts` draws no marks and says "not measured" rather than
+drawing zero crossings. Nothing on the page claims a measurement nobody took.
+
+That is the whole argument, and it is why RPC-only mode needs no banner: a
+degraded mode is one where the reader is shown something worse than the truth,
+and here the reader is shown the truth about a smaller set of facts.
+
+The publisher does log which mode it is in, once, at `info`, at startup:
+
+```
+no DATABASE_URL: publishing on RPC alone, with the three database-derived panels as stated absences
+```
+
+One line rather than none, because a process that silently published three fewer
+panels because a variable was unset would be the "stale and reports no fault"
+shape one layer below the page. One line rather than a per-tip warning, because
+the mode is a choice the operator made and a log that warns about it trains its
+reader to stop reading.
+
+### 7.5 Checking it from the outside
+
+```bash
+# Which mode the publisher started in.
+docker compose logs publisher | grep -E "publishing on RPC alone|publishing every panel"
+
+# The document it wrote: the tip, the five lanes, and which panels are null.
+node -e 'const s=require("./snapshot.json");
+  console.log(s.height, s.pools.length, "lanes");
+  for (const k of ["residual","drain","migrationHist","neffSeries"])
+    console.log(" ", k, s[k]===null?"null - NOT MEASURED":"measured");'
+```
+
+An RPC-only document is correct when `pools` has five entries, `residual` is
+measured, and the other three are `null`. A `0` in place of any of those three
+is a defect and not a quiet Sunday.

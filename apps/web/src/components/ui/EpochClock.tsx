@@ -8,7 +8,7 @@ import { fmtInt, fmtSnapshotAge } from "@/lib/format";
 import { seedLabel } from "@/lib/seed";
 import { onTip } from "@/lib/api/tip-bus";
 import {
-  snapshotAgeBlocks,
+  snapshotAge,
   SNAPSHOT_FALLBACK_MARKER,
   type SnapshotFault,
   type SnapshotSource,
@@ -49,9 +49,23 @@ export function EpochClock({
   readonly status: { readonly source: SnapshotSource; readonly faults: readonly SnapshotFault[] };
 }) {
   const [height, setHeight] = useState(tip.height);
+  // HAS A `tip` FRAME EVER ARRIVED? Tracked as its own state rather than
+  // inferred from `height > tip.height`, and the difference is the whole of
+  // deliverable 4: a frame naming the height the document already carries is a
+  // frame that arrived, and it is exactly the frame a height comparison cannot
+  // see. Inferring it would leave the age unknown on a page that had just
+  // learned the chain is where the document said it was - a true `0 blocks`
+  // suppressed by the fix for a false one.
+  const [sawTipFrame, setSawTipFrame] = useState(false);
 
   useEffect(() => {
     setHeight(tip.height);
+    // `sawTipFrame` IS NOT RESET TO `false` HERE. This effect re-runs when the
+    // SERVER hands down a new document, and a frame that has arrived has
+    // arrived: the page has seen the chain move and does not unlearn it because
+    // a fresher snapshot came in. Resetting would make the age flicker back to
+    // `unknown` on every navigation for a reader whose socket is open.
+    //
     // ONE SUBSCRIPTION FOR THE WHOLE DOCUMENT, through the tip bus, which opens
     // nothing outside live mode: the committed FixtureStream emits no `tip`
     // frame at all, so a fixture clock stands still - the honest reading of a
@@ -64,11 +78,21 @@ export function EpochClock({
     // current value through setState's function form, so the effect does not
     // need it - and listing it would detach and re-attach on every block.
     return onTip((t) => {
+      setSawTipFrame(true);
       setHeight((h) => (t.height > h ? t.height : h));
     });
   }, [tip.height]);
 
-  const age = snapshotAgeBlocks(tip.height, height);
+  // `tip.height` IS THE DOCUMENT'S HEIGHT AND `height` IS THE TIP THE PAGE
+  // KNOWS. They are equal until a frame arrives, which is why the fixture read
+  // `0 blocks` on data twelve days old: the difference was between the
+  // document's height and itself.
+  const age = snapshotAge({
+    snapshotHeight: tip.height,
+    tipHeight: height,
+    source: status.source,
+    sawTipFrame,
+  });
 
   return (
     <div className="clock" data-primitive="EpochClock" data-ui="epochclock">
@@ -95,6 +119,12 @@ export function EpochClock({
         data-source={status.source}
         data-marker={SNAPSHOT_FALLBACK_MARKER}
         data-faults={status.faults.length}
+        // THE MACHINE-READABLE HALF OF THE AGE, on the same argument
+        // `data-source` is here for: an assertion reads an attribute rather than
+        // parsing prose, and the prose stays because a reader is owed the
+        // sentence. `unknown` and a digit are the two values, so a check can
+        // discriminate without a regular expression over English.
+        data-age={age.known ? String(age.blocks) : "unknown"}
       >
         {fmtSnapshotAge(age)} · source: {status.source}
         {status.faults.length > 0 ? (

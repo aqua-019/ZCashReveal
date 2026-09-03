@@ -6,6 +6,7 @@
  * Every expectation here was produced by running the shipped implementation, so
  * a failure means behaviour changed, not that the test guessed.
  */
+import type { SnapshotAge } from "@/lib/snapshot/source";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -189,32 +190,54 @@ describe("fmtElapsed", () => {
 });
 
 /*
- * `fmtBlockAge` BECAME `fmtSnapshotAge` IN HANDOFF-11, and these three cases
- * are the same three retargeted rather than deleted: the function is the same
+ * `fmtBlockAge` BECAME `fmtSnapshotAge` IN HANDOFF-11, and these cases are the
+ * same ones retargeted rather than deleted: the function is the same
  * measurement, and what changed is the string it renders. The old form returned
  * the bare word `tip` for a zero age - a string with no digit in it - which
  * assertion A2's `/snapshot age: \d+ blocks/` cannot match. Every case below
  * still pins the same input it pinned before.
+ *
+ * THE ARGUMENT IS A `SnapshotAge` SINCE HANDOFF-14, NOT A `number`, and that is
+ * the deliverable rather than a refactor. A bare number cannot say "this page
+ * has no measurement to print", so a fixture-sourced document with no tip frame
+ * computed its age as the difference between its own height and itself, printed
+ * the structural zero as `snapshot age: 0 blocks`, and told every reader that
+ * data twelve days old was current. `{known: false}` is that missing state.
  */
 describe("fmtSnapshotAge", () => {
+  const known = (blocks: number): SnapshotAge => ({ known: true, blocks });
+
   it("says zero blocks at zero and below, with a digit rather than a word", () => {
-    expect(fmtSnapshotAge(0)).toBe("snapshot age: 0 blocks");
+    expect(fmtSnapshotAge(known(0))).toBe("snapshot age: 0 blocks");
     // CLAMPED, NOT PRINTED. A snapshot ahead of the tip the page believes in is
     // a reorg or a stale tip frame, and "-3 blocks" is a measurement of
     // neither.
-    expect(fmtSnapshotAge(-3)).toBe("snapshot age: 0 blocks");
+    expect(fmtSnapshotAge(known(-3))).toBe("snapshot age: 0 blocks");
   });
 
   it("agrees with itself about singular and plural", () => {
-    expect(fmtSnapshotAge(1)).toBe("snapshot age: 1 block");
-    expect(fmtSnapshotAge(2)).toBe("snapshot age: 2 blocks");
+    expect(fmtSnapshotAge(known(1))).toBe("snapshot age: 1 block");
+    expect(fmtSnapshotAge(known(2))).toBe("snapshot age: 2 blocks");
   });
 
   it("groups a large lag", () => {
-    expect(fmtSnapshotAge(1234)).toBe("snapshot age: 1,234 blocks");
+    expect(fmtSnapshotAge(known(1234))).toBe("snapshot age: 1,234 blocks");
   });
 
-  it("matches assertion A2's regex at every age, which the old form could not", () => {
+  it("says `unknown` when there is no measurement, and never a zero", () => {
+    // A KNOWN ZERO AND AN UNKNOWN AGE MUST NOT RENDER THE SAME, which is the
+    // whole of deliverable 4 at this layer. They are different statements: one
+    // says the document IS the tip, the other says this page cannot tell.
+    const unknown: SnapshotAge = { known: false, reason: "no tip frame" };
+    expect(fmtSnapshotAge(unknown)).toBe("snapshot age: unknown");
+    expect(fmtSnapshotAge(unknown)).not.toBe(fmtSnapshotAge(known(0)));
+    // AND IT CARRIES NO DIGIT AT ALL, so a check looking for a number cannot
+    // mistake it for one - the same discrimination the `tip` case below makes,
+    // in the other direction.
+    expect(/\d/.test(fmtSnapshotAge(unknown))).toBe(false);
+  });
+
+  it("matches assertion A2's regex at every KNOWN age, which the old form could not", () => {
     // `[\d,]+` AND NOT `\d+`, AND THE DIFFERENCE IS A REAL DEFECT IN THE
     // ASSERTION AS WRITTEN. HANDOFF-11's A2 says the indicator must match
     // `/snapshot age: \d+ blocks/`, and `fmtInt` groups with commas the way
@@ -224,9 +247,14 @@ describe("fmtSnapshotAge", () => {
     // Restated in section 5 by deliverable 0 rather than answered by ungrouping
     // the number, because a bare 1000000 in the system bar breaks the site's
     // numeral convention to satisfy a regex.
+    //
+    // "AT EVERY KNOWN AGE" IS THE HANDOFF-14 NARROWING. A2 was written when
+    // every age was known; the regex is now the contract for a MEASUREMENT and
+    // says nothing about a page that has none. `apps/web/test/e2e/snapshot.spec.ts`
+    // carries the same narrowing on the rendered page.
     const RE = /snapshot age: [\d,]+ blocks?/;
     for (const blocks of [0, -3, 1, 2, 1234, 1_000_000]) {
-      expect(RE.test(fmtSnapshotAge(blocks))).toBe(true);
+      expect(RE.test(fmtSnapshotAge(known(blocks)))).toBe(true);
     }
     // The fail side, by DATA rather than by deletion: the exact string the
     // shipped code returned before this handoff, drawn from A2's stated
