@@ -182,30 +182,49 @@ Open `zcuck.xyz` and read the system bar:
 
 ## 8. Rollback
 
-There is nothing to undo on the site. **Stop the publisher and the site falls
-back on its own**, because the resolution order ends at the bundled document:
+**STOPPING THE PUBLISHER DOES NOT ROLL THE SITE BACK, AND AN EARLIER DRAFT OF
+THIS SECTION SAID IT DID.** `zecreveal:snapshot:latest` and
+`zecreveal:snapshot:height` carry **no TTL** — deliberately, because a store that
+expires the latest snapshot produces the empty dashboard the whole fallback
+design exists to prevent (`apps/publisher/src/sinks/redis.ts`, and
+`redis-topology.ts`'s "The current snapshot. No TTL."). Only the per-height copy
+expires, at 24 hours, and the SITE never reads that one — `apps/web` reads
+`SNAPSHOT_KEYS.latest` and nothing else, so the untimed key is the one that
+matters here.
+
+So a stopped publisher leaves the site serving its **last document, frozen, for
+ever**, with `source: redis-rest` and an age that grows once a tip frame arrives.
+That is not a fault in the design — it is what keeps the page alive through an
+outage — but it means stopping the process is a pause, not a rollback.
+
+**Stop the publisher when you want to pause publishing:**
 
 ```bash
 sudo systemctl stop zecreveal-publisher
 ```
 
-The last document it wrote stays in the managed store until its TTL expires,
-after which `apps/web` walks down the order and renders the fixture with
-`source: fixture` and `snapshot age: unknown`. To roll back sooner, delete the
-three keys **by exact name** — never by pattern, and never with any of the four
-whole-database commands `SNAPSHOT.md` rule 2 forbids (`SNAPSHOT.md` rules 2
-and 4). This document does not spell those four, on purpose: naming one in a
-runbook is what rule 2 forbids, `scripts/check-redis-safety.mjs` treats a
-runbook that names one as a hit, and that guard was right to stop this
-paragraph's first draft.
+**To actually roll back to the bundled fixture, choose one of these two:**
+
+1. **Preferred — disconnect and redeploy.** Remove the managed-store variables
+   from the `zecreveal` Vercel project and redeploy. The resolution order then
+   finds nothing configured at the first two rungs, falls through to the bundled
+   document, and the bar reads `source: fixture` with `snapshot age: unknown`.
+   Nothing is written to or deleted from a store shared with another project.
+
+2. **Or delete the two untimed keys, by exact name.** Never by pattern, and never
+   with any of the four whole-database commands `SNAPSHOT.md` rule 2 forbids.
+   This document does not spell those four, on purpose: naming one in a runbook
+   is what rule 2 forbids, `scripts/check-redis-safety.mjs` treats a runbook that
+   names one as a hit, and that guard was right to stop this paragraph's first
+   draft.
 
 ```bash
 redis-cli -u "$SNAPSHOT_REDIS_KV_URL" DEL zecreveal:snapshot:latest
+redis-cli -u "$SNAPSHOT_REDIS_KV_URL" DEL zecreveal:snapshot:height
 ```
 
-To go back to fixture-only rendering without touching the store at all, redeploy
-with the managed-store variables disconnected in the Vercel project. That is the
-safer rollback and it is the one to prefer.
+Both keys, because `height` is the one that says which block `latest` describes
+and a `latest` deleted without it leaves the pair disagreeing.
 
 ## What this costs
 
