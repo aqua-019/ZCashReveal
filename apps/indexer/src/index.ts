@@ -26,15 +26,18 @@
 
 import pino from "pino";
 import { Redis } from "ioredis";
-import { loadConfig } from "./config.js";
-import { ZebraRpc } from "@zcashreveal/zebra-rpc";
+import { loadConfig, rpcCeilingPerMinute } from "./config.js";
+import { RateGate, RpcRateLimitError, ZebraRpc } from "@zcashreveal/zebra-rpc";
 import { ZebradZmqSubscriber } from "./zmq-subscriber.js";
 import { MempoolState, type MempoolDiff } from "./mempool-state.js";
-import { createDb, persistLeakReport } from "./persistence/index.js";
-import { AnchorRegistry, analyze } from "./decoder/index.js";
+import { analyze } from "./decoder/index.js";
+import { chainAccessFor, describeMode, type ChainAccess } from "./chain-access.js";
+import { planMempoolPoll } from "./mempool-plan.js";
+import { MempoolTicker } from "./mempool-tick.js";
+import { publishDrainState } from "./drain-state.js";
 import { RoundTripIndex } from "./analysis/round-trip.js";
 import { PrevOutCache } from "./analysis/prevout-cache.js";
-import { bootstrapChain, ChainFollower, PostgresChainStore, runStartup } from "./runtime/index.js";
+import { bootstrapChain, ChainFollower, runStartup } from "./runtime/index.js";
 import type { PoolStates } from "./state/pool-state.js";
 import { asHex, serializeWire, type Hex } from "@zcashreveal/types";
 
@@ -51,20 +54,37 @@ async function main() {
   // The client moved to packages/zebra-rpc in HANDOFF-05 and no longer reads
   // the indexer's Config object: a shared package that imports one app's
   // configuration is not shared. Every field it needs is passed explicitly.
+  // THE CEILING AND THE PLAN ARE READ BEFORE THE CLIENT IS BUILT, because the
+  // gate is a constructor argument: a client built first and metered later is a
+  // client that has already issued its first request unmetered. `ceiling` is
+  // null for a node you own, which is every deployment before HANDOFF-15.
+  const ceiling = rpcCeilingPerMinute(cfg);
+  const gate = ceiling === null ? undefined : new RateGate({ perMinute: ceiling });
+  const plan = planMempoolPoll({
+    perMinute: ceiling,
+    requestedIntervalMs: cfg.INDEXER_POLL_INTERVAL_MS,
+  });
+
   const rpc = new ZebraRpc({
     url: cfg.ZEBRAD_RPC_URL,
     user: cfg.ZEBRAD_RPC_USER,
     password: cfg.ZEBRAD_RPC_PASSWORD,
     timeoutMs: cfg.ZEBRAD_RPC_TIMEOUT_MS,
     retries: cfg.ZEBRAD_RPC_RETRIES,
+    ...(gate === undefined ? {} : { gate }),
   });
-  const sql = createDb(cfg.DATABASE_URL);
   const redis = new Redis(cfg.REDIS_URL, { lazyConnect: false });
-  const anchorRegistry = new AnchorRegistry(redis, sql);
+  // ONE SEAM DECIDES WHETHER THIS PROCESS HAS A DATABASE (HANDOFF-15,
+  // deliverable 6). Before it, `createDb(cfg.DATABASE_URL)` ran unconditionally
+  // against a URL that carried a localhost default, so the four `| null`s
+  // downstream were unreachable from any configuration - LEDGER-14's shape, one
+  // app over. See chain-access.ts for what absence costs and what it must never
+  // turn into.
+  const access: ChainAccess = chainAccessFor(cfg, redis);
+  const anchorRegistry = access.anchors;
   // Makes the fee real rather than zero. No node sends a fee, so it is computed
   // by summing the outputs each transaction spends, and those come from here.
   const prevOuts = new PrevOutCache(rpc);
-  const store = new PostgresChainStore(sql);
 
   // THE CHAIN STATE IS READ THROUGH THE FOLLOWER ON EVERY CALL, NEVER HELD. The
   // follower REPLACES its `chain` on a reorg (it rebuilds from disk rather
@@ -83,7 +103,7 @@ async function main() {
   let tipHeight = info.blocks;
 
   state.on("diff", (d: MempoolDiff) => {
-    void publishDiff(d, sql, redis, log);
+    void publishDiff(d, access, redis, log);
   });
 
   const zmq = new ZebradZmqSubscriber(cfg.ZEBRAD_ZMQ_URL, log);
@@ -126,14 +146,44 @@ async function main() {
     await zmq.stop().catch(() => undefined);
     await follower?.stop();
     await redis.quit();
-    await sql.end();
+    // WRITTEN AS AN EXPLICIT NULL CHECK RATHER THAN `access.sql?.end()`, on
+    // HANDOFF-14's precedent: the optional call reads as "close it if it
+    // happens to be there", which invites a later reader to treat the null as
+    // an accident. It is a mode.
+    if (access.sql !== null) await access.sql.end();
     process.exit(code);
   };
   process.on("SIGINT", () => void shutdown(0));
   process.on("SIGTERM", () => void shutdown(0));
 
+  const mode = describeMode(access);
+  log.info({ mode: mode.mode, absent: mode.absent, ceilingPerMinute: ceiling }, mode.message);
+  log.info(
+    {
+      pollIntervalMs: plan.pollIntervalMs,
+      txBudgetPerTick: plan.txBudget,
+      txPerMinute: plan.txPerMinute,
+      metered: plan.metered,
+    },
+    plan.metered
+      ? "metered poll: the interval and the per-tick transaction budget come from the ceiling, not from INDEXER_POLL_INTERVAL_MS"
+      : "unmetered poll: every unseen transaction is fetched every tick",
+  );
+
+  const store = access.store;
   await runStartup({
     bootstrap: async () => {
+      // THE FOLLOWER IS THE HALF THAT NEEDS POSTGRES, AND IN MEMPOOL-ONLY MODE
+      // IT DOES NOT START (HANDOFF-15 deliverable 6). Confirmed blocks, pool
+      // state, reorg handling and every crossing are rung 3's subject and are
+      // absent here by configuration rather than by failure. `chainState()`
+      // then returns undefined, which `analyze` has accepted since HANDOFF-12
+      // as "no state, so no spend is assessed" - not as "assessed and found
+      // nothing".
+      if (store === null) {
+        log.info("mempool-only: the confirmed-block follower does not start, so no block is applied and no pool state is maintained");
+        return;
+      }
       const chain = await bootstrapChain({
         rpc,
         store,
@@ -150,7 +200,12 @@ async function main() {
         // is fed from the applied block. Before HANDOFF-12 nothing wrote it, so
         // every spend's depth was null and every anchor read as "unknown".
         onApplied: async (block) => {
-          for (const a of block.anchors) await anchorRegistry.record(a.root, a.heightCreated);
+          // `recordAnchor` is non-null on this path by construction: the
+          // follower only exists when `access.store` does, and both come from
+          // the same branch of `chainAccessFor`. Written as a guard rather than
+          // an assertion because the compiler cannot see that and a later
+          // reader should not have to reconstruct it.
+          for (const a of block.anchors) await access.recordAnchor?.(a.root, a.heightCreated);
           log.info(
             { height: block.height, anchors: block.anchors.length, notices: block.notices.map((n) => n.code) },
             "block applied",
@@ -161,7 +216,7 @@ async function main() {
         // branch's roots kept answering `getHeightForAnchor` and every spend
         // citing one was given a depth measured from an abandoned block.
         onReorg: async (splitHeight, rolledBack) => {
-          const forgotten = await anchorRegistry.forgetAbove(splitHeight);
+          const forgotten = (await access.forgetAnchorsAbove?.(splitHeight)) ?? 0;
           log.warn(
             { splitHeight, rolledBack, anchorsForgotten: forgotten },
             "reorg resolved: rolled back to the split, forgot the orphaned anchors, and replayed",
@@ -176,6 +231,11 @@ async function main() {
       });
     },
     startFollower: () => {
+      // The null here means TWO different things and only one of them is a bug,
+      // which is why the store is tested first. With a store and no follower,
+      // `bootstrap` did not run and `runStartup`'s ordering contract is broken.
+      // With no store, there was never going to be a follower.
+      if (store === null) return;
       if (follower === null) throw new Error("startFollower ran before bootstrap; runStartup's order is the contract");
       follower.start();
     },
@@ -185,25 +245,38 @@ async function main() {
       }),
   });
 
-  pollLoop = setInterval(async () => {
-    try {
-      const [info2, txids] = await Promise.all([
-        rpc.getBlockchainInfo(),
-        rpc.getRawMempool(),
-      ]);
-      tipHeight = info2.blocks;
-      for (const txid of txids) {
-        if (!state.has(txid)) {
-          await fetchAndAnalyze(txid);
-        }
-      }
-      state.reconcile(txids, "evicted");
-    } catch (err) {
-      log.error({ err }, "poll loop iteration failed");
-    }
-  }, cfg.INDEXER_POLL_INTERVAL_MS);
+  // THE TICK LIVES IN `mempool-tick.ts` SO AN ASSERTION CAN CALL IT. See that
+  // file's header: `main` opens sockets and exits the process, so behaviour
+  // inside it is behaviour no test can reach, and A1 is a statement about what
+  // the loop DOES rather than about what it was configured with.
+  const ticker = new MempoolTicker({
+    rpc,
+    state,
+    analyzeOne: fetchAndAnalyze,
+    plan,
+    publish: (drain) => publishDrainState(redis, drain, log),
+    onTip: (height) => {
+      tipHeight = height;
+    },
+    log,
+    ceilingPerMinute: ceiling,
+  });
 
-  async function fetchAndAnalyze(txid: Hex): Promise<void> {
+  pollLoop = setInterval(() => {
+    void ticker.tick();
+  }, plan.pollIntervalMs);
+
+  /**
+   * Fetch one transaction and analyse it.
+   *
+   * RETURNS ITS OUTCOME RATHER THAN SWALLOWING EVERYTHING (HANDOFF-15). It used
+   * to catch every failure and log a warning, which is correct for a decode
+   * error - one unreadable transaction must not stop a tick - and wrong for a
+   * 429, because the caller then spends the rest of its budget on requests that
+   * will all be refused. The three outcomes are distinguished so the caller can
+   * treat them differently; nothing throws out of here, as before.
+   */
+  async function fetchAndAnalyze(txid: Hex): Promise<"analysed" | "failed" | "rate-limited"> {
     try {
       const tx = await rpc.getRawTransaction(txid);
       const report = await analyze(tx, {
@@ -237,21 +310,35 @@ async function main() {
       // records have any path to the SITE is a product question and is
       // recorded as one in the ledger; a channel nobody reads did not answer it.
       state.upsert(report);
+      return "analysed";
     } catch (err) {
+      if (err instanceof RpcRateLimitError) {
+        log.warn(
+          { txid, retryAfterMs: err.retryAfterMs },
+          "rate limited mid-drain; stopping this tick rather than spending the rest of the budget on refusals",
+        );
+        return "rate-limited";
+      }
       log.warn({ err, txid }, "fetch/analyze failed");
+      return "failed";
     }
   }
 }
 
 async function publishDiff(
   d: MempoolDiff,
-  sql: ReturnType<typeof createDb>,
+  access: ChainAccess,
   redis: Redis,
   log: pino.Logger,
 ): Promise<void> {
   try {
     if (d.kind === "added") {
-      await persistLeakReport(sql, d.report);
+      // PERSISTENCE FIRST AND STILL FIRST, but through the seam: in
+      // mempool-only mode this is a no-op that resolves, so the publish and the
+      // `hset` below run exactly as they did. What is lost without a database
+      // is HISTORY, not the live view - `/v2/mempool` and the WebSocket read
+      // the two Redis writes below and never the table.
+      await access.persist(d.report);
       await redis.publish("zcashreveal:mempool", JSON.stringify({
         type: "tx_added",
         report: serializeWire(d.report),

@@ -2,14 +2,26 @@ import { readdir, readFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
-import { loadConfig } from "./config.js";
+import { databaseUrl, loadConfig } from "./config.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(here, "..", "migrations");
 
 async function main() {
   const cfg = loadConfig();
-  const sql = postgres(cfg.DATABASE_URL, { max: 1 });
+  // A MIGRATION RUNNER WITH NO URL REFUSES RATHER THAN DEFAULTS.
+  // `DATABASE_URL` became optional in HANDOFF-15 so the mempool path can run
+  // without one; this entry point is the opposite case, and it is the one where
+  // a default is actively dangerous - a localhost fallback is how a developer
+  // migrates whichever database happens to be listening rather than the one
+  // they meant. There is no correct guess, so it exits non-zero and says which
+  // variable is missing.
+  const url = databaseUrl(cfg);
+  if (url === null) {
+    console.error("[migrate] DATABASE_URL is not set. A migration runner has no default database.");
+    process.exit(1);
+  }
+  const sql = postgres(url, { max: 1 });
 
   await sql`
     CREATE TABLE IF NOT EXISTS schema_migrations (

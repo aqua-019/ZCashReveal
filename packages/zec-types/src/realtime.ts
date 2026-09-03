@@ -20,6 +20,14 @@ export type RedisChannel = (typeof REDIS_CHANNELS)[keyof typeof REDIS_CHANNELS];
 export const REDIS_KEYS = {
   /** Hash: txid -> JSON-serialized LeakReport. Canonical live mempool snapshot. */
   mempoolLive: "zcashreveal:mempool:live",
+  /**
+   * String: JSON `MempoolDrainState`. How complete the hash above is.
+   *
+   * A SECOND KEY RATHER THAN A FIELD ON THE REPORTS, because the fact it
+   * carries is about the SET and not about any member. "Three of nine
+   * transactions analysed" cannot be stored on a transaction.
+   */
+  mempoolDrain: "zcashreveal:mempool:drain",
 } as const;
 
 export type MempoolChannelPayload =
@@ -34,6 +42,49 @@ export type TipChannelPayload = {
   type: "tip";
   height: number;
   hash: Hex;
+};
+
+/**
+ * How complete the live mempool view is, written by the indexer's poll loop.
+ *
+ * ONE PRODUCER, AND THAT IS THE WHOLE REASON THIS TYPE EXISTS RATHER THAN THE
+ * GATEWAY DERIVING IT. The gateway can already count the reports it read and
+ * the txids `getrawmempool` returned, and subtracting those two would look like
+ * the same figure. It is not: the gateway's difference is "reports I could not
+ * find", which a mempool that changed between the two calls produces on a
+ * perfectly healthy stack, while the indexer's is "transactions I did not get
+ * to", which is the one a reader needs. Two producers of one field, meaning
+ * different things by it, is the defect shape `summary.shielded` and
+ * `conventionalFeeZat` each cost this project a handoff to fix - both recorded
+ * in `views.ts` beside the fields themselves. So the process that knows writes
+ * it, and every consumer reads it.
+ *
+ * `completeAtMs` IS NULLABLE AND THE NULL IS NOT "ZERO SECONDS AGO". It is null
+ * when this process has never completed a drain - a cold start under a ceiling
+ * reaches its first tick before its first complete view - and a consumer must
+ * render that as an absence. A staleness of 0 on a view that has never been
+ * complete is the `snapshot age: 0 blocks` defect HANDOFF-14 removed from the
+ * system bar, on a different surface.
+ */
+export type MempoolDrainState = {
+  /** Transactions the node reported in the mempool at the last tick. */
+  observed: number;
+  /** Transactions this process holds an analysed report for. */
+  analysed: number;
+  /** True when the last tick left nothing unanalysed. */
+  complete: boolean;
+  /** How many the last tick deferred because its budget ran out. */
+  deferred: number;
+  /** True when a 429 cut the last tick short. */
+  refused: boolean;
+  /** `Date.now()` at the last COMPLETE drain, or null if there has never been one. */
+  completeAtMs: number | null;
+  /** `Date.now()` at the last tick, complete or not. */
+  updatedAtMs: number;
+  /** The ceiling this process is metering itself against, or null when unmetered. */
+  ceilingPerMinute: number | null;
+  /** Transactions per minute the plan affords, or null when unmetered. */
+  txPerMinute: number | null;
 };
 
 /* ============================================================================

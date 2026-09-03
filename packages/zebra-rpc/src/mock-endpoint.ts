@@ -98,7 +98,7 @@ export class MockRpcEndpoint {
   readonly #windowMs: number;
   readonly #refuseAt: Set<number>;
   readonly #retryAfter: string | null;
-  readonly #now: () => number;
+  #clock: () => number;
 
   constructor(opts: MockEndpointOptions = {}) {
     this.#blockchainInfo = opts.blockchainInfo ?? {
@@ -112,7 +112,7 @@ export class MockRpcEndpoint {
     this.#windowMs = opts.windowMs ?? 60_000;
     this.#refuseAt = new Set(opts.refuseAt ?? []);
     this.#retryAfter = opts.retryAfter ?? null;
-    this.#now = opts.now ?? Date.now;
+    this.#clock = opts.now ?? Date.now;
   }
 
   /** `http://127.0.0.1:<port>/`, valid only while listening. */
@@ -151,6 +151,20 @@ export class MockRpcEndpoint {
       if (n > peak) peak = n;
     }
     return peak;
+  }
+
+  /**
+   * Put the mock on someone else's clock.
+   *
+   * NEEDED BECAUSE `peakInWindow` IS A MEASUREMENT AND A MEASUREMENT NEEDS ONE
+   * CLOCK. A test driving a `RateGate` on a fake clock while the mock stamps
+   * `Date.now()` is comparing two timelines: requests the gate correctly spread
+   * over three minutes all land inside one real millisecond, and the peak reads
+   * the total. That happened on this method's first outing, in HANDOFF-15's own
+   * A1 probe, and it looked exactly like the gate failing to hold.
+   */
+  setClock(now: () => number): void {
+    this.#clock = now;
   }
 
   /** Replace the mempool the mock serves, so a test can evict or add. */
@@ -208,7 +222,7 @@ export class MockRpcEndpoint {
   }
 
   #answer(body: string, res: import("node:http").ServerResponse): void {
-    const now = this.#now();
+    const now = this.#clock();
     this.#ordinal += 1;
     const ordinal = this.#ordinal;
 
