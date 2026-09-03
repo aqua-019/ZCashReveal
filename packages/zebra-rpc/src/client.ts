@@ -15,7 +15,8 @@
  */
 import { fetch as undiciFetch, type RequestInit } from "undici";
 
-import { RpcError, RpcSchemaError, RpcTransportError } from "./errors.js";
+import { RpcError, RpcRateLimitError, RpcSchemaError, RpcTransportError } from "./errors.js";
+import { RateGate, parseRetryAfterMs } from "./rate-limit.js";
 import {
   addressBalanceSchema,
   addressTxIdsSchema,
@@ -37,10 +38,20 @@ import type { BlockHeaderResult, BlockchainInfoResult, RpcBlock } from "./types.
 import type { Hex, RpcTransaction } from "@zcashreveal/types";
 import { z } from "zod";
 
-/** The subset of `fetch` this client uses, so a test can supply one. */
+/**
+ * The subset of `fetch` this client uses, so a test can supply one.
+ *
+ * `headers` IS OPTIONAL AND THAT IS NOT A CONVENIENCE FOR TEST DOUBLES. A 429
+ * carries `Retry-After` only when the endpoint chooses to; RFC 9110 does not
+ * require it and most gateways omit it. So the absent case is a live production
+ * branch rather than a test artefact, and a double that omits `headers`
+ * exercises the same branch a real Cloudflare-fronted 429 usually does. Undici's
+ * `Response` always supplies it, so the present branch is the live one too.
+ */
 export type FetchLike = (url: string, init: RequestInit) => Promise<{
   ok: boolean;
   status: number;
+  headers?: { get(name: string): string | null };
   json(): Promise<unknown>;
   text(): Promise<string>;
 }>;
@@ -68,6 +79,20 @@ export interface ZebraRpcOptions {
   readonly fetch?: FetchLike;
   /** Injected for tests, so a retry test does not spend real seconds sleeping. */
   readonly sleep?: (ms: number) => Promise<void>;
+  /**
+   * A request budget this client must stay inside.
+   *
+   * ABSENT MEANS UNMETERED, WHICH IS THE RIGHT DEFAULT FOR A NODE YOU OWN.
+   * Zebra over loopback has no ceiling worth modelling and adding one would
+   * make every existing caller slower for nothing. A third-party endpoint has a
+   * ceiling, and `apps/indexer` builds this from `INDEXER_RPC_MAX_RPM`.
+   *
+   * THE GATE IS CONSULTED PER ATTEMPT, NOT PER CALL. A retried transport
+   * failure is a second request on the wire and the endpoint counts it as one,
+   * so a gate asked once per `call()` would let a three-attempt call spend
+   * three slots having reserved one.
+   */
+  readonly gate?: RateGate;
 }
 
 const DEFAULTS = {
@@ -100,6 +125,7 @@ export class ZebraRpc {
   readonly #retryBaseMs: number;
   readonly #fetch: FetchLike;
   readonly #sleep: (ms: number) => Promise<void>;
+  readonly #gate: RateGate | undefined;
   #nextId = 1;
 
   constructor(options: ZebraRpcOptions) {
@@ -113,6 +139,12 @@ export class ZebraRpc {
     this.#retryBaseMs = options.retryBaseMs ?? DEFAULTS.retryBaseMs;
     this.#fetch = options.fetch ?? (undiciFetch as unknown as FetchLike);
     this.#sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    this.#gate = options.gate;
+  }
+
+  /** The budget this client meters itself against, or undefined when unmetered. */
+  get gate(): RateGate | undefined {
+    return this.#gate;
   }
 
   /**
@@ -138,11 +170,29 @@ export class ZebraRpc {
 
     for (let attempt = 0; attempt <= this.#retries; attempt += 1) {
       if (attempt > 0) await this.#sleep(this.#retryBaseMs * 2 ** (attempt - 1));
+      // PER ATTEMPT, BECAUSE THE ENDPOINT COUNTS REQUESTS AND NOT CALLS. See
+      // the `gate` option's docblock. `take()` resolves immediately when the
+      // window has room, so an unmetered client pays one already-resolved
+      // promise per attempt and nothing else.
+      if (this.#gate !== undefined) await this.#gate.take();
 
       let payload: unknown;
       try {
-        payload = await this.#once(method, body);
+        payload = await this.#once(method, params, body);
       } catch (err) {
+        // A 429 IS NOT A TRANSPORT FAILURE AND MUST NOT BE RETRIED HERE. It is
+        // the endpoint saying our own request count is too high; asking again
+        // 200 ms later spends another slot of the budget it is refusing for and
+        // makes the refusal last longer. The gate is told - so every LATER call
+        // on this client waits - and the typed error escapes to a caller that
+        // can render the staleness it causes. Before HANDOFF-15 this fell
+        // through to `lastCause` and came back as
+        // `RpcTransportError: no response after 3 attempts`, which named a
+        // timeout for an endpoint that had answered promptly three times.
+        if (err instanceof RpcRateLimitError) {
+          this.#gate?.penalise(err.retryAfterMs);
+          throw err;
+        }
         // Only a transport failure reaches here as a retryable one. An RpcError
         // is thrown from inside #once and must escape this loop immediately.
         if (err instanceof RpcError) throw err;
@@ -176,8 +226,17 @@ export class ZebraRpc {
     );
   }
 
-  /** One attempt. Throws RpcError for a JSON-RPC error, anything else for a transport failure. */
-  async #once(method: string, body: string): Promise<unknown> {
+  /**
+   * One attempt. Throws RpcError for a JSON-RPC error, RpcRateLimitError for a
+   * 429, anything else for a transport failure.
+   *
+   * `params` IS THREADED IN RATHER THAN PASSED AS `[]`. Every error this method
+   * raises carries the params it was raised for, and the 429 branch is the one
+   * a caller most needs them on - "which call did we get refused for" is the
+   * question an operator asks first at a ceiling. `RpcError` below passed `[]`
+   * for as long as this method did not have them.
+   */
+  async #once(method: string, params: readonly unknown[], body: string): Promise<unknown> {
     const controller = new AbortController();
     const timer = setTimeout(() => { controller.abort(); }, this.#timeoutMs);
     try {
@@ -204,7 +263,22 @@ export class ZebraRpc {
       const envelope = envelopeSchema.safeParse(payload);
       if (envelope.success && envelope.data.error !== undefined && envelope.data.error !== null) {
         const { code, message } = envelope.data.error;
-        throw new RpcError(message ?? "unspecified error", method, [], code);
+        throw new RpcError(message ?? "unspecified error", method, params, code);
+      }
+      // THE 429 BRANCH SITS BELOW THE ERROR-OBJECT READ AND ABOVE THE GENERIC
+      // `!res.ok`, AND BOTH NEIGHBOURS ARE LOAD-BEARING. Below the first,
+      // because a gateway that returns 429 WITH a JSON-RPC error object is
+      // telling us something specific and that object is the better message.
+      // Above the second, because that line is where every 429 went before
+      // HANDOFF-15: a bare `Error`, indistinguishable from a 500, retried by
+      // `call()` on the transport policy.
+      if (res.status === 429) {
+        throw new RpcRateLimitError(
+          method,
+          params,
+          parseRetryAfterMs(res.headers?.get("retry-after"), Date.now()),
+          res.status,
+        );
       }
       if (!res.ok) throw new Error(`HTTP ${res.status} from zebra`);
       return payload;
