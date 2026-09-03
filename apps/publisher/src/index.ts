@@ -26,10 +26,10 @@ import { pathToFileURL } from "node:url";
 
 import { asHex, serializeSnapshot } from "@zcashreveal/types";
 import { ZebraRpc } from "@zcashreveal/zebra-rpc";
-import postgres from "postgres";
+import postgres, { type Sql } from "postgres";
 
 import { FileCommandBudget } from "./budget.js";
-import { loadConfig, managedStoreUrl, type PublisherConfig } from "./config.js";
+import { databaseUrl, loadConfig, managedStoreUrl, type PublisherConfig } from "./config.js";
 import { REAL_INSTRUMENTS } from "./instruments.js";
 import { createPublisherLogger } from "./logger.js";
 import { currentLabelsVersion } from "./labels-version.js";
@@ -43,7 +43,7 @@ import {
   readSnapshotInputs,
   MS_PER_SECOND,
 } from "./sources/chain-inputs.js";
-import { makeChainQueries } from "./sources/queries.js";
+import { makeChainQueries, NO_CHAIN_QUERIES, type ChainQueries } from "./sources/queries.js";
 import { createRedisTipSource } from "./sources/tip-source.js";
 
 /**
@@ -61,6 +61,47 @@ export function sinksFor(cfg: PublisherConfig): Sink[] {
     sinks.push(createRedisSink({ connect: () => connectManagedStore(url) }));
   }
   return sinks;
+}
+
+/** How a caller opens Postgres. Injected so an assertion can watch it not happen. */
+export type ConnectPostgres = (url: string) => Sql;
+
+/** The connection this process holds, and the queries bound to it. */
+export interface ChainAccess {
+  /** The client, or null in RPC-only mode. The caller closes it if it is not null. */
+  readonly sql: Sql | null;
+  readonly queries: ChainQueries;
+}
+
+/**
+ * The database, or the absence of one.
+ *
+ * THE ONE LINE HANDOFF-14 EXISTS TO CHANGE. `main` opened
+ * `postgres(cfg.DATABASE_URL)` unconditionally and passed `makeChainQueries(sql)`,
+ * so a publisher with no database could not start - while
+ * `readSnapshotInputs` had accepted four `null` queries since HANDOFF-09b, each
+ * with the comment "or null when there is no database" written beside it. The
+ * branch existed in the type and was unreachable from the composition root.
+ *
+ * WHY THIS IS A FUNCTION AND NOT AN `if` INSIDE `main`. `main` reads the
+ * environment, opens sockets and exits the process, so nothing can call it; a
+ * predicate living inside it is a predicate no assertion can reach. A2 asserts
+ * that NO client is constructed in RPC-only mode, and the only honest way to
+ * assert that is to watch the constructor and see it not called - which needs a
+ * seam. `sinksFor` above is the same shape for the same reason.
+ *
+ * `connect` DEFAULTS TO THE REAL DRIVER so the composition root reads as it did.
+ * The default is what production uses; the parameter is what the assertion
+ * substitutes.
+ */
+export function chainAccessFor(
+  cfg: PublisherConfig,
+  connect: ConnectPostgres = (url) => postgres(url, { max: 2 }),
+): ChainAccess {
+  const url = databaseUrl(cfg);
+  if (url === null) return { sql: null, queries: NO_CHAIN_QUERIES };
+  const sql = connect(url);
+  return { sql, queries: makeChainQueries(sql) };
 }
 
 async function main(): Promise<void> {
@@ -94,7 +135,7 @@ async function main(): Promise<void> {
   /* ------------------------------------------------------------ the world */
 
   const sinks = sinksFor(cfg);
-  const sql = postgres(cfg.DATABASE_URL, { max: 2 });
+  const { sql, queries } = chainAccessFor(cfg);
   const rpc = new ZebraRpc({
     url: cfg.ZEBRAD_RPC_URL,
     user: cfg.ZEBRAD_RPC_USER,
@@ -108,8 +149,31 @@ async function main(): Promise<void> {
   // the integration suite, and the gate measured what that cost: breaking all
   // three at once left the whole publisher suite green, because nothing in the
   // repository executed the queries the publisher actually runs.
-  const { queryMigrations, queryOrchardSeries, queryDrainBaseline, queryIronwoodSpends } =
-    makeChainQueries(sql);
+  const { queryMigrations, queryOrchardSeries, queryDrainBaseline, queryIronwoodSpends } = queries;
+
+  // WHICH MODE THIS PROCESS IS IN, SAID ONCE, AT `info`.
+  //
+  // NOT A WARNING AND NOT A BANNER (HANDOFF-14 section 3): an absent database is
+  // a configuration, not a failure, and a publisher that logged a warning per
+  // tip about a mode the operator chose would train its reader to ignore the
+  // log. One line at startup, beside "publisher started".
+  //
+  // AND NOT NOTHING EITHER, which is the half worth defending. A process that
+  // silently published three fewer panels because a variable was unset is the
+  // "stale and reports no fault" shape one layer down from the one this handoff
+  // fixes on the page. The document already states each absence; this states the
+  // CAUSE of all three at once, which the document cannot, because a null panel
+  // in a snapshot cannot say whether its query failed or was never wired.
+  log.info(
+    {
+      mode: sql === null ? "rpc-only" : "full",
+      panels: sql === null ? "pools, residual" : "pools, residual, drain, migrationHist, neffSeries",
+      absent: sql === null ? "drain, migrationHist, neffSeries" : "none by configuration",
+    },
+    sql === null
+      ? "no DATABASE_URL: publishing on RPC alone, with the three database-derived panels as stated absences"
+      : "DATABASE_URL set: publishing every panel this node and database can measure",
+  );
 
   const labelsVersion = currentLabelsVersion();
 
@@ -191,7 +255,11 @@ async function main(): Promise<void> {
     try {
       await tipSource.close();
       for (const sink of sinks) await sink.close();
-      await sql.end();
+      // `sql` IS NULL IN RPC-ONLY MODE and there is nothing to close. Written as
+      // an explicit null check rather than `await sql?.end()` because the
+      // optional call would read as defensiveness about a value that is null by
+      // design on one of exactly two supported paths.
+      if (sql !== null) await sql.end();
     } finally {
       process.exit(0);
     }

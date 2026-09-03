@@ -1,7 +1,7 @@
 ---
 handoff: 13
 title: Mode A — viewing-key decryption in the browser (2.1; PLAN ONLY, stop for approval)
-status: shipped
+status: closed
 branch: the session-designated branch (name it `feat/v2-13-mode-a-wasm` if you may choose)
 track: 2.1 — plan only
 depends_on: 04, 11

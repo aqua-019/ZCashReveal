@@ -8,6 +8,15 @@
  * a zatoshi amount into a float.
  */
 
+// A TYPE-ONLY IMPORT, AND `./snapshot/source` IS THE ONE SAFE PLACE TO TAKE IT
+// FROM. `format.ts` is deep inside the client graph, and A4's predicate is that
+// no module the client reaches carries the managed store's variable prefix at
+// all. `./snapshot/source` was split from `./snapshot/store` for exactly that
+// reason and reads no environment; `./snapshot/store`, which does, must never
+// appear here. The import is erased at build time either way, but a type import
+// from the wrong module would still put the module in the graph.
+import type { SnapshotAge } from "./snapshot/source";
+
 const ZAT_PER_ZEC = 100_000_000n;
 
 /** Zatoshi to a plain ZEC string. Exact - no float arithmetic on the way. */
@@ -72,22 +81,37 @@ export function fmtElapsed(fromMs: number, nowMs: number): string {
  * only safe because they share a source AND a formatter; the defect that rule
  * is written against is two renderings that share neither.
  */
-export function fmtSnapshotAge(blocks: number): string {
-  // ALWAYS A DIGIT, INCLUDING AT THE TIP, and that is the change HANDOFF-11
-  // made. This function used to be `fmtBlockAge` and returned the bare word
-  // `tip` for a zero age - a string with no digit in it - which assertion A2's
-  // `/snapshot age: \d+ blocks/` cannot match, and which reads as a claim
-  // ("this IS the tip") where `snapshot age: 0 blocks` reads as the measurement
-  // it is. The alternative was a second, differently-worded indicator beside
-  // the first, which is two renderings of one quantity: the defect
-  // `lib/api/fixtures/snapshot.ts` was written to avoid on the pool balances.
+export function fmtSnapshotAge(age: SnapshotAge): string {
+  // A DIGIT WHENEVER THE AGE IS KNOWN, INCLUDING AT THE TIP, and that is the
+  // change HANDOFF-11 made. This function used to be `fmtBlockAge` and returned
+  // the bare word `tip` for a zero age - a string with no digit in it - which
+  // assertion A2's `/snapshot age: \d+ blocks/` cannot match, and which reads as
+  // a claim ("this IS the tip") where `snapshot age: 0 blocks` reads as the
+  // measurement it is. The alternative was a second, differently-worded
+  // indicator beside the first, which is two renderings of one quantity: the
+  // defect `lib/api/fixtures/snapshot.ts` was written to avoid on the pool
+  // balances.
+  //
+  // AND `unknown` WHEN IT IS NOT KNOWN, WHICH IS HANDOFF-14 DELIVERABLE 4 AND
+  // IS NOT A RETREAT FROM THAT RULE. HANDOFF-11's rule was that a MEASUREMENT
+  // must carry a digit, and it still does. What HANDOFF-11 did not distinguish
+  // is a page that has no measurement to print: on the bundled fixture the
+  // difference `snapshotAgeBlocks` computes is between the document's height
+  // and itself, so the digit was structurally zero on data 14,175 blocks old.
+  // A number that cannot be anything but zero is not a measurement, and
+  // printing it as one is the fabrication the digit rule was written against.
+  //
+  // THE WORD IS `unknown` AND NOT `stale`, `unavailable` OR `-`. The page does
+  // not know the document is old; it knows it cannot tell. "stale" would be a
+  // claim, and one this rung has no source for.
   //
   // A NEGATIVE AGE IS CLAMPED RATHER THAN PRINTED. A snapshot ahead of the tip
   // the page believes in is a reorg or a stale tip frame, and "-2 blocks" is a
   // measurement of neither. `snapshotAgeBlocks` clamps at the source too; this
-  // is the second half of the same rule, kept here because this function is
-  // also called with a raw difference in the footer.
-  const behind = blocks > 0 ? blocks : 0;
+  // is the second half of the same rule, kept here because this function can
+  // also be handed a raw difference.
+  if (!age.known) return "snapshot age: unknown";
+  const behind = age.blocks > 0 ? age.blocks : 0;
   return `snapshot age: ${fmtInt(behind)} block${behind === 1 ? "" : "s"}`;
 }
 

@@ -49,6 +49,23 @@ const ALLOWED_SKIPS = [
   // match either (F-49-1). Added in the same commit as the report, because the
   // report alone turns CI red on every correctly configured runner.
   "A11 - the connected node clears the version floor packages/zebra-rpc declares A11 PASS STATE: the live node's subversion clears the floor",
+  // HANDOFF-14's two markers, in `rpc-only.integration.test.ts`, and they are the
+  // SAME KIND as A7's and A1's above rather than a new exception: each fires only
+  // when its service is DOWN, so on a correctly configured runner each is skipped
+  // BECAUSE the service is up. The suite's real halves - the local-Redis round
+  // trip and the live-database fail side - ran in that same report.
+  //
+  // ADDED BY THE COMMIT THAT MADE THEM NECESSARY, WHICH IS THE WHOLE POINT OF
+  // NAMING THEM. This guard's header says a new marker must be "a deliberate edit
+  // and not an accident", and the accident happened anyway: the suite shipped, all
+  // six local gates passed, and CI went red here - because NO local command runs
+  // this script. It needs the vitest JSON reports, which only `ci.yml` asks for,
+  // so `pnpm check` and `pnpm -r test` are both blind to it. That is the fifth
+  // face of LEDGER-09b Q3's origin - a new suite arriving without inheriting a
+  // convention every existing member has - and the second time in this project a
+  // gate has existed only in CI (the first was `pnpm build`, HANDOFF-07).
+  "deliverable 2 - an RPC-only snapshot published to a local Redis and read back SKIPPED, WITH ITS REASON: no local Redis, so the round trip did not run",
+  "A1 FAIL SIDE - the same three panels, MEASURED, against a real database A1 FAIL SIDE SKIPPED, WITH ITS REASON: no reachable Postgres, so the fail side did not discriminate",
 ];
 
 /**

@@ -36,7 +36,23 @@ test.describe("A2/A13 - the staleness indicator, on every route", () => {
       await expect(stale, route).toHaveCount(1);
       await expect(stale, route).toHaveAttribute("data-source", "fixture");
       await expect(stale, route).toHaveAttribute("data-faults", "0");
-      await expect(stale, route).toContainText(/snapshot age: [\d,]+ blocks?/);
+      // `unknown`, NOT A DIGIT, AND THIS ASSERTION USED TO SAY THE OPPOSITE
+      // (HANDOFF-14 deliverable 4). It required `/snapshot age: [\d,]+ blocks?/`
+      // on a FIXTURE build - which is to say it required the page to print a
+      // number for a quantity it cannot measure, and passed because the number
+      // was structurally zero.
+      //
+      // THE DIGIT RULE IS UNCHANGED FOR A MEASUREMENT AND IS ASSERTED AT UNIT
+      // LEVEL, NOT ON A SECOND BUILD HERE. There is no second `webServer` in
+      // this file - the note below records that one was written and removed
+      // because a custom `distDir` rewrites the tracked tsconfig - so the
+      // measured case lives in `test/unit/status-affordances.test.tsx` (a
+      // `redis-rest`, `redis` or `gateway` document reads `0 blocks`; a fixture
+      // reads a number as soon as a frame arrives) and in
+      // `test/unit/format.test.ts` (the regex, at every known age).
+      await expect(stale, route).toHaveAttribute("data-age", "unknown");
+      await expect(stale, route).toContainText("snapshot age: unknown");
+      await expect(stale, route).not.toContainText(/snapshot age: [\d,]+ blocks?/);
     }
   });
 
@@ -55,9 +71,18 @@ test.describe("A2/A13 - the staleness indicator, on every route", () => {
     // value rather than on the element's existence.
     await page.goto("/");
     const text = (await page.locator('[data-ui="staleness"]').innerText()).trim();
-    expect(text).toMatch(/snapshot age: [\d,]+ blocks?/);
+    // ON A FIXTURE BUILD THE AGE IS `unknown`, so the digit half of A2's check
+    // is made where there IS a measurement - the unit cases named above, not a
+    // second build in this file. What is still asserted here, unchanged, is
+    // that neither string A2 excludes is rendered, which is what this case was
+    // written to discriminate.
+    expect(text).toContain("snapshot age: unknown");
     expect(text).not.toMatch(/^tip\b/);
     expect(text).not.toMatch(/blocks behind/);
+    // AND THE FALSE ZERO IS NAMED AS AN EXCLUDED VALUE IN ITS OWN RIGHT. It is
+    // the string this build actually rendered until HANDOFF-14, and a check that
+    // did not name it would go green again the moment the unknown regressed.
+    expect(text).not.toContain("snapshot age: 0 blocks");
   });
 });
 

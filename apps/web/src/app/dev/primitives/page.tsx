@@ -185,7 +185,12 @@ export default function PrimitivesPage() {
                 entries={[
                   { k: "tip height", v: fmtInt(FIXTURE_TIP.height) },
                   { k: "tip hash", v: shortHex(FIXTURE_TIP.hash, 8, 6) },
-                  { k: "snapshot age", v: "0 blocks" },
+                  // `unknown`, BECAUSE THE GALLERY RENDERS `FIXTURE_TIP` AND
+                  // NOTHING HERE SUBSCRIBES TO A FEED. A literal "0 blocks" in
+                  // the primitives gallery is the same false statement the
+                  // system bar made until HANDOFF-14, in the one place a
+                  // developer goes to learn what the primitive says.
+                  { k: "snapshot age", v: "unknown" },
                 ]}
               />
             </div>

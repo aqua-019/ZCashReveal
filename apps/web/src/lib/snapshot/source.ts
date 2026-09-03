@@ -82,18 +82,73 @@ export interface ResolvedSnapshot {
  * wrote it), and an age computed from either against the reader's clock would
  * measure clock skew as staleness. The site keeps time in blocks; so does this.
  *
- * The tip is whatever the page knows to be current - the WebSocket's `tip`
- * frame once one has arrived, and the document's own height before that, which
- * is why a fresh snapshot reads `snapshot age: 0 blocks` rather than a
- * pretended non-zero.
- *
  * Never negative: a snapshot ahead of the tip the page believes in is a reorg
  * or a stale tip frame, and reporting "-2 blocks" would be a measurement of
  * neither.
+ *
+ * THE ARITHMETIC ONLY. Whether the page is entitled to state this number at all
+ * is {@link snapshotAge}'s question, and the two are separate because the answer
+ * to the second was wrong for eleven routes while the first was always right.
  */
 export function snapshotAgeBlocks(snapshotHeight: number, tipHeight: number): number {
   const age = tipHeight - snapshotHeight;
   return age > 0 ? age : 0;
+}
+
+/**
+ * The age, or the fact that this page cannot know it.
+ *
+ * WHY THIS IS NOT A `number`, AND THE DEFECT IT CLOSES (HANDOFF-14 deliverable
+ * 4). The tip is whatever the page knows to be current - the WebSocket's `tip`
+ * frame once one has arrived, and the document's own height before that. On a
+ * document resolved from the managed store or the gateway that fallback is
+ * sound: the publisher wrote it at the tip, so "0 blocks" until a frame arrives
+ * is a true statement that becomes truer.
+ *
+ * On the BUNDLED FIXTURE it is false, and it was live on `zcuck.xyz`. The
+ * committed document names height 3,456,227; mainnet was at 3,470,402 on 3
+ * September 2026; the fixture stream emits no `tip` frame at all, so the tip the
+ * page "knows" was the fixture's own height and the bar read `snapshot age: 0
+ * blocks - source: fixture` beside data 14,175 blocks old. Each field was true
+ * on its own. Together they told a reader the page was current.
+ *
+ * That is the shape A13 exists against - a stale site that renders and reports
+ * no fault - arriving through the one door A13 does not watch. A13 is about a
+ * rung that was CONFIGURED and did not answer; nothing here failed. The fixture
+ * is the last rung of a resolution order that ran correctly, and the false
+ * statement is made by the AGE rather than by the source.
+ *
+ * SO THE UNKNOWN IS NARROW AND IT IS DELIBERATE. Only a `fixture` document with
+ * no frame is unknown. A `redis-rest`, `redis` or `gateway` document with no
+ * frame still reads `0 blocks`, because for those the publisher's height IS the
+ * page's best evidence of the tip, and widening the unknown to them would
+ * replace a true statement with a refusal to make one.
+ */
+export type SnapshotAge =
+  | { readonly known: true; readonly blocks: number }
+  | { readonly known: false; readonly reason: string };
+
+/**
+ * Decide whether the page may state an age, and what it is.
+ *
+ * ONE FUNCTION RATHER THAN A PREDICATE PLUS AN ARITHMETIC, so no caller can
+ * compute the number and forget to ask whether it means anything - which is the
+ * mistake the shipped code made, with `snapshotAgeBlocks` correct and nothing
+ * asking the question.
+ */
+export function snapshotAge(args: {
+  readonly snapshotHeight: number;
+  readonly tipHeight: number;
+  readonly source: SnapshotSource;
+  readonly sawTipFrame: boolean;
+}): SnapshotAge {
+  if (args.source === "fixture" && !args.sawTipFrame) {
+    return {
+      known: false,
+      reason: "a bundled document and no tip frame: nothing here knows the chain's height",
+    };
+  }
+  return { known: true, blocks: snapshotAgeBlocks(args.snapshotHeight, args.tipHeight) };
 }
 
 /* -------------------------------------------------------------------------- */

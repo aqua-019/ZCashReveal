@@ -22,12 +22,13 @@
  * condition is a prop. The e2e suite covers placement and the regex against a
  * real build; this covers the branch that fires when a configured rung fails.
  */
-import { cleanup, render, within } from "@testing-library/react";
+import { act, cleanup, render, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { EpochClock } from "@/components/ui/EpochClock";
 import { NotMeasured } from "@/components/ui/NotMeasured";
 import { Unverified } from "@/components/ui/Unverified";
+import { publishTipForTest } from "@/lib/api/tip-bus";
 import { FIXTURE_TIP } from "@/lib/chain";
 import { SNAPSHOT_FALLBACK_MARKER, type SnapshotFault } from "@/lib/snapshot/source";
 
@@ -92,6 +93,67 @@ describe("A2/A13 - the staleness indicator in the system bar", () => {
     const degraded = document.querySelector('[data-ui="staleness"]');
     expect(degraded?.getAttribute("data-faults")).toBe("1");
     expect(degraded?.textContent).toContain("500");
+  });
+
+  it("A4, BOTH POLARITIES IN ONE TEST: a fixture with no tip frame reads UNKNOWN, and a number once a frame arrives", () => {
+    // THE DEFECT THIS CLOSES WAS LIVE ON `zcuck.xyz`. The bundled document names
+    // height 3,456,227; mainnet was at 3,470,402 on 3 September 2026; the
+    // fixture stream emits no `tip` frame at all, so the "tip the page knows"
+    // was the document's own height and the bar read `snapshot age: 0 blocks -
+    // source: fixture` beside data 14,175 blocks old. Both fields were true.
+    // Together they told the reader the page was current.
+    render(<EpochClock tip={FIXTURE_TIP} status={CLEAN} />);
+    const stale = () => document.querySelector('[data-ui="staleness"]');
+
+    // POLARITY ONE - no frame. The page cannot know the age and says so.
+    expect(stale()?.getAttribute("data-age")).toBe("unknown");
+    expect(stale()?.textContent).toContain("snapshot age: unknown");
+    // AND NOT A ZERO, WHICH IS THE MEMBER OF A4's EXCLUSION SET. Asserted as a
+    // string the element must not contain, so the check discriminates on the
+    // rendered VALUE rather than on the element existing.
+    expect(stale()?.textContent).not.toContain("snapshot age: 0 blocks");
+    expect(stale()?.textContent).not.toMatch(/snapshot age: [\d,]+ blocks?/);
+
+    // POLARITY TWO - a frame arrives, naming a later block. Now the page has a
+    // second height to difference against, and the age is a measurement.
+    act(() => {
+      publishTipForTest({ height: FIXTURE_TIP.height + 14_175, hash: FIXTURE_TIP.hash });
+    });
+    expect(stale()?.getAttribute("data-age")).toBe("14175");
+    expect(stale()?.textContent).toContain("snapshot age: 14,175 blocks");
+    expect(stale()?.textContent).toMatch(/snapshot age: [\d,]+ blocks?/);
+  });
+
+  it("A4: a frame naming the SAME height still makes the age known, and it is zero", () => {
+    // THE CASE A HEIGHT COMPARISON CANNOT SEE, and the reason `sawTipFrame` is
+    // its own state rather than `height > tip.height`. A frame naming the height
+    // the document already carries is evidence the chain is where the document
+    // said it was - a TRUE zero - and inferring "saw a frame" from a height
+    // increase would suppress it, replacing a false zero with a false unknown.
+    render(<EpochClock tip={FIXTURE_TIP} status={CLEAN} />);
+    const stale = () => document.querySelector('[data-ui="staleness"]');
+    expect(stale()?.getAttribute("data-age")).toBe("unknown");
+
+    act(() => {
+      publishTipForTest({ height: FIXTURE_TIP.height, hash: FIXTURE_TIP.hash });
+    });
+    expect(stale()?.getAttribute("data-age")).toBe("0");
+    expect(stale()?.textContent).toContain("snapshot age: 0 blocks");
+  });
+
+  it("A4: only the FIXTURE is unknown - a live-sourced document with no frame still reads a number", () => {
+    // THE NARROWING, ASSERTED RATHER THAN LEFT TO THE COMMENT. On a document the
+    // publisher wrote, its height IS the page's best evidence of the tip, so
+    // `0 blocks` before any frame is a true statement that becomes truer.
+    // Widening the unknown to those rungs would replace a measurement with a
+    // refusal to make one, on every route, for every reader.
+    for (const source of ["redis-rest", "redis", "gateway"] as const) {
+      render(<EpochClock tip={FIXTURE_TIP} status={{ source, faults: [] }} />);
+      const stale = document.querySelector('[data-ui="staleness"]');
+      expect(stale?.getAttribute("data-age"), source).toBe("0");
+      expect(stale?.textContent, source).toContain("snapshot age: 0 blocks");
+      cleanup();
+    }
   });
 
   it("the indicator is INSIDE the clock, which is what 'beside the epoch clock' means in the bar", () => {
