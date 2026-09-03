@@ -199,6 +199,13 @@ EVIDENCE (per §5 assertion: pass transcript + fail transcript, provenance):
             files, every one deliverable 0 or its wiring:
             .github/workflows/ci.yml, scripts/check-compose-zebra-tag.mjs,
             scripts/check-config-defaults.mjs, scripts/check-finding-sites.mjs.
+      **RE-MEASURED AFTER PR #54 MERGED AND 07b7919 LANDED**, because the base
+        moved and a stale measurement of A2 is exactly what A2 exists to stop:
+        `-- apps packages` -> 0 files; `-- scripts .github` -> 2, both of them
+        deliverable 0's own guards being FIXED by a gate round
+        (check-compose-zebra-tag.mjs, check-config-defaults.mjs). A fix to
+        deliverable 0 is deliverable 0 work and stays inside the exclusion set
+        as stated; it is written out here so a reader is not left inferring it.
       MEASURED, as A2's text asks: `-- apps packages` reports 0 files,
         `-- scripts` 3, `-- .github` 1. The pathspecs are disjoint.
       FAIL, BY DATA (Executed): a file written under `apps/web/src/` makes the
@@ -349,11 +356,34 @@ UNVERIFIED (labelled):
      playwright both success); the run on 07b1daf was in progress at the time of
      writing and is re-checked before this PR leaves draft.
 
-GATE ROUNDS: 2 complete, plus a third scoped by clause (ii)'s second amendment.
-  Round 1: 7 dimensions dispatched, 6 returned, 45 findings.
-  Round 2: 4 dimensions over the fix commits, 44 findings.
-  Round 3: the lead's own audit of round 2's fix commit, 4 findings, all its own.
-  93 findings in total. NO ROUND IS CLAIMED AS CONVERGENT - see EXTRAPOLATION.
+GATE ROUNDS: 4. NO ROUND IS CLAIMED AS CONVERGENT - see EXTRAPOLATION.
+  Round 1  wf_d36babb8-f4c  7 dimensions, 49 raised, 9 confirmed / 40 refuted.
+  Round 2  wf_909afb9d-78e  4 dimensions, 30 raised, 18 confirmed / 12 refuted;
+           one dimension died on a usage limit.
+  Round 3  the lead's own (a)/(b)/(c)-scoped audit of round 2's fix commit,
+           4 findings, all its own.
+  Round 4  wf_acd764e6-4a0  6 dimensions over commit 07b7919 plus the three
+           dimensions that died. 147 agents, 56 done, 91 KILLED BY A USAGE
+           LIMIT. 1 confirmed finding reached the lead; it was HIGH and real.
+           **THE ROUND'S OWN RECORD NO LONGER EXISTS** - see below.
+
+  **TWO NUMBERS IN THIS BLOCK DISAGREED AND BOTH ARE PRINTED RATHER THAN
+  RECONCILED SILENTLY.** An earlier draft said "round 1: 45 findings" and
+  "round 2: 44 findings". Those were counted by the lead from dimension returns
+  as they arrived. The workflows' own final structured tallies, read from their
+  output files after both completed, are 49 raised / 9 confirmed for round 1 and
+  30 raised / 18 confirmed for round 2. The lead's running count and the
+  workflow's tally are different quantities - one counts what arrived, the other
+  what survived three adversarial refuters - and a report that prints one number
+  where two exist is the enumeration error this project keeps filing against
+  itself. The confirmed counts are the authoritative ones.
+
+  **BOTH BACKGROUND ROUNDS RETURNED AFTER PR #54 HAD MERGED**, having run 107
+  and 78 minutes. Round 1's nine confirmed were all already dispositioned live.
+  Round 2's eighteen: fifteen already fixed on main and VERIFIED DEAD ON DISK
+  before anything was written; three in `check-config-defaults.mjs`, of which
+  two were closed by 63bab43 and one was LIVE and larger than reported - see
+  commit 07b7919 and the entry below.
 
   **THIS BLOCK WAS WRITTEN AT 20 FINDINGS AND 3 DIMENSIONS AND WAS ALREADY STALE
   WHEN IT SHIPPED.** Three more dimensions returned after the write-back commit;
@@ -589,6 +619,111 @@ GATE ROUNDS: 2 complete, plus a third scoped by clause (ii)'s second amendment.
         so the count looked confirmed and the membership was wrong. The member
         to have asked for was `check-compose-zebra-tag.mjs` - this session wrote
         the #10461 correction into it.
+
+  ROUND 2'S ONE LIVE FINDING, AND IT WAS LARGER THAN REPORTED (fixed in
+  07b7919). The reviewer filed "the map form `V: # leave unset` reports comment
+  prose as a literal default". Executed, the compose MAP branch had NO VALUE
+  PARSER AT ALL and four shapes were wrong:
+    V: # leave unset        -> "# leave unset"           (should be null)
+    V: 3428143 # mainnet    -> "3428143 # mainnet"       (should be 3428143)
+    V: "3428143" # mainnet  -> "\"3428143\" # mainnet"
+    V: "#3428143"           -> "\"#3428143\""            (quotes never stripped)
+  The first is a FALSE BUILD FAILURE on a deliberately blank line, executed on
+  both sides: with that line in a real docker-compose.yml, origin/main exits 1
+  naming the comment as the literal default and this branch exits 0.
+  `literalValueOf` had been factored out ONCE ALREADY, when the LIST branch
+  re-created the ENV branch's comment defect inside the commit that fixed it -
+  and that extraction reached two readers of three. Two sites of three is
+  LEDGER-03 Q3's HIGH. The origin is "a value parser is duplicated per surface",
+  three faces in three commits, and it is the origin that is counted.
+
+  AND THE SELF-TEST COULD NOT SEE ANY OF IT, WHICH IS THE LARGER HALF AND WAS
+  FOUND BY MUTATION RATHER THAN BY THE REVIEWER. Five new SHAPES rows were not
+  enough: two of four code mutations still SURVIVED. Checking the probe rather
+  than the code showed why - for all 35 rows the loop compared
+  `isLiteral !== shape.literal`, A BOOLEAN, and every row in that table exists
+  to test a VALUE PARSER. Dropping the quote arm and widening the comment
+  predicate to a bare /#/ each change the reported string and neither changes a
+  verdict, so both ran green. A row that checks only the verdict is satisfied by
+  exactly the values it was written to exclude. Closed by encoding the expected
+  VALUE on all nineteen literal=true rows and asserting it - the values written
+  from the rule FIRST and then checked against the implementation, all nineteen
+  agreeing, which is what makes them safe to encode - plus a structural check
+  that a literal=true row must declare one.
+
+  THREE DIMENSIONS DIED ON A USAGE LIMIT AND ARE REPORTED AS TWO COUNTS, NOT
+  ONE (LEDGER-10 Q3). Round 2's `writeback-and-count` returned nothing (3
+  attempts), and round 1's research `verify:csp-nextjs` (23 attempts) and
+  `verify:threat-model` (54 attempts) died in their VERIFY stage.
+    SETTLED BY EXECUTION, so the lead may disposition them alone - and did:
+      the write-back counts, every one re-run at this tip (test totals, guard
+      count, file and commit counts, the A2 pathspec, the assertion count via
+      the guard's own exported detector, LEDGER append-only by --numstat).
+    SETTLED ONLY BY ARGUMENT, so they are UNVERIFIED and carried forward:
+      section 5's threat model and section 4's CSP claims. `threat-model`
+      returned 0 verified and 0 rejected - it produced NO facts at all, so
+      section 5 rests on the lead's own reading and on nothing a refuter has
+      seen. `csp-nextjs` returned 7 verified and 4 rejected before dying, so it
+      is PARTIAL rather than absent.
+    Round 4 re-dispatches all three. Until it returns these are UNVERIFIED work
+    listed here with the findings, not a trailing log line.
+
+  ROUND 4, AND IT IS THE WORST-INSTRUMENTED ROUND OF THIS HANDOFF. 91 of its
+  147 agents died on a usage limit, and the container then restarted and wiped
+  BOTH `/tmp` and `~/.claude/.../journal.jsonl`. So the workflow's structured
+  result and its per-agent transcripts are GONE. What survives is the single
+  confirmed finding quoted verbatim in the completion notice, and the failure
+  list naming which agents died. This is stated first because everything below
+  is bounded by it.
+    VERIFY PHASE, BY DIMENSION - only ONE of six completed:
+      config-defaults-parser    all three lenses ran; 1 finding CONFIRMED.
+      config-defaults-selftest  every lens killed.
+      zebra-tag-ceiling         every lens killed.
+      csp-nextjs                every lens killed (again - second round running).
+      threat-model              every lens killed (again - second round running).
+      writeback-and-count       every lens killed (again - second round running).
+    Their REVIEW agents did run. Whatever those five dimensions found was never
+    verified, and its text is no longer recoverable. That is not "nothing was
+    found"; it is "the finding list was destroyed with the sample". A round
+    reported as clean on that basis would be a green run that means nothing,
+    which is the shape this handoff has spent four rounds on.
+
+  THE ONE CONFIRMED FINDING, REPRODUCED BY THE LEAD BEFORE IT WAS ACCEPTED
+  (fixed in 3d662b2). Both `${` pre-checks and the interpolation scan in
+  `composeLiteralFor` ran on the RAW line while only the VALUE was stripped of
+  its comment, so a trailing comment changed the verdict.
+    GROUND TRUTH, docker compose v5.1.1, executed in this container:
+      A: 3428143   # or ${A}          -> "3428143"    a real literal default
+      B: ${B:-}   # was ${B:-3428143} -> ""           NOT a literal default
+      C: "#3428143"                   -> "#3428143"   quoted hash is data
+      D: 3428143#x                    -> "3428143#x"  no comment at all
+    Against that the shipped guard MISSED three real literal defaults and
+    FAILED ONE CORRECT BUILD. The last is the worse direction: an operator who
+    records what the default used to be in a comment is doing the right thing.
+    BOTH SIDES on the real docker-compose.yml, exactly inverted:
+      a real literal default   pre-fix rc=0 (MISS)    post-fix rc=1
+      not a literal default    pre-fix rc=1 (FALSE)   post-fix rc=0
+    AND THE TWO SURFACES DISAGREED ABOUT ONE SPELLING - env has no `${`
+    pre-check, so it caught `V=3428143 # or ${V}` while compose missed it. The
+    seam shape, inside one file rather than between two processes.
+    The defect was the POSITION of the pre-checks, not their existence:
+    deleting one does not silently pass, it trips the self-test on the `${V:-}`
+    row. So the fix moved the strip earlier rather than removing a check.
+
+  ONE ASYMMETRY FOUND AND DELIBERATELY LEFT: on the env surface `V=${V:-}`
+  reports the literal `${V:-}`, the mirror of the compose false positive. A
+  `.env.example` is a template and that spelling is meaningless there - this
+  repo's own uses `#INDEXER_START_HEIGHT=`. Pinning behaviour the lead thinks
+  is questionable is worse than recording it as unexamined, so it is recorded.
+
+  THREE DIMENSIONS HAVE NOW DIED TWICE, and the two counts are unchanged:
+    SETTLED BY EXECUTION - the write-back counts, re-run again at this tip.
+    SETTLED ONLY BY ARGUMENT - section 5's threat model and section 4's CSP
+    claims are STILL UNVERIFIED after two attempts. `threat-model` has produced
+    zero facts across both rounds. Section 5 is the argument that a viewing key
+    cannot leave the tab, and no refuter has yet read it. This is the single
+    most important thing in this handoff that remains unchecked, and the
+    operator should treat section 5 as the lead's reading and nothing more.
 
   EXTRAPOLATION, STATED RATHER THAN CONVERGENCE CLAIMED. Clause (i)(a) is NOT
   satisfied: round 3 returned four findings a reader could see. Clause (i)(b) is

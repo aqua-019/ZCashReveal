@@ -7955,3 +7955,90 @@ THE OPERATOR SHOULD READ SECTION 7'S ASSERTIONS FIRST. This handoff's product is
 a plan whose value is that its numbers and its assertions are right, and three
 of them were wrong after two rounds had said the document was finished.
 ```
+
+## §8 HANDOFF-13 (fourth append) — round 4, a lost sample, and the question that has now failed twice
+
+```
+APPENDED, NOT REWRITTEN. The three HANDOFF-13 blocks above stand as written.
+
+GATE ROUND COUNTS: 5 rounds. Round 4 = wf_acd764e6-4a0, 147 agents, 56 done,
+91 KILLED BY A USAGE LIMIT, 1 confirmed finding. NONE CONVERGENT.
+
+Q1. A ROUND WHOSE RECORD IS DESTROYED IS NOT A ROUND THAT FOUND NOTHING, AND
+    THIS PROJECT HAS NO RULE FOR IT YET. Round 4's verify phase lost five of
+    six dimensions to a usage limit; the container then restarted and wiped
+    /tmp and the workflow journal together. The structured result and every
+    per-agent transcript are gone. What survives is the one confirmed finding
+    quoted verbatim in the completion notice.
+    THE REVIEW AGENTS FOR THE OTHER FIVE DIMENSIONS DID RUN. Whatever they
+    found was never verified and its text is no longer recoverable. The
+    difference between "no findings" and "the finding list was destroyed with
+    the sample" is invisible in the artifact a later reader sees - both look
+    like a round that returned one finding.
+    LEDGER-10 Q3 partitions a truncated verify phase into what EXECUTION can
+    settle and what only ARGUMENT can. It assumes the findings still EXIST. It
+    has nothing to say when the list itself is gone, and the failure mode is
+    worse, because the two counts cannot even be taken.
+    FOR L2: does the two-count rule gain a third state - REPORTED, VERIFIED,
+    and LOST - with the rule that a lost dimension is re-run rather than
+    counted? The cost is real (round 4 burned 6.2M subagent tokens to return
+    one finding) and the alternative is a report that cannot distinguish a
+    clean dimension from an erased one.
+
+Q2. SECTION 5 HAS NOW FAILED VERIFICATION TWICE AND IS THE MOST IMPORTANT
+    UNCHECKED THING IN THIS HANDOFF. `verify:threat-model` returned 0 verified
+    and 0 rejected in round 1's research pass (54 attempts) and every lens was
+    killed again in round 4. Across both attempts it has produced ZERO facts.
+    Section 5 is the argument that a viewing key cannot leave the tab - M1
+    through M7, the mechanisms the whole Mode A design rests on - and no
+    refuter has read it. It rests on the lead's own reading of MDN and of this
+    repository and on nothing else.
+    THIS IS THE ONE PLACE WHERE THE HANDOFF'S SUBJECT MATTER AND ITS WEAKEST
+    EVIDENCE COINCIDE, which is exactly the wrong way round. The operator
+    should read section 5 as unverified, and the build handoff should not
+    start from it until it has been checked by someone other than its author.
+
+Q3. THE ORIGIN "A VALUE PARSER IS DUPLICATED PER SURFACE" HAS NOW PRODUCED
+    FOUR FACES IN FOUR COMMITS, and every one was found by EXECUTING a
+    spelling rather than by reading the code:
+      1. env read an inline comment as a value.
+      2. the compose LIST branch re-created that defect inside the commit that
+         fixed it (found by round 2).
+      3. the compose MAP branch had no value parser at all - four wrong shapes
+         (found by round 2, larger than reported).
+      4. both `${` pre-checks and the interpolation scan ran on the RAW line,
+         so a comment made the guard MISS three real literal defaults and FAIL
+         one correct build (found by round 4, confirmed against real docker
+         compose v5.1.1).
+    Faces 2, 3 and 4 were each inside the fix for the one before it. The
+    count does not reset because a guard shipped (LEDGER-09b Q3), and the
+    origin stays open.
+    WHAT CHANGED THIS ROUND is that the self-test can now see the value and not
+    only the verdict - for 35 rows it compared a BOOLEAN, in a table whose every
+    row exists to test a value parser, so a row was satisfied by exactly the
+    values it was written to exclude. Forty rows now carry an expected value.
+    FOR L2: is "a test asserts the VERDICT of a function whose job is to
+    compute a VALUE" worth a named rule? It is the tautological-predicate shape
+    from LEDGER-09a Q2 with a specific, greppable signature, and unlike that
+    shape it may be mechanically detectable.
+
+INFERRED: none this round beyond the fix itself.
+
+NOT-MATCHED: none.
+
+SPEC-WAS-AMBIGUOUS: none.
+
+DEFERRED ASSUMPTIONS:
+  The #10461 attribution correction is unchanged and still DEFERRED to the
+  Integration track, for the sweep-rule reason recorded in the second append.
+  The env-surface `V=${V:-}` asymmetry is recorded as UNEXAMINED rather than
+  fixed or pinned: it is the mirror of the compose false positive, but a
+  .env.example is a template and that spelling is meaningless there.
+
+EXTRAPOLATION. Five rounds: 49, 30, 4, 1 confirmed, and each of the last four
+found a defect the previous round's fix had created or left. The reach is
+following the fix commits and has not decayed. A sixth round would probably
+find one more of round 4's kind, in the newest guard code. It would not find
+nothing - and on this handoff's evidence the place it would find it is the
+commit that fixed the last one.
+```
