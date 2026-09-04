@@ -151,7 +151,11 @@ const IMAGE_LINE = /^\s*image:\s*["']?([^"'#\s]+)["']?/;
 /** The floor, READ out of the TypeScript that declares it. */
 function readFloor(path = FLOOR_SOURCE) {
   if (!existsSync(path)) return { ok: false, reason: `${path} does not exist` };
-  const m = /ZEBRA_MIN_VERSION_STRING\s*=\s*"(\d+)\.(\d+)\.(\d+)"/.exec(readFileSync(path, "utf8"));
+  // ANCHORED FOR THE REASON `readCeiling` RECORDS BELOW. This regex was loose in
+  // exactly the same way and had simply never met a docblock that mentioned the
+  // floor by name with an `=` after it. Tightened here rather than left as the
+  // one half of the pair that can still be satisfied by prose.
+  const m = /^export const ZEBRA_MIN_VERSION_STRING\s*=\s*"(\d+)\.(\d+)\.(\d+)"/m.exec(readFileSync(path, "utf8"));
   if (m === null) return { ok: false, reason: `${path} declares no ZEBRA_MIN_VERSION_STRING` };
   return { ok: true, version: { major: +m[1], minor: +m[2], patch: +m[3] } };
 }
@@ -160,32 +164,71 @@ const show = (v) => `${v.major}.${v.minor}.${v.patch}`;
 const cmp = (a, b) => a.major - b.major || a.minor - b.minor || a.patch - b.patch;
 
 /**
- * THE CEILING, DECLARED HERE, AND THE REASON IT IS NOT IN `version-floor.ts`.
+ * THE CEILING IS NOW READ, NOT DECLARED, AND THE QUESTION THIS DOCBLOCK ASKED
+ * IS WHAT MOVED IT (HANDOFF-16 deliverable 1).
  *
- * The floor is READ out of that module because it has TWO readers - this guard
- * and A11's live check against a node's `subversion` - and one quantity with two
- * readers must have one source. The ceiling has ONE reader, this file, so there
- * is no second copy to drift from and nothing to keep in sync; declaring it in
- * the module that has no use for it would add a `packages/` dependency to a
- * plan-only handoff for no property gained. Whether the ceiling SHOULD grow a
- * runtime reader - so A11 also refuses a live node above it, which is the case
- * an image pin cannot see - is a real question and is asked in this handoff's
- * section 8 rather than answered here.
+ * What it used to say: the floor is READ out of `version-floor.ts` because it
+ * has TWO readers and one quantity with two readers must have one source, while
+ * the ceiling had ONE reader - this file - so there was no second copy to drift
+ * from. It then asked whether the ceiling SHOULD grow a runtime reader, "so A11
+ * also refuses a live node above it, which is the case an image pin cannot
+ * see", and left the question open.
+ *
+ * `scripts/preflight-rpc.mjs` is that runtime reader: it answers a live
+ * endpoint's `subversion` against both bounds, and a gateway in front of an
+ * unknown build has no tag for this guard to read. So the ceiling has two
+ * readers, the rule this docblock already stated applies to it unchanged, and
+ * it now lives in `version-floor.ts` beside the floor. Nothing about what the
+ * ceiling MEANS has changed; only where the one copy of it lives.
  *
  * `inclusive: true` means the ceiling version itself is ACCEPTED. `false` means
  * it is the first REJECTED version, which is the spelling to use the day a
- * release containing #10461 is cut.
+ * release containing #10461 is cut. That flag is read from the module too, so
+ * this guard cannot disagree with the preflight about which kind of bound it is.
  */
-const CEILING = {
-  version: { major: 6, minor: 3, patch: 0 },
-  inclusive: true,
-  reason:
-    "the highest tag this build has been read against. ZcashFoundation/zebra #10461 (merged 22 Aug 2026, `1c9b245`) " +
-    "replaces Zebra's Transaction enum with a librustzcash newtype across 106 files and deletes " +
-    "`sapling_spends_per_anchor()`, switching RPC rendering to `sapling_spends()`; it is in NO released tag " +
-    "(`git tag --contains 1c9b245` is empty, positively controlled against v6.3.0), so there is no version to set an " +
-    "EXCLUSIVE ceiling at and this one is INCLUSIVE at the last version that was read",
-};
+/**
+ * The ceiling, READ out of the same TypeScript that declares the floor.
+ *
+ * THROWS RATHER THAN DEGRADING, on this guard's own principle: an unreadable
+ * bound is not a satisfied one. A `readFloor`-shaped `{ok:false, reason}` would
+ * let every comparison below run against `undefined` and report IN-WINDOW for
+ * everything, which is the vacuous pass this file exists to make impossible.
+ * The self-test drives it against a file with each declaration removed in turn,
+ * so the failure direction is measured rather than assumed.
+ */
+function readCeiling(path = FLOOR_SOURCE) {
+  if (!existsSync(path)) throw new Error(`[compose-zebra-tag] ${path} does not exist, so the ceiling cannot be read`);
+  const src = readFileSync(path, "utf8");
+  // ANCHORED AT `export const` AND AT THE START OF A LINE, BECAUSE THE LOOSE
+  // FORM MATCHED THE DOCBLOCK. The first draft of this reader used
+  // /ZEBRA_MAX_VERSION_INCLUSIVE\s*=\s*(true|false)/ and the self-test below
+  // caught it on its first run: `version-floor.ts`'s own prose contains the
+  // sentence "`ZEBRA_MAX_VERSION_INCLUSIVE = true` means the ceiling version
+  // itself is ACCEPTED", so a file with the declaration DELETED still read as
+  // inclusive. That is `check-infra-docs`'s F-43-1 shape - a pattern satisfied
+  // by a mention rather than by the thing - in a reader written the same hour as
+  // the rule against it, found by executing the probe rather than by reading it.
+  const v = /^export const ZEBRA_MAX_VERSION_STRING\s*=\s*"(\d+)\.(\d+)\.(\d+)"/m.exec(src);
+  if (v === null) throw new Error(`[compose-zebra-tag] ${path} declares no ZEBRA_MAX_VERSION_STRING`);
+  const inc = /^export const ZEBRA_MAX_VERSION_INCLUSIVE\s*=\s*(true|false)/m.exec(src);
+  if (inc === null) throw new Error(`[compose-zebra-tag] ${path} declares no ZEBRA_MAX_VERSION_INCLUSIVE`);
+  const why = /^export const ZEBRA_MAX_VERSION_REASON\s*=/m.test(src);
+  if (!why) throw new Error(`[compose-zebra-tag] ${path} declares no ZEBRA_MAX_VERSION_REASON`);
+  return {
+    version: { major: +v[1], minor: +v[2], patch: +v[3] },
+    inclusive: inc[1] === "true",
+    reason: `declared in ${FLOOR_SOURCE} as ZEBRA_MAX_VERSION_REASON`,
+  };
+}
+
+/**
+ * The declarations `readCeiling` requires, AS DATA rather than as three
+ * hand-written probes. The self-test iterates this list, so a fourth
+ * declaration added to the reader cannot arrive untested.
+ */
+const CEILING_DECLARATIONS = ["ZEBRA_MAX_VERSION_STRING", "ZEBRA_MAX_VERSION_INCLUSIVE", "ZEBRA_MAX_VERSION_REASON"];
+
+const CEILING = readCeiling(FLOOR_SOURCE);
 
 /** Step 1-3 above. Returns a version, or the reason it could not be read. */
 export function extractTagVersion(ref) {
@@ -633,6 +676,56 @@ function selfTest() {
     if (!REFERENCE_REFS.some((r) => r.ref === probe)) return `"${probe}" exercises the "${reason}" branch but is not in REFERENCE_REFS`;
   }
 
+  // `readCeiling` NEEDS ITS OWN FAIL SIDE, AND IT IS DRIVEN OVER THE RULE'S OWN
+  // DATA RATHER THAN OVER ONE HAND-PICKED CASE (LEDGER-09a Q3). The rule is
+  // "these three declarations must be present in version-floor.ts"; the probe
+  // set is that list, each member removed in turn from a real copy of the real
+  // file. A probe set written by hand under-covers the rule the moment a fourth
+  // declaration is added; this one cannot.
+  //
+  // IT MATTERS BECAUSE THE CEILING STOPPED BEING A LITERAL IN THIS FILE.
+  // A `readFloor`-shaped soft failure would leave every comparison below running
+  // against `undefined`, which reports IN-WINDOW for every input - the vacuous
+  // pass this guard exists to make impossible - so the function throws and this
+  // is where that throw is measured.
+  {
+    const ceilingDir = mkdtempSync(join(tmpdir(), "zebra-ceiling-"));
+    const real = readFileSync(FLOOR_SOURCE, "utf8");
+    for (const decl of CEILING_DECLARATIONS) {
+      const damaged = join(ceilingDir, `${decl}.ts`);
+      // The whole declaration line, removed. Matching on the name alone would
+      // also hit the docblock that mentions it and prove nothing about the read.
+      const stripped = real
+        .split("\n")
+        .filter((l) => !new RegExp(`^export const ${decl}\\b`).test(l))
+        .join("\n");
+      if (stripped === real) return `the ${decl} probe removed nothing from ${FLOOR_SOURCE}, so it tests the undamaged file`;
+      writeFileSync(damaged, stripped);
+      let threw = null;
+      try {
+        readCeiling(damaged);
+      } catch (err) {
+        threw = err instanceof Error ? err.message : String(err);
+      }
+      if (threw === null) return `readCeiling accepted a version-floor.ts with no ${decl}`;
+      if (!threw.includes(decl)) return `readCeiling threw for a missing ${decl} without naming it: "${threw}"`;
+    }
+    // AND THE ABSENT-FILE ARM, which no removal above can reach.
+    let missingThrew = null;
+    try {
+      readCeiling(join(ceilingDir, "does-not-exist.ts"));
+    } catch (err) {
+      missingThrew = err instanceof Error ? err.message : String(err);
+    }
+    if (missingThrew === null) return "readCeiling accepted a path that does not exist";
+    // THE PASS SIDE, over the REAL tree, so a rename that made every probe above
+    // vacuous is caught here rather than certified by their silence.
+    const live = readCeiling(FLOOR_SOURCE);
+    if (show(live.version) !== show(CEILING.version) || live.inclusive !== CEILING.inclusive) {
+      return `readCeiling over the real ${FLOOR_SOURCE} disagrees with the module-level CEILING`;
+    }
+  }
+
   // THE FILE-SCANNING HALF NEEDS ITS OWN FAIL SIDE. Every row above drives
   // `checkRef` directly, which says nothing about whether `zebraRefsIn` finds
   // the line in a real file - the arm most likely to be silently inert, because
@@ -719,7 +812,7 @@ if (checked === 0) {
 }
 console.log(
   `[compose-zebra-tag] OK: ${checked} Zebra image reference(s) across ${files.length} compose file(s) sit inside the ` +
-    `window ${show(floor.version)} ${showCeiling(CEILING)} - floor READ from ${FLOOR_SOURCE}, ceiling declared in this ` +
+    `window ${show(floor.version)} ${showCeiling(CEILING)} - floor AND ceiling both READ from ${FLOOR_SOURCE}, in this ` +
     `guard (tag extracted before comparison; digest pins, tagless refs and non-semver tags such as :latest all FAIL as ` +
     `UNPARSED, because an unreadable pin is an unknown bound rather than a satisfied one). Self-test drove ` +
     `${REFERENCE_REFS.length} reference refs across all ${OUTCOMES.length} outcomes and all ${UNPARSED_CLAUSES} ` +
