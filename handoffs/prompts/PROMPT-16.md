@@ -4,6 +4,9 @@ Archived verbatim under Revolution protocol step 5. One file per handoff, each m
 heading naming what it is and when it arrived. This first message lands in the same commit as
 RECONCILE (LEDGER-02 Q7); anything that arrives mid-session is appended in the next commit.
 
+**TWO MESSAGES. The second is an ADDENDUM to the first, which arrived mid-session because an older
+draft of the prompt had been pasted; it is additive and changed nothing already in flight.**
+
 **THIS PROMPT CARRIES AN `L2 RESOLUTION` BLOCK, SO REVOLUTION PROTOCOL STEP 2 APPLIES.** The block
 is headed `# L2 RESOLUTION - HANDOFF-15 (PR #57)` and is appended verbatim to `handoffs/LEDGER.md`
 beneath the HANDOFF-15 ledger block. It returns a MERGE verdict on PR #57, rules on the three open
@@ -203,3 +206,71 @@ Two independent bodies of work: the preflight and third-party mode (one fan-out,
 ---
 
 **One operator action no session can take.** The keyless endpoint is short on both counts — six of seven methods, and 5 requests/minute. A **free-tier API key** from a provider serving the full set at a workable rate clears both; creating that account is the operator's, because L2 cannot create accounts or handle credentials. The preflight exists so that a candidate URL is answered in ten seconds rather than by an `UNKNOWN_ANCHOR` weeks later.
+
+---
+
+## Message 2 — the ADDENDUM, correcting an older draft of message 1 (4 Sep 2026, mid-session)
+
+Arrived as a second user turn with one attached file, `SAYTOTHE16SESSION.md`, whose contents are the
+whole of the message, plus the words "Continue from where you left off." It is explicitly ADDITIVE:
+it does not change the fork point, the scope, the deliverables, the assertions or the
+`z_gettreestate` UNVERIFIED label. It adds a FOURTH face to deliverable 1b - a workflow that has
+never passed in 44 runs and was invisible from every pull request - and one data point beside
+`legibility.spec.ts:718`. Reproduced below in full, from its first line to its last, byte for byte.
+
+---
+
+**ADDENDUM TO YOUR PROMPT - L2, 4 Sep 2026. An older draft of PROMPT-16 was pasted; this is what it was missing. DO NOT RESTART, DO NOT RE-FORK, DO NOT DISCARD WORK IN FLIGHT.** Everything below is ADDITIVE. Your fork point (`f976477`, proven by `640865a` being an ancestor of `origin/main`) is correct and unchanged. Fold this into deliverable 1b and carry it in section 7 and section 8 like any other deliverable.
+
+---
+
+## 1b GAINS A FOURTH FACE, AND IT IS THE WORST OF THEM BECAUSE IT HAS NEVER ONCE WORKED
+
+Deliverable 1b adds `test:e2e` and `assert-no-skipped-integration` to CLAUDE.md's six-gate list. **There is a fourth instance of the same origin, found by L2 on the merge commit `f976477` AFTER your prompt was drafted.**
+
+`post-deploy smoke / the snapshot fallback marker is in the deployed bundle` fails on EVERY production deploy, at `actions/setup-node@v5`, before the smoke step runs at all:
+
+```
+Run actions/setup-node@v5
+Resolved .nvmrc as 22
+Error: Unable to locate executable file: pnpm.
+
+Smoke the deployed bundle    <- SKIPPED. Never executed.
+```
+
+**CAUSE, VERIFIED BY L2 - do not re-derive it, but DO confirm it before you fix it (F-56-1 binds you here):**
+
+- `package.json:7` declares `"packageManager": "pnpm@9.12.0"`, so `actions/setup-node@v5` resolves that binary.
+- `.github/workflows/post-deploy-smoke.yml` contains **zero** `pnpm/action-setup` steps. `grep -c` it.
+- `ci.yml:86` and `e2e.yml:61` both run `pnpm/action-setup@v5` **before** `actions/setup-node@v5`. That is the difference.
+- The workflow's own comment says *"No install: the script uses only node builtins and global fetch, on purpose."* **That reasoning is correct about the script and it skipped the action that puts `pnpm` on PATH along with the install.** Keep the no-install intent; add only the action.
+
+**MEASURED, AND THIS IS THE PART THAT MATTERS:** filtering the workflow's run history by `is:success` returns **0 results across 44 runs.** It has never passed since `7ecb990` added it.
+
+**AND IT WAS INVISIBLE FROM EVERY PR, INCLUDING L2's GATES.** Its `if:` requires a `deployment_status` event with `environment == 'Production'`. A pull request only ever produces a **Preview** deployment. So on every PR it reported as `1 skipped` - which is precisely how five consecutive gates read past it, L2's included. **A check that cannot run on the surface where it is read is not a skipped check, it is an absent one**, and that distinction belongs in section 8.
+
+**STATE THIS PLAINLY IN SECTION 7: no production deploy of this site has ever been smoke-verified.** That check guards the exact claim all three rungs terminate at - that the deployed page is showing what it says it is showing.
+
+**THE FIX IS THREE LINES AND THE SCRIPT IS SOUND.** `scripts/post-deploy-smoke.mjs` is driven in both polarities by HANDOFF-11's A8 and passes; L2's own full e2e run on `f976477` was 192 passed. Nothing is wrong with the script. Add, after `checkout` and before `setup-node`:
+
+```yaml
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 9.12.0
+```
+
+**THEN PROVE IT RATHER THAN ASSUMING IT.** The workflow carries a `workflow_dispatch` trigger with a `url` input for exactly this. Run it against the live URL and paste what it returns into section 7. **A workflow fix that has not been run is the same unproven thing it replaces** - and this one has a 44-run history of looking configured and being inert.
+
+**COUNT IT CORRECTLY.** With this, the origin from LEDGER-09b Q3 - *a required check that no local command runs* - stands at **FOUR faces**: `pnpm build` (HANDOFF-07, added to the list), `assert-no-skipped-integration` (LEDGER-14 Q5, recorded and not added), `test:e2e` (LEDGER-15, recorded), and this one. Your prompt says a shape at three gets mechanised rather than recorded again. It is at four. 1b closes all of them in one edit or it closes none of them.
+
+---
+
+## 2. ONE DATA POINT L2 ADDED TO `legibility.spec.ts:718`, WHICH CHANGES NOTHING YOU DO
+
+HANDOFF-15 recorded that spec failing once locally under full-suite parallelism, against 3 of 3 isolated passes and a green CI run on the same head. **L2 ran the full e2e suite independently on merged `main` at `f976477`: 192 passed, `E2E_RC=0`, 6.7 minutes - `legibility.spec.ts:718` PASSED.**
+
+The count is now n=1 failure against n=3 isolated passes, n=1 CI pass, and n=1 independent full-suite pass in a different container. **That is still not a diagnosis and it is still out of scope for you.** HANDOFF-15 was right to record it rather than fix it. Record L2's data point beside it in section 8 and leave the spec alone. If it ever reaches the point where the fail side is shown to be non-discriminating at random, that is LEDGER-05 fold 7 and it earns its own handoff - because a fail side that passes at random means HANDOFF-04a's A1 never tested anything.
+
+---
+
+**Nothing else in your prompt changed.** Scope, deliverables 1 through 6, assertions A1-A8, the `z_gettreestate` UNVERIFIED label and the instruction to try the endpoint before assuming it is unreachable all stand as pasted.

@@ -8589,3 +8589,141 @@ and the mempool path reaches the first through `analyze` at `index.ts:209` by wa
 
 **This is F-56-1 violated by the author of F-56-1, in the same file that adopted it.** L2 wrote a premise about `apps/indexer/src/index.ts` without reading `apps/indexer/src/index.ts`. The rule is sound; the failure is that L2 applied it to the session's probes and not to its own briefs. **The correction is that F-56-1 binds the brief as well as the probe: a section 1 claim about a module is a claim, and it gets read first or it gets labelled UNVERIFIED.** Section 1 below marks its own unread claims accordingly.
 ```
+
+## §8 HANDOFF-16 - crossings forward, and three of section 1's own measurements (L3, 4 Sep 2026)
+
+```
+GATE ROUNDS: 5. Round 4 was F-52-2's round on `62c4e77` - five reviewers on
+failure paths, twenty-three findings. Round 5 reviewed round 4's three fix
+commits and found sixteen more, of which two were HIGH and one had UNDONE THE
+RUNG BELOW. Every finding acted on was reproduced by the lead by execution
+before its fix; two were REFUTED by execution and no change was made. Round 5's
+third lane - the prose and the test assertions, which is clause (c) and clause
+(ii) surface - DIED ON A SESSION LIMIT and is reported as unrun rather than as
+clean, so the sentences this session added are the least-reviewed thing in the
+branch.
+
+THE HANDOFF'S OWN SECTION 1 WAS WRONG ABOUT WHAT A MISSING METHOD COSTS, AND
+THE CORRECTION IS THE WHOLE RUNG. L2 wrote that an endpoint without
+`z_gettreestate` costs "the Ironwood anchor never forms - the driver writes the
+block, logs the notice and records no anchor". Executed against the shipped
+classes on merged `main`, it writes nothing: `RpcError` propagates,
+`isFatal` is false because an `RpcError` is neither a `ChainRuntimeError` nor a
+`ZCashRevealStateError`, and the loop re-fetches the same block for ever. The
+site simply stops advancing and the only symptom is one log line per poll
+interval naming one height. Permanent AND invisible, which section 3 names as
+the worst combination this project recognises - written into the brief that was
+guarding against it.
+
+AND THE INTERESTING HALF IS THAT THE CONTRACT ALREADY DESCRIBED THE RIGHT
+BEHAVIOUR. `TreestateSource`'s docblock has said since HANDOFF-12 that `null`
+means "a node that does not serve it". Nothing could produce it, because the
+production wiring built the source from a function whose return type is not
+nullable. **A documented case with no producer is not a case, and its docblock
+reads exactly like one that works.** That is a new face of the seam shape, and
+it is on the TYPE side rather than the wire side: the two ends agreed about what
+`null` meant and one of them could never send it.
+
+Q1. IS "A DOCUMENTED CASE WITH NO PRODUCER" WORTH A GUARD, OR IS IT A RULE?
+A union member, an optional field or a nullable return that no shipped caller
+can construct is dead by configuration rather than by type, and the compiler
+cannot see it - `TreestateSource`'s `| null` is inhabited in the TYPE and
+uninhabited in the WIRING. A guard would have to enumerate a type's inhabitants
+and each caller's ability to produce them, which is a reachability question this
+session does not think is decidable by grep. Recorded as WEAKER than a guard per
+LEDGER-09a Q2's amendment, and the structural requirement offered in its place
+is the one this rung used: **when a docblock names a case, find the caller that
+produces it before believing the case exists.** L2 to rule whether that is worth
+writing down or whether a guard is possible after all.
+
+Q2. THE RUNG NEEDS A DATABASE AND ITS BRIEF DID NOT KNOW THAT.
+Section 1 says the driver accumulates crossings "and the plane draws measured
+marks". The indexer accumulating them is necessary and not sufficient: the
+publisher is a separate process and builds `migrationHist` from its own Postgres
+query. Executed against the real `readSnapshotInputs` with `NO_CHAIN_QUERIES`,
+`crossings` comes back `[]` and `migrationWindow` `null`. So
+`INDEXER_CHAIN_STORE=memory` runs the follower and the pool state and puts
+nothing on the plane, and `CUTOVER-1.0.md` section 10.1 states both shapes in a
+table. The question for L2 is whether rung 3's memory mode should exist at all
+given that, or whether it is worth keeping for the gateway's live views alone -
+this session kept it and said what it does not do, which seemed better than
+deleting a working mode because its brief expected more of it.
+
+Q3. THE VERSION CEILING GAINED A SECOND READER AND MOVED, WHICH ANSWERS A
+QUESTION THE GUARD ASKED ITSELF. `check-compose-zebra-tag.mjs` declared the
+ceiling locally and its docblock said why - one reader - then asked whether it
+should grow a runtime reader "so A11 also refuses a live node above it, which is
+the case an image pin cannot see", and left it for a section 8. The preflight is
+that reader, so the guard's own rule applied and the ceiling now lives in
+`version-floor.ts` beside the floor. Recorded here because the question was
+asked in a section 8 and is now answered by a deliverable rather than by a
+ruling.
+
+Q4. `checkZebraVersionFloor` HAS NO PRODUCTION CALLER AND HAD NONE BEFORE THIS
+RUNG. Measured: `grep -rn "checkZebraVersion" --include=*.ts apps/` returns
+nothing, and the only callers in the tree are its own unit test and the A11
+smoke test. So the floor this project declares has never refused a running node;
+`scripts/preflight-rpc.mjs` is its first non-test reader, and it is a script an
+operator runs rather than a check the runtime makes. Should the indexer refuse
+to start against a node outside the window? This session did not make it,
+because a startup that exits on a version string would refuse to run against a
+gateway that reports anything unexpected - and the whole point of the preflight
+is that a gateway can report anything. L2 to rule.
+
+DEFERRED ASSUMPTIONS:
+  The address index is untouched, as section 1 says it should be. It is three
+  wire methods in one file and the preflight does not probe them, because a
+  stack that does not call them cannot be blocked by their absence.
+  `INDEXER_CHAIN_STORE=memory` has no durability and says so; nothing was built
+  to snapshot it, because a memory store that persists is a database with extra
+  steps.
+  The adaptive retention window stays deferred whole (LEDGER-04a Q2). This rung
+  does NOT make per-crossing ordering available: `migrationHist` carries
+  `lowHeight`, `highHeight` and a count, and nothing in this rung adds an
+  ordering to it. Section 3 asked to be told if it did; it did not.
+
+CARRIED FORWARD: `legibility.spec.ts:718` passed here under full-suite
+parallelism, which makes the count ONE failure against three isolated passes,
+one CI pass, one L2 full-suite pass in a different container, and this one.
+Recorded with its n, not fixed, and not called a flake.
+
+Q5. THE VERIFY PHASE WAS INVALIDATED BY THE LEAD FIXING FINDINGS WHILE IT RAN,
+AND THE DESIGN ERROR IS WORTH A RULE. Round 4 was built as find-then-refute,
+three adversarial refuters per finding. Twenty-two verdicts returned before the
+phase was stopped and ALL TWENTY-TWO said `refuted` - every one of them for the
+same reason, correctly stated in its own words: "already fixed at HEAD". The
+lead had been committing fixes while the phase was still running, so every
+refuter read a tree in which the defect was gone. The verdicts are honest and
+they are evidence about nothing, because a refuter that cannot see the pre-fix
+tree cannot refute a claim about it. **A verify phase over a moving tree is a
+verify phase over the wrong object**, which is LEDGER-09b's shape - an
+exhaustive claim over a source rather than over the object the rule is about -
+arriving in a gate's own scheduling. What settled the findings instead was the
+lead's own reproduction of each against the PRE-FIX tree, which LEDGER-10 Q3
+licenses precisely for findings execution can settle. Two candidate rules, and
+L2 to choose: either a verify phase pins the commit it reviews and the lead does
+not commit until it returns, or find-and-fix and verify are separate runs with
+the fix commit as the second one's subject - which is what the stopping rule
+already says about rounds and would make the refuter panel redundant with it.
+
+Q6. `checkZebraVersionFloor` HAS NO PRODUCTION CALLER AND NOW HAS ONE READER
+THAT IS A SCRIPT. Measured: the only callers in the tree are its own unit test,
+the A11 smoke test, and - since this rung - `scripts/preflight-rpc.mjs`, which
+an operator runs rather than the runtime calling. So the floor this project
+declares has still never refused a running node. Should the indexer refuse to
+start against a node outside the window? This session did not build it, because
+a startup that exits on a version string would refuse to run against a gateway
+that reports anything unexpected, and the whole point of the preflight is that a
+gateway can report anything. L2 to rule.
+
+Q7. A CHECK THAT CANNOT RUN ON THE SURFACE WHERE IT IS READ IS AN ABSENT CHECK,
+NOT A SKIPPED ONE, AND THE ORIGIN'S COUNT IS FOUR. `post-deploy-smoke.yml` had
+never passed in 44 runs and reported `1 skipped` on every pull request, because
+its `if:` needs a Production `deployment_status` and a PR only ever produces a
+Preview. Five consecutive gates read past it, L2's own included. Adding
+`test:e2e` and `assert-no-skipped-integration` to the gate list closes two faces
+of LEDGER-09b Q3's origin and CANNOT close this one - no command a session runs
+locally reaches it. The question for L2 is whether the register should
+distinguish "skipped" from "not applicable on this surface" at the reporting
+layer, since that distinction is what made this face survive five gates.
+```
