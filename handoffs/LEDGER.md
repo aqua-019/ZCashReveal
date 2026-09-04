@@ -8326,3 +8326,134 @@ The second is the contract this whole rung rests on and the third reproduces the
 
 PROMPT-14 section 4 deliverable 2 and section 5 A1 both said **"four panels null"** two paragraphs after L2's own executed transcript showing **three**. The session re-executed against `REAL_INSTRUMENTS` before writing section 5, corrected both, and added **A1b asserting `residual` is measured positively** rather than leaving it as the absence of an absence. That is the right handling and it is a better assertion than the one L2 wrote. The defect was L2's.
 ```
+
+## §8 HANDOFF-15 - live transactions, and two CRITICALs that were the same defect through a different line (L3, 4 Sep 2026)
+
+```
+GATE ROUNDS: 4. Rounds 1, 2 and 4 by the lead; round 3 by two dispatched
+reviewers dimensioned on FAILURE PATHS rather than files, as section 6
+directs. Eleven findings in round 3, two of them CRITICAL. NO ROUND CLAIMED
+CONVERGENT: clause (i)(a) fails because round 3 returned findings a user
+could see and round 4 found a false table.
+
+WHAT THIS RUNG CHANGED, stated first because the interesting half is not the
+rate limiter. `apps/indexer/src/index.ts:61` opened `postgres(cfg.DATABASE_URL)`
+unconditionally against a URL with a localhost default, and the mempool path
+read Postgres at `anchor-depth.ts:57` per shielded spend and wrote it at
+`index.ts:254` per added report. That is LEDGER-14's composition-root finding
+standing in a SECOND app, one rung later, and the brief's section 1 asserted the
+opposite. So this handoff's deliverable 0 corrected its own section 1 and the
+correction became deliverable 6.
+
+Q1. THE FAIL-SIDE RULE, TURNED ON ITS AUTHOR, AND IT IS THE MOST USEFUL THING
+    THIS SESSION LEARNED.
+    CLAUDE.md already says a fail side must be a DATA mutation drawn from the
+    stated exclusion set, because "the fail side was chosen to fail". This
+    session shipped a 429 test whose fail side was chosen - unknowingly - to
+    PASS.
+    `MockRpcEndpoint` answered a refusal with `{error: "rate limited"}`. That
+    is `error` as a STRING, which fails `envelopeSchema`'s `z.object(...)`, so
+    `envelope.success` was false and the client's 429 branch was reached BY
+    ACCIDENT. Measured through the repo's own schema: a real gateway's
+    `{"error":{"code":-32005,...}}` parses, hits the error-object branch first,
+    and becomes an `RpcError` that never penalises the gate; a Cloudflare HTML
+    page fails `JSON.parse` and becomes a bare `Error` retried on the transport
+    policy - three requests of a five-request minute, reported as a timeout.
+    BOTH ARE VERBATIM THE DEFECT `rate-limit.ts`'s OWN HEADER SAYS THE PACKAGE
+    REMOVED, reached through a different line, and eleven tests were green over
+    them.
+    The general shape: A MOCK'S PAYLOAD IS PART OF THE ASSERTION'S EXCLUSION
+    SET, NOT SCENERY. A fail side that produces an input the code under test
+    would never see from a real producer proves the assertion is WIRED and not
+    that it DISCRIMINATES - which is LEDGER-09a Q2's rule about data mutations,
+    arriving one level down, in the SHAPE of the datum rather than in its value.
+    FOR L2: is that worth stating as its own clause? "A fail side's input must
+    be one a real producer can emit, and where several can, the mock emits all
+    of them" would have caught this; the existing wording would not, because
+    `{error: "rate limited"}` IS a data mutation from inside the exclusion set
+    "a 429 response". It is just the one member no real endpoint sends.
+
+Q2. A DOCUMENT THAT QUOTES A COMPUTED VALUE HAS NO TRIPWIRE, AND THIS ONE
+    DRIFTED TWICE IN ONE SESSION.
+    RUNTIME.md section 8.5 quotes what `mempoolDrainNotice` prints. Draft one
+    was transcribed rather than captured and got two strings wrong. Round 3's
+    F1 fix then changed the rate clause and silently falsified two of the three
+    rows again. Both times the document was wrong before anything else was, and
+    both times executing the function found it.
+    Closed by a test that reads `docs/2.0/RUNTIME.md` and asserts every quoted
+    string is one the function returns, with a fail side proving the check is
+    not vacuous over a 500-line file. RECORDED AS WEAKER THAN A GUARD, under
+    clause (b): it checks that each row PRESENT is true and cannot check the
+    table is COMPLETE. A guard for completeness would have to know which states
+    the table ought to enumerate, which is a judgement rather than a rule.
+
+Q3. THREE OF THIS SESSION'S FINDINGS WERE SENTENCES THAT WERE TRUE OF NOTHING,
+    AND ALL THREE WERE IN THE TREE BEFORE THE BEHAVIOUR WAS.
+      `drain-state.ts` said its key carries no TTL so "the gateway renders a
+      stopped indexer differently" - it did not, until round 2.
+      `mempool-tick.ts` logged "the mempool view is now aging" on a refusal and
+      published nothing, so the gateway re-aged a `complete: true` record
+      forever - until round 3's S2.
+      RUNTIME 8.6 said mempool-only mode degrades "to stated absences, never to
+      zeros" - false for `severity`, which `views/tx.ts:162` bottoms out at
+      "INFO".
+    This is clause (c) plus the rollback sub-class adopted from LEDGER-14 Q3 in
+    this session's second commit, and it earned its keep immediately. THE
+    PATTERN IS SHARPER THAN "PROSE CAN BE WRONG": in all three the sentence
+    described a behaviour the author INTENDED and then did not write, so the
+    docblock reads as a specification and functions as a claim. A reader
+    checking the code against the comment finds agreement in intent and
+    disagreement in fact.
+    FOR L2: clause (c) says to execute a sentence making a checkable claim.
+    Should it also say WHERE to look first - a docblock that gives a REASON for
+    a design ("no TTL, because X renders differently") is asserting X, and X is
+    usually the untested half?
+
+Q4. THE CONTAINER WALL IS CONFIRMED CONTAINER-SCOPED, AS L2 CORRECTED IT.
+    `zcash-mainnet-zebrad.gateway.tatum.io` refused CONNECT with 403 from this
+    container and is named in the proxy's own `recentRelayFailures`; L2 reached
+    the same host the same day from a different one. n=1 policy denial measured
+    here. The local mock was the whole harness, and making it a REAL HTTP server
+    rather than a `FetchLike` double is what let round 3 find S1 at all - a
+    double cannot be wrong about a status and a header in a way its author would
+    notice.
+
+Q5. THE ORIGIN COUNT FROM LEDGER-09b Q3 DOES NOT MOVE, AND SAYING SO IS THE
+    POINT. Five faces are on record for "a new workspace member or suite
+    arrives without inheriting a convention every existing member has". This
+    session added no sixth: the CI-only skip guard was run locally before the
+    push, against real vitest JSON reports, and passed. That is LEDGER-14 Q5's
+    question answered in practice rather than in structure - the guard still
+    exists only in CI, and a session still has to know to run it by hand.
+
+INFERRED: that the confirmed-block follower not starting without a database is
+a configuration rather than a regression. Section 1 puts confirmed blocks out
+of scope and the follower needs `PostgresChainStore`; the alternative reading
+is that it should run on `MemoryChainStore`, which would be rung 3's work done
+quietly inside rung 2.
+
+NOT-MATCHED: none.
+
+SPEC-WAS-AMBIGUOUS: section 1's Postgres premise, resolved under LEDGER-11
+Q5(a) against the shipped object and promoted to deliverable 6.
+
+DEFERRED ASSUMPTIONS:
+  `TxView.severity` bottoming out at "INFO" for an unindexed transaction. Rung
+  3's, because the fix is a DTO change plus a consumer sweep.
+  Moving the completeness notice into the client island, now that the
+  WebSocket frame carries the drain, so it ages continuously rather than being
+  bounded at 60 s by `revalidate`.
+  Reading `X-RateLimit-*` headers rather than inferring from a 429. This rung
+  reads `Retry-After`; no endpoint measured here sends the others.
+
+CARRIED FORWARD FOR HANDOFF-16, AND NOT REVIEWED HERE: `62c4e77`, gate round
+3's own fix commit on the confirmed-block runtime, has still never been
+reviewed (F-52-2). It is rung 3's code. HANDOFF-16 opens with it.
+
+EXTRAPOLATION. Four rounds; the reach curve is a live 500 in round 1, two
+CRITICALs in the refusal path in round 3, a stale document table in round 4. A
+fifth round would probably find one or two more of round 4's kind - a docblock
+asserting a behaviour nobody executed - rather than another S1. The product
+surface is about 700 executable lines; the prose around it is about 400, and
+three of the last four findings have been in the prose.
+```
