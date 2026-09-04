@@ -4947,17 +4947,24 @@ canvas[data-ui="fog"] {
    IT IS A DASH OFFSET RATHER THAN A TRANSFORM. The path is already the
    geometry, so drawing it on is the honest animation of "this went from here to
    there"; translating a shape along it would need a second, invented position.
-   `pathLength` is not set, so 1000 is a length larger than any arc on this
-   board - the dash therefore starts fully retracted for every mark regardless
-   of its true length. */
+
+   THE PATH DECLARES `pathLength="1"`, SO THE DASH IS IN FRACTIONS OF ITSELF AND
+   THIS RULE IS INDEPENDENT OF THE GEOMETRY. An earlier draft used a literal
+   1000 and justified it by claiming that was longer than any arc the board can
+   draw. Measured, that claim was TRUE and thin: 800 marks over all twenty lane
+   pairs at forty seeds each ran from 242.7 to 823.0 user units, so the constant
+   held by 18 per cent and held only because of camera values in a different
+   file. A number that is correct today because of something it does not
+   reference is the coupling this project keeps paying for, so the dependency is
+   removed rather than the margin documented. */
 @keyframes zr-live-swim {
   from {
-    stroke-dasharray: 1000;
-    stroke-dashoffset: 1000;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
   }
 
   to {
-    stroke-dasharray: 1000;
+    stroke-dasharray: 1;
     stroke-dashoffset: 0;
   }
 }

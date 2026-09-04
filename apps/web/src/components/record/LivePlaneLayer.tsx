@@ -186,6 +186,12 @@ export function LivePlaneLayer({
           >
             <path
               d={m.d}
+              // NORMALISED, so `zr-live-swim`'s dash is a fraction of this
+              // path rather than a user-unit constant that happens to exceed
+              // it. The arcs measure 242.7 to 823.0 units across every lane
+              // pair, so a literal would have worked and would have been
+              // coupled to the camera.
+              pathLength={1}
               fill="none"
               stroke={`var(${POOL_VAR[m.lane]})`}
               strokeOpacity={0.62}
