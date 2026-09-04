@@ -479,16 +479,25 @@ The indexer writes `zcashreveal:mempool:drain` once per tick on the VPS Redis;
 the gateway reads it into `MempoolView.drain`; `/track` prints it directly above
 the transaction table.
 
-The three rows below are the copy `mempoolDrainNotice` ACTUALLY EMITS, captured
-by calling it rather than transcribed - and transcribing it is what the first
-draft of this table did, which is how it came to quote a deferred count of 6
-where the function says 409 and to drop the rate clause the complete case
-appends. Both were wrong in this document before they were wrong anywhere else.
+The rows below are the copy `mempoolDrainNotice` ACTUALLY EMITS, captured by
+calling it rather than transcribed - and transcribing it is what the first draft
+of this table did, which is how it came to quote a deferred count of 6 where the
+function says 409 and to drop the rate clause the complete case appends. Both
+were wrong in this document before they were wrong anywhere else.
+
+**AND THEY DRIFTED AGAIN ONE ROUND LATER, WHICH IS WHY A TEST NOW READS THIS
+FILE.** A gate fix changed the rate clause from "at its configured ceiling" to
+"at its ceiling of 5 requests a minute", and two of these three rows silently
+stopped being true - a document quoting UI copy has no tripwire, which is the
+same shape as the line-number cross-reference this repo already records.
+`apps/web/test/unit/mempool-drain.test.ts` now asserts that every string quoted
+here is one the function returns, so the next change to the copy fails a test
+rather than leaving a false table.
 
 | | Keyless, 5/min | A provider key, 600/min | Indexer stopped an hour ago | No indexer |
 |---|---|---|---|---|
 | headline | `3 of 412 analysed` | `412 of 412 analysed` | `3 of 412 analysed` | mempool completeness: not measured |
-| detail | `409 deferred by the indexer's per-tick request budget - it analyses 3 a minute at its configured ceiling; last tick 12 s ago, last complete 14 min ago.` | `every transaction the node reported has been analysed, just now - the indexer is metered at 600 requests a minute, which affords 598 transactions a minute` | `409 deferred by the indexer's per-tick request budget - it analyses 3 a minute at its configured ceiling; last tick 60 min ago, last complete 74 min ago.` | `no indexer reported how much of the mempool it analysed, so the rows below may be part of it rather than all of it` |
+| detail | `409 deferred by the indexer's per-tick request budget - it analyses 3 a minute at its ceiling of 5 requests a minute; last tick 12 s ago, last complete 14 min ago.` | `every transaction the node reported has been analysed, just now - the indexer is metered at 600 requests a minute, which affords 598 transactions a minute` | `409 deferred by the indexer's per-tick request budget - it analyses 3 a minute at its ceiling of 5 requests a minute; last tick 60 min ago, last complete 74 min ago.` | `no indexer reported how much of the mempool it analysed, so the rows below may be part of it rather than all of it` |
 | `data-complete` | `false` | `true` | `false` | (the element is a named absence instead) |
 
 **Column three is why `last tick` is printed at all.** A stopped indexer and a

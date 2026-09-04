@@ -10,6 +10,10 @@
  * `app/track/page.tsx`'s Block A were read line-by-line before these probes
  * were written.
  */
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 import { mempoolDrainNotice } from "@/lib/mempool-summary";
@@ -149,5 +153,63 @@ describe("mempoolDrainNotice", () => {
     if (!notice.known) return;
     expect(notice.detail).toContain("metered at 5 requests a minute");
     expect(notice.detail).toContain("affords 3 transactions a minute");
+  });
+});
+
+describe("RUNTIME.md section 8.5 quotes copy this function actually emits", () => {
+  // A DOCUMENT QUOTING UI COPY HAS NO TRIPWIRE, and this table has now drifted
+  // twice: once because its first draft was transcribed rather than captured,
+  // and once because a gate fix changed the rate clause under it. Both times
+  // the document was wrong before anything else was. This is the cheap half of
+  // closing that - it cannot check the table is COMPLETE, only that every row
+  // it does carry is a string the function returns.
+  const DOC = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "docs", "2.0", "RUNTIME.md"),
+    "utf8",
+  );
+
+  const rows = [
+    {
+      name: "keyless, 5/min",
+      drain: {
+        observed: 412, analysed: 3, complete: false, deferred: 409, failed: 0, refused: false,
+        completeSecondsAgo: 840, updatedSecondsAgo: 12, ceilingPerMinute: 5, txPerMinute: 3,
+      },
+    },
+    {
+      name: "a provider key, 600/min",
+      drain: {
+        observed: 412, analysed: 412, complete: true, deferred: 0, failed: 0, refused: false,
+        completeSecondsAgo: 2, updatedSecondsAgo: 2, ceilingPerMinute: 600, txPerMinute: 598,
+      },
+    },
+    {
+      name: "indexer stopped an hour ago",
+      drain: {
+        observed: 412, analysed: 3, complete: false, deferred: 409, failed: 0, refused: false,
+        completeSecondsAgo: 4440, updatedSecondsAgo: 3600, ceilingPerMinute: 5, txPerMinute: 3,
+      },
+    },
+  ] as const;
+
+  for (const row of rows) {
+    it(`the "${row.name}" row is quoted verbatim`, () => {
+      const notice = mempoolDrainNotice(row.drain);
+      if (!notice.known) throw new Error("expected a known drain");
+      expect(DOC).toContain(notice.headline);
+      expect(DOC).toContain(notice.detail);
+    });
+  }
+
+  it("and the absent-drain condition is quoted too", () => {
+    const notice = mempoolDrainNotice(null);
+    if (notice.known) throw new Error("expected an absence");
+    expect(DOC).toContain(notice.condition);
+  });
+
+  it("FAIL SIDE: a string the function does NOT emit is not found, so the check is not vacuous", () => {
+    // Without this, a `toContain` over a 500-line document could be satisfied
+    // by almost anything and the three assertions above would mean nothing.
+    expect(DOC).not.toContain("409 deferred by the indexer's per-tick request budget - it analyses 3 a minute at its configured ceiling");
   });
 });
