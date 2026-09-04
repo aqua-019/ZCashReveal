@@ -16,7 +16,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ZebraRpc } from "../client.js";
-import { RpcRateLimitError, RpcTransportError } from "../errors.js";
+import { RpcError, RpcRateLimitError, RpcSchemaError, RpcTransportError } from "../errors.js";
 import { MockRpcEndpoint } from "../mock-endpoint.js";
 import { RateGate, parseRetryAfterMs } from "../rate-limit.js";
 
@@ -269,6 +269,106 @@ describe("a 429 over the wire", () => {
   });
 });
 
+/**
+ * F-57-1's EVIDENCE, MEASURED HERE RATHER THAN ARGUED (HANDOFF-16).
+ *
+ * The rule adopted on PR #57 says an exclusion-set member must be a shape a REAL
+ * PRODUCER emits, and that where a producer emits several the mock emits all of
+ * them - with the set closed by CAPTURE rather than by enumeration from memory.
+ * The captured body below is what earned it: it was measured on the live
+ * endpoint the day after three bodies had been enumerated, and it is none of
+ * them.
+ *
+ * WHAT IS RELAYED AND WHAT IS MEASURED, KEPT APART. The body's TEXT is L2's
+ * capture, relayed through the handoff prompt, because the session that added
+ * this test could not reach the endpoint - six public hosts, every one refused
+ * at CONNECT with 403 by its container's egress proxy. The body's BEHAVIOUR is
+ * measured right here, by driving it through the real client at both statuses.
+ * F-57-1 asks for a capture; where the wire is unreachable, the honest form is a
+ * relayed capture whose discriminating property is re-measured locally, and
+ * saying which half is which is the whole of the honesty.
+ */
+describe("the FOURTH 429 body - the one production sends", () => {
+  // Captured from the live endpoint on 4 September 2026. Neither `result` nor
+  // `error`, which is what makes it a third escape route.
+  const GATEWAY_BODY = {
+    statusCode: 429,
+    message:
+      "You have exceeded your limit of 5 requests per minute. To increase this limit, upgrade to a Paid plan with 200 requests per second...",
+  };
+
+  it("AT STATUS 200 it parses and reaches NEITHER branch - which is the property that makes it a third escape route", async () => {
+    // The pre-fix ordering read the BODY to classify a refusal. This body defeats
+    // that read: `envelopeSchema` is `.passthrough()` over two OPTIONAL fields,
+    // so it PARSES (not the parse-failure branch, which the HTML page takes) and
+    // carries no `error` (not the error-object branch, which the JSON-RPC-wrapped
+    // limiter takes). The client falls through to "empty result", which is a
+    // statement about the CHAIN - and the endpoint was talking about US.
+    const rpc = new ZebraRpc({
+      url: "http://127.0.0.1:8232",
+      retries: 0,
+      sleep: () => Promise.resolve(),
+      fetch: () =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json: () => Promise.resolve(GATEWAY_BODY),
+          text: () => Promise.resolve(JSON.stringify(GATEWAY_BODY)),
+        }),
+    });
+    const err = await rpc.getBlockchainInfo().catch((e: unknown) => e);
+    // It parsed: NOT a schema error and NOT a transport error.
+    expect(err).not.toBeInstanceOf(RpcSchemaError);
+    expect(err).not.toBeInstanceOf(RpcTransportError);
+    // And it took neither refusal branch: an `RpcError` about an empty result.
+    expect(err).toBeInstanceOf(RpcError);
+    expect((err as RpcError).message).toContain("empty result");
+  });
+
+  it("AT STATUS 429 the shipped fix covers it: RpcRateLimitError, before the body is read at all", async () => {
+    // The pass side, and the reason this closes an exclusion set rather than
+    // fixing a defect. `#once` decides on the STATUS first, so the body above
+    // cannot reach the branch it would otherwise defeat.
+    const rpc = new ZebraRpc({
+      url: "http://127.0.0.1:8232",
+      retries: 2,
+      sleep: () => Promise.resolve(),
+      fetch: () =>
+        Promise.resolve({
+          ok: false,
+          status: 429,
+          headers: { get: (n: string) => (n.toLowerCase() === "retry-after" ? "60" : null) },
+          json: () => Promise.resolve(GATEWAY_BODY),
+          text: () => Promise.resolve(JSON.stringify(GATEWAY_BODY)),
+        }),
+    });
+    const err = await rpc.getBlockchainInfo().catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(RpcRateLimitError);
+    // Retry-After IS sent on a real refusal - LEDGER-15's deferral, closed as
+    // MEASURED rather than carried: L2 dumped the live headers on both a 200 and
+    // a 429 and found `retry-after: 60` present and NO `X-RateLimit-*` header of
+    // any kind, only `x-ttm-plan: anonymous`.
+    expect((err as RpcRateLimitError).retryAfterMs).toBe(60_000);
+  });
+
+  it("the mock emits it byte for byte, so the loop below drives the captured shape and not a paraphrase", async () => {
+    const endpoint = new MockRpcEndpoint({ refuseAt: [1], refusalBody: "gateway" });
+    const url = await endpoint.start();
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "1.0", id: 1, method: "getblockchaininfo", params: [] }),
+      });
+      expect(res.status).toBe(429);
+      expect(await res.json()).toEqual(GATEWAY_BODY);
+    } finally {
+      await endpoint.stop();
+    }
+  });
+});
+
 describe("a 429 is classified by its STATUS, whatever body it carries", () => {
   // THE THREE REAL BODIES, AND TWO OF THEM ESCAPED THE FIRST IMPLEMENTATION.
   // The 429 check sat BELOW the JSON parse and BELOW the error-object branch,
@@ -281,8 +381,27 @@ describe("a 429 is classified by its STATUS, whatever body it carries", () => {
   // COLLISION: `{error: "rate limited"}` has `error` as a STRING, which fails
   // `envelopeSchema`'s `z.object(...)`, so `envelope.success` was false and the
   // 429 branch was reached by accident. A fail side chosen, unknowingly, to
-  // pass. The table below drives all three.
-  const bodies = ["envelope", "html", "bare"] as const;
+  // pass. The table below drives all four.
+  //
+  // AND THE FOURTH ARRIVED AFTER THE FIX, WHICH IS WHY F-57-1 EXISTS
+  // (HANDOFF-16). L2 captured the body the measured endpoint ACTUALLY sends on
+  // 4 September 2026 - `{"statusCode": 429, "message": "You have exceeded your
+  // limit of 5 requests per minute..."}` - and it is a THIRD escape route from
+  // the pre-fix ordering, distinct from both of the two above: it PARSES, and it
+  // carries neither `result` nor `error`, so it reached neither the
+  // error-object branch nor the parse-failure branch. `envelopeSchema` is
+  // `.passthrough()` over two OPTIONAL fields, which is what admits it. The
+  // shipped status-first fix covers it, so this closes an exclusion set rather
+  // than fixing a defect - and F-57-1's point is that the set is closed by
+  // CAPTURE from a real producer, because the three bodies enumerated from
+  // memory did not contain the one production sends.
+  //
+  // ITS CONTENT IS RELAYED RATHER THAN CAPTURED HERE, and that is stated rather
+  // than glossed: the session that added it could not reach the endpoint or any
+  // of five others, every one refused at CONNECT with 403 by its container's
+  // egress proxy. What IS measured here is the discriminating property, and it
+  // is measured by execution in the `envelopeSchema` block below.
+  const bodies = ["envelope", "html", "bare", "gateway"] as const;
 
   for (const refusalBody of bodies) {
     it(`a ${refusalBody} body: RpcRateLimitError, and exactly ONE request`, async () => {
