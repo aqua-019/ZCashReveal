@@ -8784,3 +8784,137 @@ HANDOFF-16 already shipped. The three self-corrections L2 records against its ow
 edit here either - they are already in the tree as HANDOFF-16's own section 7 - but they are the
 reason HANDOFF-17's section 1 marks its unverified rows instead of asserting them, and the reason
 this session executed five more corrections against the brief that produced it.
+
+## §8 HANDOFF-17 - the living tank, and a brief that was wrong about the surface it was scoping (L3, 4 Sep 2026)
+
+```
+GATE ROUNDS: 2 at the time of writing. Round 1 was two reviewers on separate
+dimensions - the honesty of the surface, and failure paths and lifecycle -
+returning eighteen findings between them, six acted on and every one reproduced
+by the lead by EXECUTION before its fix. Round 2 is the fix commit reviewed as
+its own subject, which is clause (ii) and, since L2's ruling on PR #58, F-58-2:
+find-and-fix and verify are SEPARATE RUNS and the fix commit is the second run's
+subject. This session ran them that way from the start rather than racing a
+refuter panel against its own lead.
+
+THE HEADLINE, AND IT IS NOT THE ONE THE BRIEF EXPECTED: THREE OF ROUND 1's
+FINDINGS WERE LIVE ON THE PAGE AS DEPLOYED, AND THE WORST OF THEM WAS THE
+FABRICATED FISH THE HANDOFF'S OWN SECTION 3 EXISTS TO FORBID.
+
+`DEPLOY-2.0.md` sets Production AND Preview to `NEXT_PUBLIC_DATA_MODE=snapshot`
+with no `NEXT_PUBLIC_WS_URL`. `subscribeFrames` falls back to the committed
+`FixtureStream` whenever there is no gateway, and the first draft of
+`LivePlaneLayer` passed no `openInFixture`. So the shipping configuration opened
+a fixture socket and drew ELEVEN MOCKUP ROWS - txids beginning `ee0119443c` and
+`c0ffee12d3`, out of a file whose own header calls them invented - under the bold
+word "live" and the sentence "11 unconfirmed transactions drawn of 14 held".
+Measured by a reviewer against a real `next start` build with no network.
+
+That is exactly the defect section 3 names as the one that would make the whole
+page a lie, and it arrived through the FIXTURE PATH rather than through any
+decorative flourish. Every adversarial question in section 6 was pointed at the
+renderer - "can anything put a fish in this tank that is not a real
+transaction?" - and the answer was yes, through the transport, in the one
+configuration nobody drives in a unit test.
+
+Q1. THE DEFECT SHAPE IS "A TEST ENVIRONMENT THAT IS NOT THE DEPLOYED ONE", AND
+THIS PROJECT HAS NOW HIT IT FROM BOTH SIDES IN ONE HANDOFF. A4 - the assertion
+the whole contract rests on - was written as "mount, deliver zero frames,
+advance timers, assert zero marks". Its first run found ELEVEN marks, because
+the fixture transport had delivered eleven real frames. The session read that
+correctly (A4 was working, not failing) and stubbed the transport so the
+assertion could be stated at all. The stub is right and the reasoning was right,
+and it also removed the only place a unit test could have seen the deployed
+configuration. The same fixture stream was the instrument in one test and the
+defect in production, and nothing connected the two.
+What closed it was not a better unit test: it was a reviewer rendering the real
+built page. `IS_LIVE_TRANSPORT` is now a getter in the layer suite so both
+configurations are drivable, and A15 asserts the deployed one by name - but the
+session records that the assertion exists because someone ran `next start`, not
+because the suite could reach it.
+
+Q2. `migration` IS NOT ZIP 318, AND THE EXCLUSION SET WAS CLOSED FROM THE
+FIXTURE. `directionFor` returned the Orchard-to-Ironwood pair for every row whose
+`class` was `migration`. The gateway's `crossesWithNoPublicSide` is
+`movedPools.length > 1 && hasPoolSource && hasPoolSink && !hasTransparentSource
+&& r.transparent.vout.length === 0` - which a SAPLING-TO-ORCHARD shielded
+transfer satisfies, and whose own `migrationFlowText` prints "S to O" for it. So
+the plane drew a ZIP 318 crossing for a transaction that crossed neither pool,
+on the one figure whose alt text says "No other pool boundary is measured by
+this document", with the row's own `flow` field contradicting the arc.
+THIS IS F-57-1 AND IT IS THE MEASURED KIND: the committed corpus's only
+migration row is `O to I`, so no fixture and no test could contain the shape the
+real gateway emits. The set had to be closed by CAPTURE from the producer - by
+reading `apps/gateway/src/views/mempool.ts` - and was closed by enumeration from
+memory instead.
+
+Q3. THE STATE SEAM, AND F-58-1 CATCHING THIS SESSION ONE COMMIT AFTER IT ADOPTED
+F-58-1. `subscribeFrames` has never passed `onState` to `ZecSocket`, so a full
+state machine - `connecting` on connect and on every retry, `open` on the open
+event, `closed` on teardown - terminated at an `undefined` callback. The frame
+bus therefore INFERRED `open` from a frame arriving, and that inference is
+one-way: a socket that connects and then dies delivers nothing to revise it
+with. Executed across three open/die/reconnect cycles, 51 frames, the only state
+any consumer ever saw was `open` - so the page latched at "live" over a dead
+feed for ever, drawing a calm empty board. A frozen surface reporting no fault,
+in the component whose docblock says it exists to prevent exactly that.
+And A6's own PASS STATE drove `publishStateForTest`, the one function only tests
+call. Both polarities came from the test hook, so the green run was evidence
+about the hook and not about the site - a documented case with no producer,
+which is F-58-1, adopted by this session in its second commit and shipped as an
+instance in its third. Recorded because the rule did not fire on its own author.
+
+Q4. AN EXHAUSTIVE CLAIM OVER A FRAME'S MEANING, AT A SEAM WHERE TWO CONSUMERS
+DISAGREED. `snapshot` was folded ADDITIVELY: "the same transactions arriving in
+one message instead of many", which is true of the first snapshot and false of
+every later one. The gateway sends one on every connect and the socket
+reconnects constantly - the committed stream closes itself after each cycle BY
+DESIGN - so a transaction that left the pool while the socket was down got no
+`tx_removed` and was never retired. Reproduced: two held, a reconciling snapshot
+naming one, two still drawn. `MempoolPanel` consumes the identical frame from
+the identical socket and replaces `entries` wholesale. TWO CONSUMERS OF ONE
+FRAME, DISAGREEING ABOUT WHAT IT MEANS, each with its own passing tests, and
+neither test could see the disagreement because each built its own input. That
+is LEDGER-11's seam shape with both sides in the same repository and the same
+language, which is the variant this project had not yet recorded.
+
+Q5. SIX OF THIS SESSION'S OWN PROBES WERE WRONG BEFORE THE CODE WAS, and one
+mutation was inert. All are recorded in the tests they belong to rather than
+quietly repaired. Two are worth the ledger:
+  - "three subscribers, one transport" compared the frames three sinks received
+    and read agreement as ONE SOCKET. Under fake timers three independent
+    `FixtureStream`s advance in lockstep and replay the same corpus, so three
+    sockets deliver three IDENTICAL sequences and the assertion passes either
+    way. Driven against a socket-per-subscriber mutation - the exact cost the
+    bus exists to prevent - the suite stayed green. The test's TITLE claimed a
+    property it was structurally blind to. It counts transports now.
+  - the re-delivery test held exactly `SPLASH_N_MAX`, the one size at which
+    nothing is capped, so a mutation reshuffling every `seq` could not move the
+    drawn set. LEDGER-08's A9 shape exactly: an assertion over an AGGREGATE,
+    driven where the aggregate cannot move.
+And one negative result worth as much: A4's eleven marks were REAL FRAMES, not a
+defect. Checking the probe before judging the code (F-56-1's operational half)
+is what kept a correct assertion from being "fixed" into a wrong one.
+
+Q6. I MEASURED A STALE ARTIFACT TWICE AND ALMOST BUILT A FINDING ON IT. An
+orphaned `next start` from an earlier run was still bound to the port and
+answered HTTP 200 from a build that predated the fix under test; the numbers it
+returned described code already replaced. Caught by grepping the served HTML for
+a string the current source contains and finding zero. The instrument was the
+port, not the page. Recorded because this project's rule about checking a probe
+before judging the code has so far been about the probe's LOGIC, and this was
+about whether the probe was pointed at the tree at all - the same question
+F-58-2 asks about a refuter panel, arriving in a browser instead of a subagent.
+
+Q7 FOR L2. Section 6's adversarial question - "can anything put a fish in this
+tank that is not a real transaction?" - was answered YES, by the transport, in
+the deployed configuration, and no unit assertion could have found it because
+the suite stubs that transport in order to state A4 at all. Is the rule here
+that EVERY handoff touching a rendered surface must include one assertion
+executed against `next start` rather than jsdom - and if so, is that not simply
+the e2e suite, which this handoff ran and which also did not catch it, because
+its own `webServer` sets a data mode no reader ever gets? The session's view is
+that the gap is not jsdom-versus-browser but CONFIGURATION: nothing in the gate
+list runs the site as Production is configured. L2 to rule on whether that is a
+guard, a rule, or a row in the register.
+```

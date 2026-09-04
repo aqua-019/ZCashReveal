@@ -314,6 +314,23 @@ describe("A6 - a disconnected socket is a named state, not a calm empty tank", (
     expect(rate).not.toContain("publishes no rate");
   });
 
+  it("a refusal is dated to the connect, not claimed as the last tick", () => {
+    // The drain arrives ONLY on a `snapshot` frame, which the gateway sends on
+    // connect, so it never refreshes while the page is open. "the last tick was
+    // cut short by a refusal" therefore went on standing after any number of
+    // later arrivals - a transient rendered as a standing fact.
+    render(<LivePlaneLayer />);
+    act(() => {
+      publishFrameForTest({
+        type: "snapshot",
+        view: { tipHeight: 1, entries: [], drain: { ...drain(3, 5), refused: true }, summary: SUMMARY },
+      });
+    });
+    const rate = ui("turnstile-live-rate").textContent ?? "";
+    expect(rate).toContain("when this page connected");
+    expect(rate).not.toContain("the last tick");
+  });
+
   it("the rate the producer DID publish reaches the page", () => {
     render(<LivePlaneLayer />);
     act(() => {

@@ -392,7 +392,19 @@ function LiveReading({
                 ? ""
                 : ` against a ceiling of ${plural(feed.ceilingPerMinute, "request", "requests")}`
             } - a sparse board is a metered feed, not a fault`}
-        {feed.refused ? <span className="tlr-refused">{" - the last tick was cut short by a refusal"}</span> : null}
+        {feed.refused ? (
+          // "WHEN THIS PAGE CONNECTED", NOT "THE LAST TICK". The drain state
+          // arrives ONLY on a `snapshot` frame, which the gateway sends on
+          // connect, so this figure never refreshes while the page is open. The
+          // first draft said "the last tick was cut short by a refusal" and went
+          // on saying it after thirty later arrivals - a process's momentary
+          // state rendered as a standing fact, which is this project's own
+          // recurring shape and is what `mempool-summary.ts` already records
+          // about the same object. The rate figures either side of it are
+          // configuration and do not age; this one is a transient and says when
+          // it was read.
+          <span className="tlr-refused">{" - the feed reported a refusal when this page connected"}</span>
+        ) : null}
       </p>
 
       {undrawnTotal === 0 ? null : (
@@ -431,9 +443,15 @@ function LiveReading({
       )}
 
       <p className="tlr-limit">
-        <b>These marks are unconfirmed.</b> They carry no gold head, because gold is where a crossing lands and nothing
-        here has landed. A mark leaves when its transaction leaves the mempool, which is not always a confirmation.
-        Direction is read from the transaction&apos;s class; where the class does not carry one, no direction is drawn.
+        {/* THE LEGEND HAS TO CARRY THE DISTINCTION IN WORDS, because under
+            `prefers-reduced-motion` the entry animation is gone and the whole
+            difference between a settled crossing and an unconfirmed one is a
+            3.2-unit hollow ring against a 7.4-unit gold arrowhead. A reader who
+            never sees the motion needs the rule stated, not demonstrated. */}
+        <b>These marks are unconfirmed.</b> An unconfirmed crossing ends in a hollow ring in its own pool&apos;s colour; a
+        settled one, on the board beneath, ends in the gold arrowhead. Gold is where a crossing lands, and nothing here
+        has landed. A mark leaves when its transaction leaves the mempool, which is not always a confirmation. Direction
+        is read from the transaction&apos;s class; where the class does not carry one, no direction is drawn.
       </p>
     </div>
   );
