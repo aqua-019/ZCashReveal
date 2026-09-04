@@ -625,7 +625,41 @@ The fix is the three lines L2 specified, placed after `checkout` and before
 in that job. Step order verified by parsing the workflow: checkout,
 pnpm/action-setup@v5, setup-node@v5, smoke.
 
-**PROVEN OR NOT PROVEN, SAID PLAINLY: DISPATCH_PLACEHOLDER**
+**PROVEN, NOT ASSUMED - THE ADDENDUM ASKED FOR THIS AND IT IS THE HALF THAT
+MATTERS, BECAUSE THIS WORKFLOW HAS A 44-RUN HISTORY OF LOOKING CONFIGURED AND
+BEING INERT.** The live site is unreachable from this container - `zcuck.xyz`
+and the Vercel host both answer `CONNECT tunnel failed, response 403` - so the
+script could not be driven from here. The workflow's own `workflow_dispatch`
+runs on GitHub's runners, where that wall does not apply, and it was dispatched
+against this branch:
+
+```
+run 44  main @ f976477            deployment_status   FAILURE   <- the last production run
+run 45  this branch @ f63f51a     deployment_status   SKIPPED   <- a PREVIEW, which is the
+                                                                  "1 skipped" five gates read past
+run 46  this branch @ f63f51a     workflow_dispatch   SUCCESS   <- with the three lines
+
+  Run actions/checkout@v5          success
+  Run pnpm/action-setup@v5         success   <- the step that did not exist
+  Run actions/setup-node@v5        success   <- where every previous run died
+  Smoke the deployed bundle        success   <- HAS NEVER EXECUTED BEFORE
+
+  smoking https://zcuck.xyz
+  post-deploy-smoke: OK - 10 script(s) fetched from https://zcuck.xyz; the
+  fallback marker is present and no managed-store name is.
+```
+
+Runs 44 and 45 are this session's own independent confirmation of both halves of
+L2's finding: the last production run FAILED, and the same commit under a
+Preview `deployment_status` reported SKIPPED. **Run 46 is the first success in
+the workflow's history and the first time its smoke step has executed at all.**
+
+AND THE OUTPUT SAYS SOMETHING ELSE WORTH READING. "the fallback marker is
+present and no managed-store name is" is the check passing, and it also means
+the live site is serving the BUNDLED DOCUMENT rather than the managed store -
+which is what `CUTOVER-1.0.md` section 7 says `source: fixture` looks like. That
+is the expected state before the cutover and it is now a measurement rather than
+an assumption.
 
 --------------------------------------------------------------------------
 THE POST-FAN-OUT SWEEP, AFTER EACH OF THE THREE FAN-OUTS
