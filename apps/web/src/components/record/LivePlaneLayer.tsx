@@ -196,6 +196,29 @@ export function LivePlaneLayer({
     return onFrames(
       {
         onFrame: (frame) => {
+          // A NON-LIVE TRANSPORT CAN DELIVER NOTHING TRUE, SO NOTHING IT
+          // DELIVERS IS DRAWN. `openInFixture: false` below stops THIS layer
+          // opening a socket; it does not stop the bus handing this layer what
+          // SOMEBODY ELSE's socket delivered, and the bus does exactly that by
+          // design - `frame-bus.ts`'s `open()` walks every subscriber, and
+          // `openInFixture`'s own docblock says a consumer "does not have to
+          // refuse frames that some other consumer's socket happened to
+          // deliver". True of a clock; false of this board, because in fixture
+          // mode those frames ARE the committed mockup corpus.
+          //
+          // MEASURED, NOT ARGUED. Mounting this layer in the deployed
+          // configuration and attaching one ordinary `onFrames` consumer beside
+          // it put ELEVEN MOCKUP ROWS on the board - the identical figure a gate
+          // reviewer measured on the deployed page in HANDOFF-17, reached by a
+          // different route. That fix made the defect depend on the PAGE's
+          // composition (today the only two `onFrames` callers in `apps/web` are
+          // this layer and `tip-bus`, and both refuse) rather than on this
+          // component, and a third consumer is one import away.
+          //
+          // So the two guards are independent and both are load-bearing: one
+          // refuses to open a connection there is nothing true on, and this one
+          // refuses to draw what such a connection carries.
+          if (!IS_LIVE_TRANSPORT) return;
           dispatch(frame);
           if (frame.type === "snapshot") {
             const drain = frame.view.drain;
@@ -368,10 +391,25 @@ function LiveReading({
         {/* `plural` is not used here because the FIGURE is bold and the noun is
             not, so the two cannot share one string. Same agreement rule, hand
             written, and the swept sites are listed in section 7. */}
-        {plane.held === plane.drawn ? null : <> {`of ${fmtInt(plane.held)} held`}</>}
+        {/* "AT LEAST", WHENEVER THE HOLD HAS EVICTED. `held` is what the tank
+            holds, and the tank stops at `HOLD_MAX`, so on a mempool deeper than
+            that the figure is a FLOOR and printing it bare is a claim about the
+            pool that nothing measured. The measured case: 3,000 undecodable
+            transactions gave `held=250 drawn=0` and this line printed "of 250
+            held" with no hedge, because `capped` asked only whether more was
+            DRAWABLE than drawn - `0 > 42` - and so was off exactly when the
+            number was furthest wrong. The rule is `chain-inputs.ts`'s: true, or
+            named as bounded, never confidently wrong. */}
+        {plane.held === plane.drawn && !plane.holdCapped ? null : (
+          <> {`of ${plane.holdCapped ? "at least " : ""}${fmtInt(plane.held)} held`}</>
+        )}
         {plane.capped ? (
           <span className="tlr-cap" data-ui="turnstile-live-capped">
-            {` - the board holds ${fmtInt(plane.drawn)} marks and more are in the pool, so what is drawn is a sample`}
+            {/* PHRASED TO BE TRUE AT ZERO DRAWN TOO. It read "the board holds N
+                marks and more are in the pool", which with nothing drawable
+                becomes "the board holds 0 marks" - and that branch is now
+                reachable, because `capped` covers the evicted hold. */}
+            {` - more transactions are in the pool than this board draws, so what is drawn is a sample`}
           </span>
         ) : null}
       </p>

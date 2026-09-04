@@ -189,6 +189,18 @@ Open `zcuck.xyz` and read the system bar:
 - [ ] The unprovable-supply figure is present and live.
 - [ ] The drain, the migration histogram and the N_eff series each say **not
       measured**. Not zero, not an empty chart with axes: a named absence.
+- [ ] **After a reconnect the live mark count does NOT drop to zero.** Watch the
+      turnstile plane's count across one socket drop and reconnect - the feed
+      drops on its own often enough that you will not have to force it, and the
+      reading beside the tank names the state. The marks it was drawing must
+      still be there afterwards. A tank that empties on a reconnect looks
+      exactly like a quiet chain, which is the one misreading this whole surface
+      exists to prevent, and an operator would have no way to tell them apart
+      from the page. HANDOFF-17 shipped with that defect: `HOLD_MAX` and the
+      snapshot arm together evicted the rows the reader was drawing and promoted
+      rows it had already dropped - measured at **0 of 42 marks surviving one
+      reconnect on a 300-transaction mempool** - and HANDOFF-18 fixed it. It is
+      on this list because no figure on the page would have shown it.
 
 ## 8. Rollback
 

@@ -18,7 +18,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ZecFrame } from "@zcashreveal/types";
 
-import { onFrames, resetFrameBusForTest } from "@/lib/api/frame-bus";
+import { onFrames, publishFrameForTest, resetFrameBusForTest } from "@/lib/api/frame-bus";
 import { onTip } from "@/lib/api/tip-bus";
 
 /**
@@ -202,27 +202,110 @@ describe("A13 - the state is the SOCKET's, not an inference from a frame (gate r
   });
 });
 
-describe("A14 - resetFrameBusForTest does not deafen tip-bus (gate round 1)", () => {
-  it("FAIL SIDE (data - a reset between two onTip attachments): tips still flow", async () => {
-    // `stop !== null` is tip-bus's whole record of whether it is attached, and a
-    // reset that cleared the bus's subscriber set without telling it left the
-    // module believing it was subscribed - after which no tip could reach any
-    // consumer again for the life of the process and every later tip assertion
-    // in the file passed VACUOUSLY. An assertion satisfied by every value it was
-    // written to exclude, arriving in the harness rather than in the product.
-    const before = onTip(() => undefined);
-    before();
+describe("A14 - resetFrameBusForTest does not deafen tip-bus (gate round 1, repaired)", () => {
+  /**
+   * THE FIRST VERSION OF THIS BLOCK PASSED AGAINST A TIP-BUS THAT WAS
+   * PERMANENTLY AND COMPLETELY DEAF, and it did so twice over.
+   *
+   * It asserted that the SOCKET COUNT moved after re-attaching. But `onTip`
+   * passes `openInFixture: false`, so `onTip` can never move that count in this
+   * suite - the count was moved by the ordinary `onFrames` consumer attached
+   * beside it, which would have opened a socket with `tip-bus.ts` deleted from
+   * the repository. Driven against two mutants it returned 13/13 both times.
+   *
+   * AND IT NEVER REACHED THE SCENARIO EITHER. It detached the first consumer
+   * BEFORE the reset - which sets `stop = null` on the way out - so the reset
+   * arrived with tip-bus already unsubscribed and the desynchronisation it
+   * exists to catch could not occur.
+   *
+   * The subject is whether a TIP REACHES A CONSUMER, so that is what is
+   * asserted: the bus's own `publishFrameForTest` walks the real subscriber
+   * set, so a tip-bus that believes itself attached and is not receives
+   * nothing, dispatches nothing, and this goes red.
+   *
+   * KILLING MUTANT: delete the `onReset` handler from `tip-bus.ts`'s `onFrames`
+   * call - the exact line the fix added. Transcript in section 7.
+   */
+  const TIP_HASH = "a".repeat(64);
+
+  it("FAIL SIDE (data - a reset while tip-bus is STILL ATTACHED): a tip still reaches a consumer", async () => {
+    const heights: number[] = [];
+    // ATTACHED AND LEFT ATTACHED. The reset must arrive while tip-bus holds a
+    // live `stop`, which is the state that desynchronises it.
+    const before = onTip((t) => heights.push(t.height));
+    await settle(1_000);
+
     resetFrameBusForTest();
 
-    // If the reset desynchronised tip-bus, this attaches nothing and the socket
-    // count stays where it was.
-    const opensBefore = opens;
-    const after = onTip(() => undefined);
-    const alsoLive = onFrames({ onFrame: () => undefined });
-    await settle();
-    expect(opens).toBeGreaterThan(opensBefore);
+    const after = onTip((t) => heights.push(t.height));
+    // Through the REAL bus, into the REAL tip-bus filter, out as the REAL DOM
+    // event. Nothing here dispatches `zr:tip` itself - a test that did would
+    // pass with tip-bus deleted.
+    publishFrameForTest({ type: "tip", height: 3_456_227, hash: TIP_HASH });
+
+    expect(heights).toContain(3_456_227);
+    before();
     after();
-    alsoLive();
+  });
+
+  it("PASS STATE: with no reset, the same delivery works - so the assertion is about the reset", async () => {
+    const heights: number[] = [];
+    const stop = onTip((t) => heights.push(t.height));
+    await settle(1_000);
+    publishFrameForTest({ type: "tip", height: 3_456_228, hash: TIP_HASH });
+    expect(heights).toContain(3_456_228);
+    stop();
+  });
+});
+
+describe("tip-bus - the detach is IDEMPOTENT (asserted here for the first time)", () => {
+  /**
+   * THE PROPERTY WORKS AND WAS ASSERTED NOWHERE. `tip-bus.ts` carries a
+   * `detached` flag and a docblock four lines long explaining what it prevents,
+   * and gate round 2 found no test anywhere in the repository that would fail
+   * without it - which is the same standing as a property that does not work.
+   *
+   * What it prevents: a consumer whose cleanup runs twice - a double unmount, a
+   * defensive caller - decrementing `refs` for a subscription it no longer
+   * holds, driving the count to zero while OTHER listeners are still attached,
+   * tearing down the shared feed and leaving them permanently deaf. The
+   * module's own docblock claims the socket "lives exactly as long as at least
+   * one consumer is mounted", which was false under a double detach.
+   *
+   * KILLING MUTANT: delete `if (detached) return; detached = true;` from the
+   * returned closure. Transcript in section 7.
+   */
+  const TIP_HASH = "b".repeat(64);
+
+  it("FAIL SIDE (data - the same detach called TWICE): the other consumer still hears", async () => {
+    const first: number[] = [];
+    const second: number[] = [];
+    const stopFirst = onTip((t) => first.push(t.height));
+    const stopSecond = onTip((t) => second.push(t.height));
+    await settle(1_000);
+
+    // TWICE. Once is ordinary; the second is the member of the exclusion set.
+    stopFirst();
+    stopFirst();
+
+    publishFrameForTest({ type: "tip", height: 3_456_229, hash: TIP_HASH });
+
+    // The one that detached hears nothing, and the one that did not still does.
+    // Both halves matter: a bus that had simply stopped tearing down would pass
+    // the second assertion and fail the first.
+    expect(first).toHaveLength(0);
+    expect(second).toContain(3_456_229);
+    stopSecond();
+  });
+
+  it("PASS STATE: when the LAST consumer detaches, the feed does go quiet", async () => {
+    // The other polarity, so "idempotent" is not read as "never tears down".
+    const heard: number[] = [];
+    const stop = onTip((t) => heard.push(t.height));
+    await settle(1_000);
+    stop();
+    publishFrameForTest({ type: "tip", height: 3_456_230, hash: TIP_HASH });
+    expect(heard).toHaveLength(0);
   });
 });
 

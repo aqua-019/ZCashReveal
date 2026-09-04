@@ -16,8 +16,11 @@ import { describe, expect, it } from "vitest";
 
 import type { LedgerLane, MempoolRow, ZecFrame } from "@zcashreveal/types";
 
+import { POOL_INITIAL } from "@zcashreveal/types";
+
 import {
   EMPTY_LIVE_STATE,
+  POOL_FOR_INITIAL,
   buildLivePlane,
   liveReduce,
   markFor,
@@ -220,23 +223,50 @@ describe("A11 - a reconnect snapshot is AUTHORITATIVE", () => {
     expect(after.marks.map((m) => m.txid)).toStrictEqual([txid(2)]);
   });
 
-  it("a survivor keeps its ORIGINAL seq, so a reconnect does not reshuffle a capped board", () => {
-    let s = EMPTY_LIVE_STATE;
-    for (let i = 1; i <= 50; i += 1) s = liveReduce(s, added(row({ txid: txid(i) })));
-    const before = buildLivePlane(s, OPTS).marks.map((m) => m.txid).sort();
+  it("a survivor keeps its ORIGINAL seq, IN EVERY ORDER THE PRODUCER CAN SEND", () => {
+    // THE FIRST DRAFT DROVE ARRIVAL ORDER, WHICH IS THE ONE ORDER THE GATEWAY
+    // NEVER SENDS - so it passed against the mutant it exists to exclude.
+    //
+    // Read off the producer rather than guessed: `readLiveReports` in
+    // `apps/gateway/src/live-reports.ts` builds the view from
+    // `Object.values(await redis.hgetall("zcashreveal:mempool:live"))`. That is
+    // a Redis HASH, keyed by txid, and its iteration order is the hash's
+    // internal order - arbitrary with respect to arrival, and for a mempool of
+    // any size effectively a permutation keyed by the txid. Nothing anywhere on
+    // that path sorts by arrival.
+    //
+    // Driven in arrival order the reshuffle is INVISIBLE, because fresh
+    // sequence numbers assigned in arrival order preserve the arrival ordering:
+    // the sorted top-42 comes out identical and the assertion cannot move. The
+    // property is that the board is invariant under the ORDER of the view, so
+    // the test quantifies over orders instead of picking the flattering one.
+    let base = EMPTY_LIVE_STATE;
+    for (let i = 1; i <= 50; i += 1) base = liveReduce(base, added(row({ txid: txid(i) })));
+    const before = buildLivePlane(base, OPTS).marks.map((m) => m.txid).sort();
 
-    // The same 50, re-delivered as one snapshot. Nothing has changed, so the
-    // board must not change either.
-    s = liveReduce(s, {
-      type: "snapshot",
-      view: {
-        tipHeight: 1,
-        entries: Array.from({ length: 50 }, (_, i) => row({ txid: txid(i + 1) })),
-        drain: null,
-        summary: SUMMARY,
-      },
-    });
-    expect(buildLivePlane(s, OPTS).marks.map((m) => m.txid).sort()).toStrictEqual(before);
+    const arrival = Array.from({ length: 50 }, (_, i) => i + 1);
+    const orders: ReadonlyArray<readonly [string, readonly number[]]> = [
+      ["arrival", arrival],
+      ["reversed", [...arrival].reverse()],
+      // A deterministic permutation standing in for hash order: multiplicative
+      // scatter on the index, which is what a bucket layout amounts to here.
+      ["scattered", [...arrival].sort((a, b) => ((a * 2654435761) % 997) - ((b * 2654435761) % 997))],
+    ];
+
+    for (const [name, order] of orders) {
+      // The same 50, re-delivered as one snapshot. Nothing has changed, so the
+      // board must not change either - whichever order they arrive in.
+      const after = liveReduce(base, {
+        type: "snapshot",
+        view: {
+          tipHeight: 1,
+          entries: order.map((i) => row({ txid: txid(i) })),
+          drain: null,
+          summary: SUMMARY,
+        },
+      });
+      expect(buildLivePlane(after, OPTS).marks.map((m) => m.txid).sort(), name).toStrictEqual(before);
+    }
   });
 
   it("an empty snapshot empties the tank - a quiet mempool is a real reading", () => {
@@ -410,14 +440,24 @@ describe("A8 - direction comes from `class`, and an underivable row draws no mar
       from: "sapling",
       to: "transparent",
     });
-    expect(markFor(row({ txid: txid(3), class: "migration", lanes: ["orchard", "ironwood"] }))).toStrictEqual({
+    // THE `flow` IS PASSED HERE AND IT WAS NOT BEFORE, which is the whole of
+    // R2-1 showing up in a test. This row previously inherited the helper's
+    // default `flow: "t to z"` and still drew the ZIP 318 arc - because the
+    // pre-fix code never read `flow` at all. That is a row the producer cannot
+    // emit: `flowTextFor` sends every `migration` through `migrationFlowText`,
+    // which writes pool initials. A `migration` carrying a shield caption is a
+    // contradiction, and it now draws nothing rather than an arc chosen from
+    // the half of the row that cannot carry a direction.
+    expect(
+      markFor(row({ txid: txid(3), class: "migration", lanes: ["orchard", "ironwood"], flow: "O to I" })),
+    ).toStrictEqual({
       kind: "crossing",
       from: "orchard",
       to: "ironwood",
     });
   });
 
-  it("FAIL SIDE (data - a `migration` the GATEWAY emits that is NOT ZIP 318): no ZIP 318 arc", () => {
+  it("FAIL SIDE (data - a `migration` the GATEWAY emits that is NOT ZIP 318): the arc is the pair the CELL names", () => {
     // CAPTURED FROM THE PRODUCER, NOT ENUMERATED FROM THE FIXTURE (F-57-1).
     // `crossesWithNoPublicSide` in `apps/gateway/src/views/mempool.ts` is
     // `movedPools.length > 1 && hasPoolSource && hasPoolSink &&
@@ -426,10 +466,17 @@ describe("A8 - direction comes from `class`, and an underivable row draws no mar
     // it. The committed corpus contains only `O to I`, so this shape exists in
     // production and in no fixture: the exclusion set could not be closed by
     // reading the corpus, which is exactly what F-57-1 says.
+    //
+    // THIS ASSERTION USED TO EXPECT A CHORD, AND THAT WAS THE SECOND DRAFT'S
+    // DEFECT WRITTEN DOWN AS AN EXPECTATION. Refusing the ZIP 318 arc was
+    // right; drawing an UNDIRECTED chord for a row whose own cell says "S to O"
+    // claims less than the row measured, and it came from the same reading of
+    // `lanes` that left R2-1's direction open. The flow decides, so the arc is
+    // Sapling to Orchard and agrees with the cell beside it.
     const shape = markFor(
       row({ txid: txid(1), class: "migration", lanes: ["sapling", "orchard"], flow: "S to O" }),
     );
-    expect(shape).toStrictEqual({ kind: "chord", a: "sapling", b: "orchard" });
+    expect(shape).toStrictEqual({ kind: "crossing", from: "sapling", to: "orchard" });
     expect(shape).not.toStrictEqual({ kind: "crossing", from: "orchard", to: "ironwood" });
   });
 
@@ -515,6 +562,290 @@ describe("A8 - direction comes from `class`, and an underivable row draws no mar
       kind: "resident",
       lane: "orchard",
     });
+  });
+});
+
+/* ========================================================================== */
+/* HANDOFF-18 - the round-2 debt                                              */
+/* ========================================================================== */
+
+describe("A1 (18) - a 300-transaction mempool and ONE reconnect keeps the marks it held", () => {
+  /**
+   * THE MEASURED SYMPTOM, AND IT IS THE ONE THE OPERATOR WOULD HAVE SEEN.
+   *
+   * `HOLD_MAX` caps the tank at 250 and the snapshot arm rebuilt the map by
+   * calling `add` against a FRESH EMPTY MAP, writing each survivor's `seq` back
+   * afterwards. `add` reads `existing` from the map it is handed, so every row
+   * looked new and took a fresh higher `seq`; `add` also evicted inside itself,
+   * so eviction ran MID-LOOP against sequence numbers not yet restored.
+   *
+   * Reproduced against the pre-fix tree by execution, 300 rows and one
+   * reconnect replaying the SAME view:
+   *
+   *   before the snapshot the board drew txids 259..300
+   *   after  the snapshot the board drew txids 9..50
+   *   SURVIVED: 0 of 42
+   *   and it was holding txid(1) - a row it had already evicted - while the
+   *   rows it had been drawing were gone.
+   *
+   * That is verbatim the failure `add`'s own comment says a kept `seq`
+   * prevents: "the tank would appear to empty and refill on a socket blip that
+   * changed nothing."
+   *
+   * THE COMMITTED CORPUS CANNOT REACH THIS AND MUST NOT BE STRETCHED TO. It is
+   * 14 rows - evidence about the chain, not a fixture to bend - and the shape
+   * needs 300, so the rows are built here from the producer's own shape.
+   */
+  it("FAIL SIDE (data - 300 rows and one reconnect, from inside the stated set): all 42 survive", () => {
+    let s = EMPTY_LIVE_STATE;
+    for (let i = 1; i <= 300; i += 1) s = liveReduce(s, added(row({ txid: txid(i) })));
+    const before = buildLivePlane(s, OPTS).marks.map((m) => m.txid);
+    expect(before).toHaveLength(SPLASH_N_MAX);
+
+    const after = liveReduce(s, {
+      type: "snapshot",
+      view: {
+        tipHeight: 3_456_227,
+        entries: Array.from({ length: 300 }, (_, i) => row({ txid: txid(i + 1) })),
+        drain: null,
+        summary: SUMMARY,
+      },
+    });
+    const drawn = buildLivePlane(after, OPTS).marks.map((m) => m.txid);
+
+    // EVERY ONE, not "most" and not "the count is still 42" - a board that
+    // swapped all 42 for 42 others also has 42 marks, which is how the pre-fix
+    // tree looked correct to a count.
+    expect(drawn.filter((t) => before.includes(t))).toHaveLength(SPLASH_N_MAX);
+  });
+
+  it("and a row the reader had EVICTED is not promoted over one it still holds", () => {
+    // THE OTHER HALF OF THE SAME DEFECT, and the half a survivor count cannot
+    // see. txid(1) is the oldest of 300 and was evicted long before the
+    // reconnect; the replayed view names it again, and dating it as a fresh
+    // arrival is what pushed the held rows off the board.
+    let s = EMPTY_LIVE_STATE;
+    for (let i = 1; i <= 300; i += 1) s = liveReduce(s, added(row({ txid: txid(i) })));
+    expect(s.held.has(txid(1))).toBe(false);
+
+    const after = liveReduce(s, {
+      type: "snapshot",
+      view: {
+        tipHeight: 1,
+        entries: Array.from({ length: 300 }, (_, i) => row({ txid: txid(i + 1) })),
+        drain: null,
+        summary: SUMMARY,
+      },
+    });
+    expect(after.held.has(txid(1))).toBe(false);
+    expect(after.held.has(txid(300))).toBe(true);
+  });
+
+  it("a stranger in the view is HELD when there is room, and never dated as newest", () => {
+    // The complement, so the rule is not "ignore anything unrecognised". A
+    // snapshot naming a transaction this reader never saw is a real
+    // transaction: it is kept. What it does not get is a claim to be recent,
+    // because nothing here watched it arrive.
+    let s = fold([added(row({ txid: txid(1) })), added(row({ txid: txid(2) }))]);
+    s = liveReduce(s, {
+      type: "snapshot",
+      view: {
+        tipHeight: 1,
+        entries: [row({ txid: txid(1) }), row({ txid: txid(2) }), row({ txid: txid(9) })],
+        drain: null,
+        summary: SUMMARY,
+      },
+    });
+    expect(s.held.size).toBe(3);
+    expect(s.held.has(txid(9))).toBe(true);
+    const stranger = s.held.get(txid(9));
+    const survivors = [txid(1), txid(2)].map((t) => s.held.get(t)?.seq ?? 0);
+    for (const seq of survivors) expect(stranger?.seq).toBeLessThan(seq);
+  });
+});
+
+describe("A2 (18) - a migration's direction comes from `flow`, not from the pair", () => {
+  /**
+   * THE ROWS BELOW ARE CAPTURED FROM THE REAL PRODUCER, NOT WRITTEN FROM MEMORY.
+   *
+   * F-57-1: an exclusion-set member must be a shape a real producer emits, and
+   * the set is closed by CAPTURE. Driving `mempoolRow` in
+   * `apps/gateway/src/views/mempool.ts` over both directions of the ZIP 318
+   * crossing - Ironwood-source and Orchard-source `perPoolZat` deltas through
+   * the gateway's own `LeakReport` fixture - emitted exactly:
+   *
+   *   REVERSED (Ironwood -> Orchard): class=migration flow="I to O" lanes=["orchard","ironwood"]
+   *   FORWARD  (Orchard -> Ironwood): class=migration flow="O to I" lanes=["orchard","ironwood"]
+   *
+   * THE LANE ARRAYS ARE IDENTICAL, IN THE SAME CANONICAL ORDER. That is the
+   * whole finding: no predicate over `lanes` can tell the two apart, so the fix
+   * that required the row to NAME orchard and ironwood closed the PAIR and left
+   * the DIRECTION open - and the reversed row still drew orchard-to-ironwood,
+   * in the wrong lane's hue, beside a cell reading "I to O".
+   */
+  const migration = (flow: string, lanes: MempoolRow["lanes"]): MempoolRow =>
+    row({ txid: txid(1), class: "migration", lanes, flow });
+
+  it("FAIL SIDE (data - the REVERSED ZIP 318 row the producer emits): Ironwood to Orchard", () => {
+    expect(markFor(migration("I to O", ["orchard", "ironwood"]))).toStrictEqual({
+      kind: "crossing",
+      from: "ironwood",
+      to: "orchard",
+    });
+  });
+
+  it("PASS STATE: the forward row, with the identical lane set, still draws Orchard to Ironwood", () => {
+    // THE MEMBER THAT MAKES THE ONE ABOVE EVIDENCE. A build that simply
+    // reversed the pair would pass the fail side and fail here; the two rows
+    // differ in `flow` alone, so only a reader that reads `flow` gets both.
+    expect(markFor(migration("O to I", ["orchard", "ironwood"]))).toStrictEqual({
+      kind: "crossing",
+      from: "orchard",
+      to: "ironwood",
+    });
+  });
+
+  it("the mark is painted in the ORIGIN lane's hue, which is what the reversed row got wrong", () => {
+    // The defect a reader actually saw was a HUE: the arc was painted orchard
+    // for a crossing that left Ironwood. `lane` is the origin, so this is the
+    // rendered half of the assertion above.
+    const s = fold([added(migration("I to O", ["orchard", "ironwood"]))]);
+    expect(buildLivePlane(s, OPTS).marks[0]?.lane).toBe("ironwood");
+  });
+
+  it("every ordered pair of pools the producer can name draws the pair it named", () => {
+    // ITERATING THE RULE'S OWN DATA STRUCTURE rather than sampling two cases,
+    // so a fifth pool cannot arrive with an untested letter.
+    const pools = Object.keys(POOL_INITIAL) as ReadonlyArray<keyof typeof POOL_INITIAL>;
+    for (const from of pools) {
+      for (const to of pools) {
+        if (from === to) continue;
+        const flow = `${POOL_INITIAL[from]} to ${POOL_INITIAL[to]}`;
+        expect(markFor(migration(flow, [from, to])), flow).toStrictEqual({
+          kind: "crossing",
+          from,
+          to,
+        });
+      }
+    }
+  });
+
+  it("a `flow` the cell could not decide draws NOTHING and is held with its reason", () => {
+    // Both captions `migrationFlowText` emits when it cannot name a single
+    // ordered pair. A chord would claim a two-lane relationship the row
+    // describes differently; an arc would guess. A8's rule.
+    expect(markFor(migration("3 pools", ["sprout", "sapling", "orchard"]))).toStrictEqual({
+      undrawn: "no single crossing describes it",
+    });
+    expect(markFor(migration("migration", ["orchard", "ironwood"]))).toStrictEqual({
+      undrawn: "no single crossing describes it",
+    });
+  });
+
+  it("a flow naming a lane the row does not list draws nothing rather than picking a winner", () => {
+    // Two statements about one transaction that contradict each other. Nothing
+    // in the shipped producer emits it - `lanes` and `perPoolZat` come off the
+    // same decoded bundle - so this guards a future producer.
+    expect(markFor(migration("S to O", ["orchard", "ironwood"]))).toStrictEqual({
+      undrawn: "no single crossing describes it",
+    });
+  });
+
+  it("the browser's letter map is exactly the producer's, over the producer's OWN KEYS", () => {
+    // THE SEAM, CLOSED BY A TEST BECAUSE IT CANNOT BE CLOSED BY AN IMPORT.
+    // `POOL_FOR_INITIAL` is a deliberate local copy of `POOL_INITIAL`: importing
+    // that object by value pulls zod through the barrel and cost 15 kB of the
+    // splash bundle, measured both ways on one variable (5.5 kB route JS / 118
+    // kB first load against 21.4 kB / 133 kB). A copy is a drift risk and a
+    // comment is not a guard, so the agreement is checked here.
+    //
+    // ITERATING `POOL_INITIAL`'s OWN KEYS is the point: a fifth pool added to
+    // the declaration fails HERE rather than arriving on the wire as a letter
+    // this parser silently declines.
+    for (const pool of Object.keys(POOL_INITIAL) as ReadonlyArray<keyof typeof POOL_INITIAL>) {
+      expect(POOL_FOR_INITIAL[POOL_INITIAL[pool]], pool).toBe(pool);
+    }
+    // And no letter on this side that the producer does not write, which is the
+    // direction the loop above cannot see.
+    expect(Object.keys(POOL_FOR_INITIAL).sort()).toStrictEqual(Object.values(POOL_INITIAL).sort());
+  });
+});
+
+describe("A3 (18) - at 3,000 held the printed figure is true, or it is named as bounded", () => {
+  /**
+   * `capped` ASKED THE WRONG QUESTION AND WAS OFF WHEN THE FIGURE WAS FURTHEST
+   * WRONG. It was `drawable.length > nMax`, so on a mempool of undecodable rows
+   * - nothing drawable - it evaluates `0 > 42` and the one branch that would
+   * hedge the figure is false. Reproduced pre-fix: `held=250 drawn=0
+   * capped=false`, and the page printed "of 250 held" for a 3,000-transaction
+   * mempool. A confident wrong number, which `chain-inputs.ts`'s
+   * absence-versus-zero rule rates worse than no number at all.
+   */
+  it("FAIL SIDE (data - 3,000 undecodable rows, from inside the stated set): the hedge is ON", () => {
+    let s = EMPTY_LIVE_STATE;
+    for (let i = 1; i <= 3000; i += 1) {
+      s = liveReduce(s, added(row({ txid: txid(i), class: "undecoded", lanes: [] })));
+    }
+    const plane = buildLivePlane(s, OPTS);
+    expect(plane.held).toBe(250);
+    expect(plane.drawn).toBe(0);
+    // BOTH, and they hedge different figures: `capped` says the MARKS are a
+    // sample, `holdCapped` says the NUMBER beside them is a floor.
+    expect(plane.capped).toBe(true);
+    expect(plane.holdCapped).toBe(true);
+  });
+
+  it("FAIL SIDE (data - 3,000 DRAWABLE rows): the same hedge, through the other branch", () => {
+    // The draw cap alone would have caught this one, which is why the undecoded
+    // case above is the member that discriminates.
+    let s = EMPTY_LIVE_STATE;
+    for (let i = 1; i <= 3000; i += 1) s = liveReduce(s, added(row({ txid: txid(i) })));
+    const plane = buildLivePlane(s, OPTS);
+    expect(plane.held).toBe(250);
+    expect(plane.drawn).toBe(SPLASH_N_MAX);
+    expect(plane.capped).toBe(true);
+    expect(plane.holdCapped).toBe(true);
+  });
+
+  it("PASS STATE: a hold that never evicted prints an exact figure", () => {
+    // The other polarity, and the one that stops the fix being "always hedge" -
+    // a permanent "at least" would make every honest count unreadable.
+    let s = EMPTY_LIVE_STATE;
+    for (let i = 1; i <= 50; i += 1) s = liveReduce(s, added(row({ txid: txid(i) })));
+    const plane = buildLivePlane(s, OPTS);
+    expect(plane.held).toBe(50);
+    expect(plane.holdCapped).toBe(false);
+    expect(plane.capped).toBe(true);
+  });
+
+  it("a removal does NOT give the evicted rows back, so the floor stands", () => {
+    let s = EMPTY_LIVE_STATE;
+    for (let i = 1; i <= 300; i += 1) s = liveReduce(s, added(row({ txid: txid(i) })));
+    s = liveReduce(s, { type: "tx_removed", txid: txid(300), reason: "confirmed" });
+    expect(buildLivePlane(s, OPTS).holdCapped).toBe(true);
+  });
+
+  it("an AUTHORITATIVE snapshot that fits makes the figure a measurement again", () => {
+    // A snapshot is the mempool, so one naming fewer rows than the ceiling
+    // re-establishes the truth. Inheriting the flag for ever would leave the
+    // page saying "at least 3" about a pool of three.
+    let s = EMPTY_LIVE_STATE;
+    for (let i = 1; i <= 300; i += 1) s = liveReduce(s, added(row({ txid: txid(i) })));
+    expect(buildLivePlane(s, OPTS).holdCapped).toBe(true);
+
+    s = liveReduce(s, {
+      type: "snapshot",
+      view: {
+        tipHeight: 1,
+        entries: [row({ txid: txid(299) }), row({ txid: txid(300) })],
+        drain: null,
+        summary: SUMMARY,
+      },
+    });
+    const plane = buildLivePlane(s, OPTS);
+    expect(plane.held).toBe(2);
+    expect(plane.holdCapped).toBe(false);
+    expect(plane.capped).toBe(false);
   });
 });
 
