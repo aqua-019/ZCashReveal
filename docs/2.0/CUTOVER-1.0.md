@@ -1,15 +1,25 @@
-# CUTOVER-1.0 — fixture to live, rung 1
+# CUTOVER-1.0 — fixture to live, all three rungs
 
-**What this gets you: `zcuck.xyz` showing the chain's real height and the five
-real lane balances, updating every block, with no database, no node of your own,
-no VPS and no sync.** It ends at a site whose system bar reads `source:
-redis-rest` beside a height that moves.
+**Sections 0 to 8 are RUNG 1** and are unchanged: `zcuck.xyz` showing the chain's
+real height and the five real lane balances, updating every block, with no
+database, no node of your own, no VPS and no sync. **Sections 9 and 10 are rungs
+2 and 3** - live transactions, and crossings on the turnstile plane. Each rung
+builds on the one below and none of them throws the last one away.
 
-**What it does not get you.** Three analysis panels stay absent - the drain, the
-migration histogram and the N_eff series - because each reads a table and there
-is no table. They render as named absences, which is what `SnapshotV1`'s `null`
-means (`SNAPSHOT.md` section 8.1). The mempool stays empty; that is rung 2. Live
-crossings are rung 3.
+**What rung 1 does not get you.** Three analysis panels stay absent - the drain,
+the migration histogram and the N_eff series - because each reads a table and
+there is no table. They render as named absences, which is what `SnapshotV1`'s
+`null` means (`SNAPSHOT.md` section 8.1). The mempool stays empty; that is rung
+2 (section 9). Live crossings are rung 3 (section 10).
+
+**AND RUNG 3 IS THE ONE THAT NEEDS A DATABASE, WHICH IS NOT WHAT ITS OWN BRIEF
+SAID.** HANDOFF-16 was written expecting crossings to reach the page from the
+indexer alone. They cannot, and section 10 says why in detail: the publisher is a
+**separate process** and `migrationHist` comes from a Postgres query it runs
+itself. Measured, by executing `readSnapshotInputs` with no database - `crossings`
+comes back `[]` and `migrationWindow` `null`, so the panel publishes as a stated
+absence and the plane draws nothing. It is still no node, no VPS and no sync;
+it is one small Postgres.
 
 This is a **different document from `CUTOVER.md`**, which is HANDOFF-11's full
 cutover: a provisioned VPS, a synced `zebrad`, an indexer, a gateway, a tunnel
@@ -228,6 +238,11 @@ and a `latest` deleted without it leaves the pair disagreeing.
 
 ## What this costs
 
+**Rung 1 only.** Rungs 2 and 3 add the mempool tick and the follower; both are
+metered by `INDEXER_RPC_MAX_RPM`, and the follower reserves its share of that
+ceiling before the mempool tick is planned against what is left, so the total
+stays inside whatever the preflight measured.
+
 | | |
 |---|---|
 | RPC | ~1.6 requests/minute, two calls per tip |
@@ -237,8 +252,217 @@ and a `latest` deleted without it leaves the pair disagreeing.
 
 ## What comes next
 
-Rung 2 (HANDOFF-15) adds live transactions and the mempool. Rung 3 (HANDOFF-16)
-adds crossings, which is the first panel here that needs a table. `CUTOVER.md`
-remains the full path - your own `zebrad`, the indexer, the gateway and the
-tunnel - and every variable set above is one it also sets, so nothing here is
-thrown away when you take it.
+`CUTOVER.md` remains the full path - your own `zebrad`, the indexer, the gateway
+and the tunnel - and every variable set above is one it also sets, so nothing
+here is thrown away when you take it. Rungs 2 and 3 are sections 9 and 10 below.
+
+---
+
+## 9. Rung 2 - live transactions
+
+**What it adds: the mempool.** `/track` stops being empty and starts showing
+transactions as they arrive, each analysed, with a stated completeness - "4 of 9
+analysed" rather than a number that pretends to be all of them.
+
+**What it needs beyond rung 1:** the same endpoint, and one variable.
+
+### 9.1 Measure the endpoint before you set anything
+
+```bash
+node scripts/preflight-rpc.mjs "$ZEBRAD_RPC_URL"
+```
+
+It prints one row per method this stack sends and one line for the rate, and it
+exits non-zero when the endpoint cannot carry the stack. **Read the rate line.**
+On a keyless public gateway it says something like `5 succeeded, request 6
+refused, n=8`. That five is the number the next step needs, and it is measured
+rather than read off a pricing page - the two have disagreed before.
+
+### 9.2 Set the ceiling
+
+In the indexer's `.env`:
+
+```bash
+INDEXER_RPC_MAX_RPM=5        # the number the preflight measured, not a guess
+```
+
+**Leave it UNSET for a `zebrad` you run yourself.** Unset means unmetered, and
+metering a loopback node makes it slower for nothing.
+
+What the ceiling does: a `RateGate` on the RPC client enforces it as an
+invariant, and `planMempoolPoll` derives the tick interval and a per-tick
+transaction budget from it. **At five a minute that is one tick a minute and
+three transactions** - measured, not estimated: `tick 60000 ms, txBudget 3,
+txPerMinute 3`. The site STATES that number rather than hiding it, and the
+completeness notice on `/track` is it made visible.
+
+**THAT FIGURE IS RUNG 2's AND RUNG 3 SPENDS IT. See section 10.7** - at this
+ceiling the two rungs compete for the same five requests, and running the
+follower takes the mempool's three transactions a minute to zero.
+
+### 9.3 What you will see
+
+- [ ] `/track` lists mempool transactions, each with a severity and a claim level.
+- [ ] The completeness notice reads "N of M analysed" with N below M on a busy
+      mempool. **That is correct, not a fault** - it is the ceiling, stated.
+- [ ] A `429` in the indexer log is a normal event at this rate, not an error to
+      chase. What is not normal is the log saying "retrying after the poll
+      interval" repeatedly on the SAME height; see section 10.4.
+
+---
+
+## 10. Rung 3 - crossings on the turnstile plane
+
+**What it adds: the marks on the plane are measured.** Until this rung the
+turnstile plane on `/` draws from a fixture. After it, one mark per counted ZIP
+318 crossing, from your start height forward.
+
+### 10.1 Read this before you plan the rung
+
+**THE PUBLISHER NEEDS A DATABASE FOR THIS, AND THE INDEXER'S IN-MEMORY MODE DOES
+NOT SUBSTITUTE FOR IT.** These are two processes. The indexer follows the chain
+and writes blocks; the publisher builds the snapshot the site reads, and it gets
+`migrationHist` from its own Postgres query
+(`apps/publisher/src/sources/queries.ts`, `makeChainQueries`). With no
+`DATABASE_URL` the publisher uses `NO_CHAIN_QUERIES`, `readSnapshotInputs`
+returns `crossings: []` and `migrationWindow: null`, and the panel publishes as a
+stated absence. Executed, on this branch, against the real function: `crossings =
+[]`, `migrationWindow = null`.
+
+So there are two shapes of rung 3 and they get different things:
+
+| | indexer store | publisher database | what the plane draws |
+|---|---|---|---|
+| **3a - crossings on the page** | Postgres | Postgres (the same one) | measured marks |
+| **3b - no database at all** | `INDEXER_CHAIN_STORE=memory` | none | **nothing.** `migrationHist` stays a named absence |
+
+**3b is still worth running** - the confirmed-block follower, the four pools'
+state and reorg handling all work, which is what the gateway's live views read -
+but it does not put a mark on the plane, and a document that implied it did would
+be the "renders and reports no fault" shape this project keeps finding. Choose 3a
+if the plane is what you are here for.
+
+### 10.2 There is still no sync
+
+`INDEXER_START_HEIGHT` is *"the first block to index on a COLD store"*, and
+`chainBaseFromBlock` opens the base from that block's own figures. Set it to a
+**recent** height - anything within the last day - and the runtime opens there and
+follows forward. Nothing backfills, and nothing needs to.
+
+```bash
+INDEXER_START_HEIGHT=3470000      # a recent height. NOT the genesis of anything
+DATABASE_URL=postgres://...       # 3a. Omit for 3b and set INDEXER_CHAIN_STORE=memory
+```
+
+Then, for 3a, apply the migrations once:
+
+```bash
+pnpm --filter @zcashreveal/indexer migrate
+```
+
+### 10.3 What `z_gettreestate` decides, and it is not the plane
+
+**The plane draws measured marks either way.** Crossings are counted from the
+blocks themselves; the treestate is not in that path.
+
+What `z_gettreestate` decides is **anchor depth on Ironwood spends**. It is the
+only source of an Ironwood root (`getblock` carries the tree SIZE and never the
+root), so an endpoint without it records no Ironwood anchor, and every later
+spend citing one of those anchors reads `UNKNOWN_ANCHOR` - **permanently**,
+because nothing in this project backfills.
+
+| | the plane | Ironwood anchor depth |
+|---|---|---|
+| endpoint serves `z_gettreestate` | measured marks | measured |
+| endpoint does not | **measured marks, unchanged** | `UNKNOWN_ANCHOR`, for ever, on every spend from every block indexed while the method was absent |
+
+The preflight tells you which you have in ten seconds, and the indexer says it
+again at startup rather than at the first Ironwood block.
+
+### 10.4 The failure this rung has, and how to recognise it
+
+**An endpoint missing `z_gettreestate` used to STALL the follower rather than
+degrade it, and the symptom is one log line per poll interval.** The RPC error
+for "method not found" is not a consensus disagreement, so the loop treats it as
+transient and re-fetches the SAME block, for ever. The tip stops moving and
+nothing says why beyond a repeated `confirmed-block step failed; retrying after
+the poll interval` naming one height.
+
+This is fixed - the startup probe learns the absence once and the driver is
+handed a source that records the absence per block instead - but the symptom is
+worth knowing, because it is what a NEW missing method would look like:
+
+```bash
+# the same height, over and over, in the indexer log
+grep "confirmed-block step failed" /var/log/zecreveal-indexer.log | tail -20
+```
+
+If every line names one height, the endpoint is refusing something the driver
+needs. Run the preflight against it.
+
+### 10.5 What you will see
+
+- [ ] The indexer logs `block applied` with a height that increases.
+- [ ] Its startup log names any method the endpoint does not serve. **Nothing
+      named means every method this stack sends is there** - that line is a
+      measurement, not a default.
+- [ ] On 3a: the turnstile plane draws marks, and the migration histogram panel
+      stops saying "not measured". It takes a few hours to accrue enough
+      crossings to look like anything; a plane with two marks on it is not a
+      fault.
+- [ ] On 3b: the plane still says nothing was measured, which is correct and is
+      what the table in 10.1 said would happen.
+- [ ] `INDEXER_CHAIN_STORE=memory` loses every block on restart. If you restart
+      the indexer, the base reopens at `INDEXER_START_HEIGHT` and the crossings
+      counted before are gone. On 3a the database keeps them.
+
+### 10.6 Rolling rung 3 back
+
+**UNSET BOTH, AND THE ORDER OF THAT SENTENCE MATTERS.** This section said
+"unset `DATABASE_URL` (3a) **or** `INDEXER_CHAIN_STORE` (3b)", and an operator
+who moved from 3b to 3a - the ordinary path - has BOTH set. Unsetting
+`DATABASE_URL` alone then leaves `INDEXER_CHAIN_STORE=memory` behind, which is
+still a store, so the follower **still starts** and the step does not roll
+anything back. Executed both ways: with only `DATABASE_URL` unset the process
+reports `mode: memory-chain` and follows the chain; with both unset it reports
+`mode: mempool-only` and does not. A gate reviewer found it, and it is this
+document's own recurring shape - a rollback step that returns to a prompt having
+changed nothing.
+
+```bash
+# BOTH, and then restart.
+unset DATABASE_URL
+unset INDEXER_CHAIN_STORE
+```
+
+With both unset the follower does not start, the mempool path continues,
+`migrationHist` returns to a stated absence, and the mempool gets its whole
+ceiling back (section 10.7). Nothing is deleted and no store is touched.
+
+### 10.7 What rung 3 costs rung 2 at a small ceiling
+
+**AT FIVE REQUESTS A MINUTE YOU CAN HAVE RUNG 2 OR RUNG 3, NOT BOTH.** Both
+loops share one client and therefore one ceiling. The follower's cost has an
+irreducible part - a tip poll, a block and at most a treestate, per block - and
+at the chain's 75-second target that is three requests a minute of five.
+Measured, on this branch:
+
+| ceiling | follower | left for the mempool | transactions/minute |
+|---|---|---|---|
+| 5, no follower (rung 2) | - | 5 | **3** |
+| 5, follower running (rung 3) | reserves 3 | 2 | **0** |
+
+Two requests a minute is exactly the mempool tick's own overhead - the tip and
+the txid list - so nothing is left to fetch a transaction with. The tick still
+runs and the completeness notice still tells the truth; the truth is "0 of N
+analysed".
+
+**This is arithmetic, not a defect, and the answer is a bigger ceiling.** A
+free-tier API key from a provider serving more than five a minute clears it, and
+`scripts/preflight-rpc.mjs` will tell you what a candidate actually allows in ten
+seconds. Until then, choose the rung you want: crossings on the plane, or
+transactions on `/track`.
+
+Rolling the SITE back to the bundled fixture is section 8, unchanged, and its
+first sentence applies to every rung: **stopping a process is a pause, not a
+rollback.**

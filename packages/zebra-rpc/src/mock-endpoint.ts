@@ -10,11 +10,23 @@
  * to arrive as a 429, with `Retry-After` present or absent, through undici,
  * or the two polarities of A2 are evidence about a fixture.
  *
- * WHAT IT SERVES. The three methods the mempool path calls, and nothing else:
- * `getblockchaininfo`, `getrawmempool` and `getrawtransaction`. An unknown
- * method answers with a JSON-RPC error object rather than a 404, because that
- * is what a real node does and a client that treats the two the same has a bug
- * this mock should be able to show.
+ * WHAT IT SERVES. The three methods the mempool path calls -
+ * `getblockchaininfo`, `getrawmempool` and `getrawtransaction` - and, since
+ * HANDOFF-16, the three the CONFIRMED-BLOCK path calls: `getblock`,
+ * `getblockheader` and `z_gettreestate`. That is six, and it is every wire
+ * method this stack sends outside the address index. An unknown method answers
+ * with a JSON-RPC error object rather than a 404, because that is what a real
+ * node does and a client that treats the two the same has a bug this mock
+ * should be able to show.
+ *
+ * AND A METHOD IT COULD SERVE CAN BE MADE ABSENT, WHICH IS THE POINT OF
+ * `absentMethods`. `z_gettreestate` is missing from the keyless public gateway
+ * this project measured, and "missing" is a fact about an ENDPOINT rather than
+ * about this mock's feature list. Modelling it by leaving the method
+ * unimplemented would make every fail side about it a CODE mutation of the
+ * mock; `absentMethods` makes it a DATA mutation - a value drawn from the set
+ * "endpoints that do not serve this method" - which is what LEDGER-09a Q2
+ * requires of at least one fail side per assertion.
  *
  * HOW IT REFUSES. Two independent controls, deliberately not one:
  *   - `perMinute`   an automatic ceiling. Past it every request is 429, and the
@@ -74,8 +86,8 @@ export interface MockEndpointOptions {
   /** 1-based request ordinals to refuse with 429 regardless of the ceiling. */
   readonly refuseAt?: Iterable<number>;
   /**
-   * The BODY a refusal carries. Three real shapes, and the client must classify
-   * all three as a refusal.
+   * The BODY a refusal carries. FOUR real shapes, and the client must classify
+   * all four as a refusal.
    *
    * THE DEFAULT IS THE ENVELOPE, NOT THE BARE STRING, AND THAT CHANGE IS THE
    * WHOLE REASON THIS OPTION EXISTS. The first version answered
@@ -86,7 +98,7 @@ export interface MockEndpointOptions {
    * accident, and a real gateway's envelope was classified as `RpcError` with
    * the gate never penalised. A fail side chosen - unknowingly - to pass.
    */
-  readonly refusalBody?: "envelope" | "bare" | "html";
+  readonly refusalBody?: "envelope" | "bare" | "html" | "gateway";
   /**
    * What to put in `Retry-After` on a refusal, or null to omit the header.
    *
@@ -97,6 +109,40 @@ export interface MockEndpointOptions {
    */
   readonly retryAfter?: string | null;
   readonly now?: () => number;
+  /**
+   * `getblock` results by HEIGHT. Passed through verbatim, like `blockchainInfo`.
+   *
+   * BY HEIGHT AND NOT BY HASH, because that is the selector the confirmed-block
+   * driver sends: `getBlock({height})` is every call `ChainFollower.step` makes
+   * and `bootstrapChain` makes. A mock keyed by hash would answer a selector
+   * this stack never sends.
+   */
+  readonly blocks?: Readonly<Record<string, unknown>>;
+  /** `getblockheader` results by hash. A missing hash answers -5, as a node does. */
+  readonly blockHeaders?: Readonly<Record<string, unknown>>;
+  /** `z_gettreestate` results by hash. A missing hash answers -5. */
+  readonly treestates?: Readonly<Record<string, unknown>>;
+  /**
+   * The `getinfo` result. Undefined means the endpoint does not serve `getinfo`.
+   *
+   * ABSENT BY DEFAULT, DELIBERATELY. Nothing in this stack calls `getinfo` -
+   * `checkZebraVersionFloor` has no production caller in the tree, which the
+   * HANDOFF-16 session measured - so a mock that served it by default would make
+   * the preflight's version row pass on every endpoint and the ABSENT arm of
+   * that row unreachable.
+   */
+  readonly info?: unknown;
+  /**
+   * Wire method names this endpoint does NOT serve, answered `-32601` even
+   * where a fixture for them exists.
+   *
+   * THIS IS WHAT MAKES "THE ENDPOINT IS MISSING A METHOD" A DATA MUTATION.
+   * See the module header. The measured keyless gateway serves six of the seven
+   * client methods this stack calls and refuses `z_gettreestate`; that is a
+   * property of the ENDPOINT, so it is configured on the endpoint rather than
+   * modelled by deleting a case from the switch below.
+   */
+  readonly absentMethods?: Iterable<string>;
 }
 
 export class MockRpcEndpoint {
@@ -108,12 +154,17 @@ export class MockRpcEndpoint {
   #mempool: string[];
   #transactions: Record<string, unknown>;
   #blockchainInfo: unknown;
+  #blocks: Record<string, unknown>;
+  #blockHeaders: Record<string, unknown>;
+  #treestates: Record<string, unknown>;
+  #info: unknown;
+  readonly #absentMethods: Set<string>;
   readonly #perMinute: number | undefined;
   readonly #windowMs: number;
   readonly #refuseAt: Set<number>;
   #refuseFrom = Number.POSITIVE_INFINITY;
   readonly #retryAfter: string | null;
-  readonly #refusalBody: "envelope" | "bare" | "html";
+  readonly #refusalBody: "envelope" | "bare" | "html" | "gateway";
   #clock: () => number;
 
   constructor(opts: MockEndpointOptions = {}) {
@@ -123,6 +174,11 @@ export class MockRpcEndpoint {
       bestblockhash: "0000000000301fe326bd00000000000000000000000000000000000000000000",
     };
     this.#mempool = [...(opts.mempool ?? [])];
+    this.#blocks = { ...(opts.blocks ?? {}) };
+    this.#blockHeaders = { ...(opts.blockHeaders ?? {}) };
+    this.#treestates = { ...(opts.treestates ?? {}) };
+    this.#info = opts.info;
+    this.#absentMethods = new Set(opts.absentMethods ?? []);
     this.#transactions = { ...(opts.transactions ?? {}) };
     this.#perMinute = opts.perMinute;
     this.#windowMs = opts.windowMs ?? 60_000;
@@ -209,6 +265,39 @@ export class MockRpcEndpoint {
   /** Replace the `getblockchaininfo` result. */
   setBlockchainInfo(info: unknown): void {
     this.#blockchainInfo = info;
+  }
+
+  /** Add or replace one `getblock` result, keyed by height. */
+  setBlock(height: number, result: unknown): void {
+    this.#blocks[String(height)] = result;
+  }
+
+  /** Add or replace one `getblockheader` result, keyed by hash. */
+  setBlockHeader(hash: string, result: unknown): void {
+    this.#blockHeaders[hash] = result;
+  }
+
+  /** Replace the `getinfo` result. `undefined` makes the method absent again. */
+  setInfo(info: unknown): void {
+    this.#info = info;
+  }
+
+  /** Add or replace one `z_gettreestate` result, keyed by hash. */
+  setTreestate(hash: string, result: unknown): void {
+    this.#treestates[hash] = result;
+  }
+
+  /**
+   * Make a method absent, or present again.
+   *
+   * A SETTER AS WELL AS AN OPTION, because A3's fail side wants an endpoint that
+   * serves a method and then stops - the shape an operator meets when a gateway
+   * changes plan under them - and constructing a second mock would change the
+   * port as well as the answer.
+   */
+  setMethodAbsent(method: string, absent = true): void {
+    if (absent) this.#absentMethods.add(method);
+    else this.#absentMethods.delete(method);
   }
 
   async start(): Promise<string> {
@@ -302,6 +391,34 @@ export class MockRpcEndpoint {
         res.end("<html><head><title>429</title></head><body>rate limited</body></html>");
       } else if (this.#refusalBody === "bare") {
         res.end(JSON.stringify({ error: "rate limited" }));
+      } else if (this.#refusalBody === "gateway") {
+        // THE FOURTH SHAPE, AND IT IS THE ONE THE MEASURED ENDPOINT ACTUALLY
+        // SENDS (F-57-1, HANDOFF-16). It carries NEITHER `result` NOR `error`:
+        // `envelopeSchema` is `.passthrough()` over two optional fields, so this
+        // body PARSES and then takes neither the error-object branch nor the
+        // parse-failure branch. That is a THIRD escape route from the pre-fix
+        // ordering, distinct from both shapes gate round 3 found, and the only
+        // reason it is not a live defect is that `#once` now decides on the
+        // STATUS before it reads the body at all.
+        //
+        // ITS CONTENT IS RELAYED, NOT CAPTURED HERE, AND THAT IS STATED RATHER
+        // THAN GLOSSED. L2 captured it from the live endpoint on 4 September
+        // 2026; the session that added it could not reach that endpoint or any
+        // of five others (every one refused at CONNECT with 403 by this
+        // container's egress proxy), so the SHAPE below is L2's measurement and
+        // this file is a transcription of it. What IS measured here is the
+        // property that matters and it is measured by execution: the test beside
+        // this mock drives this exact body through the real `envelopeSchema` and
+        // shows it parsing into neither branch. F-57-1 asks for a capture; where
+        // the wire is unreachable, the honest form is a relayed capture whose
+        // discriminating BEHAVIOUR is re-measured locally.
+        res.end(
+          JSON.stringify({
+            statusCode: 429,
+            message:
+              "You have exceeded your limit of 5 requests per minute. To increase this limit, upgrade to a Paid plan with 200 requests per second...",
+          }),
+        );
       } else {
         res.end(
           JSON.stringify({ jsonrpc: "2.0", id, error: { code: -32005, message: "rate limit exceeded" } }),
@@ -320,6 +437,15 @@ export class MockRpcEndpoint {
     const rpcError = (code: number, message: string): void => {
       res.end(JSON.stringify({ jsonrpc: "1.0", id, result: null, error: { code, message } }));
     };
+
+    // ABSENCE IS DECIDED BEFORE THE SWITCH, so a method with a fixture behind it
+    // still answers `-32601` when the endpoint is configured not to serve it.
+    // Placed here rather than inside each case so a method added below cannot
+    // forget to honour it.
+    if (this.#absentMethods.has(method)) {
+      rpcError(-32601, `Method not found: ${method}`);
+      return;
+    }
 
     switch (method) {
       case "getblockchaininfo":
@@ -346,6 +472,55 @@ export class MockRpcEndpoint {
           return;
         }
         ok(tx);
+        return;
+      }
+      case "getinfo":
+        if (this.#info === undefined) {
+          rpcError(-32601, "Method not found: getinfo");
+          return;
+        }
+        ok(this.#info);
+        return;
+      case "getblock": {
+        // THE SELECTOR IS `[height, 2]` AND BOTH HALVES ARE READ. A gateway
+        // serving verbosity 1 and refusing 2 is an endpoint this stack cannot
+        // use, and a mock that ignored the verbosity could not show that.
+        const selector = params[0];
+        const verbosity = params[1];
+        if (verbosity !== 2) {
+          rpcError(-8, `this endpoint serves getblock at verbosity 2 only; asked for ${String(verbosity)}`);
+          return;
+        }
+        const key = typeof selector === "string" || typeof selector === "number" ? String(selector) : "";
+        const block = this.#blocks[key];
+        if (block === undefined) {
+          rpcError(-8, "Block height out of range.");
+          return;
+        }
+        ok(block);
+        return;
+      }
+      case "getblockheader": {
+        const hash = typeof params[0] === "string" ? params[0] : "";
+        const header = this.#blockHeaders[hash];
+        if (header === undefined) {
+          rpcError(-5, "Block not found.");
+          return;
+        }
+        ok(header);
+        return;
+      }
+      case "z_gettreestate": {
+        // THE SELECTOR IS A BARE STRING - a hash or a height - because that is
+        // what `getTreestate` sends: `this.call("z_gettreestate", [selector], ...)`
+        // where the selector is `id.hash` or `String(id.height)`.
+        const key = typeof params[0] === "string" || typeof params[0] === "number" ? String(params[0]) : "";
+        const treestate = this.#treestates[key];
+        if (treestate === undefined) {
+          rpcError(-5, "Block not found.");
+          return;
+        }
+        ok(treestate);
         return;
       }
       default:

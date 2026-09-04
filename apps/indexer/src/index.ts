@@ -25,14 +25,17 @@
  */
 
 import pino from "pino";
+import { z } from "zod";
 import { Redis } from "ioredis";
 import { loadConfig, rpcCeilingPerMinute } from "./config.js";
-import { RateGate, RpcRateLimitError, ZebraRpc } from "@zcashreveal/zebra-rpc";
+import { methodIsAbsent, probeEndpoint, probesForPaths, RateGate, RpcRateLimitError, ZebraRpc } from "@zcashreveal/zebra-rpc";
 import { ZebradZmqSubscriber } from "./zmq-subscriber.js";
 import { MempoolState, type MempoolDiff } from "./mempool-state.js";
 import { analyze } from "./decoder/index.js";
 import { chainAccessFor, describeMode, type ChainAccess } from "./chain-access.js";
 import { planMempoolPoll } from "./mempool-plan.js";
+import { planConfirmedFollow } from "./follower-plan.js";
+import { absentTreestateSource, treestateSource } from "./runtime/treestate-source.js";
 import { MempoolTicker } from "./mempool-tick.js";
 import { publishDrainState, pruneLiveMempool } from "./drain-state.js";
 import { RoundTripIndex } from "./analysis/round-trip.js";
@@ -60,10 +63,18 @@ async function main() {
   // null for a node you own, which is every deployment before HANDOFF-15.
   const ceiling = rpcCeilingPerMinute(cfg);
   const gate = ceiling === null ? undefined : new RateGate({ perMinute: ceiling });
-  const plan = planMempoolPoll({
-    perMinute: ceiling,
-    requestedIntervalMs: cfg.INDEXER_POLL_INTERVAL_MS,
-  });
+  // THE FOLLOWER IS PLANNED FIRST AND THE MEMPOOL GETS WHAT IS LEFT, because
+  // both loops share this one client and therefore this one gate (HANDOFF-16).
+  // Before this, `planMempoolPoll` was handed the WHOLE ceiling and the follower
+  // was handed the raw `INDEXER_POLL_INTERVAL_MS` - so on a five-a-minute
+  // endpoint the follower asked thirty times a minute against a budget the
+  // mempool plan believed it owned. The gate held the ceiling by sleeping, so
+  // nothing exceeded it on the wire and no request count could show it; what it
+  // cost was the mempool tick, waiting behind the follower's queued takes for a
+  // whole window while the log line printed the throughput it was not getting.
+  // See `follower-plan.ts` for the arithmetic and the measurement. The plans
+  // themselves are built BELOW `access`, because the reservation depends on
+  // whether a follower starts at all - see the comment there.
 
   const rpc = new ZebraRpc({
     url: cfg.ZEBRAD_RPC_URL,
@@ -96,6 +107,31 @@ async function main() {
   // app over. See chain-access.ts for what absence costs and what it must never
   // turn into.
   const access: ChainAccess = chainAccessFor(cfg, redis);
+  // AND NOTHING IS RESERVED FOR A FOLLOWER THAT DOES NOT START, WHICH THE FIRST
+  // VERSION OF THIS GOT WRONG AND WHICH COST RUNG 2 EVERYTHING. `planConfirmedFollow`
+  // was called with the ceiling unconditionally, so in mempool-only mode - where
+  // `store` is null and the follower is never constructed - three of five
+  // requests a minute were reserved for a loop that does not exist. The mempool
+  // plan then got two, which after its two overhead calls is a transaction
+  // budget of ZERO: the tick ran, fetched the txid list, and analysed nothing,
+  // for ever. Rung 2 shipped at three transactions a minute and this took it to
+  // none. Found by two independent gate-round reviewers, measured the same way
+  // by both: `txBudget 0, txPerMinute 0` at the documented ceiling of five.
+  //
+  // `access.store !== null` IS THE SAME PREDICATE THE FOLLOWER ITSELF IS BUILT
+  // ON, read from the same value rather than recomputed from config - which is
+  // why the plans moved below `access` instead of deriving a second copy of the
+  // rule from `databaseUrl(cfg)` and `INDEXER_CHAIN_STORE`.
+  const follow = planConfirmedFollow({
+    perMinute: access.store === null ? null : ceiling,
+    requestedIntervalMs: cfg.INDEXER_POLL_INTERVAL_MS,
+  });
+  const plan = planMempoolPoll({
+    // With no follower there is nothing to share with, so the mempool tick gets
+    // the whole ceiling exactly as it did before this rung existed.
+    perMinute: access.store === null ? ceiling : follow.remainingPerMinute,
+    requestedIntervalMs: cfg.INDEXER_POLL_INTERVAL_MS,
+  });
   const anchorRegistry = access.anchors;
   // Makes the fee real rather than zero. No node sends a fee, so it is computed
   // by summing the outputs each transaction spends, and those come from here.
@@ -179,17 +215,109 @@ async function main() {
       txBudgetPerTick: plan.txBudget,
       txPerMinute: plan.txPerMinute,
       metered: plan.metered,
+      followerRuns: access.store !== null,
+      followerIntervalMs: access.store === null ? null : follow.pollIntervalMs,
+      followerReservedPerMinute: follow.reservedPerMinute,
+      // THE CEILING THE TICK WAS ACTUALLY PLANNED AGAINST, which is not
+      // `follow.remainingPerMinute` in mempool-only mode: there is no follower,
+      // so the tick gets the whole ceiling and this field reported `null` beside
+      // a tick planned against five. A startup line that misreports its own
+      // input is the shape this project keeps finding; a gate reviewer found
+      // this one in the commit that fixed the reservation itself.
+      mempoolCeilingPerMinute: access.store === null ? ceiling : follow.remainingPerMinute,
     },
     plan.metered
-      ? "metered poll: the interval and the per-tick transaction budget come from the ceiling, not from INDEXER_POLL_INTERVAL_MS"
+      ? "metered poll: the follower reserves its share of the ceiling first and the mempool tick is planned against what is left, not against INDEXER_POLL_INTERVAL_MS"
       : "unmetered poll: every unseen transaction is fetched every tick",
   );
+  // A CEILING TOO SMALL TO FOLLOW THE CHAIN IS SAID OUT LOUD AT STARTUP AND DOES
+  // NOT STOP THE PROCESS. The follower's cost has an irreducible part - one
+  // `getblock` and at most one `z_gettreestate` per block, which no interval
+  // reduces because every block has to be fetched to follow it - and below that
+  // the tip simply falls further behind every hour. The tip figure and the lane
+  // balances are still worth serving, so this is a named absence rather than an
+  // exit; what must never happen is an operator discovering it from a chart.
+  if (!follow.feasible) {
+    log.warn(
+      {
+        ceilingPerMinute: ceiling,
+        followerNeedsPerMinute: follow.reservedPerMinute,
+        followerIntervalMs: follow.pollIntervalMs,
+      },
+      "THIS CEILING CANNOT FOLLOW THE CHAIN. The confirmed-block follower needs more requests a minute than the endpoint " +
+        "allows, so the tip will fall further behind with every block. Run scripts/preflight-rpc.mjs to measure the real " +
+        "ceiling, or use an endpoint with a higher one",
+    );
+  }
 
   const store = access.store;
+
+  // THE ENDPOINT IS ASKED WHAT IT SERVES BEFORE THE FIRST BLOCK, NOT AT THE
+  // FIRST BLOCK THAT NEEDS IT (HANDOFF-16, section 3: "a missing method is a
+  // NAMED ABSENCE at startup, never a silent degradation").
+  //
+  // THE PROBE SET IS THE PATH'S, NOT THE UNION'S, AND THE FIRST VERSION GOT THIS
+  // BACKWARDS. It gated the whole probe on `store !== null` and justified that
+  // with a true sentence about three methods - "in mempool-only mode nothing
+  // calls `getblock`, `getblockheader` or `z_gettreestate`" - which does not
+  // license skipping the OTHER five. Mempool-only sends `getblockchaininfo`
+  // (`index.ts`'s tick), `getrawmempool` in both verbosities and
+  // `getrawtransaction` per transaction, so the mode most likely to be pointed
+  // at an unknown third-party endpoint was the one that probed nothing at all.
+  // A gate reviewer found it by grepping the call sites the sentence named.
+  //
+  // WHAT IT COSTS, WHICH IS WHY IT IS A SUBSET AND NOT ALWAYS EIGHT. Against an
+  // unmetered node you own these are instant loopback calls. Against a metered
+  // endpoint they are requests from a small budget, paid once at startup - the
+  // cheapest this fact is ever available, since the alternative is learning it
+  // weeks later from a chart with no crossings on it. Probing the four the
+  // confirmed path adds when there is no confirmed path would be spending that
+  // budget to report on methods this process will never send.
+  let treestateAbsent = false;
+  {
+    // EVERY PATH THIS PROCESS RUNS, NOT ONE OF THEM. The mempool loop runs in
+    // BOTH modes; the confirmed-block follower runs only when there is a store.
+    // The first version passed a single path and so probed five of eight shapes
+    // in full mode, dropping `getrawmempool` in both verbosities and
+    // `getrawtransaction` - which is the mempool-only hole with the modes
+    // swapped. Found by a gate reviewer in the commit that fixed the first one.
+    const probes = probesForPaths(store === null ? ["mempool"] : ["mempool", "confirmed"]);
+    const report = await probeEndpoint((method, params) => rpc.call(method, params, z.unknown()), probes);
+    for (const v of report.verdicts) {
+      const at = v.outcome === "SERVED" ? "debug" : "warn";
+      log[at]({ method: v.probe.key, outcome: v.outcome, detail: v.detail }, `endpoint probe: ${v.probe.key} is ${v.outcome}`);
+    }
+    treestateAbsent = methodIsAbsent(report, "z_gettreestate");
+    if (report.blocking) {
+      // NAMED, AND NOT FATAL, AND THE DIFFERENCE IS DELIBERATE. A required
+      // method that is ABSENT or UNKNOWN is stated here with what its absence
+      // costs; the process still starts, because the mempool path and the lane
+      // balances are worth having and because an UNKNOWN is often a refusal
+      // rather than an absence - a startup that exited on a 429 would refuse to
+      // run on precisely the endpoints this rung is for. What must never happen
+      // is the silent version, and that is what this line removes.
+      log.warn(
+        {
+          mode: store === null ? "mempool" : "mempool+confirmed",
+          absent: report.absent,
+          unknown: report.unknown,
+          costs: report.verdicts.filter((v) => v.probe.required && v.outcome !== "SERVED").map((v) => `${v.probe.key}: ${v.probe.why}`),
+        },
+        "THIS ENDPOINT DOES NOT SERVE EVERY METHOD THIS STACK SENDS. Run scripts/preflight-rpc.mjs against it for the full table",
+      );
+    }
+  }
+
   await runStartup({
     bootstrap: async () => {
-      // THE FOLLOWER IS THE HALF THAT NEEDS POSTGRES, AND IN MEMPOOL-ONLY MODE
-      // IT DOES NOT START (HANDOFF-15 deliverable 6). Confirmed blocks, pool
+      // THE FOLLOWER IS THE HALF THAT NEEDS A STORE, AND IN MEMPOOL-ONLY MODE
+      // IT DOES NOT START (HANDOFF-15 deliverable 6). It said POSTGRES until
+      // HANDOFF-16, and the two stopped being the same thing when
+      // `INDEXER_CHAIN_STORE=memory` gave `chainAccessFor` a third mode: a
+      // `MemoryChainStore` with no database behind it, which is how rung 3
+      // accrues crossings without one. The condition below always read
+      // `store === null` and was correct throughout; only the sentence
+      // explaining it was not. Confirmed blocks, pool
       // state, reorg handling and every crossing are rung 3's subject and are
       // absent here by configuration rather than by failure. `chainState()`
       // then returns undefined, which `analyze` has accepted since HANDOFF-12
@@ -210,7 +338,19 @@ async function main() {
         rpc,
         store,
         log,
-        pollIntervalMs: cfg.INDEXER_POLL_INTERVAL_MS,
+        pollIntervalMs: follow.pollIntervalMs,
+        // CATCH-UP IS PACED ONLY WHEN METERED. `follow.catchUpIntervalMs` is
+        // null against a node you own, and spreading a restart's catch-up over
+        // hours there would be a cost with nothing to buy.
+        ...(follow.catchUpIntervalMs === null ? {} : { catchUpIntervalMs: follow.catchUpIntervalMs }),
+        // WHERE THE TREESTATE COMES FROM, AND IT IS A DECISION MADE ONCE AT
+        // STARTUP RATHER THAN PER BLOCK (HANDOFF-16). An endpoint measured not
+        // to serve `z_gettreestate` gets a source that returns null, which puts
+        // the driver on its own documented `IRONWOOD_TREESTATE_ABSENT` path:
+        // block written, notice logged, NO anchor, never a fabricated root.
+        // Without this the RpcError propagated, `isFatal` read false, and the
+        // follower re-fetched the same block forever - measured, not supposed.
+        treestate: treestateAbsent ? absentTreestateSource(log) : treestateSource(rpc),
         // The anchor registry - the depth the analyser reports on every spend -
         // is fed from the applied block. Before HANDOFF-12 nothing wrote it, so
         // every spend's depth was null and every anchor read as "unknown".

@@ -41,7 +41,16 @@ const ConfigSchema = z.object({
   DATABASE_URL: z.string().optional(),
   REDIS_URL: z.string().default("redis://localhost:6379"),
 
-  INDEXER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
+  INDEXER_POLL_INTERVAL_MS: z.preprocess(
+    // BLANK IS ABSENT HERE TOO, AND WITHOUT THIS IT IS A CRASH LOOP. `Number("")`
+    // is 0, which fails `.positive()` and throws from `loadConfig` at module
+    // scope - before pino exists - so the process dies with a ZodError and no
+    // log line, under `restart: unless-stopped`. `INDEXER_START_HEIGHT` and
+    // `INDEXER_RPC_MAX_RPM` were given this guard in earlier rounds and the
+    // other coerced numbers were not; a gate reviewer drove every one of them.
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.coerce.number().int().positive().default(2000),
+  ),
 
   /**
    * The endpoint's request ceiling, in requests per minute. Absent is unmetered.
@@ -78,6 +87,31 @@ const ConfigSchema = z.object({
     // ceiling above 100,000 a minute is not a ceiling worth metering - leave
     // the variable unset instead. Found by a gate reviewer.
     z.coerce.number().int().positive().max(100_000).optional(),
+  ),
+  /**
+   * Where confirmed blocks are stored when there is no `DATABASE_URL`
+   * (HANDOFF-16, rung 3).
+   *
+   * `auto` IS THE DEFAULT AND KEEPS EVERY EXISTING DEPLOYMENT UNCHANGED:
+   * Postgres when `DATABASE_URL` is set, and no store - so no follower - when it
+   * is not, which is rung 2's mempool-only mode exactly.
+   *
+   * `memory` IS RUNG 3's MODE AND ITS COST IS NOT HIDDEN. The follower runs
+   * against `MemoryChainStore`, so crossings accrue from `INDEXER_START_HEIGHT`
+   * forward with no database at all - and every block applied is lost on
+   * restart, because the store IS the process. `chain-access.ts` says so on
+   * every start. It has no effect when `DATABASE_URL` is set: a configured
+   * database always wins, since silently preferring memory over a real store an
+   * operator configured would be the worst possible reading of an enum.
+   *
+   * NO LITERAL DEFAULT BELONGS IN A COMPOSE FILE OR `.env.example` FOR THIS ONE
+   * EITHER, and for `check-config-defaults.mjs`'s reason one variable over: a
+   * constant written on a surface that cannot read a sibling variable applies on
+   * every deployment and wins wherever the operator left it alone.
+   */
+  INDEXER_CHAIN_STORE: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.enum(["auto", "memory"]).default("auto"),
   ),
   INDEXER_LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
 
@@ -120,7 +154,13 @@ const ConfigSchema = z.object({
   /** Anchors within this depth (in blocks) are flagged as "recent" — a tighter
    *  anchor narrows the window during which the spent note could have entered
    *  the tree. 100 blocks ≈ 2.5 hours on Zcash's 2.5-min target. */
-  RECENT_ANCHOR_THRESHOLD: z.coerce.number().int().positive().default(100),
+  RECENT_ANCHOR_THRESHOLD: z.preprocess(
+    // BLANK IS ABSENT. See INDEXER_POLL_INTERVAL_MS above for the crash-loop this
+    // removes; a gate reviewer drove every coerced number in this file and these
+    // were the ones still without it.
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.coerce.number().int().positive().default(100),
+  ),
 
   /*
    * ZIP317_MARGINAL_FEE_ZAT WAS HERE AND HAS BEEN DELETED (HANDOFF-06).
@@ -138,8 +178,24 @@ const ConfigSchema = z.object({
    */
 
   /** Per-attempt Zebra RPC timeout, and how many transport failures to retry. */
-  ZEBRAD_RPC_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
-  ZEBRAD_RPC_RETRIES: z.coerce.number().int().nonnegative().default(2),
+  ZEBRAD_RPC_TIMEOUT_MS: z.preprocess(
+    // BLANK IS ABSENT. See INDEXER_POLL_INTERVAL_MS above for the crash-loop this
+    // removes; a gate reviewer drove every coerced number in this file and these
+    // were the ones still without it.
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.coerce.number().int().positive().default(10_000),
+  ),
+  // AND THIS ONE DID NOT CRASH, WHICH IS WORSE. `.nonnegative()` ACCEPTS 0, so a
+  // blank `ZEBRAD_RPC_RETRIES` coerced to zero and silently turned every retry
+  // off - a client that gives up on the first transport blip, reported by
+  // nothing. The other three threw and at least stopped the process.
+  ZEBRAD_RPC_RETRIES: z.preprocess(
+    // BLANK IS ABSENT. See INDEXER_POLL_INTERVAL_MS above for the crash-loop this
+    // removes; a gate reviewer drove every coerced number in this file and these
+    // were the ones still without it.
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.coerce.number().int().nonnegative().default(2),
+  ),
 });
 
 /** The parsed environment, with the start height resolved to a number. */
@@ -162,7 +218,15 @@ export type Config = Omit<z.infer<typeof ConfigSchema>, "INDEXER_START_HEIGHT"> 
  * string is not a database.
  */
 export function databaseUrl(cfg: Config): string | null {
-  const url = cfg.DATABASE_URL;
+  // TRIMMED, BECAUSE "" WAS ONLY THE COMMONEST SPELLING OF BLANK AND 62c4e77
+  // SWEPT ONLY THE OTHER HALF. That commit fixed `INDEXER_START_HEIGHT` for a
+  // value exported as a single space - `${VAR:-}` does not treat " " as empty,
+  // so it arrives verbatim - and its message said the shape was swept. It was
+  // not: this predicate still read `url.length > 0`, so a `DATABASE_URL` of one
+  // space selected FULL mode, `createDb(" ")` was called, and the process opened
+  // a Postgres client on a connection string that is not one. A gate reviewer
+  // measured it, one round after the commit that claimed the sweep.
+  const url = cfg.DATABASE_URL?.trim();
   if (url !== undefined && url.length > 0) return url;
   return null;
 }

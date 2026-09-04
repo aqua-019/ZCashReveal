@@ -1,7 +1,7 @@
 ---
 handoff: 15
 title: Live transactions - the mempool path on a rate-limited third-party endpoint (rung 2 of three)
-status: shipped
+status: closed
 branch: the session-designated branch (name it `feat/v2-15-live-transactions` if you may choose)
 track: Integration
 depends_on: 14

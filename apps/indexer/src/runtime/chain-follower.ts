@@ -16,11 +16,18 @@
  * socket, a -8 for a height the node reorged away between two calls, a schema
  * mismatch - is logged and retried after the poll interval; the state was not
  * mutated. A `ChainRuntimeError` other than continuity, or any
- * `ZCashRevealStateError`, means this build's decode disagrees with consensus,
- * the in-memory state may be dirty, and the loop STOPS and hands the error to
- * `onFatal` - which in production exits the process so that a restart replays
- * the last block that was written. Retrying such an error would republish a
- * number just proved wrong.
+ * `ZCashRevealStateError`, is FATAL: the in-memory state may be dirty, the loop
+ * STOPS and hands the error to `onFatal` - which in production exits the process
+ * so that a restart replays the last block that was written.
+ *
+ * AND SINCE HANDOFF-16 THE FATAL FAMILY HAS TWO MEMBERS WITH OPPOSITE REMEDIES,
+ * which this paragraph called one for four handoffs. Every member but one means
+ * this build's decode disagrees with consensus, where retrying would republish a
+ * number just proved wrong and a RESTART fails the same way by design.
+ * `ChainPersistenceError` means the STORE refused a block after the pools were
+ * mutated - a database fault, where the remedy IS a restart. The fatal log line
+ * below names which, because `RUNTIME.md` section 5 routes the operator on that
+ * string.
  */
 import type { Logger } from "pino";
 import type { Hex } from "@zcashreveal/types";
@@ -29,8 +36,8 @@ import type { GetTreestate, RpcBlock } from "@zcashreveal/zebra-rpc";
 import { ZCashRevealStateError } from "../state/errors.js";
 import type { ChainState } from "./chain-state.js";
 import type { ChainStore, RollbackCounts } from "./chain-store.js";
-import { applyConfirmedBlock, type AppliedBlock } from "./confirmed-block.js";
-import { ChainContinuityError, ChainRuntimeError } from "./errors.js";
+import { applyConfirmedBlock, type AppliedBlock, type TreestateSource } from "./confirmed-block.js";
+import { ChainContinuityError, ChainPersistenceError, ChainRuntimeError } from "./errors.js";
 import { resolveReorg, type HeaderSource } from "./reorg.js";
 
 export interface FollowerRpc extends HeaderSource {
@@ -49,7 +56,35 @@ export interface FollowerOptions {
   readonly store: ChainStore;
   readonly log: Logger;
   readonly pollIntervalMs: number;
+  /**
+   * How long to wait after an APPLIED block before taking the next step, or
+   * undefined for none.
+   *
+   * `pollIntervalMs` BOUNDS THE IDLE RATE AND NOTHING ELSE, which is not what a
+   * ceiling needs. `loop()` sleeps only when a step comes back `idle`, so while
+   * this state is behind the tip it re-enters `step()` immediately and spends
+   * requests as fast as the gate allows - measured at twenty blocks and
+   * forty-one wire calls with zero sleeps. Against a node you own that is
+   * correct and this stays undefined; against a metered endpoint it starves
+   * every other caller on the same client for the whole of the catch-up, and
+   * `planConfirmedFollow` supplies the interval that holds the follower to its
+   * reservation instead.
+   */
+  readonly catchUpIntervalMs?: number;
   readonly sleep?: (ms: number) => Promise<void>;
+  /**
+   * Where the Ironwood treestate comes from. Defaults to calling `rpc.getTreestate`.
+   *
+   * INJECTABLE BECAUSE THE DEFAULT CANNOT EXPRESS AN ABSENT METHOD, AND THAT
+   * COST A STALL. `FollowerRpc.getTreestate` returns `Promise<GetTreestate>`, so
+   * the default source can only resolve or throw - it can never return the
+   * `null` that `TreestateSource`'s own contract defines as "a node that does
+   * not serve it". Against an endpoint answering `-32601` for that one method
+   * the throw reaches the loop, `isFatal` is false, and the same block is
+   * fetched and refused forever. See `runtime/treestate-source.ts`, which is
+   * where the two sources and the measurement live.
+   */
+  readonly treestate?: TreestateSource;
   /** Called after every applied block, before the next step. The anchor registry is fed from here. */
   readonly onApplied?: (block: AppliedBlock) => Promise<void> | void;
   readonly onReorg?: (splitHeight: number, rolledBack: RollbackCounts) => Promise<void> | void;
@@ -64,6 +99,9 @@ export class ChainFollower {
   private loopDone: Promise<void> | null = null;
   private lastTip: number | null = null;
   private readonly sleep: (ms: number) => Promise<void>;
+  private readonly treestate: TreestateSource;
+  /** Set while a pace is pending, so `stop()` can cut it short. */
+  private wake: (() => void) | null = null;
 
   constructor(
     chain: ChainState,
@@ -71,6 +109,7 @@ export class ChainFollower {
   ) {
     this.chain = chain;
     this.sleep = opts.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    this.treestate = opts.treestate ?? ((hash) => opts.rpc.getTreestate({ hash }));
   }
 
   /** The node's tip as last observed, or `null` before the first step. */
@@ -87,7 +126,7 @@ export class ChainFollower {
     const block = await this.opts.rpc.getBlock({ height: this.chain.height + 1 });
     try {
       const applied = await applyConfirmedBlock(this.chain, block, this.opts.store, {
-        treestate: (hash) => this.opts.rpc.getTreestate({ hash }),
+        treestate: this.treestate,
         log: this.opts.log,
       });
       if (this.opts.onApplied !== undefined) {
@@ -157,20 +196,93 @@ export class ChainFollower {
 
   async stop(): Promise<void> {
     this.running = false;
+    this.wake?.();
     await this.loopDone;
     this.loopDone = null;
+  }
+
+  /**
+   * Sleep, but wake immediately on `stop()`.
+   *
+   * A SIXTY-SECOND SIGTERM IS NOT A SHUTDOWN. The catch-up pace at the
+   * documented ceiling of five is 60,000 ms, and `stop()` awaits `loopDone` - so
+   * a process asked to stop mid-catch-up sat in a plain `setTimeout` for up to a
+   * minute while the orchestrator waited, and systemd's default `TimeoutStopSec`
+   * would have killed it. Measured by a gate reviewer on the commit that added
+   * the pace. The idle poll has the same shape and the same cure.
+   *
+   * THE RACE IS CLOSED BY CHECKING `running` FIRST: a `stop()` that lands
+   * between the check and the `setTimeout` still resolves this immediately,
+   * because `stop()` sets `running` false BEFORE calling `wake`.
+   */
+  private async pace(ms: number): Promise<void> {
+    if (!this.running) return;
+    // RACED AGAINST THE WAKE RATHER THAN REPLACING THE SLEEP. `opts.sleep` is
+    // injected by every test in this package - a `setImmediate` yield - and a
+    // `pace` that reached for `setTimeout` directly would have quietly taken
+    // that injection away and made the suite wait real seconds. The sleep is
+    // still the one the caller supplied; the race is what lets `stop()` cut it
+    // short.
+    let wake: (() => void) | undefined;
+    const stopped = new Promise<void>((resolve) => {
+      wake = resolve;
+      this.wake = resolve;
+    });
+    try {
+      await Promise.race([this.sleep(ms), stopped]);
+    } finally {
+      // Resolve the loser so it cannot be left pending for the process's life.
+      wake?.();
+      this.wake = null;
+    }
   }
 
   private async loop(): Promise<void> {
     while (this.running) {
       try {
         const result = await this.step();
-        if (result.kind === "idle") await this.sleep(this.opts.pollIntervalMs);
+        if (result.kind === "idle") await this.pace(this.opts.pollIntervalMs);
+        // AND A PACED CATCH-UP WHEN ONE IS CONFIGURED. See `catchUpIntervalMs`.
+        // A reorg step is paced too: it also spends requests - the header walk
+        // to the split - and a reorg on a metered endpoint is not a reason to
+        // stop metering.
+        else if (this.opts.catchUpIntervalMs !== undefined) await this.pace(this.opts.catchUpIntervalMs);
       } catch (err) {
         if (isFatal(err)) {
           this.running = false;
-          this.opts.log.fatal({ err, height: this.chain.height }, "the confirmed-block driver disagrees with consensus; stopping");
-          this.opts.onFatal(err);
+          // THE FATAL LINE NAMES WHICH KIND OF FATAL, AND IT DID NOT.
+          // `ChainPersistenceError` was added so a store failure stops the
+          // process instead of being retried into a false consensus diagnosis -
+          // and it then went out under the one fatal message this loop has,
+          // "the confirmed-block driver disagrees with consensus". RUNTIME.md
+          // routes that sentence to "do not restart until the decode is fixed",
+          // which is exactly the wrong instruction for a dropped Postgres
+          // connection: the remedy there IS a restart. So the fix moved the
+          // misdiagnosis from the retry to the log line and a gate reviewer
+          // caught it one round later, which is this project's own pattern
+          // arriving in the fix for the pattern.
+          const persistence = err instanceof ChainPersistenceError;
+          this.opts.log.fatal(
+            { err, height: this.chain.height, kind: persistence ? "persistence" : "consensus" },
+            persistence
+              ? "the store refused a block after the state was mutated; stopping so a RESTART can replay from the last written block - this is not a consensus disagreement and the decode is not in question"
+              : "the confirmed-block driver disagrees with consensus; stopping",
+          );
+          // AN `onFatal` THAT THROWS MUST NOT BECOME AN UNHANDLED REJECTION.
+          // `loop()`'s promise is awaited only by `stop()`, so a throwing
+          // callback both rejected `stop()` and produced an unhandled rejection
+          // - measured by a gate reviewer, one per throw. The shipped callback
+          // is `onFatal: () => void shutdown(1)` and `shutdown` closes sockets
+          // and calls `process.exit`, so the throw is reachable in principle;
+          // the reviewer labelled the production reachability UNVERIFIED and it
+          // stays that way. What is certain is that the last thing a process
+          // does before exiting on a consensus disagreement should not be to
+          // lose the reason in an unhandled rejection.
+          try {
+            this.opts.onFatal(err);
+          } catch (fromCallback) {
+            this.opts.log.fatal({ err: fromCallback }, "onFatal itself threw; the process is stopping anyway");
+          }
           return;
         }
         this.opts.log.error({ err, height: this.chain.height }, "confirmed-block step failed; retrying after the poll interval");

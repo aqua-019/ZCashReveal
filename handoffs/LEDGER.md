@@ -8477,3 +8477,253 @@ asserting a behaviour nobody executed - rather than another S1. The product
 surface is about 700 executable lines; the prose around it is about 400, and
 three of the last four findings have been in the prose.
 ```
+
+## L2 RESOLUTION — HANDOFF-15 (PR #57)
+
+Arrived in the HANDOFF-16 session kickoff, headed `L2 RESOLUTION`, and appended here verbatim under
+the revolution protocol's step 2, beneath the HANDOFF-15 block it rules on. Its verdict is MERGE
+with no changes requested. Its folds were applied in the commit that carries this append: **F-57-1**
+into CLAUDE.md's fail-side rules; **stopping-rule clause (c)'s "where to look first"** — a docblock
+that justifies a design decision by asserting a behaviour elsewhere in the system — into the clause
+itself; and **F-56-1 widened to bind the BRIEF as well as the probe**, which is L2's correction of
+its own PROMPT-15 section 1. LEDGER-15's Q5 is ACCEPTED with the origin count unmoved and the
+structural half left open. The prompt that carried it is archived at
+`handoffs/prompts/PROMPT-16.md`, Message 1.
+
+Three of its statements are inputs this session then had to check for itself rather than carry, and
+each is recorded in HANDOFF-16 §7 with the polarity this container returned: the `z_gettreestate`
+absence, which L2 itself marks UNVERIFIED as of 4 September; the four-shape 429 exclusion set, which
+F-57-1's own operational half says is closed by CAPTURE rather than by transcription from this
+block; and the seven-method list, which is a claim about this repository's own client.
+
+```
+# L2 RESOLUTION - HANDOFF-15 (PR #57)
+
+**VERDICT: MERGE.** No changes requested. One finding recorded below for rung 3, measured live; it does not block. Verified independently on a clean worktree at `6ec7735`.
+
+## What L2 executed
+
+```
+INSTALL_RC=0  TEST_RC=0  TYPECHECK_RC=0  LINT_RC=0  CHECK_RC=0  BUILD_RC=0
+1597 passed | 5 skipped        git status --porcelain empty
+```
+
+**An exact match to section 7's healthy figures.** Postgres and Redis were up for this run.
+
+**AND A FALSE ALARM OF L2's OWN, RECORDED BECAUSE IT IS THE FOURTH OF ITS KIND.** L2's first pass returned `TYPECHECK_RC=2` with fifteen errors - `Module '@zcashreveal/zebra-rpc' has no exported member 'RateGate'`. **That was L2's harness, not this branch:** the harness runs `build` LAST, so `zebra-rpc/dist` was still the artefact from the PR #56 checkout and the indexer typechecked against a stale package boundary. `pnpm --filter @zcashreveal/zebra-rpc build` then `pnpm -r typecheck` exits 0. **A cross-package export added in the same PR that consumes it is invisible until the producing package is rebuilt**, and a gate whose build step runs last cannot see it. HANDOFF-16 should build before it typechecks.
+
+## THE SEVENTH GATE, RUN BY L2 TOO - AND THE ORDER-DEPENDENT TEST DID NOT REPRODUCE
+
+`640865a` landed after the head L2 gated and is DOCUMENTATION ONLY - +52 lines across two handoff files, no product code, no test code - so the verdict on `6ec7735` stands unchanged. What it records is a seventh gate the session ran after opening the PR, and one failure in it. L2 ran the same gate on merged `main` at `f976477`:
+
+```
+pnpm --filter @zcashreveal/web test:e2e      192 passed (6.7m)   E2E_RC=0
+legibility.spec.ts:718  (HANDOFF-04a A1 fail side)               PASSED
+```
+
+**Full-suite parallelism, same conditions, and it did not reproduce.** The count is now n=1 failure against **n=3 isolated passes, n=1 CI pass, and n=1 independent full-suite pass in a different container**. That is still not a diagnosis and it is still not enough to call it a flake - the session was right to record it rather than fix it, and right to refuse to widen the PR into HANDOFF-04a's spec on one observation. It stays recorded, with L2's data point added.
+
+## Three adversarial mutations
+
+| mutation | result |
+|---|---|
+| remove the `res.status === 429` early throw (reverts S1) | **10 failed** in `zebra-rpc` |
+| force the mock's refusal content-type to JSON for every shape | **0 failed - CORRECTLY** |
+| neuter `#publishRefusal` so a refused tick publishes nothing (reverts S2) | **1 failed** - *"expected [...] to have a length of 2 but got 1"* |
+
+The middle row is a null result and it is the right one: once the status decides before the body, the body's content-type cannot change the outcome, which is the entire point of the S1 fix. The three-body loop is not thereby vacuous - row one proves it discriminates.
+
+## THE FINDING: THE REAL ENDPOINT SENDS A FOURTH 429 SHAPE, AND THE MOCK EMITS THREE
+
+L2 reached the live endpoint (container-scoped wall, as section 7 records) and captured an actual refusal:
+
+```
+--- 429 headers ---            --- 429 body ---
+  retry-after: 60              {"statusCode": 429, "message": "You have exceeded your limit
+  content-type: application/json    of 5 requests per minute. To increase this limit, upgrade
+  x-ttm-plan: anonymous             to a Paid plan with 200 requests per second..."}
+```
+
+Driven through **this repository's own `envelopeSchema`**:
+
+| body | parses | reaches the error-object branch |
+|---|---|---|
+| **REAL Tatum 429, measured 4 Sep** | **true** | **false** |
+| the mock's `envelope` | true | true |
+| the mock's old string-error | false | false |
+
+**It parses and it takes NEITHER branch.** `result` absent, `error` absent, `.passthrough()` admits it. That is a *third* escape route from the pre-fix ordering, distinct from both the HTML page and the JSON-RPC-wrapped limiter that round 3 found - and it is the one the production endpoint actually sends.
+
+**THE SHIPPED FIX COVERS IT.** `res.status === 429` throws before the body is read at all, so the branch is unreachable. Nothing here is broken and nothing needs changing to merge.
+
+**What it does is settle Q1 by measurement.** The proposed clause is not a reasonable-sounding generalisation; it is already violated by the mock one commit after being proposed, and only the status-first fix hides it. Add the shape in rung 3, three lines.
+
+## Two things this settles that section 8 marked open
+
+- **`Retry-After` IS sent on a real refusal** - `retry-after: 60`, so the code that reads it is reading something that exists.
+- **No `X-RateLimit-*` headers on either a 200 or a 429.** Only `x-ttm-plan: anonymous`. **The deferral in section 8 is correct and can now be closed as measured rather than assumed.**
+- And the ceiling is confirmed by the provider's own words: *"your limit of 5 requests per minute"*, matching L2's burst measurement of exactly five.
+
+## Ruling on the section 8 questions
+
+**Q1 - "a fail side's input must be one a real producer can emit, and where several can, the mock emits all of them". ADOPTED as F-57-1.** The existing wording genuinely would not have caught it: `{error: "rate limited"}` IS a data mutation from inside the exclusion set "a 429 response" - it is just the one member no real endpoint sends. **The clause earns adoption on measurement, not on argument:** L2 captured the production body above and the mock does not emit it, so the rule has a live counter-example on the day it was proposed. **F-57-1: an exclusion-set member must be a shape a real producer emits. Where a producer emits several, the mock emits all of them, and the set is closed by CAPTURE from the real producer rather than by enumeration from memory.** The last clause is the operational half and it is what this finding demonstrates.
+
+**Q3 - should clause (c) say WHERE to look first? ADOPTED.** Yes, and the session has already named the site precisely: **a docblock that gives a REASON for a design is asserting the reason, and the reason is usually the untested half.** All three of this session's true-of-nothing sentences had that shape - "no TTL, *because* the gateway renders a stopped indexer differently"; "the mempool view is now aging"; "degrades to stated absences, *never* to zeros". Each described a behaviour the author intended and then did not write, which is why reading the code against the comment finds agreement in intent and disagreement in fact. **Clause (c) now reads: execute the sentence, and start with docblocks that justify a design decision by asserting a behaviour elsewhere in the system.**
+
+**Q5 - the origin count from LEDGER-09b Q3 does not move. ACCEPTED, and the practice half is the right answer.** Running the CI-only guard locally before the push is what kept the count at five. The structural half - that a session still has to know to run it by hand - stays open; it is not rung 3's subject and should not be smuggled in.
+
+**The INFERRED reading is correct.** The confirmed-block follower not starting without a database is a configuration, not a regression. Section 1 put confirmed blocks out of scope, and running it on `MemoryChainStore` would be rung 3's work done quietly inside rung 2. Rung 3 is where it belongs and it is below.
+
+## L2's own defect, and it is the second in two handoffs
+
+PROMPT-15 section 1 asserted: *"The mempool path is already RPC-only by construction: nothing in that loop reads Postgres."* **Read against `c12826a`, it reads Postgres and writes it.** L2 confirms all three sites independently:
+
+```
+apps/indexer/src/decoder/anchor-depth.ts:57   SELECT height FROM anchors
+apps/indexer/src/index.ts:254                 persistLeakReport(sql, d.report)
+apps/indexer/src/index.ts:61                  createDb(cfg.DATABASE_URL), unconditional
+apps/indexer/src/config.ts:12                 a localhost default, so the URL is never absent
+```
+
+and the mempool path reaches the first through `analyze` at `index.ts:209` by way of `AnchorRegistry`. **"No database" was work, not a description**, and the session was right to promote it to deliverable 6 under LEDGER-11 Q5(a) rather than footnote it.
+
+**This is F-56-1 violated by the author of F-56-1, in the same file that adopted it.** L2 wrote a premise about `apps/indexer/src/index.ts` without reading `apps/indexer/src/index.ts`. The rule is sound; the failure is that L2 applied it to the session's probes and not to its own briefs. **The correction is that F-56-1 binds the brief as well as the probe: a section 1 claim about a module is a claim, and it gets read first or it gets labelled UNVERIFIED.** Section 1 below marks its own unread claims accordingly.
+```
+
+## §8 HANDOFF-16 - crossings forward, and three of section 1's own measurements (L3, 4 Sep 2026)
+
+```
+GATE ROUNDS: 5. Round 4 was F-52-2's round on `62c4e77` - five reviewers on
+failure paths, twenty-three findings. Round 5 reviewed round 4's three fix
+commits and found sixteen more, of which two were HIGH and one had UNDONE THE
+RUNG BELOW. Every finding acted on was reproduced by the lead by execution
+before its fix; two were REFUTED by execution and no change was made. Round 5's
+third lane - the prose and the test assertions, which is clause (c) and clause
+(ii) surface - DIED ON A SESSION LIMIT and is reported as unrun rather than as
+clean, so the sentences this session added are the least-reviewed thing in the
+branch.
+
+THE HANDOFF'S OWN SECTION 1 WAS WRONG ABOUT WHAT A MISSING METHOD COSTS, AND
+THE CORRECTION IS THE WHOLE RUNG. L2 wrote that an endpoint without
+`z_gettreestate` costs "the Ironwood anchor never forms - the driver writes the
+block, logs the notice and records no anchor". Executed against the shipped
+classes on merged `main`, it writes nothing: `RpcError` propagates,
+`isFatal` is false because an `RpcError` is neither a `ChainRuntimeError` nor a
+`ZCashRevealStateError`, and the loop re-fetches the same block for ever. The
+site simply stops advancing and the only symptom is one log line per poll
+interval naming one height. Permanent AND invisible, which section 3 names as
+the worst combination this project recognises - written into the brief that was
+guarding against it.
+
+AND THE INTERESTING HALF IS THAT THE CONTRACT ALREADY DESCRIBED THE RIGHT
+BEHAVIOUR. `TreestateSource`'s docblock has said since HANDOFF-12 that `null`
+means "a node that does not serve it". Nothing could produce it, because the
+production wiring built the source from a function whose return type is not
+nullable. **A documented case with no producer is not a case, and its docblock
+reads exactly like one that works.** That is a new face of the seam shape, and
+it is on the TYPE side rather than the wire side: the two ends agreed about what
+`null` meant and one of them could never send it.
+
+Q1. IS "A DOCUMENTED CASE WITH NO PRODUCER" WORTH A GUARD, OR IS IT A RULE?
+A union member, an optional field or a nullable return that no shipped caller
+can construct is dead by configuration rather than by type, and the compiler
+cannot see it - `TreestateSource`'s `| null` is inhabited in the TYPE and
+uninhabited in the WIRING. A guard would have to enumerate a type's inhabitants
+and each caller's ability to produce them, which is a reachability question this
+session does not think is decidable by grep. Recorded as WEAKER than a guard per
+LEDGER-09a Q2's amendment, and the structural requirement offered in its place
+is the one this rung used: **when a docblock names a case, find the caller that
+produces it before believing the case exists.** L2 to rule whether that is worth
+writing down or whether a guard is possible after all.
+
+Q2. THE RUNG NEEDS A DATABASE AND ITS BRIEF DID NOT KNOW THAT.
+Section 1 says the driver accumulates crossings "and the plane draws measured
+marks". The indexer accumulating them is necessary and not sufficient: the
+publisher is a separate process and builds `migrationHist` from its own Postgres
+query. Executed against the real `readSnapshotInputs` with `NO_CHAIN_QUERIES`,
+`crossings` comes back `[]` and `migrationWindow` `null`. So
+`INDEXER_CHAIN_STORE=memory` runs the follower and the pool state and puts
+nothing on the plane, and `CUTOVER-1.0.md` section 10.1 states both shapes in a
+table. The question for L2 is whether rung 3's memory mode should exist at all
+given that, or whether it is worth keeping for the gateway's live views alone -
+this session kept it and said what it does not do, which seemed better than
+deleting a working mode because its brief expected more of it.
+
+Q3. THE VERSION CEILING GAINED A SECOND READER AND MOVED, WHICH ANSWERS A
+QUESTION THE GUARD ASKED ITSELF. `check-compose-zebra-tag.mjs` declared the
+ceiling locally and its docblock said why - one reader - then asked whether it
+should grow a runtime reader "so A11 also refuses a live node above it, which is
+the case an image pin cannot see", and left it for a section 8. The preflight is
+that reader, so the guard's own rule applied and the ceiling now lives in
+`version-floor.ts` beside the floor. Recorded here because the question was
+asked in a section 8 and is now answered by a deliverable rather than by a
+ruling.
+
+Q4. `checkZebraVersionFloor` HAS NO PRODUCTION CALLER AND HAD NONE BEFORE THIS
+RUNG. Measured: `grep -rn "checkZebraVersion" --include=*.ts apps/` returns
+nothing, and the only callers in the tree are its own unit test and the A11
+smoke test. So the floor this project declares has never refused a running node;
+`scripts/preflight-rpc.mjs` is its first non-test reader, and it is a script an
+operator runs rather than a check the runtime makes. Should the indexer refuse
+to start against a node outside the window? This session did not make it,
+because a startup that exits on a version string would refuse to run against a
+gateway that reports anything unexpected - and the whole point of the preflight
+is that a gateway can report anything. L2 to rule.
+
+DEFERRED ASSUMPTIONS:
+  The address index is untouched, as section 1 says it should be. It is three
+  wire methods in one file and the preflight does not probe them, because a
+  stack that does not call them cannot be blocked by their absence.
+  `INDEXER_CHAIN_STORE=memory` has no durability and says so; nothing was built
+  to snapshot it, because a memory store that persists is a database with extra
+  steps.
+  The adaptive retention window stays deferred whole (LEDGER-04a Q2). This rung
+  does NOT make per-crossing ordering available: `migrationHist` carries
+  `lowHeight`, `highHeight` and a count, and nothing in this rung adds an
+  ordering to it. Section 3 asked to be told if it did; it did not.
+
+CARRIED FORWARD: `legibility.spec.ts:718` passed here under full-suite
+parallelism, which makes the count ONE failure against three isolated passes,
+one CI pass, one L2 full-suite pass in a different container, and this one.
+Recorded with its n, not fixed, and not called a flake.
+
+Q5. THE VERIFY PHASE WAS INVALIDATED BY THE LEAD FIXING FINDINGS WHILE IT RAN,
+AND THE DESIGN ERROR IS WORTH A RULE. Round 4 was built as find-then-refute,
+three adversarial refuters per finding. Twenty-two verdicts returned before the
+phase was stopped and ALL TWENTY-TWO said `refuted` - every one of them for the
+same reason, correctly stated in its own words: "already fixed at HEAD". The
+lead had been committing fixes while the phase was still running, so every
+refuter read a tree in which the defect was gone. The verdicts are honest and
+they are evidence about nothing, because a refuter that cannot see the pre-fix
+tree cannot refute a claim about it. **A verify phase over a moving tree is a
+verify phase over the wrong object**, which is LEDGER-09b's shape - an
+exhaustive claim over a source rather than over the object the rule is about -
+arriving in a gate's own scheduling. What settled the findings instead was the
+lead's own reproduction of each against the PRE-FIX tree, which LEDGER-10 Q3
+licenses precisely for findings execution can settle. Two candidate rules, and
+L2 to choose: either a verify phase pins the commit it reviews and the lead does
+not commit until it returns, or find-and-fix and verify are separate runs with
+the fix commit as the second one's subject - which is what the stopping rule
+already says about rounds and would make the refuter panel redundant with it.
+
+Q6. `checkZebraVersionFloor` HAS NO PRODUCTION CALLER AND NOW HAS ONE READER
+THAT IS A SCRIPT. Measured: the only callers in the tree are its own unit test,
+the A11 smoke test, and - since this rung - `scripts/preflight-rpc.mjs`, which
+an operator runs rather than the runtime calling. So the floor this project
+declares has still never refused a running node. Should the indexer refuse to
+start against a node outside the window? This session did not build it, because
+a startup that exits on a version string would refuse to run against a gateway
+that reports anything unexpected, and the whole point of the preflight is that a
+gateway can report anything. L2 to rule.
+
+Q7. A CHECK THAT CANNOT RUN ON THE SURFACE WHERE IT IS READ IS AN ABSENT CHECK,
+NOT A SKIPPED ONE, AND THE ORIGIN'S COUNT IS FOUR. `post-deploy-smoke.yml` had
+never passed in 44 runs and reported `1 skipped` on every pull request, because
+its `if:` needs a Production `deployment_status` and a PR only ever produces a
+Preview. Five consecutive gates read past it, L2's own included. Adding
+`test:e2e` and `assert-no-skipped-integration` to the gate list closes two faces
+of LEDGER-09b Q3's origin and CANNOT close this one - no command a session runs
+locally reaches it. The question for L2 is whether the register should
+distinguish "skipped" from "not applicable on this surface" at the reporting
+layer, since that distinction is what made this face survive five gates.
+```

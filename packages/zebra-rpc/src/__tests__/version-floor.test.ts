@@ -16,9 +16,14 @@
  *     certainly not `true`. "I could not tell" is a third outcome.
  */
 
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import {
+  ZEBRA_MAX_VERSION,
+  ZEBRA_MAX_VERSION_STRING,
   ZEBRA_MIN_VERSION,
   ZEBRA_MIN_VERSION_STRING,
   checkZebraVersionFloor,
@@ -111,5 +116,42 @@ describe("checkZebraVersionFloor", () => {
     const strict = { major: 7, minor: 0, patch: 0 };
     expect(checkZebraVersionFloor("/Zebra:6.3.0/", strict).ok).toBe(false);
     expect(checkZebraVersionFloor("/Zebra:6.3.0/", { major: 6, minor: 0, patch: 0 }).ok).toBe(true);
+  });
+});
+
+describe("ROUND 5: each bound is ONE declaration, so the static and runtime readers cannot drift", () => {
+  /**
+   * THE SPLIT RAN DOWN THE READER BOUNDARY. The version object and its string
+   * were independent literals: the runtime comparators read the OBJECT and both
+   * static gates - `check-compose-zebra-tag.mjs` and `scripts/preflight-rpc.mjs`
+   * - parse the STRING out of the source file. A hand edit to one and not the
+   * other gives a compose pin the guard passes and a live node the runtime
+   * refuses, with every check green. Two gate reviewers also MISREAD the pair,
+   * both reporting the object as 6.9.0 when it was 6.3.0, which is its own
+   * evidence that two declarations of one number is a shape readers get wrong.
+   * The objects are derived now, and this pins the derivation.
+   */
+  const render = (v: { major: number; minor: number; patch: number }) => `${v.major}.${v.minor}.${v.patch}`;
+
+  it("the floor object renders back to the floor string, exactly", () => {
+    expect(render(ZEBRA_MIN_VERSION)).toBe(ZEBRA_MIN_VERSION_STRING);
+  });
+
+  it("the ceiling object renders back to the ceiling string, exactly", () => {
+    expect(render(ZEBRA_MAX_VERSION)).toBe(ZEBRA_MAX_VERSION_STRING);
+  });
+
+  it("what the STATIC readers parse out of the source is what the RUNTIME compares", () => {
+    // The static readers' own regex, run against the real file, compared with
+    // the values the module exports. This is the drift the derivation removes,
+    // asserted end to end rather than argued.
+    const src = readFileSync(
+      resolve(dirname(fileURLToPath(import.meta.url)), "../version-floor.ts"),
+      "utf8",
+    ).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    const lo = /^export const ZEBRA_MIN_VERSION_STRING\s*=\s*"(\d+\.\d+\.\d+)"/m.exec(src);
+    const hi = /^export const ZEBRA_MAX_VERSION_STRING\s*=\s*"(\d+\.\d+\.\d+)"/m.exec(src);
+    expect(lo?.[1]).toBe(render(ZEBRA_MIN_VERSION));
+    expect(hi?.[1]).toBe(render(ZEBRA_MAX_VERSION));
   });
 });
