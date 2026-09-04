@@ -53,8 +53,22 @@
  * tag and for the same reason.
  */
 import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const FLOOR_SOURCE = "packages/zebra-rpc/src/version-floor.ts";
+/**
+ * The window's source, RESOLVED AGAINST THIS FILE AND NOT AGAINST THE CWD.
+ *
+ * IT WAS `"packages/zebra-rpc/src/version-floor.ts"` AND THAT MADE THE VERDICT
+ * DEPEND ON WHERE THE OPERATOR STOOD. `readWindow` returns null when the path
+ * does not exist, and the summary then printed `NO-WINDOW` and exited 0 - so the
+ * same script against the same node exited 1 from the repository root, naming a
+ * below-floor version, and 0 from anywhere else. An operator runs this from
+ * wherever their `.env` is. Found by a gate reviewer, and it is the same shape
+ * as the vacuous pass below: a check that cannot find its rule must not report
+ * that the rule is satisfied.
+ */
+const FLOOR_SOURCE = resolve(dirname(fileURLToPath(import.meta.url)), "../packages/zebra-rpc/src/version-floor.ts");
 
 /* ---------------------------------------------------------------------------
    ARGUMENTS
@@ -69,7 +83,30 @@ const flag = (name, fallback) => {
 };
 const has = (name) => argv.includes(name);
 
-const URL_ = argv.find((a) => !a.startsWith("--") && !/^\d+$/.test(a)) ?? process.env["ZEBRAD_RPC_URL"];
+/**
+ * The positional argument, skipping every flag AND the value that follows one.
+ *
+ * IT USED TO SKIP ANYTHING STARTING `--` AND ANYTHING ALL-DIGITS, which meant a
+ * flag value that was neither became the URL. `--window-max-ms 3s` made the
+ * script announce `preflight 3s`, dial nothing, and report the endpoint
+ * UNREACHABLE while it was live and serving - a bogus verdict about a healthy
+ * endpoint, from a typo. Found by a gate reviewer. Flags that TAKE a value are
+ * data here so a new one cannot be forgotten.
+ */
+const VALUED_FLAGS = new Set(["--burst", "--timeout-ms", "--window-max-ms"]);
+const positional = () => {
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i];
+    if (a === undefined) continue;
+    if (a.startsWith("--")) {
+      if (VALUED_FLAGS.has(a)) i += 1;
+      continue;
+    }
+    return a;
+  }
+  return undefined;
+};
+const URL_ = positional() ?? process.env["ZEBRAD_RPC_URL"];
 
 /**
  * The usage exit, MOVED INTO `main` RATHER THAN LEFT AT MODULE SCOPE.
@@ -87,7 +124,7 @@ function requireUrl() {
   if (URL_ !== undefined && URL_.length > 0) return URL_;
   process.stderr.write(
     "usage: node scripts/preflight-rpc.mjs <rpc-url> [--burst N] [--skip-rate|--rate-only] [--timeout-ms N]\n" +
-      "                                     [--window-max-ms N]\n" +
+      "                                     [--window-max-ms N] [--skip-version]\n" +
       "   or: ZEBRAD_RPC_URL=https://... node scripts/preflight-rpc.mjs\n\n" +
       "Answers which methods this stack sends are served, what version is answering,\n" +
       "and how many requests the endpoint takes before it refuses.\n",
@@ -112,6 +149,27 @@ const SKIP_RATE = has("--skip-rate");
  * test would be a code path no operator ever runs.
  */
 const RATE_ONLY = has("--rate-only");
+/**
+ * Accept an endpoint whose version this script could not check.
+ *
+ * BECAUSE BLOCKING BY DEFAULT IS RIGHT AND BLOCKING WITH NO WAY THROUGH IS NOT.
+ * An unreadable version is UNCHECKED rather than acceptable - `version-floor.ts`
+ * says so in its own words - so the default must be a non-zero exit. But a
+ * gateway that serves every one of the six wire methods this stack sends and
+ * simply does not expose `getinfo` is a working endpoint, and an operator who
+ * has established the node's version some other way needs a documented way to
+ * say so. This is that way, and it is a FLAG rather than a silent tolerance
+ * precisely so the decision appears in whatever command they wrote down.
+ */
+const SKIP_VERSION = has("--skip-version");
+// CONTRADICTORY FLAGS ARE A USAGE ERROR AND NOT A SILENT SUCCESS. Passed
+// together, the script used to print "nothing was measured" and exit 0 having
+// made ZERO requests - a green verdict about an endpoint it never contacted,
+// which is the worst reading a preflight can produce. Found by a gate reviewer.
+if (SKIP_RATE && RATE_ONLY) {
+  process.stderr.write("--skip-rate and --rate-only are contradictory: one skips the rate and the other measures nothing else.\n");
+  process.exit(2);
+}
 /** A refusal with no `Retry-After` still needs a wait. One minute is the window every measured limiter uses. */
 const DEFAULT_COOLOFF_MS = 60_000;
 /**
@@ -408,6 +466,9 @@ export function classify(res) {
   if (res.kind === "REFUSED") return { outcome: "UNKNOWN", detail: "429 - the endpoint refused before it said whether it has this method" };
   if (res.kind === "TRANSPORT") return { outcome: "UNKNOWN", detail: `transport: ${res.error}` };
   if (res.kind === "UNREADABLE") return { outcome: "UNKNOWN", detail: `HTTP ${res.status} carrying neither result nor error` };
+  // The script's own copy already routes an envelope with no `result` through
+  // `UNREADABLE` above, so the `empty result` case the TypeScript classifier had
+  // to add cannot arise here. The two are pinned together by test regardless.
   // An RPC error. -32601 is the standard code; the text list catches the rest.
   if (res.code === -32601) return { outcome: "ABSENT", detail: `-32601 ${res.message}` };
   if (ABSENCE_PATTERNS.some((re) => re.test(res.message))) {
@@ -558,8 +619,10 @@ async function main() {
 
   if (RATE_ONLY) {
     process.stdout.write(
+      // `rate` cannot be null here: the two flags are refused as a usage error
+      // above, so RATE_ONLY implies the burst ran.
       rate === null
-        ? "rate                    SKIPPED       --skip-rate and --rate-only are contradictory; nothing was measured\n"
+        ? "rate                    NOT MEASURED  unreachable: --rate-only implies the burst ran\n"
         : rate.refused
           ? `rate                    MEASURED      ${rate.lastSuccess} succeeded, request ${rate.firstRefusal} refused, n=${rate.n}; ` +
             `window ${rate.window.ms === null ? "UNDETERMINED" : `${String(Math.round(rate.window.ms))}ms`}; ` +
@@ -633,8 +696,28 @@ async function main() {
     if (r.outcome === "SERVED") continue;
     blocking.push(`${r.probe.key} is ${r.outcome} - ${r.probe.why}`);
   }
-  if (version !== null && (version.outcome === "BELOW-FLOOR" || version.outcome === "ABOVE-CEILING")) {
-    blocking.push(`subversion ${version.subversion} is ${version.outcome}`);
+  // EVERY VERSION OUTCOME EXCEPT IN-WINDOW BLOCKS, AND THE FIRST VERSION LET TWO
+  // OF THEM THROUGH. `UNPARSED` exited 0 printing "This endpoint serves every
+  // method this stack sends" beside `subversion UNPARSED /MagicBean:5.4.2/`, and
+  // `NO-WINDOW` - the window file unreadable - did the same. Both are the
+  // vacuous pass `version-floor.ts` names in its own words: "an unparsed string
+  // silently treated as passing is the failure mode this whole module exists to
+  // remove", and "this is not a pass: find out what is answering on this RPC
+  // endpoint". A preflight that cannot read the rule must not report the rule
+  // satisfied. Found by two gate-round reviewers independently.
+  if (SKIP_VERSION) {
+    process.stdout.write("NOTE  --skip-version was passed, so the version window was NOT checked. That is unchecked, not passed.\n");
+  } else if (version === null) {
+    blocking.push(
+      "the version could not be read: getinfo did not answer with a subversion this script recognises. " +
+        "Pass --skip-version if you have established the node's version another way",
+    );
+  } else if (version.outcome !== "IN-WINDOW") {
+    blocking.push(
+      version.outcome === "NO-WINDOW"
+        ? `the version window could not be read from ${FLOOR_SOURCE}, so subversion ${version.subversion} is UNCHECKED - which is not a pass`
+        : `subversion ${version.subversion} is ${version.outcome}`,
+    );
   }
   for (const r of results) {
     if (r.probe.required || r.outcome === "SERVED") continue;

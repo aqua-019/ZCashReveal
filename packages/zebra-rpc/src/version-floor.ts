@@ -233,35 +233,64 @@ export function checkZebraVersionWindow(
   return { ok: true, version, subversion };
 }
 
-/** A one-line, operator-readable explanation of a window verdict. */
-export function describeVersionWindowVerdict(v: VersionWindowVerdict): string {
-  const bound = `${ZEBRA_MIN_VERSION_STRING} to ${ZEBRA_MAX_VERSION_STRING}${ZEBRA_MAX_VERSION_INCLUSIVE ? " inclusive" : " exclusive"}`;
+/**
+ * A one-line, operator-readable explanation of a window verdict.
+ *
+ * THE BOUNDS ARE PARAMETERS, NOT THE MODULE'S, AND THE FIRST VERSION READ THE
+ * MODULE'S. `checkZebraVersionWindow` takes a floor and a ceiling; this
+ * described the verdict against `ZEBRA_MIN_VERSION_STRING` and
+ * `ZEBRA_MAX_VERSION_STRING` regardless. A caller passing its own bounds got a
+ * sentence contradicting itself - "7.0.0 is inside the 6.3.0 to 6.3.0 inclusive
+ * window" for a verdict computed against a 7.x ceiling, and "6.3.0 is BELOW the
+ * 6.3.0 floor" for one computed against a higher one. No shipped caller passes
+ * custom bounds today, which is the consumer-correct-by-accident shape this
+ * project keeps finding; a gate reviewer drove it directly. Defaults keep every
+ * existing call site reading the same.
+ */
+export function describeVersionWindowVerdict(
+  v: VersionWindowVerdict,
+  floor: ZebraVersion = ZEBRA_MIN_VERSION,
+  ceiling: ZebraVersion = ZEBRA_MAX_VERSION,
+  ceilingInclusive: boolean = ZEBRA_MAX_VERSION_INCLUSIVE,
+): string {
+  const show = (x: ZebraVersion) => `${x.major}.${x.minor}.${x.patch}`;
+  const bound = `${show(floor)} to ${show(ceiling)}${ceilingInclusive ? " inclusive" : " exclusive"}`;
   if (v.ok) {
     return `node subversion ${v.subversion} is ${v.version.major}.${v.version.minor}.${v.version.patch}, inside the ${bound} window`;
   }
-  if (v.reason === "unparsed") return describeVersionFloorVerdict(v);
-  if (v.reason === "below-floor") return describeVersionFloorVerdict(v);
+  if (v.reason === "unparsed") return describeVersionFloorVerdict(v, floor);
+  if (v.reason === "below-floor") return describeVersionFloorVerdict(v, floor);
   return (
-    `node subversion ${v.subversion} is ${v.version.major}.${v.version.minor}.${v.version.patch}, ABOVE the ${ZEBRA_MAX_VERSION_STRING} ceiling this build declares. ` +
+    `node subversion ${v.subversion} is ${v.version.major}.${v.version.minor}.${v.version.patch}, ABOVE the ${show(ceiling)} ceiling this build declares. ` +
     `This is not a statement that the node is broken: it is UNEXAMINED. The ceiling is ${ZEBRA_MAX_VERSION_REASON}. ` +
     `Read the release notes between the two versions, then move the ceiling in packages/zebra-rpc/src/version-floor.ts.`
   );
 }
 
-/** A one-line, operator-readable explanation of a verdict. */
-export function describeVersionFloorVerdict(v: VersionFloorVerdict): string {
+/**
+ * A one-line, operator-readable explanation of a verdict.
+ *
+ * `floor` IS A PARAMETER FOR `describeVersionWindowVerdict`'s REASON, one
+ * function up: a verdict computed against custom bounds described against the
+ * module's is a sentence that contradicts its own subject.
+ */
+export function describeVersionFloorVerdict(
+  v: VersionFloorVerdict | VersionWindowVerdict,
+  floor: ZebraVersion = ZEBRA_MIN_VERSION,
+): string {
+  const floorText = `${floor.major}.${floor.minor}.${floor.patch}`;
   if (v.ok) {
-    return `node subversion ${v.subversion} is ${v.version.major}.${v.version.minor}.${v.version.patch}, at or above the ${ZEBRA_MIN_VERSION_STRING} floor`;
+    return `node subversion ${v.subversion} is ${v.version.major}.${v.version.minor}.${v.version.patch}, at or above the ${floorText} floor`;
   }
   if (v.reason === "below-floor") {
     return (
-      `node subversion ${v.subversion} is ${v.version.major}.${v.version.minor}.${v.version.patch}, BELOW the ${ZEBRA_MIN_VERSION_STRING} floor this client declares. ` +
+      `node subversion ${v.subversion} is ${v.version.major}.${v.version.minor}.${v.version.patch}, BELOW the ${floorText} floor this client declares. ` +
       `Below 6.0.0 there is no Ironwood support; below the vjoinsplit fix every Sprout value term reads 0n; ` +
       `below 6.3.0 getblocksubsidy returns pre-NU6 funding-stream provenance strings after NU6.`
     );
   }
   return (
-    `node subversion ${JSON.stringify(v.subversion)} could not be parsed as a Zebra version, so the ${ZEBRA_MIN_VERSION_STRING} floor is UNVERIFIED. ` +
+    `node subversion ${JSON.stringify(v.subversion)} could not be parsed as a Zebra version, so the ${floorText} floor is UNVERIFIED. ` +
     `This is not a pass: find out what is answering on this RPC endpoint.`
   );
 }

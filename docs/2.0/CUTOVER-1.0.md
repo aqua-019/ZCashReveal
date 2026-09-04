@@ -291,9 +291,14 @@ metering a loopback node makes it slower for nothing.
 
 What the ceiling does: a `RateGate` on the RPC client enforces it as an
 invariant, and `planMempoolPoll` derives the tick interval and a per-tick
-transaction budget from it. At five a minute that is one tick a minute and about
-three transactions - which the site then STATES rather than hides. The
-completeness notice on `/track` is that number made visible.
+transaction budget from it. **At five a minute that is one tick a minute and
+three transactions** - measured, not estimated: `tick 60000 ms, txBudget 3,
+txPerMinute 3`. The site STATES that number rather than hiding it, and the
+completeness notice on `/track` is it made visible.
+
+**THAT FIGURE IS RUNG 2's AND RUNG 3 SPENDS IT. See section 10.7** - at this
+ceiling the two rungs compete for the same five requests, and running the
+follower takes the mempool's three transactions a minute to zero.
 
 ### 9.3 What you will see
 
@@ -413,10 +418,50 @@ needs. Run the preflight against it.
 
 ### 10.6 Rolling rung 3 back
 
-Rung 3 rolls back to rung 2 by **unsetting `DATABASE_URL` (3a) or
-`INDEXER_CHAIN_STORE` (3b) and restarting the indexer**. The follower does not
-start, the mempool path continues, and `migrationHist` returns to a stated
-absence. Nothing is deleted and no store is touched.
+**UNSET BOTH, AND THE ORDER OF THAT SENTENCE MATTERS.** This section said
+"unset `DATABASE_URL` (3a) **or** `INDEXER_CHAIN_STORE` (3b)", and an operator
+who moved from 3b to 3a - the ordinary path - has BOTH set. Unsetting
+`DATABASE_URL` alone then leaves `INDEXER_CHAIN_STORE=memory` behind, which is
+still a store, so the follower **still starts** and the step does not roll
+anything back. Executed both ways: with only `DATABASE_URL` unset the process
+reports `mode: memory-chain` and follows the chain; with both unset it reports
+`mode: mempool-only` and does not. A gate reviewer found it, and it is this
+document's own recurring shape - a rollback step that returns to a prompt having
+changed nothing.
+
+```bash
+# BOTH, and then restart.
+unset DATABASE_URL
+unset INDEXER_CHAIN_STORE
+```
+
+With both unset the follower does not start, the mempool path continues,
+`migrationHist` returns to a stated absence, and the mempool gets its whole
+ceiling back (section 10.7). Nothing is deleted and no store is touched.
+
+### 10.7 What rung 3 costs rung 2 at a small ceiling
+
+**AT FIVE REQUESTS A MINUTE YOU CAN HAVE RUNG 2 OR RUNG 3, NOT BOTH.** Both
+loops share one client and therefore one ceiling. The follower's cost has an
+irreducible part - a tip poll, a block and at most a treestate, per block - and
+at the chain's 75-second target that is three requests a minute of five.
+Measured, on this branch:
+
+| ceiling | follower | left for the mempool | transactions/minute |
+|---|---|---|---|
+| 5, no follower (rung 2) | - | 5 | **3** |
+| 5, follower running (rung 3) | reserves 3 | 2 | **0** |
+
+Two requests a minute is exactly the mempool tick's own overhead - the tip and
+the txid list - so nothing is left to fetch a transaction with. The tick still
+runs and the completeness notice still tells the truth; the truth is "0 of N
+analysed".
+
+**This is arithmetic, not a defect, and the answer is a bigger ceiling.** A
+free-tier API key from a provider serving more than five a minute clears it, and
+`scripts/preflight-rpc.mjs` will tell you what a candidate actually allows in ten
+seconds. Until then, choose the rung you want: crossings on the plane, or
+transactions on `/track`.
 
 Rolling the SITE back to the bundled fixture is section 8, unchanged, and its
 first sentence applies to every rung: **stopping a process is a pause, not a

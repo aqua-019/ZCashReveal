@@ -207,6 +207,17 @@ export function classifyProbe(err: unknown): ProbeVerdict {
     if (ABSENCE_PATTERNS.some((re) => re.test(message))) {
       return { outcome: "ABSENT", detail: `${String(err.code ?? "no code")} ${message}` };
     }
+    // AN "empty result" IS NOT AN ANSWER ABOUT THE ARGUMENT AND MUST NOT BE
+    // SERVED. `client.ts` raises `RpcError("empty result")` when the envelope
+    // parses and carries neither `result` nor `error` - which is exactly what a
+    // proxy answering `{}` to everything produces, and what the FOURTH 429 body
+    // produces at a non-429 status. A gate reviewer pointed a mock that returns
+    // an empty envelope to every method at this function and got all eight rows
+    // SERVED: an endpoint that answers nothing certified as answering
+    // everything. It is UNKNOWN, which is what the third outcome is for.
+    if (message.includes("empty result")) {
+      return { outcome: "UNKNOWN", detail: "the envelope parsed and carried neither result nor error, so nothing was said about this method" };
+    }
     return {
       outcome: "SERVED",
       detail: `${String(err.code ?? "no code")} ${message} (an error about the argument, so the method is there)`,

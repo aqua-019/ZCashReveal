@@ -15,7 +15,7 @@
 import { describe, expect, it } from "vitest";
 
 import { BLOCK_TARGET_MS } from "../analysis/constants.js";
-import { REQUESTS_PER_BLOCK, planConfirmedFollow } from "../follower-plan.js";
+import { REQUESTS_PER_BLOCK, REQUESTS_PER_CATCHUP_STEP, planConfirmedFollow } from "../follower-plan.js";
 import { planMempoolPoll } from "../mempool-plan.js";
 
 /** Requests a minute the follower's tip poll alone costs at an interval. */
@@ -53,7 +53,16 @@ describe("planConfirmedFollow", () => {
     expect(p.pollIntervalMs).toBe(300_000);
   });
 
-  it("a ceiling too small says so with `feasible`, and NEVER leaves zero for the mempool", () => {
+  it("a ceiling too small says so with `feasible`, and never leaves a REMAINDER of zero", () => {
+    // THE TITLE SAID "never leaves zero FOR THE MEMPOOL" AND CHECKED SOMETHING
+    // ELSE. What it pins is `remainingPerMinute`, which is the input to
+    // `planMempoolPoll`; what the mempool actually gets to spend on transactions
+    // is `txBudget`, and that is ZERO at every ceiling from 1 to 5 because two
+    // of the remainder go on the tick's own overhead. The floor exists to stop
+    // an Infinity interval, not to buy throughput, and the corrected title says
+    // so. The throughput fact itself is measured in section 10.7 of
+    // CUTOVER-1.0.md and is the reason a five-a-minute endpoint cannot run both
+    // rungs. Found by a gate reviewer.
     // `remainingPerMinute` of 0 would make `planMempoolPoll`'s overhead floor
     // Infinity, and `setInterval(fn, Infinity)` runs every ONE MILLISECOND on
     // Node - measured, not supposed. The floor of one is what stops that.
@@ -90,8 +99,13 @@ describe("the CATCH-UP rate, which the reservation does not bound on its own", (
     const p = planConfirmedFollow({ perMinute: 5, requestedIntervalMs: 2000 });
     expect(p.catchUpIntervalMs).not.toBeNull();
     // Two requests a block at this interval is the reservation, per minute.
-    const blocksPerMinute = 60_000 / (p.catchUpIntervalMs as number);
-    expect(blocksPerMinute * REQUESTS_PER_BLOCK).toBeLessThanOrEqual(p.reservedPerMinute as number);
+    // THREE PER STEP, NOT TWO: `step()` polls the tip every time, and while
+    // behind the tip every step also fetches a block, so the tip poll is not
+    // amortised over an interval. Paced on two, a reviewer measured the follower
+    // running at 4.5 requests a minute against a reservation of 3.
+    const stepsPerMinute = 60_000 / (p.catchUpIntervalMs as number);
+    expect(stepsPerMinute * REQUESTS_PER_CATCHUP_STEP).toBeLessThanOrEqual(p.reservedPerMinute as number);
+    expect(REQUESTS_PER_CATCHUP_STEP).toBe(REQUESTS_PER_BLOCK + 1);
   });
 
   it("and it still GAINS on the chain, or catch-up would never end", () => {
@@ -99,6 +113,9 @@ describe("the CATCH-UP rate, which the reservation does not bound on its own", (
     // of three that is one block every forty seconds against one every
     // seventy-five, which closes the gap at about 0.7 blocks a minute.
     const p = planConfirmedFollow({ perMinute: 5, requestedIntervalMs: 2000 });
+    // Narrowly, at a ceiling of five: one step a minute against a chain
+    // producing a block every seventy-five seconds. That is the honest
+    // consequence of a small ceiling, and it is asserted rather than assumed.
     expect(p.catchUpIntervalMs as number).toBeLessThan(BLOCK_TARGET_MS);
   });
 
@@ -112,7 +129,7 @@ describe("the CATCH-UP rate, which the reservation does not bound on its own", (
       const p = planConfirmedFollow({ perMinute: R, requestedIntervalMs: 2000 });
       if (!p.feasible) continue;
       seen += 1;
-      const cost = (60_000 / (p.catchUpIntervalMs as number)) * REQUESTS_PER_BLOCK;
+      const cost = (60_000 / (p.catchUpIntervalMs as number)) * REQUESTS_PER_CATCHUP_STEP;
       expect(cost, `ceiling ${String(R)}`).toBeLessThanOrEqual(p.reservedPerMinute as number);
     }
     expect(seen).toBe(197);

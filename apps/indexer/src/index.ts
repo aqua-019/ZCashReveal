@@ -72,15 +72,9 @@ async function main() {
   // nothing exceeded it on the wire and no request count could show it; what it
   // cost was the mempool tick, waiting behind the follower's queued takes for a
   // whole window while the log line printed the throughput it was not getting.
-  // See `follower-plan.ts` for the arithmetic and the measurement.
-  const follow = planConfirmedFollow({
-    perMinute: ceiling,
-    requestedIntervalMs: cfg.INDEXER_POLL_INTERVAL_MS,
-  });
-  const plan = planMempoolPoll({
-    perMinute: follow.remainingPerMinute,
-    requestedIntervalMs: cfg.INDEXER_POLL_INTERVAL_MS,
-  });
+  // See `follower-plan.ts` for the arithmetic and the measurement. The plans
+  // themselves are built BELOW `access`, because the reservation depends on
+  // whether a follower starts at all - see the comment there.
 
   const rpc = new ZebraRpc({
     url: cfg.ZEBRAD_RPC_URL,
@@ -113,6 +107,31 @@ async function main() {
   // app over. See chain-access.ts for what absence costs and what it must never
   // turn into.
   const access: ChainAccess = chainAccessFor(cfg, redis);
+  // AND NOTHING IS RESERVED FOR A FOLLOWER THAT DOES NOT START, WHICH THE FIRST
+  // VERSION OF THIS GOT WRONG AND WHICH COST RUNG 2 EVERYTHING. `planConfirmedFollow`
+  // was called with the ceiling unconditionally, so in mempool-only mode - where
+  // `store` is null and the follower is never constructed - three of five
+  // requests a minute were reserved for a loop that does not exist. The mempool
+  // plan then got two, which after its two overhead calls is a transaction
+  // budget of ZERO: the tick ran, fetched the txid list, and analysed nothing,
+  // for ever. Rung 2 shipped at three transactions a minute and this took it to
+  // none. Found by two independent gate-round reviewers, measured the same way
+  // by both: `txBudget 0, txPerMinute 0` at the documented ceiling of five.
+  //
+  // `access.store !== null` IS THE SAME PREDICATE THE FOLLOWER ITSELF IS BUILT
+  // ON, read from the same value rather than recomputed from config - which is
+  // why the plans moved below `access` instead of deriving a second copy of the
+  // rule from `databaseUrl(cfg)` and `INDEXER_CHAIN_STORE`.
+  const follow = planConfirmedFollow({
+    perMinute: access.store === null ? null : ceiling,
+    requestedIntervalMs: cfg.INDEXER_POLL_INTERVAL_MS,
+  });
+  const plan = planMempoolPoll({
+    // With no follower there is nothing to share with, so the mempool tick gets
+    // the whole ceiling exactly as it did before this rung existed.
+    perMinute: access.store === null ? ceiling : follow.remainingPerMinute,
+    requestedIntervalMs: cfg.INDEXER_POLL_INTERVAL_MS,
+  });
   const anchorRegistry = access.anchors;
   // Makes the fee real rather than zero. No node sends a fee, so it is computed
   // by summing the outputs each transaction spends, and those come from here.

@@ -205,7 +205,21 @@ export class ChainFollower {
         if (isFatal(err)) {
           this.running = false;
           this.opts.log.fatal({ err, height: this.chain.height }, "the confirmed-block driver disagrees with consensus; stopping");
-          this.opts.onFatal(err);
+          // AN `onFatal` THAT THROWS MUST NOT BECOME AN UNHANDLED REJECTION.
+          // `loop()`'s promise is awaited only by `stop()`, so a throwing
+          // callback both rejected `stop()` and produced an unhandled rejection
+          // - measured by a gate reviewer, one per throw. The shipped callback
+          // is `onFatal: () => void shutdown(1)` and `shutdown` closes sockets
+          // and calls `process.exit`, so the throw is reachable in principle;
+          // the reviewer labelled the production reachability UNVERIFIED and it
+          // stays that way. What is certain is that the last thing a process
+          // does before exiting on a consensus disagreement should not be to
+          // lose the reason in an unhandled rejection.
+          try {
+            this.opts.onFatal(err);
+          } catch (fromCallback) {
+            this.opts.log.fatal({ err: fromCallback }, "onFatal itself threw; the process is stopping anyway");
+          }
           return;
         }
         this.opts.log.error({ err, height: this.chain.height }, "confirmed-block step failed; retrying after the poll interval");

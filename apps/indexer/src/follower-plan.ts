@@ -25,9 +25,16 @@
  * most one new block to find. So a metered follower polls at the block target or
  * slower, which costs about `60000 / BLOCK_TARGET_MS` tip reads a minute - 0.8 -
  * plus one `getblock` per block found, plus a `z_gettreestate` on the blocks
- * that append Ironwood commitments. That is the ~2 a minute {@link FOLLOWER_RESERVED_RPM}
- * reserves, and the mempool plan is then given what is left rather than the whole
- * ceiling.
+ * that append Ironwood commitments. That is 2.4 a minute, which
+ * {@link FollowerPlan.reservedPerMinute} rounds up to 3, and the mempool plan is
+ * then given what is left rather than the whole ceiling.
+ *
+ * THE FIGURE IS DERIVED AND THE LINK IS TO A FIELD, because the first draft of
+ * this paragraph said "the ~2 a minute `FOLLOWER_RESERVED_RPM` reserves"
+ * and both halves were wrong: the constant had been deleted in the same commit -
+ * three reviewers found the dangling link independently - and the figure it
+ * quoted was the hand-picked 2 that the aggregate property had already refuted
+ * by 0.4 of a request a minute.
  *
  * AN OPERATOR ASKING FOR SLOWER IS HONOURED, for `planMempoolPoll`'s stated
  * reason: asking for less traffic is a request no ceiling objects to. What no
@@ -40,6 +47,15 @@ import { BLOCK_TARGET_MS } from "./analysis/constants.js";
  * The requests one block costs the follower beyond its tip poll: one `getblock`,
  * and at most one `z_gettreestate` on a block that appends Ironwood commitments.
  *
+ * BEYOND THE TIP POLL, WHICH IS WHY THE CATCH-UP CONSTANT BELOW IS A DIFFERENT
+ * NUMBER. In the steady state the tip poll happens once per `pollIntervalMs`
+ * whether or not it finds a block, so it is counted separately at its own rate.
+ * While CATCHING UP every step both polls the tip and fetches a block, so a
+ * catch-up step costs {@link REQUESTS_PER_CATCHUP_STEP}, one more than this.
+ * Pacing catch-up on this constant under-paces it by half: measured over thirty
+ * virtual minutes the follower issued `{info: 47, block: 23, treestate: 23}`,
+ * which is three per applied block and not two.
+ *
  * IRREDUCIBLE BY ANY SETTING, WHICH IS THE WHOLE REASON IT IS A NAMED CONSTANT.
  * Slowing the poll reduces tip reads and nothing else: the follower must fetch
  * every block on the chain to follow it, so this part of the cost is set by the
@@ -49,6 +65,18 @@ import { BLOCK_TARGET_MS } from "./analysis/constants.js";
  * moves.
  */
 export const REQUESTS_PER_BLOCK = 2;
+
+/**
+ * The requests ONE CATCH-UP STEP costs: a tip poll, a block, and at most a
+ * treestate.
+ *
+ * `step()` CALLS `getBlockchainInfo` EVERY TIME, and while the state is behind
+ * the tip every step also fetches a block - so the tip poll is not amortised
+ * over an interval the way the steady-state model assumes. A gate reviewer
+ * measured the difference: paced on `REQUESTS_PER_BLOCK` the follower ran at
+ * 4.5 requests a minute against a reservation of 3.
+ */
+export const REQUESTS_PER_CATCHUP_STEP = 3;
 
 export interface FollowerPlanInput {
   /** The endpoint's ceiling in requests per minute, or null when unmetered. */
@@ -88,10 +116,12 @@ export interface FollowerPlan {
    * for the whole of the catch-up - and in `INDEXER_CHAIN_STORE=memory` mode
    * catch-up is the state after EVERY restart, because the store is the process.
    *
-   * `60000 * REQUESTS_PER_BLOCK / reservedPerMinute` is the interval at which
-   * the follower spends exactly its reservation while catching up. At a
-   * reservation of three that is one block every forty seconds, which still
-   * gains on a chain producing one every seventy-five.
+   * `60000 * REQUESTS_PER_CATCHUP_STEP / reservedPerMinute` is the interval at
+   * which the follower spends exactly its reservation while catching up. At a
+   * reservation of three that is one block a minute, which still gains on a
+   * chain producing one every seventy-five seconds - narrowly, and that is the
+   * honest consequence of a ceiling this small rather than something to tune
+   * away.
    */
   readonly catchUpIntervalMs: number | null;
   /**
@@ -152,7 +182,7 @@ export function planConfirmedFollow(input: FollowerPlanInput): FollowerPlan {
   return {
     pollIntervalMs,
     reservedPerMinute: reserved,
-    catchUpIntervalMs: Math.ceil((60_000 * REQUESTS_PER_BLOCK) / reserved),
+    catchUpIntervalMs: Math.ceil((60_000 * REQUESTS_PER_CATCHUP_STEP) / reserved),
     // The floor of one is documented on the field above; it is a footgun guard,
     // not a claim that one request a minute is enough for anything.
     remainingPerMinute: Math.max(1, perMinute - reserved),

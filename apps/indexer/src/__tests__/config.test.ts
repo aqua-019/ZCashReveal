@@ -12,7 +12,7 @@
 import { describe, expect, it } from "vitest";
 import { NU6_3_ACTIVATION_MAINNET, NU6_3_ACTIVATION_TESTNET } from "@zcashreveal/instruments";
 
-import { loadConfig } from "../config.js";
+import { databaseUrl, loadConfig, rpcCeilingPerMinute } from "../config.js";
 
 /** The minimum a parse needs; every other field has a default. */
 const BASE_ENV = { DATABASE_URL: "postgres://u:p@localhost:5432/db", REDIS_URL: "redis://localhost:6379" };
@@ -58,5 +58,102 @@ describe("INDEXER_START_HEIGHT resolves to NU6.3 activation on the CONFIGURED ne
 
   it("an unknown network is refused, so a typo cannot select a default nobody meant", () => {
     expect(() => load({ INDEXER_NETWORK: "regtest" })).toThrow();
+  });
+});
+
+/**
+ * ROUND 4: EVERY BLANK SPELLING, AGAINST EVERY COERCED VARIABLE.
+ *
+ * `62c4e77` FIXED ONE VARIABLE AND ITS MESSAGE SAID IT HAD SWEPT THE SHAPE.
+ * It had not. `docker compose` writes `KEY: ""` for a `${VAR:-}` whose variable
+ * is unset, and a value exported as a single space is not empty to that
+ * expansion at all - so " " reaches the schema verbatim. That commit gave
+ * `INDEXER_START_HEIGHT` a trimming preprocess and left four other coerced
+ * numbers and `databaseUrl` without one. A gate reviewer drove them all.
+ *
+ * THREE OF THE FOUR THREW AT MODULE SCOPE, WHICH IS A CRASH LOOP UNDER
+ * `restart: unless-stopped` WITH NO LOG LINE, because `loadConfig` runs before
+ * pino exists. THE FOURTH DID NOT THROW AND THAT ONE IS WORSE:
+ * `ZEBRAD_RPC_RETRIES` is `.nonnegative()`, so a blank coerced to zero and
+ * turned every retry off silently.
+ *
+ * AND `databaseUrl` READ `url.length > 0`, so a single space selected FULL mode
+ * and `createDb(" ")` opened a Postgres client on a string that is not a
+ * connection string.
+ *
+ * The table is DATA so a variable added to the schema can be added here in one
+ * line, and every spelling is driven against every variable rather than one
+ * pair being spot-checked.
+ */
+describe("blank is absent, in every spelling, for every coerced variable", () => {
+  const BLANKS: ReadonlyArray<readonly [string, string]> = [
+    ["empty", ""],
+    ["one space", " "],
+    ["tab", "\t"],
+    ["newline", "\n"],
+    ["CRLF", "\r\n"],
+    ["spaces", "   "],
+  ];
+
+  /** Every coerced variable, with the value `loadConfig` must resolve a blank to. */
+  const COERCED: ReadonlyArray<readonly [string, unknown]> = [
+    ["INDEXER_POLL_INTERVAL_MS", 2000],
+    ["ZEBRAD_RPC_TIMEOUT_MS", 10_000],
+    ["ZEBRAD_RPC_RETRIES", 2],
+    ["RECENT_ANCHOR_THRESHOLD", 100],
+    ["INDEXER_RPC_MAX_RPM", undefined],
+  ];
+
+  it("no blank spelling of any coerced variable throws, and each resolves to its default", () => {
+    for (const [varName, expected] of COERCED) {
+      for (const [spelling, value] of BLANKS) {
+        const cfg = load({ [varName]: value }) as unknown as Record<string, unknown>;
+        expect(cfg[varName], `${varName} = ${spelling}`).toBe(expected);
+      }
+    }
+  });
+
+  it("ZEBRAD_RPC_RETRIES in particular is 2 and NOT 0, because .nonnegative() accepts zero", () => {
+    // The one that did not throw. A blank turned every retry off and nothing
+    // said so - a client that gives up on the first transport blip.
+    for (const [spelling, value] of BLANKS) {
+      expect(load({ ZEBRAD_RPC_RETRIES: value }).ZEBRAD_RPC_RETRIES, spelling).toBe(2);
+    }
+    // And a real 0 is still honoured, so the guard did not swallow an intent.
+    expect(load({ ZEBRAD_RPC_RETRIES: "0" }).ZEBRAD_RPC_RETRIES).toBe(0);
+  });
+
+  it("databaseUrl treats every blank spelling as ABSENT, which selects mempool-only", () => {
+    for (const [spelling, value] of BLANKS) {
+      expect(databaseUrl(load({ DATABASE_URL: value })), spelling).toBeNull();
+    }
+    // And a real URL still comes back, untrimmed in its interior.
+    expect(databaseUrl(load({ DATABASE_URL: "postgres://u:p@localhost:5432/db" }))).toBe(
+      "postgres://u:p@localhost:5432/db",
+    );
+  });
+
+  it("rpcCeilingPerMinute treats every blank spelling as UNMETERED", () => {
+    for (const [spelling, value] of BLANKS) {
+      expect(rpcCeilingPerMinute(load({ INDEXER_RPC_MAX_RPM: value })), spelling).toBeNull();
+    }
+    expect(rpcCeilingPerMinute(load({ INDEXER_RPC_MAX_RPM: "5" }))).toBe(5);
+  });
+
+  it("INDEXER_CHAIN_STORE treats every blank spelling as `auto`, and rejects an unknown value", () => {
+    for (const [spelling, value] of BLANKS) {
+      expect(load({ INDEXER_CHAIN_STORE: value }).INDEXER_CHAIN_STORE, spelling).toBe("auto");
+    }
+    expect(load({ INDEXER_CHAIN_STORE: "memory" }).INDEXER_CHAIN_STORE).toBe("memory");
+    // An unknown value must NOT silently fall back to a mode the operator did
+    // not choose - it throws, loudly, at startup.
+    expect(() => load({ INDEXER_CHAIN_STORE: "postgres" })).toThrow();
+  });
+
+  it("a MALFORMED value still throws, so the guard did not widen into an accept-anything", () => {
+    // The fail side of the guard itself. Blank is absent; "abc" is a mistake.
+    for (const bad of ["abc", "-1", "0", "1.5"]) {
+      expect(() => load({ INDEXER_POLL_INTERVAL_MS: bad }), bad).toThrow();
+    }
   });
 });
