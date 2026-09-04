@@ -63,14 +63,57 @@ export interface ZebraVersion {
 }
 
 /**
+ * Parse a declared bound, or throw at module load.
+ *
+ * A FUNCTION DECLARATION, SO IT IS HOISTED ABOVE THE CONSTANTS THAT CALL IT, and
+ * it throws rather than returning null because a bound this module could not
+ * read is a bound nothing downstream can honour - a `null` there would flow into
+ * a comparison and quietly pass everything.
+ */
+function mustParse(text: string, name: string): ZebraVersion {
+  // ITS OWN REGEX, NOT `parseZebraVersion`'S. This runs at MODULE LOAD, above
+  // the `const` regexes that function closes over, so calling it hit
+  // `ReferenceError: Cannot access 'SUBVERSION_RE' before initialization` -
+  // caught by running the module the moment the derivation was written. A
+  // declared bound is always a bare MAJOR.MINOR.PATCH, so the narrow pattern
+  // here is the whole of what these two strings may be, and the wider parser
+  // below stays the one that reads a node's `subversion`.
+  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(text);
+  if (m === null) throw new Error(`${name} is ${JSON.stringify(text)}, which is not a bare MAJOR.MINOR.PATCH version`);
+  const [major, minor, patch] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  if (!Number.isSafeInteger(major) || !Number.isSafeInteger(minor) || !Number.isSafeInteger(patch)) {
+    throw new Error(`${name} is ${JSON.stringify(text)}, whose components are not safe integers`);
+  }
+  return { major, minor, patch };
+}
+
+/**
  * The floor, as a version rather than a string, so a comparison cannot be a
  * lexicographic accident. `"6.10.0" < "6.9.0"` is true of strings and false of
  * versions, and this project will reach a 6.10 before it reaches a 7.
  */
-export const ZEBRA_MIN_VERSION: ZebraVersion = { major: 6, minor: 3, patch: 0 };
-
-/** The floor rendered the way a human writes it, for messages. */
 export const ZEBRA_MIN_VERSION_STRING = "6.3.0" as const;
+
+/**
+ * The floor as a version, DERIVED from the string rather than written twice.
+ *
+ * ONE QUANTITY, TWO DECLARATIONS, AND THE SPLIT RAN DOWN THE READER BOUNDARY.
+ * The object and the string were independent literals: the RUNTIME comparators
+ * (`checkZebraVersionFloor`, `checkZebraVersionWindow`) read the OBJECT, and
+ * both static gates - `check-compose-zebra-tag.mjs` and
+ * `scripts/preflight-rpc.mjs` - parse the STRING out of this file. So a hand
+ * edit to one and not the other gives a compose pin the guard passes and a live
+ * node the runtime refuses, with every check green. A gate reviewer named it,
+ * and the same reviewer and one other had already MISREAD the pair in the
+ * opposite direction - both reported the object as 6.9.0 when it was 6.3.0 -
+ * which is itself evidence that two declarations of one number is a shape
+ * readers get wrong.
+ *
+ * DERIVED WITH A PARSER THAT CANNOT SILENTLY FAIL: `mustParse` throws at module
+ * load if the string is not a version, so a typo is a startup error rather than
+ * a `null` that flows into a comparison.
+ */
+export const ZEBRA_MIN_VERSION: ZebraVersion = mustParse(ZEBRA_MIN_VERSION_STRING, "ZEBRA_MIN_VERSION_STRING");
 
 /**
  * THE CEILING, AND IT MOVED HERE FROM `scripts/check-compose-zebra-tag.mjs`
@@ -103,10 +146,10 @@ export const ZEBRA_MIN_VERSION_STRING = "6.3.0" as const;
  * cut - that PR is in no released tag, so there is no version to set an
  * EXCLUSIVE ceiling at and this one is INCLUSIVE at the last version read.
  */
-export const ZEBRA_MAX_VERSION: ZebraVersion = { major: 6, minor: 3, patch: 0 };
-
-/** The ceiling rendered the way a human writes it, for messages. */
 export const ZEBRA_MAX_VERSION_STRING = "6.3.0" as const;
+
+/** The ceiling as a version, DERIVED from the string. See {@link ZEBRA_MIN_VERSION} for why. */
+export const ZEBRA_MAX_VERSION: ZebraVersion = mustParse(ZEBRA_MAX_VERSION_STRING, "ZEBRA_MAX_VERSION_STRING");
 
 /** True when {@link ZEBRA_MAX_VERSION} itself is accepted rather than being the first rejected version. */
 export const ZEBRA_MAX_VERSION_INCLUSIVE = true as const;

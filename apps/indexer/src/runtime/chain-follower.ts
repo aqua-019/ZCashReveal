@@ -16,11 +16,18 @@
  * socket, a -8 for a height the node reorged away between two calls, a schema
  * mismatch - is logged and retried after the poll interval; the state was not
  * mutated. A `ChainRuntimeError` other than continuity, or any
- * `ZCashRevealStateError`, means this build's decode disagrees with consensus,
- * the in-memory state may be dirty, and the loop STOPS and hands the error to
- * `onFatal` - which in production exits the process so that a restart replays
- * the last block that was written. Retrying such an error would republish a
- * number just proved wrong.
+ * `ZCashRevealStateError`, is FATAL: the in-memory state may be dirty, the loop
+ * STOPS and hands the error to `onFatal` - which in production exits the process
+ * so that a restart replays the last block that was written.
+ *
+ * AND SINCE HANDOFF-16 THE FATAL FAMILY HAS TWO MEMBERS WITH OPPOSITE REMEDIES,
+ * which this paragraph called one for four handoffs. Every member but one means
+ * this build's decode disagrees with consensus, where retrying would republish a
+ * number just proved wrong and a RESTART fails the same way by design.
+ * `ChainPersistenceError` means the STORE refused a block after the pools were
+ * mutated - a database fault, where the remedy IS a restart. The fatal log line
+ * below names which, because `RUNTIME.md` section 5 routes the operator on that
+ * string.
  */
 import type { Logger } from "pino";
 import type { Hex } from "@zcashreveal/types";
@@ -30,7 +37,7 @@ import { ZCashRevealStateError } from "../state/errors.js";
 import type { ChainState } from "./chain-state.js";
 import type { ChainStore, RollbackCounts } from "./chain-store.js";
 import { applyConfirmedBlock, type AppliedBlock, type TreestateSource } from "./confirmed-block.js";
-import { ChainContinuityError, ChainRuntimeError } from "./errors.js";
+import { ChainContinuityError, ChainPersistenceError, ChainRuntimeError } from "./errors.js";
 import { resolveReorg, type HeaderSource } from "./reorg.js";
 
 export interface FollowerRpc extends HeaderSource {
@@ -93,6 +100,8 @@ export class ChainFollower {
   private lastTip: number | null = null;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly treestate: TreestateSource;
+  /** Set while a pace is pending, so `stop()` can cut it short. */
+  private wake: (() => void) | null = null;
 
   constructor(
     chain: ChainState,
@@ -187,24 +196,78 @@ export class ChainFollower {
 
   async stop(): Promise<void> {
     this.running = false;
+    this.wake?.();
     await this.loopDone;
     this.loopDone = null;
+  }
+
+  /**
+   * Sleep, but wake immediately on `stop()`.
+   *
+   * A SIXTY-SECOND SIGTERM IS NOT A SHUTDOWN. The catch-up pace at the
+   * documented ceiling of five is 60,000 ms, and `stop()` awaits `loopDone` - so
+   * a process asked to stop mid-catch-up sat in a plain `setTimeout` for up to a
+   * minute while the orchestrator waited, and systemd's default `TimeoutStopSec`
+   * would have killed it. Measured by a gate reviewer on the commit that added
+   * the pace. The idle poll has the same shape and the same cure.
+   *
+   * THE RACE IS CLOSED BY CHECKING `running` FIRST: a `stop()` that lands
+   * between the check and the `setTimeout` still resolves this immediately,
+   * because `stop()` sets `running` false BEFORE calling `wake`.
+   */
+  private async pace(ms: number): Promise<void> {
+    if (!this.running) return;
+    // RACED AGAINST THE WAKE RATHER THAN REPLACING THE SLEEP. `opts.sleep` is
+    // injected by every test in this package - a `setImmediate` yield - and a
+    // `pace` that reached for `setTimeout` directly would have quietly taken
+    // that injection away and made the suite wait real seconds. The sleep is
+    // still the one the caller supplied; the race is what lets `stop()` cut it
+    // short.
+    let wake: (() => void) | undefined;
+    const stopped = new Promise<void>((resolve) => {
+      wake = resolve;
+      this.wake = resolve;
+    });
+    try {
+      await Promise.race([this.sleep(ms), stopped]);
+    } finally {
+      // Resolve the loser so it cannot be left pending for the process's life.
+      wake?.();
+      this.wake = null;
+    }
   }
 
   private async loop(): Promise<void> {
     while (this.running) {
       try {
         const result = await this.step();
-        if (result.kind === "idle") await this.sleep(this.opts.pollIntervalMs);
+        if (result.kind === "idle") await this.pace(this.opts.pollIntervalMs);
         // AND A PACED CATCH-UP WHEN ONE IS CONFIGURED. See `catchUpIntervalMs`.
         // A reorg step is paced too: it also spends requests - the header walk
         // to the split - and a reorg on a metered endpoint is not a reason to
         // stop metering.
-        else if (this.opts.catchUpIntervalMs !== undefined) await this.sleep(this.opts.catchUpIntervalMs);
+        else if (this.opts.catchUpIntervalMs !== undefined) await this.pace(this.opts.catchUpIntervalMs);
       } catch (err) {
         if (isFatal(err)) {
           this.running = false;
-          this.opts.log.fatal({ err, height: this.chain.height }, "the confirmed-block driver disagrees with consensus; stopping");
+          // THE FATAL LINE NAMES WHICH KIND OF FATAL, AND IT DID NOT.
+          // `ChainPersistenceError` was added so a store failure stops the
+          // process instead of being retried into a false consensus diagnosis -
+          // and it then went out under the one fatal message this loop has,
+          // "the confirmed-block driver disagrees with consensus". RUNTIME.md
+          // routes that sentence to "do not restart until the decode is fixed",
+          // which is exactly the wrong instruction for a dropped Postgres
+          // connection: the remedy there IS a restart. So the fix moved the
+          // misdiagnosis from the retry to the log line and a gate reviewer
+          // caught it one round later, which is this project's own pattern
+          // arriving in the fix for the pattern.
+          const persistence = err instanceof ChainPersistenceError;
+          this.opts.log.fatal(
+            { err, height: this.chain.height, kind: persistence ? "persistence" : "consensus" },
+            persistence
+              ? "the store refused a block after the state was mutated; stopping so a RESTART can replay from the last written block - this is not a consensus disagreement and the decode is not in question"
+              : "the confirmed-block driver disagrees with consensus; stopping",
+          );
           // AN `onFatal` THAT THROWS MUST NOT BECOME AN UNHANDLED REJECTION.
           // `loop()`'s promise is awaited only by `stop()`, so a throwing
           // callback both rejected `stop()` and produced an unhandled rejection

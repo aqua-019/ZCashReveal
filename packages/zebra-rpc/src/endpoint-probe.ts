@@ -57,9 +57,29 @@ export interface EndpointProbe {
   readonly why: string;
 }
 
-/** The probes one path sends. `either` rows are in both. */
+/**
+ * The probes a process running these paths sends.
+ *
+ * TAKES A SET, NOT A SINGLE PATH, BECAUSE A FULL INDEXER RUNS BOTH AND THE
+ * FIRST VERSION FORGOT IT. `probesForPath("confirmed")` returned the confirmed
+ * rows plus the `either` rows and DROPPED `getrawmempool` in both verbosities
+ * and `getrawtransaction` - three required shapes a full-mode indexer sends on
+ * every tick. So the fix for "mempool-only probes nothing" created "full mode
+ * probes five of eight", which is the same defect with the modes swapped, and a
+ * gate reviewer found it in the fix commit one round later. The composition root
+ * now names every path the process actually runs.
+ */
+export function probesForPaths(
+  paths: ReadonlyArray<"mempool" | "confirmed">,
+  probes: readonly EndpointProbe[] = ENDPOINT_PROBES,
+): readonly EndpointProbe[] {
+  const want = new Set<string>(paths);
+  return probes.filter((p) => p.path === "either" || want.has(p.path));
+}
+
+/** One path's probes. Kept as the single-path spelling of {@link probesForPaths}. */
 export function probesForPath(path: "mempool" | "confirmed", probes: readonly EndpointProbe[] = ENDPOINT_PROBES): readonly EndpointProbe[] {
-  return probes.filter((p) => p.path === path || p.path === "either");
+  return probesForPaths([path], probes);
 }
 
 /**

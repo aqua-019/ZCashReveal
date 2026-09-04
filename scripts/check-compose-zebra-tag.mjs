@@ -140,11 +140,27 @@
  * Usage:  node scripts/check-compose-zebra-tag.mjs [file ...]
  */
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const DEFAULT_FILES = ["docker-compose.yml", "docker-compose.dev.yml"];
-const FLOOR_SOURCE = "packages/zebra-rpc/src/version-floor.ts";
+// REPO-RELATIVE, LIKE THE FLOOR SOURCE ABOVE AND FOR THE SAME REASON. With the
+// floor path fixed and these left cwd-relative, running the guard from anywhere
+// but the root reported "no Zebra image reference was found in 0 compose
+// file(s)" - a correct and loud diagnosis of the wrong thing. An explicit file
+// argument still overrides these.
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const DEFAULT_FILES = [resolve(REPO_ROOT, "docker-compose.yml"), resolve(REPO_ROOT, "docker-compose.dev.yml")];
+/**
+ * RESOLVED AGAINST THIS FILE, NOT THE CWD, for the reason `preflight-rpc.mjs`
+ * records about its own copy. Run from anywhere but the repository root this
+ * threw an uncaught `Error: ... does not exist` with a five-frame stack trace -
+ * which is at least loud, unlike the preflight's silent NO-WINDOW, but is still
+ * a guard whose verdict depends on where the operator stood. Found by a gate
+ * reviewer running it from `/tmp` and from `apps/web`.
+ */
+const FLOOR_SOURCE = resolve(dirname(fileURLToPath(import.meta.url)), "../packages/zebra-rpc/src/version-floor.ts");
 const SEMVER_TAG = /^\s*v?(\d+)\.(\d+)\.(\d+)\s*$/;
 const IMAGE_LINE = /^\s*image:\s*["']?([^"'#\s]+)["']?/;
 

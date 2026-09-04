@@ -28,7 +28,7 @@ import pino from "pino";
 import { z } from "zod";
 import { Redis } from "ioredis";
 import { loadConfig, rpcCeilingPerMinute } from "./config.js";
-import { methodIsAbsent, probeEndpoint, probesForPath, RateGate, RpcRateLimitError, ZebraRpc } from "@zcashreveal/zebra-rpc";
+import { methodIsAbsent, probeEndpoint, probesForPaths, RateGate, RpcRateLimitError, ZebraRpc } from "@zcashreveal/zebra-rpc";
 import { ZebradZmqSubscriber } from "./zmq-subscriber.js";
 import { MempoolState, type MempoolDiff } from "./mempool-state.js";
 import { analyze } from "./decoder/index.js";
@@ -215,9 +215,16 @@ async function main() {
       txBudgetPerTick: plan.txBudget,
       txPerMinute: plan.txPerMinute,
       metered: plan.metered,
-      followerIntervalMs: follow.pollIntervalMs,
+      followerRuns: access.store !== null,
+      followerIntervalMs: access.store === null ? null : follow.pollIntervalMs,
       followerReservedPerMinute: follow.reservedPerMinute,
-      mempoolCeilingPerMinute: follow.remainingPerMinute,
+      // THE CEILING THE TICK WAS ACTUALLY PLANNED AGAINST, which is not
+      // `follow.remainingPerMinute` in mempool-only mode: there is no follower,
+      // so the tick gets the whole ceiling and this field reported `null` beside
+      // a tick planned against five. A startup line that misreports its own
+      // input is the shape this project keeps finding; a gate reviewer found
+      // this one in the commit that fixed the reservation itself.
+      mempoolCeilingPerMinute: access.store === null ? ceiling : follow.remainingPerMinute,
     },
     plan.metered
       ? "metered poll: the follower reserves its share of the ceiling first and the mempool tick is planned against what is left, not against INDEXER_POLL_INTERVAL_MS"
@@ -268,7 +275,13 @@ async function main() {
   // budget to report on methods this process will never send.
   let treestateAbsent = false;
   {
-    const probes = probesForPath(store === null ? "mempool" : "confirmed");
+    // EVERY PATH THIS PROCESS RUNS, NOT ONE OF THEM. The mempool loop runs in
+    // BOTH modes; the confirmed-block follower runs only when there is a store.
+    // The first version passed a single path and so probed five of eight shapes
+    // in full mode, dropping `getrawmempool` in both verbosities and
+    // `getrawtransaction` - which is the mempool-only hole with the modes
+    // swapped. Found by a gate reviewer in the commit that fixed the first one.
+    const probes = probesForPaths(store === null ? ["mempool"] : ["mempool", "confirmed"]);
     const report = await probeEndpoint((method, params) => rpc.call(method, params, z.unknown()), probes);
     for (const v of report.verdicts) {
       const at = v.outcome === "SERVED" ? "debug" : "warn";
@@ -285,7 +298,7 @@ async function main() {
       // is the silent version, and that is what this line removes.
       log.warn(
         {
-          mode: store === null ? "mempool" : "confirmed",
+          mode: store === null ? "mempool" : "mempool+confirmed",
           absent: report.absent,
           unknown: report.unknown,
           costs: report.verdicts.filter((v) => v.probe.required && v.outcome !== "SERVED").map((v) => `${v.probe.key}: ${v.probe.why}`),

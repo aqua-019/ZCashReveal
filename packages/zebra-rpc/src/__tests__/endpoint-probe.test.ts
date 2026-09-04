@@ -23,6 +23,7 @@ import {
   methodIsAbsent,
   probeEndpoint,
   probesForPath,
+  probesForPaths,
 } from "../endpoint-probe.js";
 
 const TREESTATE = {
@@ -136,6 +137,32 @@ describe("probesForPath - a process probes what IT sends", () => {
   it("the confirmed path probes z_gettreestate, which is the whole reason the probe exists", () => {
     expect(probesForPath("confirmed").map((p) => p.key)).toContain("z_gettreestate");
   });
+
+  it("A FULL INDEXER RUNS BOTH PATHS, so both together are EVERY probe - none dropped", () => {
+    // THE FIX FOR "MEMPOOL-ONLY PROBES NOTHING" CREATED "FULL MODE PROBES FIVE
+    // OF EIGHT". `probesForPath("confirmed")` is the confirmed rows plus the
+    // `either` rows, which drops getrawmempool in both verbosities and
+    // getrawtransaction - three required shapes a full indexer sends every tick.
+    // A gate reviewer found it in the commit that fixed the first hole.
+    const both = probesForPaths(["mempool", "confirmed"]).map((p) => p.key);
+    expect(both.sort()).toEqual(ENDPOINT_PROBES.map((p) => p.key).sort());
+    // And the single-path spelling still drops them, which is why the caller
+    // must name every path it runs rather than the one it is named after.
+    expect(probesForPath("confirmed").map((p) => p.key)).not.toContain("getrawtransaction");
+  });
+
+  it("FAIL SIDE, BY DATA: a full indexer against an endpoint missing getrawtransaction is BLOCKED", async () => {
+    const mock = new MockRpcEndpoint({ ...SERVING, absentMethods: ["getrawtransaction"] });
+    const url = await mock.start();
+    try {
+      const rpc = new ZebraRpc({ url, retries: 0 });
+      const report = await probeEndpoint((m, p) => rpc.call(m, p, z.unknown()), probesForPaths(["mempool", "confirmed"]));
+      expect(report.absent).toEqual(["getrawtransaction"]);
+      expect(report.blocking).toBe(true);
+    } finally {
+      await mock.stop();
+    }
+  }, 30_000);
 
   it("FAIL SIDE, BY DATA: an endpoint missing getrawtransaction BLOCKS the mempool path", async () => {
     // The member: an endpoint that serves the confirmed path's methods and not

@@ -134,8 +134,31 @@ function requireUrl() {
 
 const USER = process.env["ZEBRAD_RPC_USER"] ?? "";
 const PASSWORD = process.env["ZEBRAD_RPC_PASSWORD"] ?? "";
-const BURST_N = Number(flag("--burst", "16"));
-const TIMEOUT_MS = Number(flag("--timeout-ms", "10000"));
+/**
+ * A numeric flag, or a usage error naming it.
+ *
+ * `Number("3s")` IS `NaN` AND EVERY ONE OF THESE WAS READ WITH BARE `Number`.
+ * A gate reviewer drove each: `--timeout-ms 3s` made `setTimeout(abort, NaN)`
+ * fire immediately, so a live healthy endpoint reported UNREACHABLE - the exact
+ * verdict the round-4 fix removed for the URL argument, reappearing one flag
+ * over. `--burst 0` made the burst loop run zero times, so `--rate-only` exited
+ * 0 having made ZERO requests - the same green-verdict-about-nothing that
+ * `--skip-rate --rate-only` had just been closed for. A preflight that reports
+ * on an endpoint it never contacted is the worst output this tool can produce,
+ * so a malformed flag is a usage error rather than a silently coerced value.
+ */
+const numericFlag = (name, fallback, { min = 1 } = {}) => {
+  const raw = flag(name, fallback);
+  const n = Number(raw);
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < min) {
+    process.stderr.write(`${name} must be an integer of at least ${String(min)}; got ${JSON.stringify(raw)}\n`);
+    process.exit(2);
+  }
+  return n;
+};
+
+const BURST_N = numericFlag("--burst", "16");
+const TIMEOUT_MS = numericFlag("--timeout-ms", "10000", { min: 100 });
 const SKIP_RATE = has("--skip-rate");
 /**
  * Measure the rate and stop.
@@ -181,7 +204,7 @@ const DEFAULT_COOLOFF_MS = 60_000;
  * say "spend thirty seconds and then tell me you could not". The default covers
  * every window this project has measured, with room.
  */
-const WINDOW_PROBE_MAX_MS = Number(flag("--window-max-ms", "75000"));
+const WINDOW_PROBE_MAX_MS = numericFlag("--window-max-ms", "75000", { min: 100 });
 /** How many times one probe is retried after a refusal before it is reported UNKNOWN. */
 const PROBE_RETRIES = 2;
 
@@ -327,7 +350,10 @@ export const PROBES = [
     method: "getinfo",
     params: [],
     required: false,
-    why: "subversion, for the version window. Nothing else in this stack calls it, so its absence costs the version check alone",
+    why:
+      "subversion, for the version window. Nothing else in this stack calls it, so its absence costs the VERSION CHECK and nothing else - " +
+      "but an unchecked version still BLOCKS, because version-floor.ts's own rule is that an unparsed version is not a pass. " +
+      "Pass --skip-version to proceed against an endpoint whose version you established another way",
   },
 ];
 
@@ -386,6 +412,16 @@ async function rpc(method, params) {
       // Parses, carries neither `result` nor `error`. The measured gateway 429
       // body has exactly this shape; at a non-429 status it is a proxy, not a node.
       return { kind: "UNREADABLE", status: res.status, body: text.slice(0, 200) };
+    }
+    if (payload.result === null) {
+      // A KEY IS NOT AN ANSWER. The envelope test read `"result" in payload`, so
+      // a proxy replying `{"result": null}` to every method was certified as
+      // serving all eight while `{}` - one key less - failed every one. None of
+      // the probes below can legitimately answer `null`: `getblockchaininfo`
+      // returns an object, the two `getblock` shapes an object or an error, the
+      // mempool ones an array or a map. A gate reviewer flipped every verdict
+      // with one key.
+      return { kind: "UNREADABLE", status: res.status, body: "result: null" };
     }
     return { kind: "OK", status: res.status, result: payload.result };
   } catch (err) {
@@ -535,8 +571,14 @@ async function measureRate(n) {
         window,
         // THE DERIVED FIGURE, AND IT IS null WHEN THE WINDOW IS UNDETERMINED
         // RATHER THAN A GUESS. capacity per window, scaled to a minute.
+        // ZERO SUCCESSES DERIVES NOTHING. `Math.max(1, ...)` turned a burst
+        // whose FIRST request was refused into "Set INDEXER_RPC_MAX_RPM=1 ...
+        // (0 requests per 1s window)" - a sentence that states its own
+        // measurement is zero and recommends one anyway. An endpoint already
+        // refusing when the preflight arrives has told you nothing about its
+        // rate; it has told you it is currently refusing.
         perMinute:
-          window.ms === null || window.ms <= 0
+          window.ms === null || window.ms <= 0 || i - 1 === 0
             ? null
             : Math.max(1, Math.floor(((i - 1) * 60_000) / window.ms)),
         sequence: at,
@@ -560,6 +602,12 @@ async function measureRate(n) {
 /** How long the endpoint stays refused, from `Retry-After` or by waiting it out. */
 async function measureWindow(retryAfterMs, refusedAt) {
   if (retryAfterMs !== null && retryAfterMs > 0) {
+    // THE HEADER IS BELIEVED FOR THE WINDOW AND NOT FOR THE WAIT. A gate
+    // reviewer pointed a mock with `Retry-After: 3600` at this and the preflight
+    // slept the full hour before probing a single method, with
+    // `--window-max-ms` set to three seconds and ignored. The window is a
+    // MEASUREMENT and an hour-long one is still true; the WAIT is a choice, and
+    // it is the operator's to bound.
     return { ms: retryAfterMs, source: "Retry-After" };
   }
   // POLLED, WITH A CEILING ON THE WAIT. A minute plus a little covers every
@@ -648,8 +696,13 @@ async function main() {
   const perMinute = rate !== null && rate.refused ? (rate.perMinute ?? rate.lastSuccess) : null;
   const paceMs = perMinute !== null && perMinute > 0 ? Math.ceil(60_000 / perMinute) : 0;
   if (rate !== null && rate.refused) {
-    const waitMs = rate.window.ms ?? rate.retryAfterMs ?? DEFAULT_COOLOFF_MS;
-    process.stdout.write(`  waiting ${Math.round(waitMs / 1000)}s for the window to clear before probing methods\n\n`);
+    const measured = rate.window.ms ?? rate.retryAfterMs ?? DEFAULT_COOLOFF_MS;
+    const waitMs = Math.min(measured, WINDOW_PROBE_MAX_MS);
+    process.stdout.write(
+      waitMs < measured
+        ? `  the window is ${String(Math.round(measured / 1000))}s and --window-max-ms bounds the wait at ${String(Math.round(waitMs / 1000))}s; probing after that, so a refusal below is UNKNOWN rather than absent\n\n`
+        : `  waiting ${String(Math.round(waitMs / 1000))}s for the window to clear before probing methods\n\n`,
+    );
     await sleep(waitMs);
   }
 

@@ -50,6 +50,31 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # THIS WORKFLOW HAD NEVER PASSED, IN FORTY-FOUR RUNS, AND THIS IS THE
+      # THREE LINES IT WAS MISSING (HANDOFF-16, deliverable 1b, fourth face).
+      #
+      # `package.json` declares `"packageManager": "pnpm@9.12.0"`, so
+      # `actions/setup-node@v5` resolves that binary and fails the whole job at
+      # `Error: Unable to locate executable file: pnpm` BEFORE the smoke step is
+      # reached. `ci.yml` and `e2e.yml` both run this action first and both pass;
+      # this file had ZERO occurrences of it.
+      #
+      # THE NO-INSTALL COMMENT BELOW IS CORRECT AND IS NOT WHAT WAS WRONG. The
+      # script really does use only node builtins and global fetch. What that
+      # reasoning dropped was not the install, it was the action that puts `pnpm`
+      # on PATH - so the intent is kept and only the action is added. There is
+      # still no `pnpm install` in this job.
+      #
+      # AND IT WAS INVISIBLE FROM EVERY PULL REQUEST, WHICH IS WHY FIVE
+      # CONSECUTIVE GATES READ PAST IT. The `if:` below needs a
+      # `deployment_status` for the PRODUCTION environment; a pull request only
+      # ever produces a Preview, so on a PR this reported as `1 skipped`. A check
+      # that cannot run on the surface where it is read is not a skipped check,
+      # it is an ABSENT one.
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 9.12.0
+
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
