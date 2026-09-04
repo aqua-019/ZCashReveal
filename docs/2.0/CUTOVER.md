@@ -23,10 +23,13 @@ entirely as of HANDOFF-11; there is nothing left to migrate off.
 ## 1. What does NOT block this
 
 Three things are named here because each has been mistaken for a prerequisite.
+The first is now a HISTORICAL note rather than a live caveat, and it is corrected
+in place rather than deleted, because the sentence it replaces was still telling
+an operator at cutover that a capture nobody could take was outstanding.
 
 | not a prerequisite | why |
 | --- | --- |
-| **the mainnet block fixture** | LEDGER-10 Q4 ruled it: **the cutover ships with that test still skipped, or it does not ship.** The capture needs a synced node and is `RUNBOOK-VPS.md` section 10. It is a standing operator task with four things it closes, and none of them is this. A checklist step that nobody reading it can complete is not a checklist step. |
+| **the mainnet block fixture** | **CLOSED, AND THIS ROW NOW DESCRIBES AN OBSTACLE THAT NO LONGER EXISTS - kept, corrected, because it is read AT the cutover.** It used to say the cutover "ships with that test still skipped, or it does not ship", and that the capture was a standing operator task needing a synced node. Four captures landed in PR #51 from a PUBLIC endpoint - `apps/indexer/test/fixtures/blocks/mainnet-3432130-9eb351.json`, `-3441955-54b709`, `-3444836-1e5057`, `-3444837-274151` - and the decoder suite runs **11 of 11 with zero skips** (executed on this branch: `vitest run src/decoder/__tests__/block-decoder.test.ts`, 11 passed). LEDGER-10 Q4's ruling still stands as a ruling - the cutover never depended on it - but the thing it was ruling about is done, and it did not need a synced node in the end. |
 | **per-crossing amounts, ordering or confirmation state** | `SnapshotV1` has no field for any of them, and the turnstile plane is built on that fact: one mark per counted crossing, uniform weight. The confirmed-block driver is HANDOFF-12's. The plane is correct today and stays as HANDOFF-04a built it. |
 | **all four analysis panels being non-null** | The rule is that the cutover may not RENDER AN UNMEASURED PANEL AS A MEASUREMENT, not that every panel must be measured. A named absence stating its CONDITION is permitted and is what `SNAPSHOT.md` section 8.1 specifies. As of HANDOFF-09b all four are measurements on the production path anyway. |
 
