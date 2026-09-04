@@ -79,6 +79,31 @@ const ConfigSchema = z.object({
     // the variable unset instead. Found by a gate reviewer.
     z.coerce.number().int().positive().max(100_000).optional(),
   ),
+  /**
+   * Where confirmed blocks are stored when there is no `DATABASE_URL`
+   * (HANDOFF-16, rung 3).
+   *
+   * `auto` IS THE DEFAULT AND KEEPS EVERY EXISTING DEPLOYMENT UNCHANGED:
+   * Postgres when `DATABASE_URL` is set, and no store - so no follower - when it
+   * is not, which is rung 2's mempool-only mode exactly.
+   *
+   * `memory` IS RUNG 3's MODE AND ITS COST IS NOT HIDDEN. The follower runs
+   * against `MemoryChainStore`, so crossings accrue from `INDEXER_START_HEIGHT`
+   * forward with no database at all - and every block applied is lost on
+   * restart, because the store IS the process. `chain-access.ts` says so on
+   * every start. It has no effect when `DATABASE_URL` is set: a configured
+   * database always wins, since silently preferring memory over a real store an
+   * operator configured would be the worst possible reading of an enum.
+   *
+   * NO LITERAL DEFAULT BELONGS IN A COMPOSE FILE OR `.env.example` FOR THIS ONE
+   * EITHER, and for `check-config-defaults.mjs`'s reason one variable over: a
+   * constant written on a surface that cannot read a sibling variable applies on
+   * every deployment and wins wherever the operator left it alone.
+   */
+  INDEXER_CHAIN_STORE: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    z.enum(["auto", "memory"]).default("auto"),
+  ),
   INDEXER_LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
 
   /**

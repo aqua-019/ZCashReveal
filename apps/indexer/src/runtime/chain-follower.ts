@@ -29,7 +29,7 @@ import type { GetTreestate, RpcBlock } from "@zcashreveal/zebra-rpc";
 import { ZCashRevealStateError } from "../state/errors.js";
 import type { ChainState } from "./chain-state.js";
 import type { ChainStore, RollbackCounts } from "./chain-store.js";
-import { applyConfirmedBlock, type AppliedBlock } from "./confirmed-block.js";
+import { applyConfirmedBlock, type AppliedBlock, type TreestateSource } from "./confirmed-block.js";
 import { ChainContinuityError, ChainRuntimeError } from "./errors.js";
 import { resolveReorg, type HeaderSource } from "./reorg.js";
 
@@ -50,6 +50,19 @@ export interface FollowerOptions {
   readonly log: Logger;
   readonly pollIntervalMs: number;
   readonly sleep?: (ms: number) => Promise<void>;
+  /**
+   * Where the Ironwood treestate comes from. Defaults to calling `rpc.getTreestate`.
+   *
+   * INJECTABLE BECAUSE THE DEFAULT CANNOT EXPRESS AN ABSENT METHOD, AND THAT
+   * COST A STALL. `FollowerRpc.getTreestate` returns `Promise<GetTreestate>`, so
+   * the default source can only resolve or throw - it can never return the
+   * `null` that `TreestateSource`'s own contract defines as "a node that does
+   * not serve it". Against an endpoint answering `-32601` for that one method
+   * the throw reaches the loop, `isFatal` is false, and the same block is
+   * fetched and refused forever. See `runtime/treestate-source.ts`, which is
+   * where the two sources and the measurement live.
+   */
+  readonly treestate?: TreestateSource;
   /** Called after every applied block, before the next step. The anchor registry is fed from here. */
   readonly onApplied?: (block: AppliedBlock) => Promise<void> | void;
   readonly onReorg?: (splitHeight: number, rolledBack: RollbackCounts) => Promise<void> | void;
@@ -64,6 +77,7 @@ export class ChainFollower {
   private loopDone: Promise<void> | null = null;
   private lastTip: number | null = null;
   private readonly sleep: (ms: number) => Promise<void>;
+  private readonly treestate: TreestateSource;
 
   constructor(
     chain: ChainState,
@@ -71,6 +85,7 @@ export class ChainFollower {
   ) {
     this.chain = chain;
     this.sleep = opts.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    this.treestate = opts.treestate ?? ((hash) => opts.rpc.getTreestate({ hash }));
   }
 
   /** The node's tip as last observed, or `null` before the first step. */
@@ -87,7 +102,7 @@ export class ChainFollower {
     const block = await this.opts.rpc.getBlock({ height: this.chain.height + 1 });
     try {
       const applied = await applyConfirmedBlock(this.chain, block, this.opts.store, {
-        treestate: (hash) => this.opts.rpc.getTreestate({ hash }),
+        treestate: this.treestate,
         log: this.opts.log,
       });
       if (this.opts.onApplied !== undefined) {

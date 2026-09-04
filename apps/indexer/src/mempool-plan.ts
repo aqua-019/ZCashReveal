@@ -119,7 +119,23 @@ export function planMempoolPoll(input: PlanInput): MempoolPlan {
     };
   }
 
-  const perMinute = Math.floor(input.perMinute);
+  // A NON-POSITIVE CEILING IS CLAMPED TO ONE, AND WITHOUT THIS THE LOOP SPINS AT
+  // A KILOHERTZ. `overheadFloorMs` divides the window by this figure, so a zero
+  // makes `pollIntervalMs` `Infinity`, and Node's `setInterval` does not treat a
+  // non-finite delay as "never": it coerces it to **1 millisecond** and warns
+  // `TimeoutOverflowWarning`. Measured on Node 22 - `setInterval(fn,
+  // Infinity)._idleTimeout` is 1. The result would be a thousand mempool ticks a
+  // second against an endpoint whose ceiling was too small to afford one, which
+  // is HANDOFF-15's Retry-After spin reached through a different arithmetic.
+  //
+  // NOTHING COULD REACH IT UNTIL HANDOFF-16, which is why the docblock above
+  // discusses R=1 and not R=0: `rpcCeilingPerMinute` returns either null or a
+  // `.positive()` integer, so the only caller could not pass a zero. Splitting
+  // the ceiling between the follower and this tick made a zero reachable for the
+  // first time, and `planConfirmedFollow` floors its own remainder at one for
+  // the same reason. Both guards stay: the caller's stops it arriving, this one
+  // stops it mattering, and the second is the one that survives a new caller.
+  const perMinute = Math.max(1, Math.floor(input.perMinute));
   // THREE FLOORS, AND THE THIRD WAS MISSING UNTIL A PROPERTY FOUND IT.
   //   - what the operator asked for, honoured when it is SLOWER, because asking
   //     for less traffic is a request no ceiling objects to;

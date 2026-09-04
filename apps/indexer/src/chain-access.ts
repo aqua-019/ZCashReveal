@@ -44,7 +44,7 @@ import type { LeakReport } from "@zcashreveal/types";
 import { databaseUrl, type Config } from "./config.js";
 import { AnchorRegistry, type AnchorHeightSource } from "./decoder/anchor-depth.js";
 import { createDb, persistLeakReport } from "./persistence/index.js";
-import { PostgresChainStore, type ChainStore } from "./runtime/index.js";
+import { MemoryChainStore, PostgresChainStore, type ChainStore } from "./runtime/index.js";
 
 /** How a caller opens Postgres. Injected so an assertion can watch it not happen. */
 export type ConnectPostgres = (url: string) => Sql;
@@ -90,7 +90,39 @@ export function chainAccessFor(
   connect: ConnectPostgres = (url) => createDb(url),
 ): ChainAccess {
   const url = databaseUrl(cfg);
-  if (url === null) return { sql: null, store: null, ...NO_CHAIN_WRITES };
+  if (url === null) {
+    /**
+     * RUNG 3'S THIRD MODE: NO DATABASE, BUT A STORE (HANDOFF-16).
+     *
+     * WHY IT IS A THIRD MODE AND NOT A RELAXATION OF THE SECOND. Rung 2's
+     * mempool-only mode does not start the follower at all, so nothing is
+     * indexed and no crossing is ever counted - which is correct for rung 2 and
+     * is exactly what rung 3 exists to change. `MemoryChainStore` implements the
+     * same `ChainStore` contract as `PostgresChainStore`, including the
+     * per-table rollback a reorg needs, so the driver, the reorg walk and the
+     * pool state all run against it unmodified.
+     *
+     * WHAT IT COSTS, STATED HERE BECAUSE THE COST IS INVISIBLE FROM THE OUTSIDE.
+     * The store is the process's memory. A restart loses every block applied and
+     * reopens the base at `INDEXER_START_HEIGHT`, so `migrationHist` starts
+     * again from that height and the crossings counted before the restart are
+     * gone. That is a real property of this mode and `describeMode` says it on
+     * every start rather than leaving an operator to discover it from a chart
+     * that reset overnight.
+     *
+     * THE ANCHOR REGISTRY IS STILL ABSENT, AND THAT IS NOT AN OVERSIGHT.
+     * `AnchorRegistry` is Redis in front of Postgres; without the table its
+     * `getHeightForAnchor` must answer null - a measurement of nothing - and
+     * NEVER zero, which would be a claim that the anchor is the tip
+     * (`NO_CHAIN_WRITES`'s docblock above). `recordAnchor` stays null for the
+     * same reason: recording into a registry whose reads cannot be trusted
+     * would make a depth out of half a record.
+     */
+    if (cfg.INDEXER_CHAIN_STORE === "memory") {
+      return { sql: null, store: new MemoryChainStore(), ...NO_CHAIN_WRITES };
+    }
+    return { sql: null, store: null, ...NO_CHAIN_WRITES };
+  }
 
   const sql = connect(url);
   const registry = new AnchorRegistry(redis, sql);
@@ -116,6 +148,16 @@ export function describeMode(access: ChainAccess): {
   readonly absent: string;
   readonly message: string;
 } {
+  if (access.sql === null && access.store !== null) {
+    return {
+      mode: "memory-chain",
+      absent: "durability, anchor depth, report history",
+      message:
+        "no DATABASE_URL with INDEXER_CHAIN_STORE=memory: the confirmed-block follower runs against an IN-MEMORY store. " +
+        "Crossings accrue from the start height forward and are LOST ON RESTART - the base reopens at INDEXER_START_HEIGHT " +
+        "and nothing backfills what was counted before. Anchor depth reads as unknown rather than zero",
+    };
+  }
   if (access.sql === null) {
     return {
       mode: "mempool-only",

@@ -30,6 +30,7 @@ import { describe, expect, it } from "vitest";
 
 import { MockRpcEndpoint } from "../mock-endpoint.js";
 import { parseRetryAfterMs } from "../rate-limit.js";
+import { ABSENCE_PATTERNS as TS_ABSENCE_PATTERNS, ENDPOINT_PROBES } from "../endpoint-probe.js";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
 const SCRIPT = resolve(REPO_ROOT, "scripts/preflight-rpc.mjs");
@@ -185,6 +186,31 @@ describe("the version window, in the preflight's own copy of the parser", () => 
     expect(versionVerdict("/Zebra:6.2.3/", W).outcome).toBe("BELOW-FLOOR");
     expect(versionVerdict("/Zebra:6.4.0/", W).outcome).toBe("ABOVE-CEILING");
     expect(versionVerdict("/MagicBean:5.4.2/", W).outcome).toBe("UNPARSED");
+  });
+});
+
+describe("the script's probe list agrees with the package's, row for row", () => {
+  /**
+   * THE SECOND DUPLICATE THIS FILE PINS, AND FOR THE SAME REASON AS THE FIRST.
+   * `scripts/preflight-rpc.mjs` takes no workspace import so an operator can run
+   * it from a fresh clone before `pnpm install`; `packages/zebra-rpc`'s
+   * `endpoint-probe.ts` is what the indexer's startup check uses. Two copies of
+   * one list is a real cost and it is paid here rather than by hoping: a method
+   * added to either, a verbosity changed in either, or a pattern added to either
+   * fails this test until both agree.
+   */
+  it("PROBES and ENDPOINT_PROBES have the same rows, params and required flags", () => {
+    const shape = (p: { key: string; method: string; params: readonly unknown[]; required: boolean }) => ({
+      key: p.key,
+      method: p.method,
+      params: p.params,
+      required: p.required,
+    });
+    expect(PROBES.map(shape)).toEqual(ENDPOINT_PROBES.map(shape));
+  });
+
+  it("the two ABSENCE_PATTERNS lists are the same expressions in the same order", () => {
+    expect(ABSENCE_PATTERNS.map(String)).toEqual(TS_ABSENCE_PATTERNS.map(String));
   });
 });
 
