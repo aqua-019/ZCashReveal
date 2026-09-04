@@ -8727,3 +8727,60 @@ locally reaches it. The question for L2 is whether the register should
 distinguish "skipped" from "not applicable on this surface" at the reporting
 layer, since that distinction is what made this face survive five gates.
 ```
+
+## L2 RESOLUTION - HANDOFF-16 (PR #58), appended verbatim by the HANDOFF-17 session
+
+L2 (Cowork) has no write access to this repository; this block is the only channel by which its
+verification results, answers to ledger questions and amendments reach the tree. Appended under the
+HANDOFF-16 block it names, per the Revolution protocol step 2. Nothing below is edited.
+
+```text
+# L2 RESOLUTION - HANDOFF-16 (PR #58)
+**VERDICT: MERGE.** No changes requested. Verified independently on a clean worktree at `2b63e1a`.
+## What L2 executed
+INSTALL_RC=0  BUILD_RC=0  TYPECHECK_RC=0  TEST_RC=0  LINT_RC=0  CHECK_RC=0
+1676 passed | 5 skipped        git status --porcelain empty
+Postgres and Redis up. **BUILD RAN BEFORE TYPECHECK** - L2's own PR-57 lesson applied, and typecheck was clean as a result rather than reporting fifteen phantom errors against a stale `dist`.
+## The finding is real and L2 reproduced its whole chain independently
+Section 7 reports that a missing `z_gettreestate` does not degrade the confirmed-block driver - **it stalls it forever**. Verified against merged `main` at `f976477`, link by link:
+| link | site | verified |
+|---|---|---|
+| the treestate call sits ABOVE every mutation | `confirmed-block.ts:158` vs appends at `:170-178`, `writeBlock` at `:307` | yes |
+| `isFatal` does not catch it | `chain-follower.ts:184` - `ChainRuntimeError || ZCashRevealStateError` only | yes |
+| `RpcError` is neither | `packages/zebra-rpc/src/errors.ts:51` extends `ZebraRpcError` | yes |
+So the block is never written, the error is never fatal, and the loop re-fetches the same block for ever, **on the first block that appends Ironwood commitments.** L2's own section 1 said the driver "writes the block, logs the notice and records no anchor". It does none of those three. **That was L2's error and it was the row the whole rung was sized on.**
+## Three adversarial mutations
+| mutation | result |
+|---|---|
+| `absentTreestateSource` reverted to throwing (the pre-fix driver) | **1 failed** - `Error: [RPC z_gettreestate] Method not found` |
+| `planConfirmedFollow` forced to treat every endpoint as unmetered | **8 failed** - `expected 2000 to be 75000` |
+| *(first attempt at the above, malformed)* | **reported as a finding, not repaired quietly - see below** |
+The second reproduces the six-times-over-budget defect exactly: the raw 2s poll instead of the ceiling-derived 75s.
+**AND L2's FIRST ATTEMPT AT THAT MUTATION WAS MALFORMED, WHICH IS REPORTED RATHER THAN SILENTLY REDONE (CLAUDE.md's converse rule).** L2 guessed the function was named `planFollowerPoll`. It is `planConfirmedFollow` at `follower-plan.ts:162`. The edit therefore landed on nothing, vitest ran the stale build, and the probe read **592 passed - a clean green that was evidence of nothing.** Caught by checking the probe before judging the code, which is the exact move F-56-1's operational half prescribes; a session that had read that green as "the ceiling split is not load-bearing" would have filed a false all-clear on the second-most-important fix in this PR.
+## The smoke workflow: PROVEN, and L2 confirmed it against GitHub rather than the report
+L2 filed this as the fourth face of the gate-list origin and it had **0 successes in 44 runs**. Section 7 claims the fix is proven. Verified by loading the workflow's own run history with `is:success`:
+1 workflow run result
+post-deploy smoke #46: Manually run by aqua-019 - green, 25s
+**One success, and it is the first in the workflow's life.** `pnpm/action-setup@v5` is at line 74, `setup-node` at line 78 - correctly ordered. The session ran it by `workflow_dispatch` rather than asserting the fix, which is what the addendum asked for. `CLAUDE.md` now names `test:e2e` and `assert-no-skipped-integration`, so all four faces are closed in one edit.
+## THE THING THE OPERATOR NEEDS TO KNOW, AND IT RESIZES WHAT COMES NEXT
+**Crossings cannot reach the plane without a database.** Verified independently at `chain-inputs.ts:465`: when `queryMigrations === null`, `readSnapshotInputs` returns `{ crossings: [], window: null }`. The indexer accumulating crossings is necessary and **not sufficient** - the publisher is a separate process and builds `migrationHist` from its own Postgres query.
+So `INDEXER_CHAIN_STORE=memory` gives a working follower and live pool state and puts **nothing on the plane.** That was not in L2's section 1 and it should have been. `CUTOVER-1.0.md` section 10.1 now states both shapes of the rung in a table rather than implying the one that does not work.
+## Ruling on the section 8 questions
+**Q1 - is "a documented case with no producer" a guard or a rule? A RULE, and the session's own wording is the right one. ADOPTED as F-58-1: when a docblock names a case, find the caller that produces it before believing the case exists.** `TreestateSource`'s `| null` was inhabited in the type and uninhabited in the wiring for four handoffs, and the compiler cannot see that. L2 agrees a guard is not available: enumerating a type's inhabitants against each caller's ability to construct them is a reachability question, not a grep. **This is LEDGER-15's "a nullable dependency whose null no configuration can produce is not a branch, it is a comment" - the same shape, now with its detection rule.** Recorded as weaker than a guard under clause (b), correctly.
+**Q2 - should memory mode exist at all? KEEP IT, and the session's reasoning is right.** Deleting a working mode because its brief expected more of it would be a worse error than shipping it with an honest table. Memory mode runs the follower and the gateway's live views; it does not draw crossings. **Both facts are now in the runbook, which is the whole disposition.** The brief was wrong, not the mode.
+**Q5 - the verify phase over a moving tree. THIS IS THE MOST VALUABLE THING IN THIS LEDGER AND L2 CHOOSES THE SECOND RULE.** Twenty-two refuter verdicts all returned `refuted` for one reason - "already fixed at HEAD" - because the lead was committing fixes while the phase ran. **Every verdict was honest and every verdict was evidence about nothing.** That is LEDGER-09b's shape arriving inside a gate's own scheduling: an exhaustive claim over the wrong object, where the object is the tree at a commit.
+**ADOPTED as F-58-2: find-and-fix and verify are SEPARATE RUNS, and the fix commit is the second run's subject.** Not the pin-the-commit-and-freeze-the-lead option, for two reasons. First, freezing the lead while a phase runs wastes the lead, and this project's gates already take hours. Second, and decisively, **the stopping rule already says the fix commit earns its own round** - so the separate-runs form is not a new rule at all, it is the rule this project has had since LEDGER-09b, applied to the refuter panel instead of to the lead. Adopting the freeze option would have created a second mechanism for something already mechanised. **A refuter panel that reviews the fix commit is the round; a refuter panel racing the lead is a panel reading a tree that no longer exists.**
+## L2's own record on this handoff, stated plainly
+Three of section 1's measurements were wrong: the seven-methods claim (it enumerated CLIENT methods, not WIRE methods, and missed `getRawMempoolVerbose`), the 0.8/min confirmed-block cost (it omitted the tip poll that precedes every `getblock`, so the real figure was 30/min against a ceiling of 5), and what a missing `z_gettreestate` costs (it degrades nothing - it stalls the driver). **The first is LEDGER-09b's exhaustive-claim shape, which L2 itself wrote into CLAUDE.md.** The second and third are F-56-1: claims about modules L2 had not read line by line, in a brief, one handoff after L2 ruled that F-56-1 binds briefs as well as probes.
+**The pattern across three handoffs is now unambiguous: L2's section 1 tables are the least reliable artefact this project produces, and every session has caught them by execution.** The instruction in section 1 to check them is doing the work the tables should have done themselves. That belongs in the ledger, and section 1 below marks every unverified claim rather than asserting it.
+```
+
+**FOLDS APPLIED BY THIS SESSION.** Two rulings carry adoptions and both are applied to `CLAUDE.md`
+in the same commit as this append: **F-58-1** (when a docblock names a case, find the caller that
+produces it before believing the case exists - recorded as WEAKER than a guard under clause (b),
+because L2 agrees a guard is not available) and **F-58-2** (find-and-fix and verify are separate
+runs, and the fix commit is the second run's subject). Q2 requires no tree change: it ratifies what
+HANDOFF-16 already shipped. The three self-corrections L2 records against its own section 1 need no
+edit here either - they are already in the tree as HANDOFF-16's own section 7 - but they are the
+reason HANDOFF-17's section 1 marks its unverified rows instead of asserting them, and the reason
+this session executed five more corrections against the brief that produced it.

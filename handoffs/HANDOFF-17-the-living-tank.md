@@ -167,43 +167,94 @@ lifecycle is already right in it - then `apps/web/src/lib/api/stream.ts` (`subsc
 6. **`docs/2.0/RUNTIME.md` gains "the living plane"** - what feeds it, what a reader sees at 3/min
    versus at a provider rate, and the sentence that a sparse tank is a metered feed, not a fault.
 
-## §5 ASSERTIONS - each needs both polarities, and each names its EXCLUSION SET
+## §5 ASSERTIONS - the amended format: every assertion states its EXCLUSION SET
 
-- **A1.** A `tx_added` frame adds exactly one mark and it is still present on the next render.
-  *Exclusion set: a txid already in the live set.* **Fail side by DATA:** re-deliver the same frame
-  and assert the count does not move.
-- **A2.** A `tx_removed` frame removes the mark with that txid and no other. *Exclusion set: a txid
-  never added.* **Fail side by DATA:** `tx_removed` for an unknown txid leaves the set unchanged
-  and does not throw.
-- **A3.** The live mark count equals the number of held unconfirmed transactions, up to
-  `SPLASH_N_MAX`, and the reading says `capped` beyond it. *Exclusion set: a held count above 42
-  rendering more than 42 marks, or capping silently.* **Fail side by DATA:** drive 50 additions,
-  assert 42 marks AND `capped: true`.
-- **A4.** **NOTHING DRAWS A LIVE MARK EXCEPT A FRAME.** *Exclusion set: every source that is not an
-  arrived frame - a timer, a seed, an ambience value, a fixture constant.* **Fail side by DATA:**
-  mount, deliver ZERO frames, advance timers, assert the live mark count is exactly 0. **Write this
-  one first and try hardest to break it.**
-- **A5.** At `prefers-reduced-motion: reduce` the marks are present with no travel animation. *Both
-  polarities in one test: the same frames with the query false animate, with it true do not.*
+Every assertion below names the values its predicate is written to reject, and every fail side
+names WHICH MEMBER of that set it used, so a reader sees at a glance whether the fail side came
+from inside the set or from outside it (LEDGER-09a Q2). `check-ledger-structure.mjs` checks the
+clause is PRESENT; it cannot check that it is correct, and that limit is in the guard's own header.
+
+- **A1.** A `tx_added` frame adds exactly one live mark, and it is still present on the next render.
+  *Exclusion set:* any txid already held - a re-delivered frame, a duplicate on reconnect, or the
+  same transaction arriving in a `snapshot` and again as `tx_added`.
+  *Fail side names:* the re-delivered frame. The same `tx_added` is applied twice and the live count
+  is asserted not to move; a double-draw on a re-delivery is the defect a keyed set exists to
+  prevent, and it is a DATA mutation because the frame is the datum.
+
+- **A2.** A `tx_removed` frame removes the mark with that txid and no other.
+  *Exclusion set:* any txid not held - one never added, one already removed, and a well-formed txid
+  that belongs to a different transaction in the same tank.
+  *Fail side names:* the txid never added. The removal is applied against a populated tank and the
+  set is asserted unchanged and no throw; the third member (a well-formed txid of a DIFFERENT held
+  transaction) is driven too, because "removes no other" is the half a single-mark tank cannot see.
+
+- **A3.** The live mark count equals the number of held unconfirmed transactions up to
+  `SPLASH_N_MAX`, and beyond it the reading says `capped` with the true count beside the drawn one.
+  *Exclusion set:* any held count above 42 that renders more than 42 marks, and any held count above
+  42 that renders exactly 42 while reporting `capped: false` - a silent cap is the same defect as an
+  uncapped board, because the reader cannot tell a full tank from a busy one.
+  *Fail side names:* 50 additions. The member is the held count 50, drawn from inside the set;
+  asserted 42 marks AND `capped: true` AND the true 50 reaching the reading.
+
+- **A4.** **NOTHING DRAWS A LIVE MARK EXCEPT AN ARRIVED FRAME.**
+  *Exclusion set:* every source of a mark that is not a frame - a timer firing, the tip-hash seed,
+  an ambience value, a `migrationHist` constant counted as live, and a re-render.
+  *Fail side names:* the timer. The plane is mounted, ZERO frames are delivered, fake timers are
+  advanced past every interval the subtree could hold, the component is re-rendered, and the live
+  mark count is asserted to be exactly 0. **Written first and attacked hardest** - it is the
+  assertion the whole contract rests on.
+
+- **A5.** At `prefers-reduced-motion: reduce` the marks are present with no travel animation.
+  *Exclusion set:* any rendering that animates travel while the query matches, and any rendering
+  that drops a mark because the query matches - reduced motion removes the swimming, never the
+  information.
+  *Fail side names:* the query set to `true` with the same frames that animate at `false`. Both
+  polarities in one test, and the second member is checked by asserting the mark COUNT is identical
+  across the two - the same information, no motion.
+
 - **A6.** A socket that never connects renders a NAMED disconnected state, not an empty tank that
-  looks calm. *Exclusion set: a connected-but-quiet tank carrying fault text.* **Fail side:** a
-  connected socket with zero transactions renders the empty tank WITHOUT the fault text - the two
-  empties must read differently.
-- **A7.** Live mempool marks are separable in the DOM from `migrationHist` crossing marks, **and
-  the tank is correct with ZERO of the latter** - the RPC-only shape HANDOFF-16 measured, and the
-  one the first cutover ships. *Exclusion set: a DOM in which a live mark and a confirmed crossing
-  carry the same identifying attribute.* **Fail side by DATA:** a snapshot carrying counted
-  crossings AND a live frame; assert the two are separable.
-- **A8.** A row whose direction is not derivable from `class` draws NO mark (C3). *Exclusion set:
-  `class: "undecoded"`, and a row with an empty `lanes` array.* **Fail side by DATA:** deliver an
-  undecoded row, assert zero marks added and the held count reports it as undrawn rather than
-  vanishing.
-- **A9.** `pnpm -r test` green with a **real** exit code, captured directly and never through a
-  pipe (**F-53-1**), **with `build` run BEFORE `typecheck`** (LEDGER-15), and the passed AND
+  looks calm.
+  *Exclusion set:* an empty tank that carries no fault text while the socket is closed, and its
+  converse - a CONNECTED tank with zero transactions that carries fault text.
+  *Fail side names:* the connected-and-quiet tank. It is the second member, and it is the one that
+  discriminates: a test that only drives the closed socket passes against a component that shows the
+  fault text unconditionally. The two empties must read differently and both are asserted.
+
+- **A7.** Live mempool marks are separable in the DOM from `migrationHist` crossing marks, **and the
+  tank is correct with ZERO of the latter** - the RPC-only shape HANDOFF-16 measured, and the one
+  the first cutover ships.
+  *Exclusion set:* any DOM in which a live mark and a confirmed crossing carry the same identifying
+  attribute, and any rendering that requires a non-empty `migrationHist` to draw live marks at all.
+  *Fail side names:* a snapshot carrying counted crossings delivered together with a live frame. The
+  member is that combined state; the two are asserted separable by attribute, and the zero-crossing
+  case is driven as its own polarity because it is the shipping configuration.
+
+- **A8.** A row whose crossing direction is not derivable draws NO mark, and is reported as undrawn
+  rather than vanishing (C3).
+  *Exclusion set:* `class: "undecoded"`, a row with an empty `lanes` array, and a row whose lanes
+  name a single lane - value moving inside one pool crosses nothing, which the plane's own caption
+  already says.
+  *Fail side names:* the `undecoded` row. It is delivered as a well-formed `tx_added` frame that
+  `asFrame` accepts, and zero marks are asserted added while the held count still accounts for it -
+  a dropped row does not look like a bug, it looks like a quiet mempool.
+
+- **A9.** `pnpm -r test` green with a **real** exit code, captured directly and never through a pipe
+  (**F-53-1**), with `pnpm build` run BEFORE `pnpm typecheck` (LEDGER-15), and the passed AND
   skipped counts both stated with every skip named.
+  *Exclusion set:* any exit code read through a pipe, a `tee` or a `| tail`, where the value belongs
+  to the last process in the pipeline rather than to the suite; and any report stating a passed count
+  without its skipped count.
+  *Fail side names:* the piped read. This session already hit that member once in this handoff - a
+  guard run through `| tail` reported `RC=0` for a run whose real exit code was 1 - and the
+  transcript in section 7 shows both readings of the same command.
+
 - **A10.** `pnpm --filter @zcashreveal/web test:e2e` RUN AND REPORTED. On the gate list as of
-  HANDOFF-16 deliverable 1b. This handoff changes what a page draws over time, which is what that
+  HANDOFF-16 deliverable 1b; this handoff changes what a page draws over time, which is what that
   suite is for.
+  *Exclusion set:* a gate row left silent, and a row reported as passing on the strength of a
+  previous session's run rather than this tree's.
+  *Fail side names:* the silent row. If the suite cannot be run here, section 7 states the reason
+  rather than omitting the row - CLAUDE.md's own instruction for a gate a session cannot run.
 
 ## §6 DISPATCH HINTS
 
