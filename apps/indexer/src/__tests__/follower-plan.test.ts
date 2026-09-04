@@ -27,6 +27,7 @@ describe("planConfirmedFollow", () => {
     expect(p).toEqual({
       pollIntervalMs: 2000,
       reservedPerMinute: null,
+      catchUpIntervalMs: null,
       remainingPerMinute: null,
       feasible: true,
       metered: false,
@@ -72,6 +73,49 @@ describe("planConfirmedFollow", () => {
       expect(Number.isFinite(q.pollIntervalMs), `ceiling ${String(perMinute)}`).toBe(true);
       expect(q.pollIntervalMs, `ceiling ${String(perMinute)}`).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("the CATCH-UP rate, which the reservation does not bound on its own", () => {
+  /**
+   * THE RESERVATION IS A STEADY-STATE FIGURE AND `loop()` DOES NOT HONOUR IT
+   * WHILE BEHIND THE TIP. A gate reviewer measured twenty blocks applied with
+   * ZERO sleeps and forty-one wire calls: `loop()` sleeps only on `idle`, so
+   * catch-up spends as fast as the gate allows. The gate holds the ceiling, so
+   * nothing exceeds it on the wire; what it costs is every other caller on the
+   * same client, for the whole catch-up - and in memory mode catch-up is the
+   * state after every restart.
+   */
+  it("a metered plan paces catch-up at exactly its reservation", () => {
+    const p = planConfirmedFollow({ perMinute: 5, requestedIntervalMs: 2000 });
+    expect(p.catchUpIntervalMs).not.toBeNull();
+    // Two requests a block at this interval is the reservation, per minute.
+    const blocksPerMinute = 60_000 / (p.catchUpIntervalMs as number);
+    expect(blocksPerMinute * REQUESTS_PER_BLOCK).toBeLessThanOrEqual(p.reservedPerMinute as number);
+  });
+
+  it("and it still GAINS on the chain, or catch-up would never end", () => {
+    // The pace has to be faster than the chain produces blocks. At a reservation
+    // of three that is one block every forty seconds against one every
+    // seventy-five, which closes the gap at about 0.7 blocks a minute.
+    const p = planConfirmedFollow({ perMinute: 5, requestedIntervalMs: 2000 });
+    expect(p.catchUpIntervalMs as number).toBeLessThan(BLOCK_TARGET_MS);
+  });
+
+  it("FAIL SIDE, BY DATA: an UNMETERED plan paces nothing, because there is no budget to protect", () => {
+    expect(planConfirmedFollow({ perMinute: null, requestedIntervalMs: 2000 }).catchUpIntervalMs).toBeNull();
+  });
+
+  it("at every feasible ceiling the paced catch-up stays inside the reservation", () => {
+    let seen = 0;
+    for (let R = 4; R <= 200; R += 1) {
+      const p = planConfirmedFollow({ perMinute: R, requestedIntervalMs: 2000 });
+      if (!p.feasible) continue;
+      seen += 1;
+      const cost = (60_000 / (p.catchUpIntervalMs as number)) * REQUESTS_PER_BLOCK;
+      expect(cost, `ceiling ${String(R)}`).toBeLessThanOrEqual(p.reservedPerMinute as number);
+    }
+    expect(seen).toBe(197);
   });
 });
 

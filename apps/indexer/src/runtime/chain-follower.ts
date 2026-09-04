@@ -49,6 +49,21 @@ export interface FollowerOptions {
   readonly store: ChainStore;
   readonly log: Logger;
   readonly pollIntervalMs: number;
+  /**
+   * How long to wait after an APPLIED block before taking the next step, or
+   * undefined for none.
+   *
+   * `pollIntervalMs` BOUNDS THE IDLE RATE AND NOTHING ELSE, which is not what a
+   * ceiling needs. `loop()` sleeps only when a step comes back `idle`, so while
+   * this state is behind the tip it re-enters `step()` immediately and spends
+   * requests as fast as the gate allows - measured at twenty blocks and
+   * forty-one wire calls with zero sleeps. Against a node you own that is
+   * correct and this stays undefined; against a metered endpoint it starves
+   * every other caller on the same client for the whole of the catch-up, and
+   * `planConfirmedFollow` supplies the interval that holds the follower to its
+   * reservation instead.
+   */
+  readonly catchUpIntervalMs?: number;
   readonly sleep?: (ms: number) => Promise<void>;
   /**
    * Where the Ironwood treestate comes from. Defaults to calling `rpc.getTreestate`.
@@ -181,6 +196,11 @@ export class ChainFollower {
       try {
         const result = await this.step();
         if (result.kind === "idle") await this.sleep(this.opts.pollIntervalMs);
+        // AND A PACED CATCH-UP WHEN ONE IS CONFIGURED. See `catchUpIntervalMs`.
+        // A reorg step is paced too: it also spends requests - the header walk
+        // to the split - and a reorg on a metered endpoint is not a reason to
+        // stop metering.
+        else if (this.opts.catchUpIntervalMs !== undefined) await this.sleep(this.opts.catchUpIntervalMs);
       } catch (err) {
         if (isFatal(err)) {
           this.running = false;

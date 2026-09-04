@@ -22,6 +22,7 @@ import {
   classifyProbe,
   methodIsAbsent,
   probeEndpoint,
+  probesForPath,
 } from "../endpoint-probe.js";
 
 const TREESTATE = {
@@ -83,6 +84,69 @@ describe("probeEndpoint, over a real socket", () => {
       expect(report.unknown).toEqual(ENDPOINT_PROBES.map((p) => p.key));
       // Blocking, because a required method was not shown to work - but never
       // reported as absent, which is a different fact and a different fix.
+      expect(report.blocking).toBe(true);
+    } finally {
+      await mock.stop();
+    }
+  }, 30_000);
+});
+
+describe("probesForPath - a process probes what IT sends", () => {
+  /**
+   * THE FIRST VERSION PROBED NOTHING IN MEMPOOL-ONLY MODE, on a true sentence
+   * about three methods. `apps/indexer` gated the whole probe on
+   * `store !== null` and justified it with "in mempool-only mode nothing calls
+   * getblock, getblockheader or z_gettreestate" - which is true, and which does
+   * not license skipping the OTHER five. That mode calls `getblockchaininfo`,
+   * `getrawmempool` in both verbosities and `getrawtransaction` on every tick,
+   * so the configuration most likely to be pointed at an unknown third-party
+   * endpoint was the one that checked nothing at all. A gate reviewer found it
+   * by grepping the call sites the sentence itself named.
+   */
+  it("every probe declares a path, iterating the list rather than naming rows", () => {
+    for (const p of ENDPOINT_PROBES) {
+      expect(["mempool", "confirmed", "either"], p.key).toContain(p.path);
+    }
+  });
+
+  it("the two paths partition the list, with `either` in both and nothing lost", () => {
+    const mempool = probesForPath("mempool");
+    const confirmed = probesForPath("confirmed");
+    const union = new Set([...mempool, ...confirmed].map((p) => p.key));
+    expect(union.size).toBe(ENDPOINT_PROBES.length);
+    // `either` rows are in both, and there is at least one, or the split is a
+    // partition of convenience rather than of what each path sends.
+    const both = mempool.filter((p) => confirmed.includes(p));
+    expect(both.length).toBeGreaterThan(0);
+    expect(both.every((p) => p.path === "either")).toBe(true);
+  });
+
+  it("THE ROW THAT MATTERS: the mempool path probes getrawtransaction, which it sends on every tick", () => {
+    const keys = probesForPath("mempool").map((p) => p.key);
+    expect(keys).toContain("getblockchaininfo");
+    expect(keys).toContain("getrawmempool");
+    expect(keys).toContain("getrawmempool[verbose]");
+    expect(keys).toContain("getrawtransaction");
+    // And NOT the three the sentence was right about.
+    expect(keys).not.toContain("getblock");
+    expect(keys).not.toContain("getblockheader");
+    expect(keys).not.toContain("z_gettreestate");
+  });
+
+  it("the confirmed path probes z_gettreestate, which is the whole reason the probe exists", () => {
+    expect(probesForPath("confirmed").map((p) => p.key)).toContain("z_gettreestate");
+  });
+
+  it("FAIL SIDE, BY DATA: an endpoint missing getrawtransaction BLOCKS the mempool path", async () => {
+    // The member: an endpoint that serves the confirmed path's methods and not
+    // one the mempool path sends. Under the old gate this configuration started
+    // silently and failed on the first transaction.
+    const mock = new MockRpcEndpoint({ ...SERVING, absentMethods: ["getrawtransaction"] });
+    const url = await mock.start();
+    try {
+      const rpc = new ZebraRpc({ url, retries: 0 });
+      const report = await probeEndpoint((m, p) => rpc.call(m, p, z.unknown()), probesForPath("mempool"));
+      expect(report.absent).toEqual(["getrawtransaction"]);
       expect(report.blocking).toBe(true);
     } finally {
       await mock.stop();

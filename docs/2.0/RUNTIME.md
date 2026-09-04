@@ -177,9 +177,15 @@ A block whose `previousblockhash` is not the state's tip hash is a reorg.
    citing one is given a depth measured from an abandoned block. **The Redis
    hot tier is not cleared** and can still answer with the orphaned height
    until that key's 24-hour TTL expires. A Redis hit repopulates the in-process
-   memo, so the memo now carries the SAME deadline the key does - without that,
-   one read after a reorg pinned the orphaned height for the life of the
-   process and the TTL bounded nothing. The reason the tier is not cleared:
+   memo, so the memo carries the key's own REMAINING deadline, read with `pttl`
+   at the moment of the hit - without that, one read after a reorg pinned the
+   orphaned height for the life of the process and the TTL bounded nothing.
+   **This sentence said "the SAME deadline" for one gate round while the code
+   gave a FRESH 24 hours from the read**, which is the same number only when the
+   key was written in that instant; on the hit path it doubled the window to
+   about 48 hours, and a fourth round measured the registry still answering 23
+   hours after the key had died. The two now expire together because the
+   deadline is read rather than recomputed. The reason the tier is not cleared:
    `check-redis-safety` rule 4 permits
    `DEL` only on a string literal, these keys are computed per root, and a rule
    protecting another project's database is not one this handoff widens. The

@@ -73,6 +73,28 @@ export interface FollowerPlan {
    */
   readonly reservedPerMinute: number | null;
   /**
+   * How long a METERED follower waits after applying a block before fetching the
+   * next one, or null when unmetered.
+   *
+   * WITHOUT IT THE RESERVATION IS A STEADY-STATE FIGURE THE LOOP DOES NOT
+   * HONOUR, and a gate reviewer measured exactly that: `ChainFollower.loop`
+   * sleeps only when a step comes back `idle`, so while the chain state is
+   * BEHIND the tip every iteration returns `applied` and the loop re-enters
+   * `step()` immediately - twenty blocks applied, forty-one wire calls, and
+   * ZERO sleeps. `pollIntervalMs` bounds the idle rate and nothing else.
+   *
+   * The gate still holds the ceiling, so nothing exceeds it on the wire. What it
+   * costs is the mempool tick, which waits behind the follower's queued takes
+   * for the whole of the catch-up - and in `INDEXER_CHAIN_STORE=memory` mode
+   * catch-up is the state after EVERY restart, because the store is the process.
+   *
+   * `60000 * REQUESTS_PER_BLOCK / reservedPerMinute` is the interval at which
+   * the follower spends exactly its reservation while catching up. At a
+   * reservation of three that is one block every forty seconds, which still
+   * gains on a chain producing one every seventy-five.
+   */
+  readonly catchUpIntervalMs: number | null;
+  /**
    * What is left for every other caller on the same client, or null when
    * unmetered.
    *
@@ -113,6 +135,10 @@ export function planConfirmedFollow(input: FollowerPlanInput): FollowerPlan {
     return {
       pollIntervalMs: input.requestedIntervalMs,
       reservedPerMinute: null,
+      // NULL, NOT ZERO. Unmetered catch-up is a tight loop against a node you
+      // own and that is the right behaviour: there is no budget to protect and
+      // pacing it would only make a restart take longer.
+      catchUpIntervalMs: null,
       remainingPerMinute: null,
       feasible: true,
       metered: false,
@@ -126,6 +152,7 @@ export function planConfirmedFollow(input: FollowerPlanInput): FollowerPlan {
   return {
     pollIntervalMs,
     reservedPerMinute: reserved,
+    catchUpIntervalMs: Math.ceil((60_000 * REQUESTS_PER_BLOCK) / reserved),
     // The floor of one is documented on the field above; it is a footgun guard,
     // not a claim that one request a minute is enough for anything.
     remainingPerMinute: Math.max(1, perMinute - reserved),

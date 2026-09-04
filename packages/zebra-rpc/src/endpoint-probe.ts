@@ -40,8 +40,26 @@ export interface EndpointProbe {
   readonly params: readonly unknown[];
   /** Whether the stack can run without it. */
   readonly required: boolean;
+  /**
+   * Which path sends it, so a process can probe what IT sends and not the union.
+   *
+   * ADDED BECAUSE THE FIRST VERSION GATED THE WHOLE PROBE ON `store !== null`
+   * AND JUSTIFIED IT WITH A FALSE SENTENCE. The comment said "in mempool-only
+   * mode nothing calls getblock, getblockheader or z_gettreestate" - true - and
+   * then skipped all EIGHT probes, including the three that mode calls on every
+   * tick (`getblockchaininfo` at `index.ts`, `getRawMempool` twice, and
+   * `getRawTransaction` per transaction). So the mode most likely to be pointed
+   * at an unknown third-party endpoint was the one that probed nothing. A gate
+   * reviewer found it by grepping the call sites the sentence named.
+   */
+  readonly path: "mempool" | "confirmed" | "either";
   /** What its absence costs, in the operator's terms. */
   readonly why: string;
+}
+
+/** The probes one path sends. `either` rows are in both. */
+export function probesForPath(path: "mempool" | "confirmed", probes: readonly EndpointProbe[] = ENDPOINT_PROBES): readonly EndpointProbe[] {
+  return probes.filter((p) => p.path === path || p.path === "either");
 }
 
 /**
@@ -74,6 +92,7 @@ export const ENDPOINT_PROBES: readonly EndpointProbe[] = [
     method: "getblockchaininfo",
     params: [],
     required: true,
+    path: "either",
     why: "the tip, the lane balances, and the follower's every step",
   },
   {
@@ -81,6 +100,7 @@ export const ENDPOINT_PROBES: readonly EndpointProbe[] = [
     method: "getblock",
     params: ["99999999", 2],
     required: true,
+    path: "confirmed",
     why: "every confirmed block, at verbosity 2 - the only verbosity this stack sends",
   },
   {
@@ -88,6 +108,7 @@ export const ENDPOINT_PROBES: readonly EndpointProbe[] = [
     method: "getblockheader",
     params: ["0000000000000000000000000000000000000000000000000000000000000000", true],
     required: true,
+    path: "confirmed",
     why: "the base row's block time on a cold start",
   },
   {
@@ -95,6 +116,7 @@ export const ENDPOINT_PROBES: readonly EndpointProbe[] = [
     method: "getrawmempool",
     params: [false],
     required: true,
+    path: "mempool",
     why: "the mempool txid list",
   },
   {
@@ -102,6 +124,7 @@ export const ENDPOINT_PROBES: readonly EndpointProbe[] = [
     method: "getrawmempool",
     params: [true],
     required: true,
+    path: "mempool",
     why: "the mempool with sizes, which is what /v2/mempool renders",
   },
   {
@@ -109,6 +132,7 @@ export const ENDPOINT_PROBES: readonly EndpointProbe[] = [
     method: "getrawtransaction",
     params: ["0000000000000000000000000000000000000000000000000000000000000000", 1],
     required: true,
+    path: "mempool",
     why: "every mempool transaction this stack analyses",
   },
   {
@@ -116,6 +140,7 @@ export const ENDPOINT_PROBES: readonly EndpointProbe[] = [
     method: "z_gettreestate",
     params: ["99999999"],
     required: true,
+    path: "confirmed",
     why:
       "THE ONLY SOURCE OF AN IRONWOOD ROOT. Absent, every Ironwood anchor is missing and every later spend citing one " +
       "reads UNKNOWN_ANCHOR permanently - there is no backfill (LEDGER-12 Q2)",
@@ -125,6 +150,7 @@ export const ENDPOINT_PROBES: readonly EndpointProbe[] = [
     method: "getinfo",
     params: [],
     required: false,
+    path: "either",
     why: "subversion, for the version window. Nothing else in this stack calls it, so its absence costs the version check alone",
   },
 ];

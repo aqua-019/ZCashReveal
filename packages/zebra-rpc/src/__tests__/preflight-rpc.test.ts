@@ -118,18 +118,71 @@ describe("A1 - the preflight discriminates a served method from an absent one", 
   }, 180_000);
 });
 
-describe("A2 - the rate is measured, with its n", () => {
-  it("PASS SIDE: a 5/minute endpoint gives last success 5, first refusal 6, n=8", async () => {
-    const { out } = await against({ ...SERVING, perMinute: 5 }, ["--burst", "8", "--rate-only"]);
+describe("A2 - the rate is measured, with its n AND its window", () => {
+  /**
+   * A COUNT WITHOUT A WINDOW IS NOT A RATE, AND THE FIRST VERSION OF THIS
+   * SCRIPT REPORTED ONE. It printed `Set INDEXER_RPC_MAX_RPM=<burst count>`,
+   * which is right only when the endpoint's window happens to be a minute. A
+   * gate reviewer drove it against a five-per-SECOND limiter and got a
+   * recommendation of five against a real ceiling of three hundred - a sixtyfold
+   * under-estimate, and the direction that makes the indexer analyse nothing.
+   * The three legs below are the three outcomes the window now has, and the
+   * per-second leg is the one that would have failed before the fix.
+   */
+  it("PASS SIDE: a 5-per-minute endpoint, window from Retry-After, derives 5/minute", async () => {
+    const { out } = await against({ ...SERVING, perMinute: 5, retryAfter: "60" }, ["--burst", "8", "--rate-only"]);
     expect(out).toContain("last success 5, first refusal 6, n=8");
-    expect(out).toContain("rate                    MEASURED      5 succeeded, request 6 refused, n=8");
+    expect(out).toContain("window 60000ms");
+    expect(out).toContain("5/minute");
+  }, 60_000);
+
+  it("THE CASE THE OLD VERSION GOT WRONG: a 5-per-SECOND endpoint derives 300/minute, not 5", async () => {
+    // The DATA mutation is the window, not the count: same five successes, same
+    // first refusal, a thousandth of the window. A script reading only the count
+    // cannot tell these two endpoints apart, and they differ by sixty times.
+    const { out } = await against(
+      { ...SERVING, perMinute: 5, windowMs: 1000, retryAfter: "1" },
+      ["--burst", "8", "--rate-only"],
+    );
+    expect(out).toContain("last success 5, first refusal 6, n=8");
+    expect(out).toContain("window 1000ms");
+    expect(out).toContain("300/minute");
+    expect(out).not.toContain("5/minute");
+  }, 60_000);
+
+  it("NO Retry-After: the window is measured by WAITING FOR RECOVERY, and the figure still comes out", async () => {
+    // The second route. RFC 9110 does not require the header and the measured
+    // endpoint did send one, but most gateways do not - so the route that does
+    // not depend on it is the one most runs will take.
+    const { out } = await against(
+      { ...SERVING, perMinute: 5, windowMs: 1500 },
+      ["--burst", "8", "--rate-only", "--window-max-ms", "20000"],
+    );
+    expect(out).toContain("measured recovery");
+    expect(out).toMatch(/derived ceiling \d+ requests\/minute/);
+  }, 60_000);
+
+  it("THIRD OUTCOME: a window that cannot be determined derives NOTHING and recommends NOTHING", async () => {
+    // An endpoint that refuses from the first request and never recovers. The
+    // capacity is still real and is still reported; the rate is not invented.
+    // A number printed here is a number an operator pastes into a config file.
+    const mock = new MockRpcEndpoint({ ...SERVING, perMinute: 1, windowMs: 3_600_000 });
+    const url = await mock.start();
+    try {
+      const { out } = await runPreflight(url, ["--burst", "4", "--rate-only", "--window-max-ms", "3000"]);
+      expect(out).toContain("window UNDETERMINED");
+      expect(out).toContain("no per-minute figure");
+      expect(out).not.toMatch(/derived ceiling/);
+    } finally {
+      await mock.stop();
+    }
   }, 60_000);
 
   it("FAIL SIDE, BY DATA: an endpoint that never refuses reports its n and NOT a ceiling", async () => {
-    // The discriminating case, and the mutation is in the ENDPOINT rather than
-    // in the script: the same burst against an endpoint with no `perMinute`.
-    // A run that answered "unmetered" here would be a rate quoted without its n,
-    // which CLAUDE.md says is not a measurement at all.
+    // The mutation is in the ENDPOINT rather than in the script: the same burst
+    // against an endpoint with no `perMinute`. A run that answered "unmetered"
+    // here would be a rate quoted without its n, which CLAUDE.md says is not a
+    // measurement at all.
     const { out } = await against(SERVING, ["--burst", "6", "--rate-only"]);
     expect(out).toContain("no refusal in n=6");
     expect(out).not.toContain("MEASURED");

@@ -28,7 +28,7 @@ import pino from "pino";
 import { z } from "zod";
 import { Redis } from "ioredis";
 import { loadConfig, rpcCeilingPerMinute } from "./config.js";
-import { methodIsAbsent, probeEndpoint, RateGate, RpcRateLimitError, ZebraRpc } from "@zcashreveal/zebra-rpc";
+import { methodIsAbsent, probeEndpoint, probesForPath, RateGate, RpcRateLimitError, ZebraRpc } from "@zcashreveal/zebra-rpc";
 import { ZebradZmqSubscriber } from "./zmq-subscriber.js";
 import { MempoolState, type MempoolDiff } from "./mempool-state.js";
 import { analyze } from "./decoder/index.js";
@@ -230,19 +230,27 @@ async function main() {
   // FIRST BLOCK THAT NEEDS IT (HANDOFF-16, section 3: "a missing method is a
   // NAMED ABSENCE at startup, never a silent degradation").
   //
-  // ONLY WHEN THERE IS A FOLLOWER TO PROTECT. In mempool-only mode nothing calls
-  // `getblock`, `getblockheader` or `z_gettreestate`, so eight probes would
-  // spend eight requests of a five-a-minute ceiling to report on methods this
-  // process will never send.
+  // THE PROBE SET IS THE PATH'S, NOT THE UNION'S, AND THE FIRST VERSION GOT THIS
+  // BACKWARDS. It gated the whole probe on `store !== null` and justified that
+  // with a true sentence about three methods - "in mempool-only mode nothing
+  // calls `getblock`, `getblockheader` or `z_gettreestate`" - which does not
+  // license skipping the OTHER five. Mempool-only sends `getblockchaininfo`
+  // (`index.ts`'s tick), `getrawmempool` in both verbosities and
+  // `getrawtransaction` per transaction, so the mode most likely to be pointed
+  // at an unknown third-party endpoint was the one that probed nothing at all.
+  // A gate reviewer found it by grepping the call sites the sentence named.
   //
-  // AND ONLY WHEN IT COSTS SOMETHING TO GET WRONG. Against an unmetered node you
-  // own, the probes are eight instant loopback calls and there is no reason to
-  // skip them. Against a metered endpoint they are eight of a small budget, paid
-  // once at startup, which is the cheapest this fact is ever available: the
-  // alternative is learning it weeks later from a chart with no crossings on it.
+  // WHAT IT COSTS, WHICH IS WHY IT IS A SUBSET AND NOT ALWAYS EIGHT. Against an
+  // unmetered node you own these are instant loopback calls. Against a metered
+  // endpoint they are requests from a small budget, paid once at startup - the
+  // cheapest this fact is ever available, since the alternative is learning it
+  // weeks later from a chart with no crossings on it. Probing the four the
+  // confirmed path adds when there is no confirmed path would be spending that
+  // budget to report on methods this process will never send.
   let treestateAbsent = false;
-  if (store !== null) {
-    const report = await probeEndpoint((method, params) => rpc.call(method, params, z.unknown()));
+  {
+    const probes = probesForPath(store === null ? "mempool" : "confirmed");
+    const report = await probeEndpoint((method, params) => rpc.call(method, params, z.unknown()), probes);
     for (const v of report.verdicts) {
       const at = v.outcome === "SERVED" ? "debug" : "warn";
       log[at]({ method: v.probe.key, outcome: v.outcome, detail: v.detail }, `endpoint probe: ${v.probe.key} is ${v.outcome}`);
@@ -258,6 +266,7 @@ async function main() {
       // is the silent version, and that is what this line removes.
       log.warn(
         {
+          mode: store === null ? "mempool" : "confirmed",
           absent: report.absent,
           unknown: report.unknown,
           costs: report.verdicts.filter((v) => v.probe.required && v.outcome !== "SERVED").map((v) => `${v.probe.key}: ${v.probe.why}`),
@@ -298,6 +307,10 @@ async function main() {
         store,
         log,
         pollIntervalMs: follow.pollIntervalMs,
+        // CATCH-UP IS PACED ONLY WHEN METERED. `follow.catchUpIntervalMs` is
+        // null against a node you own, and spreading a restart's catch-up over
+        // hours there would be a cost with nothing to buy.
+        ...(follow.catchUpIntervalMs === null ? {} : { catchUpIntervalMs: follow.catchUpIntervalMs }),
         // WHERE THE TREESTATE COMES FROM, AND IT IS A DECISION MADE ONCE AT
         // STARTUP RATHER THAN PER BLOCK (HANDOFF-16). An endpoint measured not
         // to serve `z_gettreestate` gets a source that returns null, which puts

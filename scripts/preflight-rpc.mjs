@@ -87,6 +87,7 @@ function requireUrl() {
   if (URL_ !== undefined && URL_.length > 0) return URL_;
   process.stderr.write(
     "usage: node scripts/preflight-rpc.mjs <rpc-url> [--burst N] [--skip-rate|--rate-only] [--timeout-ms N]\n" +
+      "                                     [--window-max-ms N]\n" +
       "   or: ZEBRAD_RPC_URL=https://... node scripts/preflight-rpc.mjs\n\n" +
       "Answers which methods this stack sends are served, what version is answering,\n" +
       "and how many requests the endpoint takes before it refuses.\n",
@@ -113,6 +114,16 @@ const SKIP_RATE = has("--skip-rate");
 const RATE_ONLY = has("--rate-only");
 /** A refusal with no `Retry-After` still needs a wait. One minute is the window every measured limiter uses. */
 const DEFAULT_COOLOFF_MS = 60_000;
+/**
+ * How long `measureWindow` will wait for an endpoint to serve again before
+ * reporting the window UNDETERMINED.
+ *
+ * A REAL OPERATOR FLAG, like `--rate-only`. Determining a window costs a window,
+ * and an operator probing a gateway with a fifteen-minute one should be able to
+ * say "spend thirty seconds and then tell me you could not". The default covers
+ * every window this project has measured, with room.
+ */
+const WINDOW_PROBE_MAX_MS = Number(flag("--window-max-ms", "75000"));
 /** How many times one probe is retried after a refusal before it is reported UNKNOWN. */
 const PROBE_RETRIES = 2;
 
@@ -413,25 +424,92 @@ export function classify(res) {
    ------------------------------------------------------------------------ */
 
 /**
- * How many requests this endpoint takes before it refuses.
+ * How many requests this endpoint takes before it refuses, AND OVER WHAT WINDOW.
  *
- * REPORTS ITS n EITHER WAY. A burst that never gets refused does not license
- * "unmetered"; it licenses "no refusal in n". CLAUDE.md states the rule and this
- * project has broken it before.
+ * A COUNT WITHOUT A WINDOW IS NOT A RATE, AND THE FIRST VERSION OF THIS
+ * FUNCTION REPORTED ONE ANYWAY. It issued n back-to-back calls, returned
+ * `lastSuccess`, and the caller printed `Set INDEXER_RPC_MAX_RPM=<lastSuccess>`.
+ * That is correct only if the endpoint's window happens to be exactly one
+ * minute. Driven against a mock limiting five per SECOND - three hundred a
+ * minute - it printed "5 succeeded, request 6 refused" and recommended a ceiling
+ * of five: a sixty-fold under-estimate, which would have made the indexer
+ * analyse approximately nothing while the endpoint sat idle. Found by a gate
+ * reviewer and reproduced here before the fix was written. It is the same shape
+ * as CLAUDE.md's rule about a rate quoted without its n, one step further along:
+ * the n was there and the DENOMINATOR was not.
+ *
+ * SO THE WINDOW IS MEASURED TOO, BY TWO ROUTES AND A THIRD OUTCOME.
+ *
+ *   `Retry-After`  when the refusal carries it, that IS the window the endpoint
+ *                  is telling you about, and it costs nothing to read.
+ *   recovery       otherwise, poll until the endpoint serves again and time it.
+ *                  Bounded, because an endpoint that refuses for an hour must
+ *                  not hang a preflight.
+ *   UNDETERMINED   neither answered inside the bound. The capacity is still
+ *                  reported - it is a real measurement - and NO per-minute
+ *                  figure is derived and no ceiling is recommended, because a
+ *                  number invented here is a number an operator will paste into
+ *                  a config file.
  */
 async function measureRate(n) {
   const at = [];
+  const startedAt = Date.now();
   for (let i = 1; i <= n; i += 1) {
     const res = await rpc("getblockchaininfo", []);
     at.push(res.kind);
     if (res.kind === "REFUSED") {
-      return { refused: true, lastSuccess: i - 1, firstRefusal: i, n, retryAfterMs: res.retryAfterMs, sequence: at };
+      const refusedAt = Date.now();
+      const window = await measureWindow(res.retryAfterMs, refusedAt);
+      return {
+        refused: true,
+        lastSuccess: i - 1,
+        firstRefusal: i,
+        n,
+        retryAfterMs: res.retryAfterMs,
+        burstMs: refusedAt - startedAt,
+        window,
+        // THE DERIVED FIGURE, AND IT IS null WHEN THE WINDOW IS UNDETERMINED
+        // RATHER THAN A GUESS. capacity per window, scaled to a minute.
+        perMinute:
+          window.ms === null || window.ms <= 0
+            ? null
+            : Math.max(1, Math.floor(((i - 1) * 60_000) / window.ms)),
+        sequence: at,
+      };
     }
     if (res.kind === "TRANSPORT") {
-      return { refused: false, unreachable: true, lastSuccess: i - 1, firstRefusal: null, n: i, sequence: at };
+      return { refused: false, unreachable: true, lastSuccess: i - 1, firstRefusal: null, n: i, perMinute: null, sequence: at };
     }
   }
-  return { refused: false, lastSuccess: n, firstRefusal: null, n, sequence: at };
+  return {
+    refused: false,
+    lastSuccess: n,
+    firstRefusal: null,
+    n,
+    burstMs: Date.now() - startedAt,
+    perMinute: null,
+    sequence: at,
+  };
+}
+
+/** How long the endpoint stays refused, from `Retry-After` or by waiting it out. */
+async function measureWindow(retryAfterMs, refusedAt) {
+  if (retryAfterMs !== null && retryAfterMs > 0) {
+    return { ms: retryAfterMs, source: "Retry-After" };
+  }
+  // POLLED, WITH A CEILING ON THE WAIT. A minute plus a little covers every
+  // window this project has measured; beyond that the honest answer is that the
+  // window was not determined, not a larger guess.
+  const deadline = refusedAt + WINDOW_PROBE_MAX_MS;
+  let step = 2000;
+  while (Date.now() < deadline) {
+    await sleep(step);
+    const res = await rpc("getblockchaininfo", []);
+    if (res.kind === "OK") return { ms: Date.now() - refusedAt, source: "measured recovery" };
+    if (res.kind === "TRANSPORT") return { ms: null, source: "the endpoint stopped answering while the window was being measured" };
+    step = Math.min(step * 2, 8000);
+  }
+  return { ms: null, source: `no recovery inside ${String(Math.round(WINDOW_PROBE_MAX_MS / 1000))}s` };
 }
 
 /* ---------------------------------------------------------------------------
@@ -471,9 +549,10 @@ async function main() {
     }
     process.stdout.write(
       rate.refused
-        ? `  last success ${rate.lastSuccess}, first refusal ${rate.firstRefusal}, n=${rate.n}` +
-            `${rate.retryAfterMs === null ? " (no Retry-After)" : ` (Retry-After ${Math.round(rate.retryAfterMs / 1000)}s)`}\n\n`
-        : `  no refusal in n=${rate.n}. That is not "unmetered": it is no refusal in ${rate.n}.\n\n`,
+        ? `  last success ${rate.lastSuccess}, first refusal ${rate.firstRefusal}, n=${rate.n}, burst took ${String(rate.burstMs)}ms\n` +
+            `  window ${rate.window.ms === null ? "UNDETERMINED" : `${String(Math.round(rate.window.ms))}ms`} (${rate.window.source})\n` +
+            `  ${rate.perMinute === null ? "NO per-minute figure: the window was not determined, so a rate cannot be derived" : `derived ceiling ${String(rate.perMinute)} requests/minute`}\n\n`
+        : `  no refusal in n=${rate.n} over ${String(rate.burstMs)}ms. That is not "unmetered": it is no refusal in ${rate.n}.\n\n`,
     );
   }
 
@@ -482,7 +561,9 @@ async function main() {
       rate === null
         ? "rate                    SKIPPED       --skip-rate and --rate-only are contradictory; nothing was measured\n"
         : rate.refused
-          ? `rate                    MEASURED      ${rate.lastSuccess} succeeded, request ${rate.firstRefusal} refused, n=${rate.n}\n`
+          ? `rate                    MEASURED      ${rate.lastSuccess} succeeded, request ${rate.firstRefusal} refused, n=${rate.n}; ` +
+            `window ${rate.window.ms === null ? "UNDETERMINED" : `${String(Math.round(rate.window.ms))}ms`}; ` +
+            `${rate.perMinute === null ? "no per-minute figure" : `${String(rate.perMinute)}/minute`}\n`
           : `rate                    NO REFUSAL    none in n=${rate.n}\n`,
     );
     process.stdout.write(`total requests          ${String(requestCount)}\n`);
@@ -492,10 +573,15 @@ async function main() {
   // PACED FROM THE MEASUREMENT. At a measured five-a-minute the probes below run
   // one every twelve seconds, which is slow and is the endpoint's decision
   // rather than this script's.
-  const perMinute = rate !== null && rate.refused ? rate.lastSuccess : null;
+  // PACED FROM THE DERIVED PER-MINUTE FIGURE, NOT FROM THE BURST COUNT. Where the
+  // window could not be determined the probes are paced from the burst count
+  // treated as a per-minute ceiling, which is the SLOWEST reading of the
+  // measurement and therefore the safe one to probe at - it can waste an
+  // operator's time and cannot spend budget they do not have.
+  const perMinute = rate !== null && rate.refused ? (rate.perMinute ?? rate.lastSuccess) : null;
   const paceMs = perMinute !== null && perMinute > 0 ? Math.ceil(60_000 / perMinute) : 0;
   if (rate !== null && rate.refused) {
-    const waitMs = rate.retryAfterMs ?? DEFAULT_COOLOFF_MS;
+    const waitMs = rate.window.ms ?? rate.retryAfterMs ?? DEFAULT_COOLOFF_MS;
     process.stdout.write(`  waiting ${Math.round(waitMs / 1000)}s for the window to clear before probing methods\n\n`);
     await sleep(waitMs);
   }
@@ -531,7 +617,9 @@ async function main() {
     rate === null
       ? "rate                    SKIPPED       --skip-rate was passed\n"
       : rate.refused
-        ? `rate                    MEASURED      ${rate.lastSuccess} succeeded, request ${rate.firstRefusal} refused, n=${rate.n}\n`
+        ? `rate                    MEASURED      ${rate.lastSuccess} succeeded, request ${rate.firstRefusal} refused, n=${rate.n}; ` +
+          `window ${rate.window.ms === null ? "UNDETERMINED" : `${String(Math.round(rate.window.ms))}ms`} (${rate.window.source}); ` +
+          `${rate.perMinute === null ? "no per-minute figure derived" : `${String(rate.perMinute)} requests/minute`}\n`
         : `rate                    NO REFUSAL    none in n=${rate.n}\n`,
   );
   process.stdout.write(`total requests          ${String(requestCount)}\n\n`);
@@ -559,8 +647,19 @@ async function main() {
   }
   process.stdout.write("\nThis endpoint serves every method this stack sends.\n");
   if (rate !== null && rate.refused) {
+    // NO RECOMMENDATION WITHOUT A WINDOW. A number printed here is a number an
+    // operator pastes into a config file, and a burst count printed as a
+    // per-minute ceiling is wrong by whatever ratio the real window bears to a
+    // minute - sixty-fold against a per-second limiter, measured.
     process.stdout.write(
-      `Set INDEXER_RPC_MAX_RPM=${rate.lastSuccess} so the client meters itself to what was measured.\n`,
+      rate.perMinute === null
+        ? `NO CEILING RECOMMENDED: ${String(rate.lastSuccess)} requests were served before a refusal, but the window ` +
+          `could not be determined (${rate.window.source}), so that count is a burst capacity and not a rate. ` +
+          `Re-run when the endpoint sends Retry-After, or set INDEXER_RPC_MAX_RPM from the provider's own documented ` +
+          `figure and treat it as unverified.\n`
+        : `Set INDEXER_RPC_MAX_RPM=${String(rate.perMinute)} so the client meters itself to what was measured ` +
+          `(${String(rate.lastSuccess)} requests per ${String(Math.round(rate.window.ms / 1000))}s window, ` +
+          `by ${rate.window.source}).\n`,
     );
   }
   process.exit(0);
