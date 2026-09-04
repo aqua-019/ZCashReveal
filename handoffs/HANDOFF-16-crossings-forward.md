@@ -1,7 +1,7 @@
 ---
 handoff: 16
 title: Crossings forward - the confirmed-block driver on a third-party endpoint (rung 3 of three)
-status: shipped
+status: closed
 branch: the session-designated branch (name it `feat/v2-16-crossings-forward` if you may choose)
 track: Integration
 depends_on: 12, 15
