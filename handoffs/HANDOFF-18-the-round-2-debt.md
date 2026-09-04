@@ -162,7 +162,250 @@ assertion that would have caught the eleven fish and it does not exist yet.
 
 ## §7 REPORT
 
-Filled by the executing session before the PR opens.
+```
+STATUS: (filled at write-back)
+
+FORKED FROM c32c46e0f5019fa05f39a06ec878609b91c5f875, the head of `main`.
+`git merge-base --is-ancestor 2326c84 origin/main` exits 0 - EXECUTED BEFORE ANY
+FILE WAS TOUCHED - so PR #59 landed whole and not merely its earlier commits.
+HEAD was already `origin/main` exactly and `git status --porcelain` was empty.
+
+SPAWN MODE: subagent fan-out available, PROVEN BY A TOOL ATTEMPT before any
+work - a `general-purpose` agent returned `SPAWN-OK` and the correct HEAD SHA in
+one tool use, writing nothing. Directors name every worker; subagents do not
+nest.
+```
+
+### §2 READING - what was read LINE BY LINE, before any probe (F-56-1)
+
+All of it, in full, before the first line of code was written:
+`HANDOFF-17-the-living-tank.md` section 7 entire (the specification),
+`apps/web/src/lib/live-plane.ts` entire, `apps/web/src/lib/api/frame-bus.ts`
+entire, `apps/web/src/lib/api/tip-bus.ts` entire,
+`apps/web/test/unit/live-plane.test.ts` entire,
+`apps/web/test/unit/live-plane-layer.test.tsx` entire and
+`apps/gateway/src/views/mempool.ts` entire. Four more the brief did not list but
+its own claims required: `apps/web/test/unit/frame-bus.test.ts` (A14 lives
+there, not in either file the brief names), `apps/web/src/lib/api/stream.ts`
+(`IS_LIVE_TRANSPORT` and `FixtureStream`),
+`apps/web/src/components/record/LivePlaneLayer.tsx` (the affordance that prints
+the held figure) and `apps/gateway/src/live-reports.ts` (which settles what
+order the gateway actually sends a view in).
+
+### THE THREE HIGHs, REPRODUCED AGAINST THE PRE-FIX TREE BEFORE ANY FIX
+
+Executed, in one probe run, on the tree as merged. The brief said not to take
+L2's diagnosis on trust and this is the discharge of that.
+
+```
+R2-2  drawn before: 42  after: 42  SURVIVED: 0
+R2-2  before drew txids 259..300
+R2-2  after  draws txids 9..50
+R2-2  held after: 250; holds txid(1) (a row this reader had EVICTED)? true
+R2-2  holds txid(300) (the newest row it was drawing)? true
+R2-1  flow="I to O" -> {"kind":"crossing","from":"orchard","to":"ironwood"}
+R2-3  held=250 drawn=0 capped=false  -> the page prints "of 250 held"
+```
+
+All three match HANDOFF-17 section 7 exactly. R2-2's second line is the half the
+symptom sentence does not carry: the board did not merely lose its marks, it
+PROMOTED txid(1) - a row this reader had already evicted - over the rows it was
+drawing. That is the sentence in `add`'s own comment, measured.
+
+### THE SAME PROBES, AFTER THE FIX
+
+```
+R2-2 [arrival]   survived 42/42; after draws txids 259..300; holds txid(1)? false
+R2-2 [reversed]  survived 42/42; after draws txids 259..300; holds txid(1)? false
+R2-2 [shuffled]  survived 42/42; after draws txids 259..300; holds txid(1)? false
+R2-1 flow="I to O"  lanes=["orchard","ironwood"]  -> {"kind":"crossing","from":"ironwood","to":"orchard"}
+R2-1 flow="O to I"  lanes=["orchard","ironwood"]  -> {"kind":"crossing","from":"orchard","to":"ironwood"}
+R2-1 flow="S to O"  lanes=["sapling","orchard"]   -> {"kind":"crossing","from":"sapling","to":"orchard"}
+R2-1 flow="3 pools" lanes=["sprout",...]          -> {"undrawn":"no single crossing describes it"}
+R2-3 held=250 drawn=0 capped=true holdCapped=true -> the page prints "of at least 250 held"
+```
+
+### THE CAPTURE THAT SETTLES R2-1, AND IT IS WHY NO CARE APPLIED TO `lanes` COULD HAVE WORKED
+
+F-57-1 says an exclusion set is closed by CAPTURE from the real producer, never
+by enumeration from memory. `mempoolRow` in `apps/gateway/src/views/mempool.ts`
+was driven over both directions of the ZIP 318 crossing, through the gateway's
+own `LeakReport` fixture:
+
+```
+CAPTURE REVERSED (I to O): class=migration flow="I to O" lanes=["orchard","ironwood"]
+CAPTURE FORWARD  (O to I): class=migration flow="O to I" lanes=["orchard","ironwood"]
+```
+
+**The lane arrays are IDENTICAL, in the same canonical order.** That is the whole
+finding and it is stronger than the brief's statement of it: HANDOFF-17's fix was
+not merely incomplete, it was reading the one field of the row that CANNOT carry
+the answer. The direction now comes from `flow`, which is the field the producer
+put it in and the field the cell beside the arc prints.
+
+### A FOURTH DEFECT, FOUND BY WRITING THE ASSERTION THE BRIEF ASKED FOR
+
+The brief said A15 was "the one to write first and the one to try hardest to
+break". Written against the real transport, it broke something that was not on
+the list.
+
+`frame-bus.ts`'s `open()` delivers every frame to EVERY subscriber regardless of
+`openInFixture`, and that is deliberate - the option's own docblock says a
+consumer "does not have to refuse frames that some other consumer's socket
+happened to deliver". True of a clock. False of this board, because in fixture
+mode those frames ARE the committed mockup corpus. So `openInFixture: false`
+protected the plane only while nothing else on the page opened a socket, which
+is a property of the PAGE rather than of the component.
+
+Executed: the layer mounted in the deployed configuration with one ordinary
+`onFrames` consumer beside it drew **ELEVEN MOCKUP ROWS** - the identical figure
+a gate reviewer measured on the deployed page in HANDOFF-17, reached by a
+different route. Not live today (the only two `onFrames` callers in `apps/web`
+are this layer and `tip-bus`, and both refuse), and one import away from being
+live. The dispatch is now guarded on the transport as well, so the two guards are
+independent: one refuses to open a connection there is nothing true on, and one
+refuses to draw what such a connection carries.
+
+### THE BUNDLE, MEASURED BOTH WAYS ON ONE VARIABLE
+
+The first draft of the R2-1 fix put the pool letters in `@zcashreveal/types` and
+imported them from the browser, so the two ends of the wire encoding could not
+drift. **That cost 15 kB of the splash bundle**, which is verbatim the figure
+`api/stream.ts`'s own header records paying to keep zod out of it - the package
+has no `sideEffects: false`, so pulling one function through its barrel drags
+`views.ts` and zod behind it. Measured by building `/` both ways with nothing
+else changed:
+
+| | `/` route JS | first load |
+|---|---|---|
+| barrel import of `POOL_INITIAL` | 21.4 kB | 133 kB |
+| local inverse map | 5.5 kB | 118 kB |
+| the shipped tree | 5.51 kB | 118 kB |
+
+HANDOFF-17 recorded 4.88 kB / 117 kB; the +0.63 kB is this handoff's own code.
+The letters are DECLARED once in `@zcashreveal/types` (the gateway imports them),
+the browser holds a local inverse for the measured reason, and a test holds the
+two to each other **by iterating the declaration's own keys** - so a fifth pool
+fails the test rather than arriving on the wire as a letter the parser silently
+declines. A copy is a drift risk and a comment is not a guard.
+
+### THE FOUR ASSERTIONS, AND THE MUTANTS THAT SETTLE THEM
+
+The deliverable was not "the test now covers it" but the mutant that used to pass
+and now fails. Both halves were executed. Every mutated file was restored and
+`git status --porcelain` confirmed clean afterwards.
+
+**The repaired assertions, against the mutants they name:**
+
+| mutant | result |
+|---|---|
+| M1 snapshot arm: strangers dated ABOVE survivors | 1 failed / 52 passed |
+| M2 snapshot arm: survivors lose their original seq | 2 failed / 51 passed |
+| M3 migration direction back to the PAIR (R2-1 pre-fix) | 4 failed / 49 passed |
+| M4 `capped` back to the draw cap alone (R2-3 pre-fix) | 1 failed / 52 passed |
+| M5 `tip-bus` `onReset` deleted | 3 failed / 13 passed |
+| M6 `tip-bus` idempotent detach deleted | 1 failed / 15 passed |
+| restored | 53 passed (53) and 16 passed (16) |
+
+**And the half that makes those numbers evidence - the OLD assertions against the
+SAME mutants:**
+
+| the assertion as it shipped | its mutant | result |
+|---|---|---|
+| OLD A14 | M5 (`onReset` deleted) | **PASSES** |
+| OLD survivor-seq test | M2 (survivors lose their seq) | **PASSES** |
+| OLD `live-plane-layer.test.tsx`, all 19 tests | the pre-`e3a1622` wiring | **19/19 PASS** |
+| NEW `live-plane-transport.test.tsx` | the same pre-`e3a1622` wiring | **3 failed**, at 11 marks |
+| NEW `live-plane-transport.test.tsx` | dispatch guard alone removed | **1 failed**, at 11 marks |
+
+The old A15 file passing 19/19 against the exact code that put eleven mockup rows
+on the deployed page is the measurement this handoff exists for. It is not a weak
+test; it is a test of something else, and a green run of it was evidence about a
+stub.
+
+**Why each was blind, read off the file rather than assumed:**
+
+- **A14** asserted that the SOCKET COUNT moved after re-attaching, and `onTip`
+  passes `openInFixture: false`, so `onTip` can never move that count in that
+  suite - the count was moved by the ordinary `onFrames` consumer attached
+  beside it, which would have done so with `tip-bus.ts` deleted from the
+  repository. It also detached the first consumer BEFORE the reset, which sets
+  `stop = null` on the way out, so the desynchronisation it exists to catch
+  could not occur. Two independent reasons, either alone sufficient.
+- **A15's zero-marks half** ran in a file whose first statement stubs
+  `subscribeFrames` to `() => () => undefined`. Nothing in that file can deliver
+  a frame, so "zero marks" is true of any component whatsoever.
+- **The survivor-seq test** drove arrival order. Read off the producer rather
+  than guessed: `readLiveReports` builds the view from
+  `Object.values(await redis.hgetall(...))` - a Redis HASH keyed by txid, whose
+  iteration order is arbitrary with respect to arrival. In arrival order the
+  reshuffle is invisible, because fresh sequence numbers assigned in arrival
+  order preserve the arrival ordering and the sorted comparison cannot move.
+- **`tip-bus`'s idempotent detach** had a four-line docblock and no assertion
+  anywhere in the repository, which is the same standing as a property that does
+  not work.
+
+### THE EIGHT GATES
+
+Each read directly from its own process - never through a pipe, a `tail` or a
+wrapper whose last statement is an `echo` (**F-53-1**) - and `build` FIRST
+(LEDGER-15).
+
+```
+BUILD_RC=0  (first)      TEST_RC=0        TYPECHECK_RC=0   LINT_RC=0
+CHECK_RC=0  (17 guards)  VALIDATE_RC=0    E2E_RC=0         SKIPGUARD_RC=0
+```
+
+- **1,769 passed / 5 skipped**, healthy, with Postgres 16 and Redis started as
+  plain local daemons - **not** `docker compose up`, which CLAUDE.md reserves for
+  the operator.
+- **The five skips, named from the reports themselves**: publisher A7 (the local
+  Redis sink), publisher deliverable 2 (the RPC-only Redis round trip), publisher
+  A1 FAIL SIDE (a real database), publisher A1/A4/A5 (`readSnapshotInputs`
+  against a real Postgres with migration 005), and `zebra-rpc` A11 (the live
+  node's subversion clears the floor - no node). All five are on
+  `assert-no-skipped-integration`'s allowlist and the guard names each one.
+- **`test:e2e` RUN: 192 passed in 6.1 minutes**, on a quiet tree with no other
+  build or server touching `.next` - which is what A7 asks for, and the condition
+  HANDOFF-17's 37-failure reading lacked.
+- **`assert-no-skipped-integration` cleared LOCALLY** before the push, from three
+  vitest JSON reports emitted by hand: `total=835 passed=830 failed=0 skipped=5`,
+  16 integration files with executed tests.
+- **LEDGER-15's gate ORDER earned its place again in this session.** The first
+  run of the R2-1 probe died on `Failed to resolve entry for package
+  "@zcashreveal/types"` - a cross-package export added in the same change that
+  consumes it, invisible until the producing package is rebuilt. That is the
+  exact failure the build-first rule exists for, arriving in a probe rather than
+  in a typecheck.
+
+### INSTRUMENT FAILURES, REPORTED RATHER THAN QUIETLY REPAIRED
+
+- **A mutation harness whose `run` helper `cd`-ed out of its own working
+  directory**, so the first pass of all six mutants printed NOTHING and every row
+  was blank. A harness failure and a mutant that kills nothing produce the same
+  empty output, and the reading is available only from re-examining the
+  instrument. Re-run with the directory pinned per invocation; the baseline was
+  driven first and returned 53/53 and 16/16, which is what made the six results
+  below it readable.
+- **`node scripts/check-emoji.mjs 2>&1 | tail -3` reported `EMOJI_RC=0` for a
+  script that had thrown.** The value belonged to `tail`. That is **F-53-1**
+  inside the first ten minutes of the session, caught by reading the line rather
+  than the number, and every gate figure in this report is read directly from its
+  own process because of it. The script name was also wrong - the guard is
+  `./scripts/check-no-emoji.sh`, invoked by `pnpm check`.
+
+### POST-FAN-OUT SWEEP
+
+`git status --porcelain` was run before every commit and after the gate fan-out.
+The probe harness was built OUTSIDE the repository - under the session
+scratchpad, with its own vitest config pointing back at `apps/web` - so no
+throwaway test file ever entered the tree, which is the standing risk this rule
+exists for. Every file mutated during the mutant runs was restored from a copy
+taken beforehand and the sweep confirmed clean.
+
+### GATE ROUNDS
+
+(filled at write-back)
 
 ## §8 LEDGER
 
