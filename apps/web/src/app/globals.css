@@ -4919,6 +4919,154 @@ canvas[data-ui="fog"] {
   }
 }
 
+/* ---------- the living plane ----------
+   Unconfirmed mempool transactions, over the settled board.
+
+   THE OVERLAY IS `inset: 0` AGAINST `.tplane-board`, on the same argument the
+   label layer above uses and for the same reason: the figure also holds the
+   header and the caption, so positioning against it would drop the marks a
+   hundred-odd pixels low. It shares the board's 1180 x 560 viewBox, so a live
+   arc and a settled arc between the same two nodes land on the same pixels.
+
+   `pointer-events: none` because the layer must not steal the hover the figure
+   already owns. One hover verb on this surface is dim, and it belongs to the
+   marks and nodes underneath. */
+.tplane-live-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+}
+
+/* THE ENTRY. A mark swims in along its own crossing path and then holds - it
+   does not loop, it does not pulse and it does not repeat, because a mark that
+   kept moving would be a decoration rather than an arrival. One curve,
+   `var(--ease)`, which is the site's only one.
+
+   IT IS A DASH OFFSET RATHER THAN A TRANSFORM. The path is already the
+   geometry, so drawing it on is the honest animation of "this went from here to
+   there"; translating a shape along it would need a second, invented position.
+   `pathLength` is not set, so 1000 is a length larger than any arc on this
+   board - the dash therefore starts fully retracted for every mark regardless
+   of its true length. */
+@keyframes zr-live-swim {
+  from {
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+  }
+
+  to {
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes zr-live-arrive {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* EVERY MARK FADES IN; ONLY A CROSSING TRAVELS. A chord claims no direction, so
+   animating it along its own path would render one - travel IS the direction
+   claim on this surface. A resident ring has no second place to travel to. */
+.tlive {
+  animation: zr-live-arrive var(--t2) var(--ease) both;
+}
+
+.tlive-swim path {
+  animation: zr-live-swim 1100ms var(--ease) both;
+}
+
+/* THE HOVER VERB IS STILL DIM AND IT STILL BELONGS TO THE BOARD. The live layer
+   takes no pointer events, so this rule fires from the figure's own hover and
+   keeps the two layers reading as one picture rather than two. */
+.tplane:hover .tlive {
+  opacity: 0.42;
+}
+
+/* THE READING, at the same weight as the picture - the same rule `.tplane-head`
+   follows. A tank with no marks because the socket never connected and a tank
+   with no marks because the chain is quiet look identical on the board, and
+   only one of them is a fault, so the difference lives here in words. */
+.tplane-live-read {
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line-faint);
+  display: grid;
+  gap: 4px;
+}
+
+.tlr-state,
+.tlr-count,
+.tlr-rate,
+.tlr-undrawn,
+.tlr-left {
+  font-family: var(--f-mono);
+  font-size: var(--t-label);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-mute);
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.tlr-count b,
+.tlr-state b {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.tlr-state .dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: baseline;
+  background: var(--ink-mute);
+}
+
+/* THE STATE COLOURS ARE NOT THE ACCENT. Gold has four licensed jobs and "the
+   feed is up" is not one of them; a live badge in gold would also read as a
+   boundary crossing on the one surface where that means something specific. */
+.tlr-state[data-state="open"] .dot {
+  background: var(--p-sprout);
+}
+
+.tlr-state[data-state="connecting"] .dot {
+  background: var(--ink-dim);
+}
+
+.tlr-state[data-state="closed"] .dot {
+  background: var(--danger);
+}
+
+.tlr-src,
+.tlr-cap,
+.tlr-refused {
+  color: var(--ink-dim);
+}
+
+.tlr-limit {
+  font-family: var(--f-sans);
+  font-size: var(--t-dek);
+  line-height: 1.5;
+  color: var(--ink-mute);
+  margin: 8px 0 0;
+  max-width: 76ch;
+}
+
+.tlr-limit b {
+  color: var(--ink-dim);
+  font-weight: 500;
+}
+
+
 /* ---------- the splash beats ----------
    CLAIM -> EXPLANATION -> EVIDENCE -> THE WORKING, with the order VISIBLE.
    The complaint this answers is about sequence rather than volume: "instead of

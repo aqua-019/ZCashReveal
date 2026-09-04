@@ -597,3 +597,117 @@ A mempool view is correct in this mode when `drain.analysed` and
 `drain.observed` are both present and the page prints both. `drain.observed`
 alone, or an `analysed` count presented as the mempool, is the defect this
 section exists to prevent.
+
+## 9. The living plane: what makes the tank move
+
+The turnstile plane on `/` draws two mark sets that are **different claims about
+different objects**, and the whole of this section is about not confusing them.
+
+| set | source | what it means | how it is drawn |
+|---|---|---|---|
+| settled crossings | `snapshot.migrationHist`, written by the publisher | ZIP 318 crossings **counted over a window of confirmed blocks** | solid arc, **gold arrowhead** where it lands |
+| live marks | `tx_added` / `tx_removed` frames off the mempool socket | **unconfirmed** transactions currently in the pool | thinner arc, **hollow ring** in the lane's own hue, no gold |
+
+The reader's rule is one sentence and needs no legend: **a gold head means it
+landed; a hollow head means it has not.**
+
+They are kept apart three ways and the first cannot drift - the two sets are
+built by different functions from different inputs into different SVG elements,
+so no code path exists by which a live mark reaches `Plane.marks`. The second is
+the DOM: every live mark carries `data-live-mark` and its own `data-txid`. The
+third is the paint above.
+
+### What feeds it
+
+`TurnstilePlane` stays a **server component**; the live half is a client island,
+`LivePlaneLayer`, mounted over the board. So a reader with JavaScript off still
+gets the whole settled board, its reading and its alt text, and the settled
+marks cannot be perturbed by a frame.
+
+The island reads `frame-bus.ts`, which holds **one** `subscribeFrames`
+subscription for the whole document and fans it out. That is `tip-bus.ts`'s own
+rule, widened: `subscribeFrames` opens a socket per call, and `apps/gateway`
+caps connections per reader.
+
+### What a reader sees, and why a sparse board is not a fault
+
+**At the measured keyless ceiling the mempool loop affords about three
+transactions a minute** (section 8), so the board is nearly empty most of the
+time. That is a correct rendering of a metered feed. It is never padded: there
+are no synthetic marks, no ambient drift and no seeded shoal, and the assertion
+that says so - A4 - is driven by mounting the layer, delivering **zero** frames,
+advancing every timer and asserting the mark count is exactly `0`.
+
+So the page states its own rate. `ceilingPerMinute` and `txPerMinute` come off
+`MempoolDrainState`, which the indexer already publishes, and each renders as an
+**absence** when the producer said nothing rather than as a zero - the same rule
+`chain-inputs.ts` states. The affordance reads:
+
+```
+the endpoint affords 3 transactions a minute against a ceiling of 5 requests
+  - a sparse board is a metered feed, not a fault
+```
+
+Configure a faster endpoint and the same code fills the tank with no edit,
+because nothing here is written against the figure 3.
+
+### The two empties, which must never look alike
+
+A board with no marks because the socket never connected and a board with no
+marks because the chain is quiet are **different facts**, and only one is a
+fault. The affordance names the socket state (`live` / `connecting` / `stopped`)
+and prints "no transactions are reaching this page" only when the socket is not
+open. A frozen surface that reports no fault is this project's most-recorded
+defect shape; this is that rule applied to motion.
+
+### What draws nothing, on purpose
+
+Direction is read from the transaction's `class`, **never guessed from
+`lanes`** - `lanes` is an unordered set with no direction in it, and a
+transaction touching `{transparent, orchard}` may be a shield or a deshield.
+Five cases, and two of them draw nothing:
+
+| the row | drawn |
+|---|---|
+| `shield` / `deshield` with exactly one shielded lane, or `migration` | an oriented **crossing** that travels |
+| exactly one lane | a **resident** ring - value moving inside a pool crosses nothing |
+| exactly two lanes, no derivable direction | an undirected **chord** that does not travel, because travel is what renders direction |
+| `undecoded`, or no lanes at all | **nothing** - no lane can be claimed |
+| three or more lanes, no direction | **nothing** - no single arc describes it, and picking two would drop the rest in silence |
+
+A row that draws nothing is still **held and counted**, and the affordance
+prints the figure with its reason. A dropped row does not look like a bug; it
+looks like a quiet mempool, which is the one misreading this surface exists to
+prevent.
+
+### Removals, and the three reasons that are not interchangeable
+
+`tx_removed` carries `reason: "confirmed" | "evicted" | "replaced"`. **Only
+`confirmed` means the transaction settled.** The mark leaves in all three cases,
+because the board's fullness is the mempool's depth and a transaction that has
+left the mempool has left the board - but the reason is kept and printed, since
+reporting an eviction as a confirmation would tell a reader a dropped
+transaction landed.
+
+### Reduced motion, and the cap
+
+Under `prefers-reduced-motion: reduce` the marks **appear and persist with no
+travel animation** - the same information, no swimming. The refusal is
+architectural, on `Tide`'s and `FogCanvas`'s pattern: the class is never applied
+rather than an animation being damped to zero, and `globals.css`'s global block
+is the brace behind it.
+
+`SPLASH_N_MAX` (42) is a **ceiling, not a target**. Past it the board caps, says
+`capped`, keeps the newest arrivals and prints the true held figure beside the
+drawn one - the same rule the settled board states: the count is the
+measurement, the marks are not.
+
+### With no database at all
+
+HANDOFF-16 measured this by execution: `readSnapshotInputs` returns
+`{ crossings: [], window: null }` when `queryMigrations` is null, because the
+publisher is a separate process that builds `migrationHist` from its own
+Postgres query. **So on the RPC-only cutover the settled board draws nothing**,
+the header states its absence with a condition rather than a zero, and the live
+marks are the only marks on the plane. That configuration is asserted directly
+(A7's third case) rather than left to be discovered.
