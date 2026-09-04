@@ -443,14 +443,18 @@ function LiveReading({
       )}
 
       <p className="tlr-limit">
-        {/* THE LEGEND HAS TO CARRY THE DISTINCTION IN WORDS, because under
-            `prefers-reduced-motion` the entry animation is gone and the whole
-            difference between a settled crossing and an unconfirmed one is a
-            3.2-unit hollow ring against a 7.4-unit gold arrowhead. A reader who
-            never sees the motion needs the rule stated, not demonstrated. */}
-        <b>These marks are unconfirmed.</b> An unconfirmed crossing ends in a hollow ring in its own pool&apos;s colour; a
-        settled one, on the board beneath, ends in the gold arrowhead. Gold is where a crossing lands, and nothing here
-        has landed. A mark leaves when its transaction leaves the mempool, which is not always a confirmation. Direction
+        {/* THE LEGEND CARRIES THE DISTINCTION IN WORDS, because under
+            `prefers-reduced-motion` the entry animation is gone and the only
+            remaining cue is the head.
+            AND IT STATES THE RULE ONE-DIRECTIONALLY, WHICH IS THE ONLY WAY IT IS
+            TRUE. A first draft said "a settled one ends in the gold arrowhead",
+            which a gate round measured false for 12 of 42 settled marks:
+            `plane.ts` sets `arrow: age <= 0.72`, so the oldest 28.6 per cent of
+            the board carries no head at all. "No gold here" is a claim about
+            THIS layer and holds; "gold there" is a claim about the other one and
+            does not. The reader's rule is an implication, not an equivalence. */}
+        <b>These marks are unconfirmed.</b> An unconfirmed crossing ends in a hollow ring in its own pool&apos;s colour,
+        and never in gold. Gold is where a crossing lands, and nothing here has landed. A mark leaves when its transaction leaves the mempool, which is not always a confirmation. Direction
         is read from the transaction&apos;s class; where the class does not carry one, no direction is drawn.
       </p>
     </div>

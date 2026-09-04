@@ -269,13 +269,18 @@ defect. A4 is the assertion to write first and the one to try hardest to break.
 ## §7 REPORT
 
 ```
-STATUS: DONE
+STATUS: DONE-WITH-ASSUMPTIONS
 
 Every deliverable is in the tree and every assertion carries both polarities.
-Nothing here is a partial build. The corrections are three - five rows of this
-handoff's own section 1, six defects gate round 1 found, and one instrument
-failure of mine that produced a false 37-failure e2e reading - and all three are
-reported below rather than glossed.
+Nothing here is a partial build. The assumption is one and it is named rather
+than buried: GATE ROUND 2 RETURNED THREE HIGH FINDINGS IN EXECUTABLE LINES, two
+of them created by round 1's own fix commit, and on the operator's instruction
+they go to a FOLLOW-UP PR rather than holding this one. They are reproduced by
+the lead, recorded in full below, and this branch ships knowing about them.
+
+The one round-2 finding fixed here is the legend sentence this session added a
+commit earlier, because it was measurably false about the page and shipping a
+known false statement is not an option the rules leave open.
 
 FORKED FROM e10cbae08decfe1b9fdd44a692cae3f1f8a6f8b3, the head of `main`.
 `git merge-base --is-ancestor 2b63e1a origin/main` exits 0 - EXECUTED BEFORE ANY
@@ -418,24 +423,58 @@ Plus three MED and two LOW: a removal that took nothing off the board claiming
 `tip-bus`'s non-idempotent detach and its silent deafening by a bus reset, which
 had made every later tip assertion in a file pass vacuously.
 
-**ROUND 2 - THE FIX COMMIT AS ITS OWN SUBJECT, AND IT IS REPORTED AS UNRUN
-RATHER THAN CLEAN.** Clause (ii) and F-58-2 both require it, and this session
-dispatched it as a SEPARATE run rather than a panel racing the lead - which is
-the whole of what F-58-2 corrected. It had not returned at write-back, 21
-minutes in. **A round that did not return is not a round that found nothing**
-(LEDGER-10 Q3), so its scope - `e3a1622`'s guard predicates, test assertions and
-runtime-behaviour claims - is the least-reviewed surface in this branch and is
-recorded as such. Per the operator's instruction, any finding it returns in an
-executable line goes to a FOLLOW-UP PR rather than holding this one.
+**ROUND 2 - THE FIX COMMIT AS ITS OWN SUBJECT, AND IT RETURNED TWELVE FINDINGS,
+THREE OF THEM HIGH IN EXECUTABLE LINES.** Clause (ii) and F-58-2 both require
+it, and this session dispatched it as a SEPARATE run rather than a panel racing
+the lead - which is exactly what F-58-2 corrected. It returned after the
+write-back was first drafted; that draft recorded it as UNRUN, and this
+paragraph replaces that statement rather than leaving a known-false sentence in
+the record. **Every finding below was reproduced by the lead by execution before
+being recorded.**
 
-**THE STOPPING RULE, STATED HONESTLY RATHER THAN CLAIMED.** Clause (i)(a) is NOT
-satisfied: round 1 returned six findings a user could see, so this branch has not
-converged in the sense the rule means. What round 2 exists to test is whether the
-fixes for those six introduced a seventh, which three consecutive sessions have
-measured to be where the next defect is. **The extrapolation, per clause (iii): a
-third round probably finds one or two more, of round 2's reach - defects in the
-fix commit's own predicates and sentences rather than in the estimator.** That is
-a weaker claim than convergence and it is the one the evidence supports.
+**TWO OF THE THREE HIGHS WERE CREATED BY THE FIX COMMIT ITSELF**, which is
+precisely what clause (ii) exists to catch and what three consecutive sessions
+have measured.
+
+| # | severity | what | the lead's own reproduction |
+|---|---|---|---|
+| R2-1 | HIGH | the migration fix closed the PAIR and left the DIRECTION open. `lanes` is a SET, so a REVERSED ZIP 318 row - Ironwood back to Orchard, which `leaks.ts` calls "the rarer event", not an impossible one - still draws orchard-to-ironwood, in the wrong lane's hue, beside a cell reading "I to O" | `flow="I to O"` -> `{kind:"crossing",from:"orchard",to:"ironwood"}` |
+| R2-2 | HIGH | **`snapshot` replacement and `HOLD_MAX` together produce the exact failure `add`'s own comment says they prevent.** The snapshot arm starts from an empty map, so every entry is new to `add` and the eviction runs mid-loop, before survivors' seq is restored - promoting rows this reader had already evicted above the ones it held | 300-tx mempool, one reconnect: **0 of 42 drawn marks survived** |
+| R2-3 | HIGH | `buildLivePlane`'s docblock asserts "the affordance still prints the true held figure". `HOLD_MAX`, added in the same commit, made that false - and in the undecoded case `capped` is `0 > 42`, so the one branch that would hedge the figure is off | mempool 3,000 -> `held=250 drawn=0 capped=false`; the page prints "of 250 held" |
+
+Four more are in category (b) and are the more diagnostic half: **tests written in
+the fix commit that do not discriminate.** A14 passes against a tip-bus that is
+permanently and completely deaf (two mutants, 13/13 both times) because
+`openInFixture:false` means `onTip` can never move the socket count it asserts
+on. A15's "zero marks" half is vacuous because the file stubs the transport, so
+the commit's own headline defect - the eleven mockup rows - **is asserted nowhere
+in the repository**. The snapshot survivor-seq test passes against the mutant
+because its entries are in arrival order, which is the one order the gateway
+never sends. And `tip-bus`'s idempotent detach, which works, is asserted nowhere.
+
+One category (c) finding was a sentence THIS SESSION ADDED one commit earlier and
+is FIXED HERE rather than deferred, because shipping a known false statement is
+not an option the rules leave open: the legend said "a settled one ends in the
+gold arrowhead", and `plane.ts` sets `arrow: age <= 0.72`, so **12 of 42 settled
+marks carry no head at all** - the sentence was false for 28.6 per cent of the
+board it described, and it was written for the reduced-motion reader who has no
+other cue. The rule is an implication, not an equivalence, and it now reads that
+way.
+
+**THE REST GO TO A FOLLOW-UP PR, ON THE OPERATOR'S INSTRUCTION, AND THIS PR IS
+NOT HELD FOR THEM.** They are recorded here in full so the follow-up is scoped
+from evidence rather than from memory. R2-2 is the one to fix first: it is
+user-visible, it needs only a mempool over 250 and one reconnect, and the fixture
+corpus is 14 rows, so no test in the tree can currently see it.
+
+**THE STOPPING RULE IS NOT SATISFIED AND IS NOT CLAIMED TO BE.** Clause (i)(a)
+fails twice over: round 1 returned six findings a user could see and round 2
+returned three more. **The extrapolation, per clause (iii): a third round finds
+one or two more, and the instrument for it is not another read - it is a MUTATION
+PASS over the rest of `live-plane.test.ts` and `frame-bus.test.ts`.** Four of the
+six fixes in `e3a1622` have no discriminating test and three of those four have a
+NAMED test that passes against the reverted fix, which is a measurement about the
+assertions rather than an opinion about the code.
 
 ### THE INSTRUMENT FAILURES, INCLUDING THE ONE THAT PRODUCED A FALSE RED
 
