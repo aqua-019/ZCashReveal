@@ -46,10 +46,8 @@
 
 import type { ZecFrame } from "@zcashreveal/types";
 
-import { DATA_MODE } from "@/lib/env";
-
 import type { SocketState } from "./socket";
-import { subscribeFrames } from "./stream";
+import { IS_LIVE_TRANSPORT, subscribeFrames } from "./stream";
 
 export interface FrameBusOptions {
   /**
@@ -66,6 +64,23 @@ export interface FrameBusOptions {
 export interface FrameBusHandlers {
   readonly onFrame?: (frame: ZecFrame) => void;
   readonly onState?: (state: SocketState) => void;
+  /**
+   * Called when `resetFrameBusForTest` drops every subscriber, so a consumer
+   * that CACHES its detach can forget it.
+   *
+   * `tip-bus` is such a consumer: `stop !== null` is its whole record of
+   * whether it is attached, and a reset that cleared this set without telling
+   * it left it believing it was subscribed - after which no tip could be
+   * delivered again for the life of the process and every later tip assertion
+   * in that file passed vacuously. That is an assertion satisfied by every
+   * value it was written to exclude, arriving in the harness rather than in the
+   * product. Found by a gate reviewer whose own probe hit it.
+   *
+   * It is a HANDLER rather than `frame-bus` calling `tip-bus` directly, because
+   * that would be a circular import and would put a test-only function into the
+   * production module graph. The dependency stays one-directional.
+   */
+  readonly onReset?: () => void;
 }
 
 interface Subscriber extends FrameBusHandlers {
@@ -92,9 +107,11 @@ export function onFrames(handlers: FrameBusHandlers, options: FrameBusOptions = 
 
   const sub: Subscriber = { ...handlers, opens: options.openInFixture ?? true };
   subscribers.add(sub);
-  // A subscriber attaching to an already-open socket is told the state it is
-  // joining, rather than waiting for the next transition to learn it.
-  if (stop !== null) handlers.onState?.(state);
+  // EVERY subscriber is told the state it is joining, not only one attaching to
+  // an already-open socket. The old form guarded on `stop !== null`, so a cold
+  // attach learned nothing and a consumer had to assume it was connecting - an
+  // assumption that happened to be right and was not a fact it had been given.
+  handlers.onState?.(state);
   open();
 
   return () => {
@@ -103,9 +120,18 @@ export function onFrames(handlers: FrameBusHandlers, options: FrameBusOptions = 
   };
 }
 
-/** True when at least one attached subscriber is worth a connection. */
+/**
+ * True when at least one attached subscriber is worth a connection.
+ *
+ * `IS_LIVE_TRANSPORT` RATHER THAN `DATA_MODE === "live"`, and the difference is
+ * a real configuration: with the mode set and `NEXT_PUBLIC_WS_URL` missing,
+ * `subscribeFrames` falls back to the committed stream, and the old test made
+ * `onTip` alone open one - replaying a mempool to deliver a clock nothing,
+ * which is the exact cost `openInFixture: false` exists to prevent. The
+ * predicate now asks about the TRANSPORT, which is what the question was.
+ */
 function wanted(): boolean {
-  if (DATA_MODE === "live") return subscribers.size > 0;
+  if (IS_LIVE_TRANSPORT) return subscribers.size > 0;
   for (const s of subscribers) if (s.opens) return true;
   return false;
 }
@@ -113,13 +139,20 @@ function wanted(): boolean {
 function open(): void {
   if (stop !== null || !wanted()) return;
   state = "connecting";
-  stop = subscribeFrames((frame) => {
-    // A frame arriving IS the socket being open, and `subscribeFrames` does not
-    // report state. This is the same inference `MempoolPanel` makes on every
-    // frame it handles.
-    publishState("open");
-    for (const s of [...subscribers]) s.onFrame?.(frame);
-  });
+  stop = subscribeFrames(
+    (frame) => {
+      for (const s of [...subscribers]) if (subscribers.has(s)) s.onFrame?.(frame);
+    },
+    // THE STATE IS THE SOCKET'S OWN, NOT AN INFERENCE FROM A FRAME ARRIVING.
+    // The first draft inferred `open` from traffic, which is one-way: a socket
+    // that connects and then dies delivers nothing to revise the inference
+    // with, so the page latched at "live" over a dead feed for ever - a frozen
+    // surface reporting no fault, which is this project's most-recorded defect
+    // shape, in the component whose docblock said it existed to prevent it.
+    // `ZecSocket` has tracked all three states since HANDOFF-11; nobody was
+    // listening.
+    { onState: publishState },
+  );
 }
 
 function close(): void {
@@ -132,7 +165,11 @@ function close(): void {
 function publishState(next: SocketState): void {
   if (state === next) return;
   state = next;
-  for (const s of [...subscribers]) s.onState?.(next);
+  // `subscribers.has(s)` because a handler may detach a subscriber DURING the
+  // loop: the copy protects the iteration and would still deliver to one that
+  // has already gone. Not reachable through the current consumers - React 19
+  // batches a socket callback into a microtask - and one line to close.
+  for (const s of [...subscribers]) if (subscribers.has(s)) s.onState?.(next);
 }
 
 /**
@@ -169,6 +206,9 @@ export function publishStateForTest(next: SocketState): void {
  * proves nothing about the one the component uses.
  */
 export function resetFrameBusForTest(): void {
+  // Tell every caching consumer BEFORE the set is cleared, so one that gates
+  // its own resubscription on a held handle can forget it. See `onReset`.
+  for (const s of [...subscribers]) s.onReset?.();
   subscribers.clear();
   if (stop !== null) {
     stop();

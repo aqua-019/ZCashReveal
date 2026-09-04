@@ -4794,7 +4794,26 @@ canvas[data-ui="fog"] {
    use, so they track the picture at any width. */
 .tplane-labels {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* THE LABEL LAYER IS THE DRAWING'S BOX, NOT WHATEVER ELSE SITS IN
+     `.tplane-board`. Each label's `top` is a PERCENTAGE OF 560 - the SVG's own
+     viewBox height - so its containing block has to be the 1180 x 560 drawing.
+     `inset: 0` made it the whole board, which was the same thing until
+     HANDOFF-17 put the live reading in there; the board then grew by the
+     reading's height and the near row was pushed 117.7 px BELOW the plane and
+     painted over the caption paragraph. Measured on a real `next start` build
+     at 1280 wide: board 760.3 px against a 560.9 px SVG, `transparent` and
+     `orchard` at y=1953 with the plane ending at y=1835.3.
+
+     That is verbatim the defect `TurnstilePlane.tsx`'s own comment records from
+     the figure-versus-board case, re-created one container down - which is why
+     the fix is to tie this box to the drawing rather than to move the reading:
+     the coupling was never to `.tplane-board`, it was to the SVG. */
+  aspect-ratio: 1180 / 560;
+  height: auto;
+  bottom: auto;
   list-style: none;
   margin: 0;
   padding: 0;

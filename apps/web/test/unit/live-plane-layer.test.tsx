@@ -39,8 +39,24 @@ import { fixtureSnapshot } from "@/lib/api/fixtures/snapshot";
  * committed stream, so the wiring this stub removes is asserted there rather
  * than nowhere.
  */
-vi.mock("@/lib/api/stream", () => ({
+/**
+ * `IS_LIVE_TRANSPORT` IS A GETTER SO BOTH CONFIGURATIONS CAN BE DRIVEN.
+ *
+ * The component branches on it - a build with no gateway must not claim a feed -
+ * and it is a module constant, so a test that could only see one value could
+ * only ever assert half the surface. The deployed configuration is `false`
+ * (`DEPLOY-2.0.md` sets Production and Preview to `snapshot` with no
+ * `NEXT_PUBLIC_WS_URL`), so that half gets its own block below rather than being
+ * the accidental default of every test in the file.
+ */
+let liveTransport = true;
+
+vi.mock("@/lib/api/stream", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/api/stream")>()),
   subscribeFrames: () => () => undefined,
+  get IS_LIVE_TRANSPORT() {
+    return liveTransport;
+  },
 }));
 
 const txid = (n: number): string => n.toString(16).padStart(64, "0");
@@ -99,6 +115,7 @@ const uiOrNull = (name: string): Element | null => document.querySelector(`[data
 beforeEach(() => {
   stubMatchMedia(false);
   resetFrameBusForTest();
+  liveTransport = true;
 });
 
 afterEach(() => {
@@ -198,20 +215,42 @@ describe("A5 - reduced motion removes the swimming, never the information", () =
 /* ========================================================================== */
 
 describe("A6 - a disconnected socket is a named state, not a calm empty tank", () => {
-  it("PASS STATE: a socket that never connects names the fault", () => {
+  /**
+   * THE THREE EMPTIES, AND ONLY ONE IS A FAULT.
+   *
+   * The first draft of this block drove `closed` for its pass state and `open`
+   * for its fail side, and a gate reviewer showed that both polarities came
+   * from `publishStateForTest` - the one function only tests call. `ZecSocket`
+   * never reported state to `subscribeFrames`' caller at all, so the green run
+   * was evidence about the test hook and not about the site: `closed` had no
+   * production producer, which is F-58-1's shape, adopted by this very session
+   * one commit before it shipped an instance of it.
+   *
+   * The states are now real, and the fault is the one the socket can actually
+   * reach: it was open and it is not now. `closed` is teardown-only and is
+   * deliberately NOT the fault, because dressing an unreachable case is how a
+   * component comes to document a case nothing produces.
+   */
+  it("PASS STATE: a feed that WAS open and dropped names the fault", () => {
     render(<LivePlaneLayer />);
     act(() => {
-      publishStateForTest("closed");
+      publishStateForTest("open");
+    });
+    expect(uiOrNull("turnstile-live-fault")).toBeNull();
+
+    act(() => {
+      publishStateForTest("connecting");
     });
     expect(liveMarks()).toHaveLength(0);
     expect(ui("turnstile-live-fault")).toBeTruthy();
     expect(ui("turnstile-live-state").getAttribute("data-state")).toBe("closed");
+    expect(ui("turnstile-live-state").textContent).toContain("dropped");
   });
 
   it("FAIL SIDE (data - a CONNECTED socket with zero transactions): empty, and NO fault text", () => {
-    // THE MEMBER THAT DISCRIMINATES. A test that only drove the closed socket
-    // would pass against a component printing the fault unconditionally, which
-    // would tell every reader on a quiet chain that the site was broken.
+    // THE MEMBER THAT DISCRIMINATES. A test that only drove the fault state
+    // would pass against a component printing it unconditionally, which would
+    // tell every reader on a quiet chain that the site was broken.
     render(<LivePlaneLayer />);
     act(() => {
       publishStateForTest("open");
@@ -219,6 +258,18 @@ describe("A6 - a disconnected socket is a named state, not a calm empty tank", (
     expect(liveMarks()).toHaveLength(0);
     expect(uiOrNull("turnstile-live-fault")).toBeNull();
     expect(ui("turnstile-live-state").getAttribute("data-state")).toBe("open");
+  });
+
+  it("FAIL SIDE (data - the FIRST paint, which every reader sees): connecting is not a fault", () => {
+    // THE STATE A JAVASCRIPT-OFF READER SEES AND THE ONLY ONE THEY SEE. Found
+    // by reading `next build`'s own `index.html`, where this layer rendered
+    // "connecting" and "no transactions are reaching this page" in one line -
+    // a fault claim made during normal startup, once per page load, for
+    // everyone. The old A6 drove `open` and `closed` and could not see it.
+    render(<LivePlaneLayer />);
+    expect(ui("turnstile-live-state").getAttribute("data-state")).toBe("connecting");
+    expect(uiOrNull("turnstile-live-fault")).toBeNull();
+    expect(ui("turnstile-live-state").textContent).toContain("has not connected yet");
   });
 
   it("the rate is an absence when the producer published none, never a zero", () => {
@@ -416,5 +467,60 @@ describe("the subscription survives a double mount", () => {
       publishFrameForTest(added(row({ txid: txid(2) })));
     });
     expect(liveMarks()).toHaveLength(2);
+  });
+});
+
+
+/* ========================================================================== */
+/* A15 - the DEPLOYED configuration draws nothing and says why (gate round 1) */
+/* ========================================================================== */
+
+describe("A15 - a build with no gateway does not replay the committed corpus as live", () => {
+  /**
+   * THE DEFECT THIS BLOCK EXISTS AGAINST WAS MEASURED ON A REAL BUILD.
+   *
+   * `DEPLOY-2.0.md` sets Production AND Preview to `NEXT_PUBLIC_DATA_MODE=snapshot`
+   * with `NEXT_PUBLIC_WS_URL` blank, so `IS_LIVE_TRANSPORT` is false on the site
+   * as actually deployed. The first draft passed no `openInFixture`, so the
+   * plane opened the committed `FixtureStream` and drew ELEVEN MOCKUP ROWS -
+   * txids beginning `ee0119443c` and `c0ffee12d3`, out of a file whose own
+   * header calls them invented - under the bold word "live" and the sentence
+   * "11 unconfirmed transactions drawn of 14 held". A gate reviewer measured it
+   * against `next start` with no network.
+   *
+   * That is the fabricated fish section 3 of the handoff says would make the
+   * whole page a lie, and it was the SHIPPING configuration.
+   */
+  it("FAIL SIDE (data - IS_LIVE_TRANSPORT false, the deployed value): zero marks, and the reason named", () => {
+    liveTransport = false;
+    render(<LivePlaneLayer />);
+
+    expect(liveMarks()).toHaveLength(0);
+    const state = ui("turnstile-live-state").textContent ?? "";
+    expect(state).toContain("no feed");
+    expect(state).toContain("no live mempool feed is configured");
+    // NOT A FAULT. A build with no gateway is not broken; it has nothing to show.
+    expect(uiOrNull("turnstile-live-fault")).toBeNull();
+    // AND IT NEVER CLAIMS A CHAIN FEED, NOR A REPLAY.
+    //
+    // NOT `not.toContain("mempool feed")`: the honest sentence is "no live
+    // MEMPOOL FEED is configured", which contains that substring, so the loose
+    // form failed against correct copy. That is F-43-1's shape - a pattern
+    // matching inside a longer string - and the discriminating check is the
+    // bold word plus the replay claim, both of which differ between the two
+    // branches.
+    expect(ui("turnstile-live-state").querySelector("b")?.textContent).toBe("no feed");
+    expect(state).not.toContain("corpus");
+  });
+
+  it("PASS STATE: with a transport configured, the same component names the feed", () => {
+    liveTransport = true;
+    render(<LivePlaneLayer />);
+    act(() => {
+      publishStateForTest("open");
+    });
+    const state = ui("turnstile-live-state").textContent ?? "";
+    expect(state).toContain("mempool feed");
+    expect(state).not.toContain("no live mempool feed is configured");
   });
 });

@@ -198,6 +198,77 @@ const SUMMARY = {
 };
 
 /* ========================================================================== */
+/* A11 - a snapshot is the mempool, not an addition to it (gate round 1)      */
+/* ========================================================================== */
+
+describe("A11 - a reconnect snapshot is AUTHORITATIVE", () => {
+  it("FAIL SIDE (data - a snapshot that OMITS a held txid): the omitted mark is retired", () => {
+    // The member of the exclusion set is the reconciling snapshot naming fewer
+    // transactions than are held, which is what a reconnect after a confirmation
+    // looks like: the `tx_removed` went to a closed socket and is never coming.
+    // Folded additively the board went on drawing a CONFIRMED transaction as
+    // unconfirmed and the affordance printed the wrong count with confidence.
+    let s = fold([added(row({ txid: txid(1) })), added(row({ txid: txid(2) }))]);
+    expect(buildLivePlane(s, OPTS).drawn).toBe(2);
+
+    s = liveReduce(s, {
+      type: "snapshot",
+      view: { tipHeight: 1, entries: [row({ txid: txid(2) })], drain: null, summary: SUMMARY },
+    });
+    const after = buildLivePlane(s, OPTS);
+    expect(after.held).toBe(1);
+    expect(after.marks.map((m) => m.txid)).toStrictEqual([txid(2)]);
+  });
+
+  it("a survivor keeps its ORIGINAL seq, so a reconnect does not reshuffle a capped board", () => {
+    let s = EMPTY_LIVE_STATE;
+    for (let i = 1; i <= 50; i += 1) s = liveReduce(s, added(row({ txid: txid(i) })));
+    const before = buildLivePlane(s, OPTS).marks.map((m) => m.txid).sort();
+
+    // The same 50, re-delivered as one snapshot. Nothing has changed, so the
+    // board must not change either.
+    s = liveReduce(s, {
+      type: "snapshot",
+      view: {
+        tipHeight: 1,
+        entries: Array.from({ length: 50 }, (_, i) => row({ txid: txid(i + 1) })),
+        drain: null,
+        summary: SUMMARY,
+      },
+    });
+    expect(buildLivePlane(s, OPTS).marks.map((m) => m.txid).sort()).toStrictEqual(before);
+  });
+
+  it("an empty snapshot empties the tank - a quiet mempool is a real reading", () => {
+    let s = fold([added(row({ txid: txid(1) }))]);
+    s = liveReduce(s, {
+      type: "snapshot",
+      view: { tipHeight: 1, entries: [], drain: null, summary: SUMMARY },
+    });
+    expect(buildLivePlane(s, OPTS).held).toBe(0);
+  });
+});
+
+describe("A12 - the held set is bounded (gate round 1)", () => {
+  it("FAIL SIDE (data - 3000 additions, from inside the stated set): the hold caps at 250", () => {
+    // `SPLASH_N_MAX` caps what is DRAWN and nothing capped what was HELD, so a
+    // tab left open on a gateway that never sends `tx_removed` grew the map
+    // without bound - measured at 3,000 - with `add` copying it per frame.
+    // 250 is `MempoolPanel`'s own cap, adopted rather than invented.
+    let s = EMPTY_LIVE_STATE;
+    for (let i = 1; i <= 3000; i += 1) s = liveReduce(s, added(row({ txid: txid(i) })));
+    expect(s.held.size).toBe(250);
+  });
+
+  it("the hold evicts the OLDEST, so the newest arrivals survive", () => {
+    let s = EMPTY_LIVE_STATE;
+    for (let i = 1; i <= 300; i += 1) s = liveReduce(s, added(row({ txid: txid(i) })));
+    expect(s.held.has(txid(300))).toBe(true);
+    expect(s.held.has(txid(1))).toBe(false);
+  });
+});
+
+/* ========================================================================== */
 /* A2 - a tx_removed removes that mark and no other                           */
 /* ========================================================================== */
 
@@ -218,6 +289,20 @@ describe("A2 - tx_removed removes the mark with that txid and no other", () => {
     const after = liveReduce(before, { type: "tx_removed", txid: txid(77), reason: "evicted" });
     expect(buildLivePlane(after, OPTS).held).toBe(1);
     expect(buildLivePlane(after, OPTS).marks[0]?.txid).toBe(txid(1));
+    // AND IT RECORDS THAT NO MARK LEFT, so the affordance cannot say one did.
+    // A `tx_removed` for a txid this reader never held is routine - the reader
+    // connected after it entered the pool - and the first draft printed "the
+    // last mark to leave was confirmed into a block" for it, about a mark that
+    // never existed on this board.
+    expect(after.lastRemoval).toStrictEqual({ reason: "evicted", wasHeld: false, drewMark: false });
+  });
+
+  it("a held row that DREW NO MARK records that it drew none", () => {
+    const s2 = fold([
+      added(row({ txid: txid(1), class: "undecoded", lanes: [] })),
+      { type: "tx_removed", txid: txid(1), reason: "confirmed" },
+    ]);
+    expect(s2.lastRemoval).toStrictEqual({ reason: "confirmed", wasHeld: true, drewMark: false });
   });
 
   it("FAIL SIDE (data - a well-formed txid of a DIFFERENT held transaction): only the named one goes", () => {
@@ -243,7 +328,7 @@ describe("A2 - tx_removed removes the mark with that txid and no other", () => {
         { type: "tx_removed", txid: txid(1), reason },
       ]);
       expect(buildLivePlane(state, OPTS).held).toBe(0);
-      expect(state.lastRemoval).toBe(reason);
+      expect(state.lastRemoval).toStrictEqual({ reason, wasHeld: true, drewMark: true });
     }
   });
 });
@@ -330,6 +415,34 @@ describe("A8 - direction comes from `class`, and an underivable row draws no mar
       from: "orchard",
       to: "ironwood",
     });
+  });
+
+  it("FAIL SIDE (data - a `migration` the GATEWAY emits that is NOT ZIP 318): no ZIP 318 arc", () => {
+    // CAPTURED FROM THE PRODUCER, NOT ENUMERATED FROM THE FIXTURE (F-57-1).
+    // `crossesWithNoPublicSide` in `apps/gateway/src/views/mempool.ts` is
+    // `movedPools.length > 1 && hasPoolSource && hasPoolSink &&
+    // !hasTransparentSource && vout.length === 0`, which a Sapling-to-Orchard
+    // shielded transfer satisfies - and `migrationFlowText` prints "S to O" for
+    // it. The committed corpus contains only `O to I`, so this shape exists in
+    // production and in no fixture: the exclusion set could not be closed by
+    // reading the corpus, which is exactly what F-57-1 says.
+    const shape = markFor(
+      row({ txid: txid(1), class: "migration", lanes: ["sapling", "orchard"], flow: "S to O" }),
+    );
+    expect(shape).toStrictEqual({ kind: "chord", a: "sapling", b: "orchard" });
+    expect(shape).not.toStrictEqual({ kind: "crossing", from: "orchard", to: "ironwood" });
+  });
+
+  it("a THREE-pool migration - the gateway's `N pools` row - draws nothing", () => {
+    expect(
+      markFor(row({ txid: txid(1), class: "migration", lanes: ["sprout", "sapling", "orchard"], flow: "3 pools" })),
+    ).toStrictEqual({ undrawn: "no single crossing describes it" });
+  });
+
+  it("PASS STATE: a migration that NAMES orchard and ironwood still draws the ZIP 318 arc", () => {
+    expect(
+      markFor(row({ txid: txid(1), class: "migration", lanes: ["orchard", "ironwood"], flow: "O to I" })),
+    ).toStrictEqual({ kind: "crossing", from: "orchard", to: "ironwood" });
   });
 
   it("FAIL SIDE (data - class `undecoded`): no mark, and the reason is named", () => {

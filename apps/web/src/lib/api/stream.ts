@@ -25,7 +25,26 @@ import type { MempoolDrain, MempoolRow, MempoolView, ZecFrame } from "@zcashreve
 import { API_URL, DATA_MODE, WS_URL } from "@/lib/env";
 
 import { MEMPOOL_VIEW } from "./fixtures/mempool";
-import { ZecSocket, unwrapEnvelope, type SocketLike } from "./socket";
+import { ZecSocket, unwrapEnvelope, type SocketLike, type SocketState } from "./socket";
+
+/**
+ * Whether this build talks to a gateway at all.
+ *
+ * THE SAME FAIL-CLOSED CONDITION `api()` USES, exported so a client island can
+ * read it without importing `FixtureApi` - which is the 217 kB regression this
+ * module's own header exists to prevent.
+ *
+ * `DATA_MODE === "live"` ALONE IS A SECOND READING OF ONE VARIABLE, NOT A FACT
+ * ABOUT THE TRANSPORT. With the mode set and a URL missing, the transport below
+ * is the committed `FixtureStream`, and a consumer branching on the mode then
+ * claims a chain feed while drawing committed rows. `api/index.ts` records a
+ * gate round already fixing exactly that once - "under
+ * `NEXT_PUBLIC_DATA_MODE=live` the page served committed values with the
+ * disclosure switched OFF" - and the rule it states there, that the flag must
+ * be a fact about what was returned rather than a second reading of the same
+ * variable, is what this constant carries to any other surface that needs it.
+ */
+export const IS_LIVE_TRANSPORT: boolean = DATA_MODE === "live" && WS_URL !== "" && API_URL !== "";
 
 /** JSON cannot carry a bigint; the wire format is a decimal string, per `zatSchema`. */
 function jsonReplacer(_key: string, value: unknown): unknown {
@@ -110,6 +129,23 @@ export interface StreamOptions {
   readonly tickMs?: number;
   /** Overrides the transport. Only tests pass this. */
   readonly open?: (url: string) => SocketLike;
+  /**
+   * Connection state, forwarded from `ZecSocket`.
+   *
+   * WITHOUT THIS THE SOCKET'S STATE MACHINE TERMINATED INSIDE THE CLASS.
+   * `ZecSocket` tracks `connecting` (`socket.ts:145`, and again at `:200` on
+   * every retry), `open` (`:157`) and `closed` (`:194`), and hands each to
+   * `onState` - which this module never passed, so `#o.onState` was `undefined`
+   * and every transition was discarded. A consumer could therefore only INFER
+   * "open" from a frame arriving, and that inference is one-way: a socket that
+   * connects and then dies delivers no frame to revise it with, so the page
+   * latches at "live" over a dead feed for ever.
+   *
+   * Found by a gate reviewer and reproduced by driving the real transport
+   * across three open/die/reconnect cycles: 51 frames, and the only state any
+   * consumer ever saw was `open`.
+   */
+  readonly onState?: (state: SocketState) => void;
 }
 
 /**
@@ -122,7 +158,7 @@ export interface StreamOptions {
  */
 export function subscribeFrames(onFrame: (frame: ZecFrame) => void, options: StreamOptions = {}): () => void {
   const tickMs = options.tickMs ?? 4_000;
-  const live = DATA_MODE === "live" && WS_URL !== "" && API_URL !== "";
+  const live = IS_LIVE_TRANSPORT;
 
   const socket = new ZecSocket(live ? WS_URL : "fixture://mempool", {
     open: options.open ?? (live ? (url) => new WebSocket(url) as unknown as SocketLike : () => new FixtureStream(tickMs) as unknown as SocketLike),
@@ -133,6 +169,7 @@ export function subscribeFrames(onFrame: (frame: ZecFrame) => void, options: Str
       const frame = asFrame(raw);
       if (frame !== null) onFrame(frame);
     },
+    ...(options.onState === undefined ? {} : { onState: options.onState }),
     // In fixture mode the committed stream closes after each cycle by design,
     // so the retry has to be brisk enough not to leave a visible stall, and
     // jittered so it is not a metronome. There is no other end to answer a

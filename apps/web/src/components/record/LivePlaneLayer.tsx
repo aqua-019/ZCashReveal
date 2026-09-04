@@ -3,11 +3,17 @@
 import { useEffect, useMemo, useReducer, useState } from "react";
 
 import { POOL_VAR } from "@/lib/chain";
-import { DATA_MODE } from "@/lib/env";
-import { fmtInt } from "@/lib/format";
+import { fmtInt, plural } from "@/lib/format";
 import { onFrames } from "@/lib/api/frame-bus";
 import type { SocketState } from "@/lib/api/socket";
-import { EMPTY_LIVE_STATE, buildLivePlane, liveReduce, type RemovalReason } from "@/lib/live-plane";
+import { IS_LIVE_TRANSPORT } from "@/lib/api/stream";
+import {
+  EMPTY_LIVE_STATE,
+  buildLivePlane,
+  liveReduce,
+  type Removal,
+  type RemovalReason,
+} from "@/lib/live-plane";
 import { SPLASH_CAMERA, SPLASH_N_MAX, type Camera } from "@/lib/plane";
 
 /**
@@ -82,26 +88,65 @@ const STATE_TEXT: Readonly<Record<SocketState, string>> = {
 };
 
 /**
- * A count and its noun, agreeing.
+ * THE CONDITION UNDER AN EMPTY TANK, AND THERE ARE FOUR OF THEM RATHER THAN
+ * TWO.
  *
- * FOUND BY EXECUTING THE SENTENCE RATHER THAN READING IT, which is CLAUDE.md's
- * clause (c). Driven over the values `mempoolDrainStateSchema` actually admits -
- * `txPerMinute` is `nonnegative()` and `ceilingPerMinute` is `positive()`, so
- * both can be 1 - the rate line read "the endpoint affords 1 transactions a
- * minute against a ceiling of 1 requests". At the measured ceiling of five the
- * figure is three and the defect never shows, which is exactly why it survived
- * being read: the sentence is only wrong at values nobody typed while writing
- * it. A site whose whole subject is saying precisely what it knows cannot print
- * "1 transactions".
+ * FOUND IN TWO STAGES, BOTH BY EXECUTION RATHER THAN BY READING.
  *
- * A ZERO STILL PRINTS AS "0 transactions", plural, and that is correct English
- * and a correct claim: the producer measured a rate of zero. This function does
- * not decide absence - the caller does, one branch up - because a null rate and
- * a measured zero are different sentences and only one of them belongs here.
+ * First, `next build` emits `index.html` with this layer server-rendered - what
+ * a reader with JavaScript off actually receives - and it said "connecting" and
+ * "no transactions are reaching this page" in one line. That second sentence is
+ * a fault claim, and it was being made during normal startup on first paint for
+ * every reader.
+ *
+ * Then a gate reviewer found the harder half: `subscribeFrames` never passed
+ * `onState` to `ZecSocket`, so the socket's own state machine terminated inside
+ * the class and the bus INFERRED "open" from a frame arriving. That inference is
+ * one-way. A socket that connects and then dies delivers nothing to revise it
+ * with, so this component latched at "live" over a dead feed for ever, drawing a
+ * calm empty board - the frozen surface reporting no fault that its own docblock
+ * says it exists to prevent. Reproduced across three open/die/reconnect cycles:
+ * 51 frames, one state ever seen, `open`.
+ *
+ * With the state forwarded, `connecting` arrives twice for different reasons and
+ * only one of them is a fault:
+ *
+ *   never connected  -> "the feed has not connected yet". The ordinary first
+ *                       paint, and the whole of what a JavaScript-off reader
+ *                       gets. Not a fault, and saying one here would make the
+ *                       site accuse itself once per page load.
+ *   connected, then
+ *   `connecting`     -> THE FAULT. The socket dropped and is retrying, which is
+ *                       the state an operator needs named.
+ *   open             -> the feed is up. No condition; the count speaks.
+ *   closed           -> teardown. `ZecSocket` sets it only in its own `close()`
+ *                       and retries for ever otherwise, so a mounted component
+ *                       effectively never sees it. It is mapped because
+ *                       `SocketState` has three members and this record is
+ *                       total, NOT because it is a state this surface expects -
+ *                       and it is deliberately not given the fault wording,
+ *                       because dressing an unreachable case is how a docblock
+ *                       comes to describe a case with no producer (F-58-1).
  */
-function plural(n: number, one: string, many: string): string {
-  return `${fmtInt(n)} ${n === 1 ? one : many}`;
-}
+const CONDITION: Readonly<Record<SocketState, string | null>> = {
+  open: null,
+  connecting: " the feed has not connected yet",
+  closed: " the feed was stopped",
+};
+
+/** The one condition that is a fault: it worked, and now it does not. */
+const DROPPED = " the feed dropped and no transactions are reaching this page";
+
+/**
+ * No gateway is configured, which is not a fault and is the DEPLOYED state.
+ *
+ * `DEPLOY-2.0.md` sets Production and Preview to `NEXT_PUBLIC_DATA_MODE=snapshot`
+ * with no `NEXT_PUBLIC_WS_URL`, so this is what the site says today. It is an
+ * absence with its condition named, not an empty board left to be read as a
+ * quiet chain - and emphatically not eleven committed mockup rows replayed under
+ * the word "live", which is what the first draft did.
+ */
+const UNCONFIGURED = " no live mempool feed is configured for this deployment";
 
 const REMOVAL_TEXT: Readonly<Record<RemovalReason, string>> = {
   confirmed: "confirmed into a block",
@@ -118,6 +163,10 @@ export function LivePlaneLayer({
 }) {
   const [state, dispatch] = useReducer(liveReduce, EMPTY_LIVE_STATE);
   const [socket, setSocket] = useState<SocketState>("connecting");
+  // A `connecting` BEFORE any success and a `connecting` AFTER one are different
+  // facts and only the second is a fault, so the component remembers which it
+  // is. The socket cannot tell us - it reports the same state for both.
+  const [everOpen, setEverOpen] = useState(false);
   const [feed, setFeed] = useState<FeedReading>(NO_READING);
   const [motion, setMotion] = useState(true);
 
@@ -144,25 +193,49 @@ export function LivePlaneLayer({
     // ONE SUBSCRIPTION THROUGH THE BUS, NOT A SOCKET OF OUR OWN. `tip-bus.ts`
     // is already mounted in the shell on this route; a bare `subscribeFrames`
     // here would be the second connection its own header was written against.
-    return onFrames({
-      onFrame: (frame) => {
-        dispatch(frame);
-        if (frame.type === "snapshot") {
-          const drain = frame.view.drain;
-          setFeed(
-            drain === null
-              ? NO_READING
-              : {
-                  ceilingPerMinute: drain.ceilingPerMinute,
-                  txPerMinute: drain.txPerMinute,
-                  observed: drain.observed,
-                  refused: drain.refused,
-                },
-          );
-        }
+    return onFrames(
+      {
+        onFrame: (frame) => {
+          dispatch(frame);
+          if (frame.type === "snapshot") {
+            const drain = frame.view.drain;
+            setFeed(
+              drain === null
+                ? NO_READING
+                : {
+                    ceilingPerMinute: drain.ceilingPerMinute,
+                    txPerMinute: drain.txPerMinute,
+                    observed: drain.observed,
+                    refused: drain.refused,
+                  },
+            );
+          }
+        },
+        onState: (next) => {
+          setSocket(next);
+          if (next === "open") setEverOpen(true);
+        },
       },
-      onState: setSocket,
-    });
+      // `openInFixture: false` IS THE WHOLE OF WHAT KEEPS THIS SURFACE HONEST,
+      // AND THE FIRST DRAFT DID NOT PASS IT.
+      //
+      // `subscribeFrames` falls back to the committed `FixtureStream` whenever
+      // there is no gateway, and `DEPLOY-2.0.md` sets Production AND Preview to
+      // `NEXT_PUBLIC_DATA_MODE=snapshot` with `NEXT_PUBLIC_WS_URL` blank. So on
+      // the site as actually deployed, this layer opened a fixture socket and
+      // drew ELEVEN MOCKUP ROWS - txids beginning `ee0119443c` and `c0ffee12d3`,
+      // out of a file whose own header calls them invented - under the bold word
+      // "live" and the sentence "11 unconfirmed transactions drawn". Measured by
+      // a gate reviewer against a real `next start` build with no network.
+      //
+      // That is the one defect section 3 of the handoff says would make the
+      // whole page a lie: a fabricated fish. The plane therefore does not open a
+      // socket it would learn nothing true from, and says so instead - an empty
+      // tank naming its condition, which is the same rule every other absence on
+      // this site follows. When a gateway is configured the marks are real and
+      // nothing else changes.
+      { openInFixture: false },
+    );
   }, []);
 
   const plane = useMemo(() => buildLivePlane(state, { camera, nMax }), [state, camera, nMax]);
@@ -220,7 +293,13 @@ export function LivePlaneLayer({
         ))}
       </svg>
 
-      <LiveReading plane={plane} socket={socket} feed={feed} lastRemoval={state.lastRemoval} />
+      <LiveReading
+        plane={plane}
+        socket={socket}
+        dropped={IS_LIVE_TRANSPORT && everOpen && socket !== "open"}
+        feed={feed}
+        lastRemoval={state.lastRemoval}
+      />
     </div>
   );
 }
@@ -238,30 +317,47 @@ export function LivePlaneLayer({
 function LiveReading({
   plane,
   socket,
+  dropped,
   feed,
   lastRemoval,
 }: {
   readonly plane: ReturnType<typeof buildLivePlane>;
   readonly socket: SocketState;
+  /** The feed was open and is not now. The only condition that is a fault. */
+  readonly dropped: boolean;
   readonly feed: FeedReading;
-  readonly lastRemoval: RemovalReason | null;
+  readonly lastRemoval: Removal | null;
 }) {
   const undrawnTotal =
     plane.undrawn["no lane can be claimed"] + plane.undrawn["no single crossing describes it"];
 
   return (
     <div className="tplane-live-read" data-ui="turnstile-live-reading">
-      <p className="tlr-state" data-state={socket} data-ui="turnstile-live-state">
+      <p
+        className="tlr-state"
+        data-state={!IS_LIVE_TRANSPORT ? "connecting" : dropped ? "closed" : socket}
+        data-ui="turnstile-live-state"
+      >
         <span className="dot" aria-hidden="true" />
-        <b>{STATE_TEXT[socket]}</b>
+        {/* THE BOLD WORD IS A FACT ABOUT THE TRANSPORT, NOT ABOUT THE SOCKET.
+            A committed stream connects, so `socket` reads "open" - and the word
+            said "live" over fourteen mockup rows. */}
+        <b>{!IS_LIVE_TRANSPORT ? "no feed" : dropped ? "dropped" : STATE_TEXT[socket]}</b>
         {socket === "open" ? (
+          // THE TRANSPORT, NOT THE MODE. `DATA_MODE === "live"` with a missing
+          // `NEXT_PUBLIC_WS_URL` runs the committed stream, and branching on the
+          // mode would print "mempool feed" over fixture rows - the failure
+          // `api/index.ts` records a gate round already fixing once.
           <span className="tlr-src">
-            {DATA_MODE === "live" ? " mempool feed" : " replaying the committed corpus"}
+            {IS_LIVE_TRANSPORT ? " mempool feed" : " replaying the committed corpus"}
           </span>
         ) : (
-          // AN ABSENCE STATES ITS CONDITION, NEVER AN OWNER. SNAPSHOT.md 8.1.
-          <span className="tlr-src" data-ui="turnstile-live-fault">
-            {" no transactions are reaching this page"}
+          // AN ABSENCE STATES ITS CONDITION, NEVER AN OWNER (SNAPSHOT.md 8.1) -
+          // and the condition differs by WHY the tank is empty. Only a feed that
+          // worked and stopped is a fault; a build with no gateway configured is
+          // not broken, it simply has no mempool to show.
+          <span className="tlr-src" {...(dropped ? { "data-ui": "turnstile-live-fault" } : {})}>
+            {!IS_LIVE_TRANSPORT ? UNCONFIGURED : dropped ? DROPPED : CONDITION[socket]}
           </span>
         )}
       </p>
@@ -316,12 +412,21 @@ function LiveReading({
         </p>
       )}
 
-      {lastRemoval === null ? null : (
+      {lastRemoval === null || !lastRemoval.wasHeld ? null : (
         // THE THREE REASONS ARE NOT INTERCHANGEABLE. Only `confirmed` means the
         // transaction settled; saying so of an eviction would tell a reader a
         // dropped transaction landed.
+        //
+        // AND A REMOVAL THAT TOOK NOTHING OFF THE BOARD SAYS NOTHING. A
+        // `tx_removed` for a txid this reader never held - routine, whenever the
+        // reader connected after the transaction entered the pool - changed no
+        // mark, and "the last mark to leave" would be a claim about a mark that
+        // never existed. A held row that drew no mark gets the honest wording
+        // instead of the mark wording.
         <p className="tlr-left" data-ui="turnstile-live-removal">
-          {`the last mark to leave was ${REMOVAL_TEXT[lastRemoval]}`}
+          {lastRemoval.drewMark
+            ? `the last mark to leave was ${REMOVAL_TEXT[lastRemoval.reason]}`
+            : `the last transaction to leave drew no mark; it was ${REMOVAL_TEXT[lastRemoval.reason]}`}
         </p>
       )}
 

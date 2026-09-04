@@ -268,7 +268,131 @@ defect. A4 is the assertion to write first and the one to try hardest to break.
 
 ## §7 REPORT
 
-To be filled by the executing session before the PR opens.
+```
+STATUS: PENDING - gate round 1 is out; this section is filled before the PR opens.
+
+FORKED FROM e10cbae08decfe1b9fdd44a692cae3f1f8a6f8b3, the head of `main`.
+`git merge-base --is-ancestor 2b63e1a origin/main` exits 0 - EXECUTED BEFORE ANY
+FILE WAS TOUCHED - so PR #58 landed whole and not merely its earlier commits.
+HEAD was already `origin/main` exactly, and `git status --porcelain` was empty.
+
+SPAWN MODE: subagent fan-out available, PROVEN BY A TOOL ATTEMPT before any
+work - a `general-purpose` agent returned `SPAWN-OK` and the correct HEAD SHA in
+one tool use, writing nothing. Directors name every worker; subagents do not
+nest.
+```
+
+### §2 READING - what was read LINE BY LINE, before any probe (F-56-1)
+
+All six, in full, before the first line of code was written:
+`MempoolPanel.tsx` (the precedent), `stream.ts` (`subscribeFrames`, `asFrame`,
+`asRow`, `asDrain`, the fixture path), `realtime.ts` (entire),
+`plane.ts` (entire, in three reads), `TurnstilePlane.tsx` (entire) and
+`tip-bus.ts` (entire). Two more the brief did not list but its own claims
+required: `views.ts`'s `zecFrameSchema` and `mempoolRowSchema`, and
+`fixtures/snapshot.ts`.
+
+### FIVE CORRECTIONS TO THIS HANDOFF'S OWN §1, ALL BY EXECUTION OR BY READING THE MODULE
+
+Section 1 asked to be checked. It was, and five of its rows were wrong. Every
+one changed a deliverable rather than a footnote. This is the THIRD CONSECUTIVE
+HANDOFF whose section 1 needed correcting this way.
+
+| # | the brief said | the module says | what it changed |
+|---|---|---|---|
+| C1 | "give `TurnstilePlane` the same `useEffect` `MempoolPanel` has" | it is a SERVER component - no `"use client"`, rendered from `page.tsx:212` - whose own docblock claims "no rAF loop, no interval and no Web Animations object anywhere in this subtree, which is what makes the reduced-motion contract architectural" | the live marks became a client ISLAND over the server board. Deliverable 1 is a different shape, and A7 became true by construction rather than by care |
+| C2 | the frames are `realtime.ts:36-44` | those lines are `MempoolChannelPayload`/`TipChannelPayload`, the INDEXER-TO-GATEWAY seam whose `tx_added` carries `report: LeakReport`. The browser's union is `zecFrameSchema` at `views.ts:1048`, whose `tx_added` carries `entry: MempoolRow` | deliverable 2's "the report's own lanes" is `entry.lanes`. LEDGER-09b's shape: a citation aimed at a source that CONSTRUCTS the object |
+| C3 | "a transparent-to-orchard transaction draws that crossing" | `mempoolRowSchema.lanes` is `z.array(ledgerSchema)` - an unordered SET, empty legal, NO DIRECTION. `{transparent, orchard}` may be a shield or a deshield | direction is derived from `class`; a row whose direction is not derivable draws no mark. That became assertion A8, which did not exist in the brief |
+| C4 | "It confirms (`tx_removed`) -> that line leaves" | `tx_removed` carries `reason: "confirmed" \| "evicted" \| "replaced"`. Two of three are not confirmations | all three remove the mark, and the reason is kept and printed. Reporting an eviction as a confirmation is HANDOFF-06's `UNKNOWN_NONSTANDARD` conflation on a new surface |
+| C5 | "the seam already exists, this is wiring" | `subscribeFrames` opens a socket PER CALL, and `tip-bus.ts` exists because of it: "three sockets to one gateway is three times the connection cap `apps/gateway` enforces per reader" | a fourth bare subscription on the splash was the exact cost that module was written against, so the ref-count moved into `frame-bus.ts` and `onTip` became a filter over it |
+
+### MEASUREMENTS THIS SESSION TOOK RATHER THAN ASSERTED
+
+| what | measured |
+|---|---|
+| the splash bundle, before and after | `/` route JS **1.9 kB -> 4.88 kB**; first load **107 kB -> 117 kB**. Built at `cf88cf9^` in a throwaway worktree and at HEAD, both from a clean install. The splash now costs what `/track` costs (117 kB), which is the honest price of a live socket on it |
+| the longest live arc the board can draw | **823.0 user units**, min 242.7, over 800 marks across all twenty lane pairs at forty seeds each. This settled a claim a CSS comment was making and is why the dash is now `pathLength={1}` instead of a literal 1000 |
+| the rate sentence over its schema's domain | `txPerMinute = 1` printed "1 transactions a minute" and `ceilingPerMinute = 1` printed "1 requests". Both values legal (`nonnegative()` and `positive()`); invisible at the measured rate of 3 |
+| the healthy/degraded test split | **1728 passed / 5 skipped** with Postgres 16 and Redis up, against **1622 / 111** with neither. 1676 + 52 new = 1728 exactly |
+
+**THE RATE FIGURE ITSELF IS UNVERIFIED IN THIS SESSION.** L2's 3 tx/min on the
+keyless endpoint was measured on 4 Sep and NOT re-probed here; this container
+cannot reach the endpoint (HANDOFF-14 and 15 both recorded 403 at CONNECT). It
+is not hard-coded anywhere: the page reads `ceilingPerMinute` and `txPerMinute`
+off `MempoolDrainState`, so a faster endpoint fills the tank with no edit.
+
+### FOUR PROBES OF MINE WERE WRONG BEFORE THE CODE WAS
+
+Reported rather than quietly repaired, each recorded in the test it belongs to.
+
+1. **The re-delivery test held exactly `SPLASH_N_MAX`.** At the boundary nothing
+   is evicted, so a mutation forcing `seq: existing?.seq ?? state.seq` to
+   `seq: state.seq` still drew the same 42 txids and the sorted comparison could
+   not see it. A fail side that does not fail. LEDGER-08's A9 shape exactly: an
+   assertion over an AGGREGATE, driven at the one size where the aggregate
+   cannot move. Now 50 held / 42 drawn, and the mutation goes red.
+2. **"Three subscribers, one transport" was blind to transports.** It compared
+   the frames three sinks received and read agreement as one socket. Under fake
+   timers three independent `FixtureStream`s advance in lockstep and replay the
+   same corpus, so the socket-per-subscriber mutation - the very cost the bus
+   exists to prevent - stayed green. The transport is now COUNTED by a wrapper
+   around the real `subscribeFrames`, and the mutation kills two tests.
+3. **The layer suite reached for `getByTestId`** against a codebase that names
+   rendered surfaces with `data-ui`. Five assertions went red against correct
+   markup - a probe failing for its own reasons looks exactly like a component
+   that is wrong.
+4. **A mutation was INERT.** `void dispatch;` matched its pattern and changed
+   nothing, so A4 "survived" it. Replaced with one that seeds the reducer's
+   initial state with a fabricated crossing nobody sent; A4 then goes red on
+   BOTH its fail sides.
+
+**And one probe result that looked like a defect and was not.** A4's first run
+found ELEVEN marks after zero frames were published. Those were real frames -
+the committed `FixtureStream` replaying on the advanced timers - so A4 was
+working rather than failing. But a test that cannot tell "no frame arrived" from
+"a frame arrived" cannot state A4 at all, so the layer suite stubs the transport
+at its own module boundary and `frame-bus.test.ts` drives the real one. Checking
+the probe before judging the code, which is F-56-1's operational half.
+
+### THE EIGHT GATES
+
+Each read from its own process, never through a pipe (**F-53-1**), and `build`
+FIRST (LEDGER-15). One `RC=0` earlier in this session was `tail`'s rather than
+the guard's - caught and re-read, and it is A9's own named fail-side member.
+
+```
+BUILD_RC=0  (first)      TEST_RC=0        TYPECHECK_RC=0   LINT_RC=0
+CHECK_RC=0  (17 guards)  VALIDATE_RC=0    E2E_RC=0         SKIPGUARD_RC=0
+```
+
+- **A9 both polarities, identical exit code**: 1728 passed / 5 skipped healthy;
+  1622 / 111 degraded with the services stopped.
+- **The five skips, named**: `zebra-rpc` A11 (the live node's subversion clears
+  the floor - no node); publisher A7 and deliverable 2 (the Redis round trip);
+  publisher A1 FAIL SIDE and A1/A4/A5 (a real Postgres with migration 005). All
+  five are on `assert-no-skipped-integration`'s allowlist and the guard names
+  each one; total 835, passed 830, 16 integration files with executed tests.
+- **`test:e2e` RUN** - 192 passed. It is on the gate list as of HANDOFF-16
+  deliverable 1b, and it is the gate HANDOFF-15 and both of L2's verification
+  gates missed. `legibility.spec.ts`'s A1 (one source per quantity on the plane)
+  and A10 (reduced motion by architecture) both pass with the live layer
+  mounted, which is the check that the island did not perturb the settled board.
+- **`assert-no-skipped-integration` cleared LOCALLY** before the push, from three
+  vitest JSON reports emitted by hand.
+- Postgres 16 and Redis were started as plain local daemons - **not**
+  `docker compose up**, which CLAUDE.md reserves for the operator.
+
+### POST-FAN-OUT SWEEP
+
+`git status --porcelain` was run after each fan-out and after each throwaway
+probe. It came back EMPTY every time. Two scratch test files this session wrote
+into `apps/web/test/unit/` to take a measurement were removed and the sweep
+confirmed clean; the base worktree used for the bundle comparison was removed
+with `git worktree remove --force` and `git worktree list` shows only the repo.
+
+### GATE ROUNDS
+
+To be completed before the PR opens.
 
 ## §8 LEDGER
 

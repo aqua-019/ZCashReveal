@@ -74,6 +74,16 @@ export function onTip(handler: (tip: TipEvent) => void): () => void {
   };
   window.addEventListener(EVENT, listener);
   refs += 1;
+  // THE DETACH IS IDEMPOTENT, as `onFrames`' is. Without this a consumer whose
+  // cleanup ran twice - a double unmount, a defensive caller - decremented
+  // `refs` for a subscription it no longer held, drove the count to zero while
+  // OTHER listeners were still attached, tore down the shared feed and left
+  // them permanently deaf. The docblock above claims the socket "lives exactly
+  // as long as at least one consumer is mounted", which was false under a
+  // double detach. Pre-existing; fixed here because HANDOFF-17 gave the layer
+  // below this property and documented it, and leaving the two disagreeing is
+  // how one of them comes to be wrong.
+  let detached = false;
 
   if (stop === null) {
     let seen = -1;
@@ -86,12 +96,21 @@ export function onTip(handler: (tip: TipEvent) => void): () => void {
             new CustomEvent<TipEvent>(EVENT, { detail: { height: frame.height, hash: frame.hash } }),
           );
         },
+        // `resetFrameBusForTest` drops every subscriber; without this the
+        // module would still hold a non-null `stop`, believe itself attached,
+        // and never resubscribe - so no tip could reach any consumer again.
+        onReset: () => {
+          stop = null;
+          refs = 0;
+        },
       },
       { openInFixture: false },
     );
   }
 
   return () => {
+    if (detached) return;
+    detached = true;
     window.removeEventListener(EVENT, listener);
     refs -= 1;
     if (refs <= 0 && stop !== null) {
@@ -101,6 +120,7 @@ export function onTip(handler: (tip: TipEvent) => void): () => void {
     }
   };
 }
+
 
 /**
  * Test-only: publish a tip as though the socket had delivered one.

@@ -160,6 +160,72 @@ describe("the bus opens ONE socket however many consumers attach", () => {
   });
 });
 
+describe("A13 - the state is the SOCKET's, not an inference from a frame (gate round 1)", () => {
+  it("the socket's own transitions reach a subscriber", async () => {
+    // `subscribeFrames` never passed `onState` to `ZecSocket`, so a full state
+    // machine - `connecting` on connect and on every retry, `open` on the open
+    // event, `closed` on teardown - terminated at an `undefined` callback, and
+    // the bus INFERRED `open` from a frame arriving.
+    const seen: string[] = [];
+    const stop = onFrames({ onState: (st) => seen.push(st) });
+    // The state it JOINS is delivered synchronously on attach; the socket's own
+    // transitions follow.
+    expect(seen).toStrictEqual(["connecting"]);
+    await settle();
+    expect(seen).toContain("open");
+    stop();
+  });
+
+  it("FAIL SIDE (data - a transport that opens, delivers, then dies): the state LEAVES open", async () => {
+    // THE MEMBER THAT DISCRIMINATES, and the one the inference could never see:
+    // a socket that connects and then dies delivers no frame to revise the
+    // inference with, so the page latched at "live" over a dead feed for ever -
+    // a frozen surface reporting no fault, in the component whose own docblock
+    // says it exists to prevent exactly that.
+    const seen: string[] = [];
+    const stop = onFrames({ onState: (st) => seen.push(st) });
+    await settle(3_000);
+    expect(seen).toContain("open");
+
+    // The committed stream closes itself after a full cycle BY DESIGN, which is
+    // the death this test needs and does not have to fake. It then RECONNECTS,
+    // which is also by design - so the assertion is that the state genuinely
+    // LEFT `open`, not that it stays away. The first draft asserted the latter
+    // and failed against correct behaviour: a probe wrong about the module it
+    // was pointed at.
+    const openAt = seen.lastIndexOf("open");
+    await settle(300_000);
+    expect(seen.slice(openAt + 1)).toContain("connecting");
+    // Detached, so this subscription cannot bleed into the next test. Dropping
+    // it is what the lint caught; a leaked subscriber is also a leaked socket.
+    stop();
+  });
+});
+
+describe("A14 - resetFrameBusForTest does not deafen tip-bus (gate round 1)", () => {
+  it("FAIL SIDE (data - a reset between two onTip attachments): tips still flow", async () => {
+    // `stop !== null` is tip-bus's whole record of whether it is attached, and a
+    // reset that cleared the bus's subscriber set without telling it left the
+    // module believing it was subscribed - after which no tip could reach any
+    // consumer again for the life of the process and every later tip assertion
+    // in the file passed VACUOUSLY. An assertion satisfied by every value it was
+    // written to exclude, arriving in the harness rather than in the product.
+    const before = onTip(() => undefined);
+    before();
+    resetFrameBusForTest();
+
+    // If the reset desynchronised tip-bus, this attaches nothing and the socket
+    // count stays where it was.
+    const opensBefore = opens;
+    const after = onTip(() => undefined);
+    const alsoLive = onFrames({ onFrame: () => undefined });
+    await settle();
+    expect(opens).toBeGreaterThan(opensBefore);
+    after();
+    alsoLive();
+  });
+});
+
 describe("openInFixture - the clock does not open a socket it would learn nothing from", () => {
   it("FAIL SIDE (data - a fixture-mode subscriber that does not want the socket): nothing is opened", async () => {
     // `tip-bus` passes `openInFixture: false` because the committed stream

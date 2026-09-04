@@ -159,10 +159,32 @@ export function markFor(row: MempoolRow): LiveShape | { readonly undrawn: Undraw
  */
 function directionFor(cls: MempoolRow["class"], lanes: readonly LedgerLane[]): LiveShape | null {
   if (cls === "migration") {
-    // ZIP 318 is Orchard leaving for Ironwood, and it is the one crossing
-    // relation this document measures anywhere - `MEASURED_CROSSINGS` in
-    // `plane.ts` holds exactly this pair.
-    return { kind: "crossing", from: "orchard", to: "ironwood" };
+    // `migration` IS THE GATEWAY'S "A CROSSING WITH NO PUBLIC SIDE", NOT ZIP 318,
+    // AND THE FIRST DRAFT READ IT AS ZIP 318.
+    //
+    // `apps/gateway/src/views/mempool.ts` assigns this class from
+    // `crossesWithNoPublicSide = movedPools.length > 1 && hasPoolSource &&
+    // hasPoolSink && !hasTransparentSource && r.transparent.vout.length === 0` -
+    // which a SAPLING-TO-ORCHARD shielded transfer satisfies. Its own
+    // `migrationFlowText` prints "S to O" for exactly that row. So returning the
+    // Orchard-to-Ironwood pair for every `migration` drew a ZIP 318 crossing
+    // that did not happen, in the orchard hue, on the one figure whose sub-head
+    // says "ZIP 318 migration is the measured crossing" and whose alt text says
+    // "No other pool boundary is measured by this document" - with the row's own
+    // `flow` field contradicting the arc.
+    //
+    // THIS IS F-57-1 AND IT IS THE MEASURED KIND. The exclusion set was closed
+    // by enumeration from the committed corpus, whose only migration row is
+    // `O to I`, instead of by CAPTURE from the producer - so neither the fixture
+    // nor any test could contain the shape the real gateway emits. Read off the
+    // gateway rather than off memory, the ZIP 318 arc is drawn only when the row
+    // NAMES that pair; every other pool-to-pool crossing falls through to the
+    // undirected chord below, which is the shape that claims no direction.
+    const pair = new Set(lanes);
+    if (pair.size === 2 && pair.has("orchard") && pair.has("ironwood")) {
+      return { kind: "crossing", from: "orchard", to: "ironwood" };
+    }
+    return null;
   }
 
   const shielded = lanes.filter((l) => SHIELDED.has(l));
@@ -211,11 +233,30 @@ export interface LiveState {
    * surface - an unmeasured thing given a measured thing's verdict - so the
    * reason survives the fold and the affordance prints it.
    */
-  readonly lastRemoval: RemovalReason | null;
+  readonly lastRemoval: Removal | null;
 }
 
 /** `zecFrameSchema`'s `tx_removed.reason`. Three members, one of them settlement. */
 export type RemovalReason = "confirmed" | "evicted" | "replaced";
+
+/**
+ * What a removal actually did to THIS board, which is what the copy claims.
+ *
+ * THE FIRST DRAFT KEPT ONLY THE REASON, AND THE AFFORDANCE THEN SAID "the last
+ * MARK to leave was confirmed into a block" IN THREE CASES WHERE NO MARK LEFT:
+ * a `tx_removed` for a txid this reader never held (routine - the reader
+ * connected after it entered the pool, or the gateway's view was partial), a
+ * held row that drew nothing (`undecoded`, or three-plus lanes), and a held row
+ * that was capped off the board. A sentence about a mark that never existed, on
+ * a surface whose whole subject is not claiming more than it measured.
+ */
+export interface Removal {
+  readonly reason: RemovalReason;
+  /** Whether the tank was holding it at all. */
+  readonly wasHeld: boolean;
+  /** Whether it was drawing a mark. A held row with no shape draws none. */
+  readonly drewMark: boolean;
+}
 
 export const EMPTY_LIVE_STATE: LiveState = { held: new Map(), seq: 0, lastRemoval: null };
 
@@ -245,19 +286,55 @@ export function liveReduce(state: LiveState, frame: ZecFrame): LiveState {
     case "tx_added":
       return add(state, frame.entry);
     case "tx_removed": {
-      if (!state.held.has(frame.txid)) {
-        // A removal for a txid never held is not an error and not a no-op we
-        // can be silent about: the reason is still what just happened on the
-        // wire. The held set is unchanged, which is A2's fail side.
-        return { ...state, lastRemoval: frame.reason };
+      const prior = state.held.get(frame.txid);
+      if (prior === undefined) {
+        // A removal for a txid never held changed NOTHING on this board, and the
+        // affordance must not say a mark left. The event is kept with that fact
+        // attached rather than discarded. The held set is unchanged, which is
+        // A2's fail side.
+        return { ...state, lastRemoval: { reason: frame.reason, wasHeld: false, drewMark: false } };
       }
       const held = new Map(state.held);
       held.delete(frame.txid);
-      return { held, seq: state.seq, lastRemoval: frame.reason };
+      return {
+        held,
+        seq: state.seq,
+        lastRemoval: { reason: frame.reason, wasHeld: true, drewMark: prior.shape !== null },
+      };
     }
     case "snapshot": {
-      let next = state;
-      for (const entry of frame.view.entries) next = add(next, entry);
+      // A SNAPSHOT IS THE MEMPOOL, NOT AN ADDITION TO IT, AND THE FIRST DRAFT
+      // FOLDED IT ADDITIVELY.
+      //
+      // The gateway sends this frame on every connect and the socket reconnects
+      // constantly - the committed `FixtureStream` closes itself after each
+      // cycle BY DESIGN, and a real gateway drops. A transaction that left the
+      // pool while the socket was down gets no `tx_removed`, because that frame
+      // was sent to a closed socket; the reconciling snapshot is the only thing
+      // that can retire it. Folded additively it never did, so the board went on
+      // drawing a CONFIRMED transaction as unconfirmed and the affordance
+      // printed the wrong count with full confidence. Reproduced: two held, a
+      // snapshot naming one, two still drawn.
+      //
+      // AND IT IS THE SEAM SHAPE, WHICH IS WHY IT IS WORTH THIS MANY LINES.
+      // `MempoolPanel` consumes the identical frame from the identical socket
+      // and treats it as authoritative - `setView((v) => ({ ...frame.view, ...}))`
+      // replaces `entries` wholesale. Two consumers of one frame, disagreeing
+      // about what it MEANS, each with its own passing tests, and neither test
+      // could see the disagreement because each built its own input.
+      //
+      // Survivors keep their original `seq`, so a reconnect does not reshuffle a
+      // capped board - the same rule `add` states for a re-delivered frame.
+      const held = new Map<string, HeldTx>();
+      let next: LiveState = { held, seq: state.seq, lastRemoval: state.lastRemoval };
+      for (const entry of frame.view.entries) {
+        next = add(next, entry);
+        const prior = state.held.get(entry.txid);
+        const placed = next.held.get(entry.txid);
+        if (prior !== undefined && placed !== undefined) {
+          (next.held as Map<string, HeldTx>).set(entry.txid, { ...placed, seq: prior.seq });
+        }
+      }
       return next;
     }
     case "hello":
@@ -265,6 +342,22 @@ export function liveReduce(state: LiveState, frame: ZecFrame): LiveState {
       return state;
   }
 }
+
+/**
+ * The most transactions the tank will HOLD, as distinct from the most it draws.
+ *
+ * `SPLASH_N_MAX` caps what is DRAWN. Nothing capped what was held, so a tab left
+ * open on a gateway that never sends `tx_removed` grew the map without bound -
+ * measured at 3,000 entries after 3,000 frames, with `add` copying the whole map
+ * per frame, so the cost is quadratic in a session's length.
+ *
+ * 250 IS `MempoolPanel`'s OWN CAP, adopted rather than invented, for the reason
+ * its comment gives: "the legacy dashboard capped at 250; the committed corpus
+ * never reaches it, and the cap is here so the live path cannot grow without
+ * bound." Two consumers of one socket should not disagree about how much of it
+ * they keep.
+ */
+const HOLD_MAX = 250;
 
 function add(state: LiveState, row: MempoolRow): LiveState {
   const existing = state.held.get(row.txid);
@@ -285,6 +378,12 @@ function add(state: LiveState, row: MempoolRow): LiveState {
     // to empty and refill on a socket blip that changed nothing.
     seq: existing?.seq ?? state.seq,
   });
+  // OLDEST OUT WHEN THE HOLD IS FULL, which is the same ordering the drawn cap
+  // uses: the newest arrivals are the ones a reader is watching for.
+  if (held.size > HOLD_MAX) {
+    const bySeq = [...held.values()].sort((p, q) => p.seq - q.seq);
+    for (const evicted of bySeq.slice(0, held.size - HOLD_MAX)) held.delete(evicted.txid);
+  }
   return { held, seq: existing === undefined ? state.seq + 1 : state.seq, lastRemoval: state.lastRemoval };
 }
 
