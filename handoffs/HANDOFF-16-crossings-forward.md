@@ -141,47 +141,71 @@ version ceiling)** · the HANDOFF-12 blocks and both L2 resolutions for PR #50 a
    transcribed, and driven through the same three-body loop (§1 item 1, F-57-1).
 7. **LEDGER-15's rate-limit deferral closed as MEASURED** rather than carried (§1 item 2).
 
-## §5 ASSERTIONS — each needs both polarities, and each states its EXCLUSION SET
+## §5 ASSERTIONS — each needs both polarities, and each names its EXCLUSION SET
 
-- **A1.** The preflight reports `z_gettreestate` ABSENT against the keyless Tatum endpoint and SERVED
-  against one that serves it. *If no second endpoint is reachable, drive the second polarity against
-  a local mock and say so — a guard driven in one direction is half a guard.*
-  **EXCLUSION SET:** a verdict that does not discriminate — ABSENT returned for an endpoint that
-  serves the method, or SERVED returned for one that answers `Method not found`.
+- **A1.** The preflight reports `z_gettreestate` ABSENT against the keyless Tatum endpoint and
+  SERVED against one that serves it. If no second endpoint is reachable, drive the second polarity
+  against a local mock and say so — a guard driven in one direction is half a guard.
+  *Exclusion set:* any verdict that does not discriminate — ABSENT returned for an endpoint whose
+  answer to `z_gettreestate` is a treestate, or SERVED returned for one whose answer is
+  `Method not found`.
+  *Fail side names:* an endpoint answering `-32601 Method not found` for `z_gettreestate` and a
+  treestate for every other method. The member is that endpoint's `z_gettreestate` response; a
+  preflight reporting SERVED for it has taken a value from inside the set.
+
 - **A2.** The preflight's rate figure is MEASURED, its transcript showing the last success and the
   first refusal.
-  **EXCLUSION SET:** a rate figure not derived from an observed refusal — a constant, a value read
-  from documentation, or a figure emitted when no request was refused at all.
-- **A3.** A missing `z_gettreestate` is named at startup, not at the first Ironwood block. *Fail side
-  by DATA: a mock that 404s that one method.*
-  **EXCLUSION SET:** an endpoint missing a required method that the runtime starts against silently.
+  *Exclusion set:* any rate figure not derived from an OBSERVED refusal — a constant, a value read
+  from documentation, or a figure emitted by a burst in which nothing was refused.
+  *Fail side names:* a mock that never refuses, driven by the same burst. The member is the rate the
+  preflight prints when no request was refused; a figure appearing there is a figure not measured.
+
+- **A3.** A missing `z_gettreestate` is named at startup, not at the first Ironwood block.
+  *Exclusion set:* any startup that proceeds to its first block against an endpoint missing a method
+  the runtime calls, without naming the method.
+  *Fail side names:* a mock that answers every method and 404s `z_gettreestate` alone, handed to the
+  runtime at startup. The member is that endpoint; a silent start against it is the value the
+  assertion excludes.
+
 - **A4.** A 429 mid-`applyConfirmedBlock` retries cleanly — no `CommitmentAlreadyExistsError`, no
-  advanced tip. *Fail side: the mock 429s once mid-apply; the block applies on retry.*
-  **EXCLUSION SET:** a state in which a refused external call has already mutated chain state — a
-  duplicated commitment, a tip advanced past a block that did not apply, an anchor recorded for a
-  block whose treestate never arrived.
+  advanced tip.
+  *Exclusion set:* any state reachable after a refused external call in which chain state has
+  already moved — a duplicated commitment, a tip past a block that did not apply, or an anchor
+  recorded for a block whose treestate never arrived.
+  *Fail side names:* a mock that 429s once on the treestate call inside `applyConfirmedBlock` and
+  succeeds on retry. The member is the store state observed between the refusal and the retry.
+
 - **A5.** Opening at a recent height produces a base whose `maxPosition` equals the block's own
-  reported tree size minus one, and marks appear on the plane once crossings accrue. *Fail side:
-  withhold the treestate and observe no anchor and a logged finding, never a fabricated root.*
-  **EXCLUSION SET:** an anchor root the node never sent — a zero root, a placeholder, a root computed
-  locally — recorded as if measured.
-- **A6.** Round 4's findings each carry a failing-then-passing transcript, and **if round 4's fix
-  commit exists, round 5 ran over it.**
-  **EXCLUSION SET:** a §7 reporting round 4's fixes with no round over them — exactly the gap F-52-2
-  files.
-- **A7. F-57-1 applied to this rung's own mock.** The preflight's ABSENT verdict and the driver's 429
-  handling are both driven by shapes **captured from a real endpoint**, not enumerated from memory -
-  the four 429 bodies now on record, and whatever `z_gettreestate` actually answers rather than what
-  this prompt says it answers.
-  **EXCLUSION SET:** a refusal or absence shape no real producer emits — a mock emitting only the
-  shapes a previous session imagined.
+  reported tree size minus one, and marks appear on the plane once crossings accrue.
+  *Exclusion set:* any anchor root the node never sent — a zero root, a placeholder, or a root
+  computed locally — recorded as though it had been measured.
+  *Fail side names:* a treestate withheld for one block. The member is the anchor record written for
+  that block: the assertion holds only if there is none and a finding is logged.
+
+- **A6.** Round 4's findings each carry a failing-then-passing transcript, and if round 4's fix
+  commit exists, round 5 ran over it.
+  *Exclusion set:* any §7 that reports a round-4 fix with no round over the commit that carried it —
+  exactly the gap F-52-2 files.
+  *Fail side names:* HANDOFF-15's own §7, which is the member: it reports round 3's fix commit
+  `62c4e77` and carries no round over it, which is why this deliverable exists.
+
+- **A7.** F-57-1 applied to this rung's own mock: the preflight's ABSENT verdict and the driver's
+  429 handling are both driven by shapes CAPTURED from a real endpoint rather than enumerated from
+  memory — the four 429 bodies now on record, and whatever `z_gettreestate` actually answers rather
+  than what the brief says it answers.
+  *Exclusion set:* any refusal or absence shape no real producer emits — a body invented by a
+  previous session, or one transcribed from this brief without a capture behind it.
+  *Fail side names:* `{"error": "rate limited"}`, HANDOFF-15's own 429 body. It is a member: it is a
+  data mutation from inside "a 429 response" and it is the one shape the measured endpoint does not
+  send, which is the counter-example F-57-1 was adopted on.
+
 - **A8.** `pnpm -r test` green with a **real** exit code, captured directly and never through a pipe
-  (**F-53-1**), **with `build` run BEFORE `typecheck`**, and the passed AND skipped counts both
-  stated with every skip named - a run with Postgres or Redis down exits 0 while silently skipping
-  the integration halves, and only the counts discriminate (HANDOFF-15 §7 drove both polarities:
-  1597/5 healthy, 1465/111 degraded, identical exit code).
-  **EXCLUSION SET:** a green claim whose evidence cannot distinguish a healthy run from a degraded
+  (**F-53-1**), with `build` run BEFORE `typecheck`, and the passed AND skipped counts both stated
+  with every skip named.
+  *Exclusion set:* any green claim whose evidence cannot distinguish a healthy run from a degraded
   one — an exit code read through a pipe, or a pass count quoted without its skip count.
+  *Fail side names:* a run with Postgres and Redis down. The member is its exit code, which is 0 and
+  identical to the healthy run's; HANDOFF-15 §7 measured the pair at 1597/5 against 1465/111.
 
 ## §6 DISPATCH HINTS
 
