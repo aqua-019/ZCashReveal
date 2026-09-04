@@ -230,6 +230,39 @@ describe("A6 - a disconnected socket is a named state, not a calm empty tank", (
     expect(rate).not.toMatch(/\b0 transactions a minute\b/);
   });
 
+  it("FAIL SIDE (data - txPerMinute = 1 and ceilingPerMinute = 1, both legal): the noun agrees", () => {
+    // `mempoolDrainStateSchema` admits both: `txPerMinute` is `nonnegative()`
+    // and `ceilingPerMinute` is `positive()`. At the measured ceiling of five
+    // the figure is three, so this sentence is only wrong at values nobody
+    // typed while writing it - which is why reading it found nothing and
+    // executing it found two defects in one line.
+    render(<LivePlaneLayer />);
+    act(() => {
+      publishFrameForTest({
+        type: "snapshot",
+        view: { tipHeight: 1, entries: [], drain: drain(1, 1), summary: SUMMARY },
+      });
+    });
+    const rate = ui("turnstile-live-rate").textContent ?? "";
+    expect(rate).toContain("1 transaction a minute");
+    expect(rate).toContain("ceiling of 1 request");
+    expect(rate).not.toContain("1 transactions");
+    expect(rate).not.toContain("1 requests");
+  });
+
+  it("a MEASURED zero rate stays plural and stays a measurement, not an absence", () => {
+    render(<LivePlaneLayer />);
+    act(() => {
+      publishFrameForTest({
+        type: "snapshot",
+        view: { tipHeight: 1, entries: [], drain: drain(0, 5), summary: SUMMARY },
+      });
+    });
+    const rate = ui("turnstile-live-rate").textContent ?? "";
+    expect(rate).toContain("0 transactions a minute");
+    expect(rate).not.toContain("publishes no rate");
+  });
+
   it("the rate the producer DID publish reaches the page", () => {
     render(<LivePlaneLayer />);
     act(() => {
@@ -260,6 +293,22 @@ describe("A6 - a disconnected socket is a named state, not a calm empty tank", (
     expect(rate).toContain("metered feed, not a fault");
   });
 });
+
+/** A drain state carrying just the two figures the affordance reads. */
+function drain(txPerMinute: number | null, ceilingPerMinute: number | null) {
+  return {
+    observed: 9,
+    analysed: 3,
+    complete: false,
+    deferred: 6,
+    failed: 0,
+    refused: false,
+    completeSecondsAgo: null,
+    updatedSecondsAgo: 4,
+    ceilingPerMinute,
+    txPerMinute,
+  };
+}
 
 const SUMMARY = {
   unconfirmed: 0,

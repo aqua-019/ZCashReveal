@@ -81,6 +81,28 @@ const STATE_TEXT: Readonly<Record<SocketState, string>> = {
   closed: "stopped",
 };
 
+/**
+ * A count and its noun, agreeing.
+ *
+ * FOUND BY EXECUTING THE SENTENCE RATHER THAN READING IT, which is CLAUDE.md's
+ * clause (c). Driven over the values `mempoolDrainStateSchema` actually admits -
+ * `txPerMinute` is `nonnegative()` and `ceilingPerMinute` is `positive()`, so
+ * both can be 1 - the rate line read "the endpoint affords 1 transactions a
+ * minute against a ceiling of 1 requests". At the measured ceiling of five the
+ * figure is three and the defect never shows, which is exactly why it survived
+ * being read: the sentence is only wrong at values nobody typed while writing
+ * it. A site whose whole subject is saying precisely what it knows cannot print
+ * "1 transactions".
+ *
+ * A ZERO STILL PRINTS AS "0 transactions", plural, and that is correct English
+ * and a correct claim: the producer measured a rate of zero. This function does
+ * not decide absence - the caller does, one branch up - because a null rate and
+ * a measured zero are different sentences and only one of them belongs here.
+ */
+function plural(n: number, one: string, many: string): string {
+  return `${fmtInt(n)} ${n === 1 ? one : many}`;
+}
+
 const REMOVAL_TEXT: Readonly<Record<RemovalReason, string>> = {
   confirmed: "confirmed into a block",
   evicted: "evicted from the mempool",
@@ -241,6 +263,9 @@ function LiveReading({
       <p className="tlr-count" data-ui="turnstile-live-count">
         <b>{fmtInt(plane.drawn)}</b>
         {plane.drawn === 1 ? " unconfirmed transaction drawn" : " unconfirmed transactions drawn"}
+        {/* `plural` is not used here because the FIGURE is bold and the noun is
+            not, so the two cannot share one string. Same agreement rule, hand
+            written, and the swept sites are listed in section 7. */}
         {plane.held === plane.drawn ? null : <> {`of ${fmtInt(plane.held)} held`}</>}
         {plane.capped ? (
           <span className="tlr-cap" data-ui="turnstile-live-capped">
@@ -257,9 +282,13 @@ function LiveReading({
         {feed.ceilingPerMinute === null && feed.txPerMinute === null
           ? "the feed publishes no rate, so how many transactions this endpoint affords is not known here"
           : `the endpoint affords ${
-              feed.txPerMinute === null ? "an unstated number of" : fmtInt(feed.txPerMinute)
-            } transactions a minute${
-              feed.ceilingPerMinute === null ? "" : ` against a ceiling of ${fmtInt(feed.ceilingPerMinute)} requests`
+              feed.txPerMinute === null
+                ? "an unstated number of transactions"
+                : plural(feed.txPerMinute, "transaction", "transactions")
+            } a minute${
+              feed.ceilingPerMinute === null
+                ? ""
+                : ` against a ceiling of ${plural(feed.ceilingPerMinute, "request", "requests")}`
             } - a sparse board is a metered feed, not a fault`}
         {feed.refused ? <span className="tlr-refused">{" - the last tick was cut short by a refusal"}</span> : null}
       </p>
