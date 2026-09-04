@@ -123,16 +123,27 @@ describe("the CATCH-UP rate, which the reservation does not bound on its own", (
     expect(planConfirmedFollow({ perMinute: null, requestedIntervalMs: 2000 }).catchUpIntervalMs).toBeNull();
   });
 
-  it("at every feasible ceiling the paced catch-up stays inside the reservation", () => {
-    let seen = 0;
-    for (let R = 4; R <= 200; R += 1) {
-      const p = planConfirmedFollow({ perMinute: R, requestedIntervalMs: 2000 });
-      if (!p.feasible) continue;
-      seen += 1;
-      const cost = (60_000 / (p.catchUpIntervalMs as number)) * REQUESTS_PER_CATCHUP_STEP;
-      expect(cost, `ceiling ${String(R)}`).toBeLessThanOrEqual(p.reservedPerMinute as number);
+  it("the paced catch-up stays inside the reservation across DISTINCT plans, not 197 copies of one", () => {
+    // A SWEEP OVER 197 CEILINGS PRODUCED ONE PLAN, AND THE CENSUS READ AS
+    // COVERAGE IT DID NOT HAVE. `reservedPerMinute` does not depend on the
+    // ceiling at all - it is derived from the poll interval and the block target
+    // - so every R from 4 to 200 gave the identical `{reserved: 3, catchUp:
+    // 40000}`. A gate reviewer counted the distinct plans and found ONE. The
+    // sweep now varies the quantity the plan actually depends on, and asserts
+    // how many distinct plans it saw rather than how many inputs it fed.
+    const plans = new Map<string, ReturnType<typeof planConfirmedFollow>>();
+    for (const blockTargetMs of [15_000, 30_000, 75_000, 150_000, 600_000]) {
+      for (const R of [4, 5, 8, 13, 60, 200]) {
+        const p = planConfirmedFollow({ perMinute: R, requestedIntervalMs: 2000, blockTargetMs });
+        if (!p.feasible) continue;
+        plans.set(JSON.stringify([p.reservedPerMinute, p.catchUpIntervalMs, p.pollIntervalMs]), p);
+        const cost = (60_000 / (p.catchUpIntervalMs as number)) * REQUESTS_PER_CATCHUP_STEP;
+        expect(cost, `R=${String(R)} target=${String(blockTargetMs)}`).toBeLessThanOrEqual(p.reservedPerMinute as number);
+      }
     }
-    expect(seen).toBe(197);
+    // THE CENSUS IS OF DISTINCT PLANS. A number here that fell to one would mean
+    // the sweep had gone degenerate again, which is exactly what happened.
+    expect(plans.size).toBeGreaterThanOrEqual(4);
   });
 });
 
@@ -148,8 +159,13 @@ describe("THE AGGREGATE PROPERTY: both loops together stay inside the ceiling", 
   function requestsPerMinute(perMinute: number | null, requestedIntervalMs: number) {
     const follow = planConfirmedFollow({ perMinute, requestedIntervalMs });
     const plan = planMempoolPoll({ perMinute: follow.remainingPerMinute, requestedIntervalMs });
+    // READ FROM THE MODULE, NOT HARDCODED. This line said `2 * (...)` and the
+    // module exports `REQUESTS_PER_BLOCK` - so the one instrument the property
+    // exists for could not see a change to the constant it is about. A gate
+    // reviewer pointed out that the two happened to agree, which is the whole
+    // problem: a test that restates a constant tests its own copy of it.
     const followerCost =
-      tipPollsPerMinute(follow.pollIntervalMs) + 2 * (60_000 / BLOCK_TARGET_MS);
+      tipPollsPerMinute(follow.pollIntervalMs) + REQUESTS_PER_BLOCK * (60_000 / BLOCK_TARGET_MS);
     const mempoolTicks = 60_000 / plan.pollIntervalMs;
     const mempoolCost = mempoolTicks * (plan.overheadPerTick + (plan.txBudget ?? 0));
     return { follow, plan, followerCost, mempoolCost, total: followerCost + mempoolCost };

@@ -148,6 +148,20 @@ const FLOOR_SOURCE = "packages/zebra-rpc/src/version-floor.ts";
 const SEMVER_TAG = /^\s*v?(\d+)\.(\d+)\.(\d+)\s*$/;
 const IMAGE_LINE = /^\s*image:\s*["']?([^"'#\s]+)["']?/;
 
+/**
+ * Block and line comments removed, so a commented-out declaration cannot be read
+ * as a declaration.
+ *
+ * CRUDE ON PURPOSE AND CORRECT FOR WHAT IT IS ASKED. It does not understand
+ * strings containing comment markers, and `version-floor.ts` has none - a
+ * limitation stated here rather than discovered later, because the alternative
+ * is a TypeScript parser in a guard whose whole job is to read four constants.
+ * What it must not do is the thing it replaced: accept a value out of prose.
+ */
+function stripComments(src) {
+  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+}
+
 /** The floor, READ out of the TypeScript that declares it. */
 function readFloor(path = FLOOR_SOURCE) {
   if (!existsSync(path)) return { ok: false, reason: `${path} does not exist` };
@@ -155,7 +169,7 @@ function readFloor(path = FLOOR_SOURCE) {
   // exactly the same way and had simply never met a docblock that mentioned the
   // floor by name with an `=` after it. Tightened here rather than left as the
   // one half of the pair that can still be satisfied by prose.
-  const m = /^export const ZEBRA_MIN_VERSION_STRING\s*=\s*"(\d+)\.(\d+)\.(\d+)"/m.exec(readFileSync(path, "utf8"));
+  const m = /^export const ZEBRA_MIN_VERSION_STRING\s*=\s*"(\d+)\.(\d+)\.(\d+)"/m.exec(stripComments(readFileSync(path, "utf8")));
   if (m === null) return { ok: false, reason: `${path} declares no ZEBRA_MIN_VERSION_STRING` };
   return { ok: true, version: { major: +m[1], minor: +m[2], patch: +m[3] } };
 }
@@ -198,7 +212,15 @@ const cmp = (a, b) => a.major - b.major || a.minor - b.minor || a.patch - b.patc
  */
 function readCeiling(path = FLOOR_SOURCE) {
   if (!existsSync(path)) throw new Error(`[compose-zebra-tag] ${path} does not exist, so the ceiling cannot be read`);
-  const src = readFileSync(path, "utf8");
+  // COMMENTS ARE STRIPPED BEFORE MATCHING, BECAUSE `^export const` UNDER `/m`
+  // MATCHES A COMMENT LINE THAT HAPPENS TO START AT COLUMN 0. Anchoring the
+  // regexes fixed the case where the DECLARATION name appeared in prose mid-line
+  // and did not fix this one: a block comment whose continuation lines are not
+  // indented - which is how a commented-out declaration looks - satisfies all
+  // three patterns. A gate reviewer built exactly that file and readCeiling
+  // accepted every value out of it. That is the same F-43-1 shape a third time,
+  // and the answer is to stop asking a regex to know what code is.
+  const src = stripComments(readFileSync(path, "utf8"));
   // ANCHORED AT `export const` AND AT THE START OF A LINE, BECAUSE THE LOOSE
   // FORM MATCHED THE DOCBLOCK. The first draft of this reader used
   // /ZEBRA_MAX_VERSION_INCLUSIVE\s*=\s*(true|false)/ and the self-test below
@@ -710,6 +732,30 @@ function selfTest() {
       if (threw === null) return `readCeiling accepted a version-floor.ts with no ${decl}`;
       if (!threw.includes(decl)) return `readCeiling threw for a missing ${decl} without naming it: "${threw}"`;
     }
+    // AND A FILE WHOSE DECLARATIONS EXIST ONLY AS PROSE, which is the case the
+    // removal loop above cannot reach: every declaration is present, at column
+    // zero, inside a block comment. `^export const` under `/m` matches it and
+    // `stripComments` is what stops it.
+    const commented = join(ceilingDir, "commented.ts");
+    writeFileSync(
+      commented,
+      "/*\n" +
+        'export const ZEBRA_MAX_VERSION_STRING = "9.9.9";\n' +
+        "export const ZEBRA_MAX_VERSION_INCLUSIVE = false;\n" +
+        "export const ZEBRA_MAX_VERSION_REASON = \"prose\";\n" +
+        "export const ZEBRA_MIN_VERSION_STRING = \"9.9.9\";\n" +
+        "*/\n",
+    );
+    let commentThrew = null;
+    try {
+      readCeiling(commented);
+    } catch (err) {
+      commentThrew = err instanceof Error ? err.message : String(err);
+    }
+    if (commentThrew === null) return "readCeiling accepted three declarations that exist only inside a block comment";
+    const commentedFloor = readFloor(commented);
+    if (commentedFloor.ok) return "readFloor accepted a floor that exists only inside a block comment";
+
     // AND THE ABSENT-FILE ARM, which no removal above can reach.
     let missingThrew = null;
     try {

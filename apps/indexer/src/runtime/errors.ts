@@ -47,6 +47,36 @@ export class TreeSizeMismatchError extends ChainRuntimeError {
   }
 }
 
+/**
+ * The store refused a block AFTER the in-memory state had already been mutated.
+ *
+ * FATAL, AND THE POINT IS THAT IT WAS BEING RETRIED. `applyConfirmedBlock`
+ * appends commitments, records nullifiers and applies value deltas, and THEN
+ * calls `store.writeBlock`. A transient store failure - a dropped Postgres
+ * connection - therefore leaves `chain.pools.*` holding a block the store does
+ * not have. The raw error is neither a `ChainRuntimeError` nor a
+ * `ZCashRevealStateError`, so `isFatal` was false, the loop logged "retrying
+ * after the poll interval", and the retry re-appended the same commitments into
+ * a state that already had them - raising `CommitmentAlreadyExistsError`, which
+ * IS fatal and whose message says the build disagrees with consensus. So a
+ * database hiccup stopped the process and blamed the decoder.
+ *
+ * THIS IS `c53f2ba`'s SHAPE ONE LAYER DOWN. That fix moved the treestate fetch
+ * ABOVE the mutations for exactly this reason and its comment says so; the store
+ * write cannot be moved, because the writes are derived from the positions the
+ * mutations produce. So the answer is not to retry it: the in-memory state is
+ * dirty and cannot be reconciled in place, and the module header already
+ * prescribes what to do with a dirty state - stop, and let a restart replay the
+ * last block that WAS written. This error is that, said correctly, instead of
+ * arriving one retry later under the wrong name. Found by a gate reviewer.
+ */
+export class ChainPersistenceError extends ChainRuntimeError {
+  constructor(message: string, override readonly cause: unknown) {
+    super(message);
+    this.name = "ChainPersistenceError";
+  }
+}
+
 /** The node's chain diverged from ours below the height this state opened at; nothing here can be rolled back that far. */
 export class ReorgBelowBaseError extends ChainRuntimeError {
   constructor(message: string) {

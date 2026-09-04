@@ -207,7 +207,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  */
 function readWindow(path = FLOOR_SOURCE) {
   if (!existsSync(path)) return null;
-  const src = readFileSync(path, "utf8");
+  // COMMENTS STRIPPED FIRST, for `check-compose-zebra-tag.mjs`'s reason: a block
+  // comment whose lines start at column 0 satisfies `^export const` under `/m`,
+  // so a commented-out declaration reads as a live one. The two readers of this
+  // file must agree about what counts as a declaration or they are two rules.
+  const src = readFileSync(path, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
   const lo = /^export const ZEBRA_MIN_VERSION_STRING\s*=\s*"(\d+)\.(\d+)\.(\d+)"/m.exec(src);
   const hi = /^export const ZEBRA_MAX_VERSION_STRING\s*=\s*"(\d+)\.(\d+)\.(\d+)"/m.exec(src);
   const inc = /^export const ZEBRA_MAX_VERSION_INCLUSIVE\s*=\s*(true|false)/m.exec(src);

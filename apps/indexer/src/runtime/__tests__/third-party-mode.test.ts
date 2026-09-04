@@ -26,6 +26,7 @@ import type { GetTreestate, RpcBlock } from "@zcashreveal/zebra-rpc";
 import { RpcError, RpcRateLimitError } from "@zcashreveal/zebra-rpc";
 
 import { ChainFollower, isFatal, type FollowerRpc } from "../chain-follower.js";
+import { ChainPersistenceError } from "../errors.js";
 import { createChainState, type ChainBase } from "../chain-state.js";
 import { MemoryChainStore } from "../chain-store.js";
 import { absentTreestateSource, treestateSource } from "../treestate-source.js";
@@ -327,5 +328,82 @@ describe("A5 - the anchor's maxPosition is the block's own reported tree size mi
     if (a.kind !== "applied") throw new Error("unreachable");
     expect(a.block.anchors).toHaveLength(0);
     expect(a.block.notices.map((n) => n.code)).toEqual(["IRONWOOD_TREESTATE_MISMATCH"]);
+  });
+});
+
+describe("ROUND 4: a store failure is FATAL and named, not retried into a false consensus diagnosis", () => {
+  /**
+   * `applyConfirmedBlock` MUTATES `chain.pools.*` AND THEN WRITES. A transient
+   * store failure therefore leaves the in-memory state holding a block the store
+   * does not have, and the raw error is neither a `ChainRuntimeError` nor a
+   * `ZCashRevealStateError` - so `isFatal` read false, the loop logged "retrying
+   * after the poll interval", and the retry re-appended the same commitments and
+   * raised `CommitmentAlreadyExistsError`, whose message says the build
+   * disagrees with consensus. A dropped Postgres connection stopped the process
+   * and blamed the decoder.
+   *
+   * This is `c53f2ba`'s shape one layer down, and the store write cannot be
+   * hoisted above the mutations the way the treestate fetch was: the writes are
+   * derived from the positions those mutations produce. So it stops on the FIRST
+   * failure, under its own name, and a restart replays from the last block that
+   * was actually written.
+   */
+  class RefusingStore extends MemoryChainStore {
+    constructor(private readonly refuseFrom = 1) {
+      super();
+    }
+    private writes = 0;
+    override writeBlock(w: Parameters<MemoryChainStore["writeBlock"]>[0]): Promise<void> {
+      this.writes += 1;
+      if (this.writes >= this.refuseFrom) return Promise.reject(new Error("connection terminated unexpectedly"));
+      return super.writeBlock(w);
+    }
+  }
+
+  it("PASS SIDE: the failure is a ChainPersistenceError, isFatal is TRUE, and the tip did not advance", async () => {
+    const node = new ThirdPartyNode(CHAIN);
+    const store = new RefusingStore();
+    await store.writeBase(BASE, 1);
+    const follower = followerOver(node, store);
+
+    const err = await follower.step().then(() => null, (e: unknown) => e);
+    expect(err).toBeInstanceOf(ChainPersistenceError);
+    expect(isFatal(err)).toBe(true);
+    expect(follower.chain.height).toBe(BASE_HEIGHT);
+    // The message names the store and the remedy, not the decoder.
+    expect((err as Error).message).toContain("the store refused block");
+    expect((err as Error).message).toContain("replay");
+    // And the underlying cause is carried rather than swallowed.
+    expect(((err as ChainPersistenceError).cause as Error).message).toContain("connection terminated");
+  });
+
+  it("FAIL SIDE, BY DATA: the state IS dirty after the refusal, which is why retrying it was wrong", async () => {
+    // The member of the exclusion set: an in-memory state holding a block the
+    // store does not have. This is what the old code retried into.
+    const node = new ThirdPartyNode(CHAIN);
+    const store = new RefusingStore();
+    await store.writeBase(BASE, 1);
+    const follower = followerOver(node, store);
+    await follower.step().catch(() => undefined);
+
+    // The commitments ARE appended - that is the dirty state, asserted rather
+    // than assumed, because the whole argument for stopping rests on it.
+    expect(follower.chain.pools.ironwood.commitments.size()).toBe(1n);
+    expect((await store.readBlocks(0, 9_999_999)).map((b) => b.height)).toEqual([BASE_HEIGHT]);
+    // And a retry - which the loop no longer performs - would raise the state
+    // error that used to be reported as a consensus disagreement.
+    const retry = await follower.step().then(() => null, (e: unknown) => e);
+    expect(retry).not.toBeNull();
+    expect(isFatal(retry)).toBe(true);
+  });
+
+  it("a store that ACCEPTS the block leaves nothing fatal, so the guard is not simply always-on", async () => {
+    const node = new ThirdPartyNode(CHAIN);
+    const store = new RefusingStore(99);
+    await store.writeBase(BASE, 1);
+    const follower = followerOver(node, store);
+    const applied = await follower.step();
+    expect(applied.kind).toBe("applied");
+    expect(follower.chain.height).toBe(BASE_HEIGHT + 1);
   });
 });

@@ -52,7 +52,7 @@ import { sproutValueBalanceZat } from "../decoder/sprout.js";
 import type { PoolState } from "../state/pool-state.js";
 import { POOLS, valuePoolEntry, type ChainState } from "./chain-state.js";
 import type { BlockWrites, ChainStore } from "./chain-store.js";
-import { ChainContinuityError, TreeSizeMismatchError, ValueAccountingMismatchError } from "./errors.js";
+import { ChainContinuityError, ChainPersistenceError, TreeSizeMismatchError, ValueAccountingMismatchError } from "./errors.js";
 
 /**
  * Where an Ironwood treestate comes from. `null` means the response was
@@ -304,7 +304,25 @@ export async function applyConfirmedBlock(
     boundaryFlows,
     snapshots: POOLS.map((pool) => chain.pools[pool].snapshot(height)),
   };
-  await store.writeBlock(writes);
+  // A STORE FAILURE HERE IS FATAL, NOT RETRYABLE, BECAUSE THE STATE IS ALREADY
+  // DIRTY. Everything above this line has mutated `chain.pools.*`, which is
+  // append-only with no undo, and the writes below are derived from the
+  // positions those mutations produced - so this call cannot be hoisted above
+  // them the way `c53f2ba` hoisted the treestate fetch. Left raw, the error was
+  // neither a `ChainRuntimeError` nor a state error, `isFatal` read false, and
+  // the follower retried the same block into a state that already held it:
+  // `CommitmentAlreadyExistsError`, which IS fatal and says the build disagrees
+  // with consensus. A dropped Postgres connection stopped the process and
+  // blamed the decoder. Named as what it is, it stops on the first failure and
+  // a restart replays the last block that was actually written.
+  try {
+    await store.writeBlock(writes);
+  } catch (err) {
+    throw new ChainPersistenceError(
+      `the store refused block ${height} after the in-memory state had been mutated; this state cannot be reconciled in place, so the process must restart and replay from the last written block`,
+      err,
+    );
+  }
   chain.height = height;
   chain.hash = block.hash;
   return { height, hash: block.hash, anchors, notices, writes, accounting };
