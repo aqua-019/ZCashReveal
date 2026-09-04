@@ -15,7 +15,8 @@
  */
 import { fetch as undiciFetch, type RequestInit } from "undici";
 
-import { RpcError, RpcSchemaError, RpcTransportError } from "./errors.js";
+import { RpcError, RpcRateLimitError, RpcSchemaError, RpcTransportError } from "./errors.js";
+import { RateGate, parseRetryAfterMs } from "./rate-limit.js";
 import {
   addressBalanceSchema,
   addressTxIdsSchema,
@@ -37,10 +38,20 @@ import type { BlockHeaderResult, BlockchainInfoResult, RpcBlock } from "./types.
 import type { Hex, RpcTransaction } from "@zcashreveal/types";
 import { z } from "zod";
 
-/** The subset of `fetch` this client uses, so a test can supply one. */
+/**
+ * The subset of `fetch` this client uses, so a test can supply one.
+ *
+ * `headers` IS OPTIONAL AND THAT IS NOT A CONVENIENCE FOR TEST DOUBLES. A 429
+ * carries `Retry-After` only when the endpoint chooses to; RFC 9110 does not
+ * require it and most gateways omit it. So the absent case is a live production
+ * branch rather than a test artefact, and a double that omits `headers`
+ * exercises the same branch a real Cloudflare-fronted 429 usually does. Undici's
+ * `Response` always supplies it, so the present branch is the live one too.
+ */
 export type FetchLike = (url: string, init: RequestInit) => Promise<{
   ok: boolean;
   status: number;
+  headers?: { get(name: string): string | null };
   json(): Promise<unknown>;
   text(): Promise<string>;
 }>;
@@ -68,6 +79,31 @@ export interface ZebraRpcOptions {
   readonly fetch?: FetchLike;
   /** Injected for tests, so a retry test does not spend real seconds sleeping. */
   readonly sleep?: (ms: number) => Promise<void>;
+  /**
+   * The clock, shared with `gate` where one is supplied.
+   *
+   * ONE CLOCK, BECAUSE `Retry-After`'s HTTP-DATE FORM IS A SUBTRACTION AND THE
+   * RESULT IS ADDED TO THE GATE'S OWN `now`. Reading the header against
+   * `Date.now()` while the gate runs on an injected clock is comparing two
+   * timelines - no live defect, since production uses `Date.now()` for both,
+   * but it made the date branch untestable end to end under a fake clock, so
+   * only the delta-seconds form was ever driven through a real response.
+   */
+  readonly now?: () => number;
+  /**
+   * A request budget this client must stay inside.
+   *
+   * ABSENT MEANS UNMETERED, WHICH IS THE RIGHT DEFAULT FOR A NODE YOU OWN.
+   * Zebra over loopback has no ceiling worth modelling and adding one would
+   * make every existing caller slower for nothing. A third-party endpoint has a
+   * ceiling, and `apps/indexer` builds this from `INDEXER_RPC_MAX_RPM`.
+   *
+   * THE GATE IS CONSULTED PER ATTEMPT, NOT PER CALL. A retried transport
+   * failure is a second request on the wire and the endpoint counts it as one,
+   * so a gate asked once per `call()` would let a three-attempt call spend
+   * three slots having reserved one.
+   */
+  readonly gate?: RateGate;
 }
 
 const DEFAULTS = {
@@ -100,6 +136,8 @@ export class ZebraRpc {
   readonly #retryBaseMs: number;
   readonly #fetch: FetchLike;
   readonly #sleep: (ms: number) => Promise<void>;
+  readonly #gate: RateGate | undefined;
+  readonly #now: () => number;
   #nextId = 1;
 
   constructor(options: ZebraRpcOptions) {
@@ -113,6 +151,13 @@ export class ZebraRpc {
     this.#retryBaseMs = options.retryBaseMs ?? DEFAULTS.retryBaseMs;
     this.#fetch = options.fetch ?? (undiciFetch as unknown as FetchLike);
     this.#sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    this.#gate = options.gate;
+    this.#now = options.now ?? Date.now;
+  }
+
+  /** The budget this client meters itself against, or undefined when unmetered. */
+  get gate(): RateGate | undefined {
+    return this.#gate;
   }
 
   /**
@@ -138,11 +183,29 @@ export class ZebraRpc {
 
     for (let attempt = 0; attempt <= this.#retries; attempt += 1) {
       if (attempt > 0) await this.#sleep(this.#retryBaseMs * 2 ** (attempt - 1));
+      // PER ATTEMPT, BECAUSE THE ENDPOINT COUNTS REQUESTS AND NOT CALLS. See
+      // the `gate` option's docblock. `take()` resolves immediately when the
+      // window has room, so an unmetered client pays one already-resolved
+      // promise per attempt and nothing else.
+      if (this.#gate !== undefined) await this.#gate.take();
 
       let payload: unknown;
       try {
-        payload = await this.#once(method, body);
+        payload = await this.#once(method, params, body);
       } catch (err) {
+        // A 429 IS NOT A TRANSPORT FAILURE AND MUST NOT BE RETRIED HERE. It is
+        // the endpoint saying our own request count is too high; asking again
+        // 200 ms later spends another slot of the budget it is refusing for and
+        // makes the refusal last longer. The gate is told - so every LATER call
+        // on this client waits - and the typed error escapes to a caller that
+        // can render the staleness it causes. Before HANDOFF-15 this fell
+        // through to `lastCause` and came back as
+        // `RpcTransportError: no response after 3 attempts`, which named a
+        // timeout for an endpoint that had answered promptly three times.
+        if (err instanceof RpcRateLimitError) {
+          this.#gate?.penalise(err.retryAfterMs);
+          throw err;
+        }
         // Only a transport failure reaches here as a retryable one. An RpcError
         // is thrown from inside #once and must escape this loop immediately.
         if (err instanceof RpcError) throw err;
@@ -176,8 +239,17 @@ export class ZebraRpc {
     );
   }
 
-  /** One attempt. Throws RpcError for a JSON-RPC error, anything else for a transport failure. */
-  async #once(method: string, body: string): Promise<unknown> {
+  /**
+   * One attempt. Throws RpcError for a JSON-RPC error, RpcRateLimitError for a
+   * 429, anything else for a transport failure.
+   *
+   * `params` IS THREADED IN RATHER THAN PASSED AS `[]`. Every error this method
+   * raises carries the params it was raised for, and the 429 branch is the one
+   * a caller most needs them on - "which call did we get refused for" is the
+   * question an operator asks first at a ceiling. `RpcError` below passed `[]`
+   * for as long as this method did not have them.
+   */
+  async #once(method: string, params: readonly unknown[], body: string): Promise<unknown> {
     const controller = new AbortController();
     const timer = setTimeout(() => { controller.abort(); }, this.#timeoutMs);
     try {
@@ -195,6 +267,45 @@ export class ZebraRpc {
       // transport failure: zcashd-compatible servers return 500 with a
       // well-formed error object for -5 and -8. Read the body before deciding.
       const text = await res.text();
+      // THE STATUS DECIDES BEFORE THE BODY DOES, AND THE BODY CANNOT OVERRULE
+      // IT. A 429 is a fact about US and it is true whatever the body turns out
+      // to be. This check used to sit BELOW the parse and below the
+      // error-object branch, and the two commonest real 429 bodies both escaped
+      // it - measured, not supposed:
+      //
+      //   a Cloudflare HTML challenge page   `JSON.parse` throws -> a bare
+      //                                      `Error` -> `call()` reads it as a
+      //                                      transport failure and retries it
+      //                                      twice, spending three of a
+      //                                      five-request minute and reporting
+      //                                      "no response after 3 attempts"
+      //   a JSON-RPC-wrapped limiter         `{"error":{"code":-32005,...}}`
+      //                                      parses, so the error-object branch
+      //                                      fired first: `RpcError`, the gate
+      //                                      never penalised, `refused` published
+      //                                      as false, and the tick logged
+      //                                      `error: poll loop iteration failed`
+      //                                      for a healthy endpoint
+      //
+      // Both are verbatim the defect `rate-limit.ts`'s header says this package
+      // removed, reached through a different line. A gate reviewer found it, and
+      // the reason no test did is worth as much as the fix: `MockRpcEndpoint`
+      // answered `{error: "rate limited"}` with `error` as a STRING, which fails
+      // `envelopeSchema`'s `z.object(...)` - so the ONE 429 shape the whole
+      // suite drove was the one shape that dodged the collision by accident.
+      // The mock now sends a real envelope and an HTML body as well.
+      //
+      // Nothing is lost by deciding here: the body's message is not needed to
+      // classify a refusal, and a 429 carrying a JSON-RPC error object is still
+      // a refusal rather than a fact about the chain.
+      if (res.status === 429) {
+        throw new RpcRateLimitError(
+          method,
+          params,
+          parseRetryAfterMs(res.headers?.get("retry-after"), this.#now()),
+          res.status,
+        );
+      }
       let payload: unknown;
       try {
         payload = JSON.parse(text) as unknown;
@@ -204,7 +315,7 @@ export class ZebraRpc {
       const envelope = envelopeSchema.safeParse(payload);
       if (envelope.success && envelope.data.error !== undefined && envelope.data.error !== null) {
         const { code, message } = envelope.data.error;
-        throw new RpcError(message ?? "unspecified error", method, [], code);
+        throw new RpcError(message ?? "unspecified error", method, params, code);
       }
       if (!res.ok) throw new Error(`HTTP ${res.status} from zebra`);
       return payload;

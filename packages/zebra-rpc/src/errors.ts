@@ -11,9 +11,18 @@
  *                      the caller's time and hides the answer behind a delay.
  *   RpcSchemaError     the node answered with a result this package does not
  *                      recognise. Retrying cannot help: the shape is the shape.
+ *   RpcRateLimitError  the endpoint answered 429. It is not a dead socket and it
+ *                      is not a fact about the chain: it is a fact about US, and
+ *                      the only useful response is to slow down. Retrying it on
+ *                      the transport policy spends the very budget it is
+ *                      refusing for.
  *
  * Collapsing these into one class is how a client ends up retrying a 404 three
- * times and reporting a timeout for a transaction that simply does not exist.
+ * times and reporting a timeout for a transaction that simply does not exist -
+ * and, before HANDOFF-15, how it spent three of a five-request minute retrying
+ * the 429 the first request earned, then reported "no response after 3
+ * attempts" for an endpoint that had answered all three times, promptly, with a
+ * number.
  */
 
 /** Base class, so a caller can catch every failure from this package at once. */
@@ -74,6 +83,52 @@ export class RpcTransportError extends ZebraRpcError {
   ) {
     super(`[RPC ${method}] ${message}`, method, params);
     this.name = "RpcTransportError";
+  }
+}
+
+/**
+ * The endpoint refused with HTTP 429.
+ *
+ * A FIRST-CLASS STATE, NOT AN ERROR PATH (HANDOFF-15 section 3). Three things
+ * distinguish it from every other failure in this file and each one changes what
+ * a caller should do:
+ *
+ *   - The request was well formed and the endpoint is healthy. Nothing is
+ *     broken, so "the gateway cannot talk to the chain" is the wrong thing to
+ *     render.
+ *   - It is not a fact about the chain, so it must never be turned into an
+ *     empty result. A mempool view built after a 429 is THINNER than the
+ *     mempool, and a reader shown five transactions has no way to know that.
+ *     `retryAfterMs` and the gate's window are what a caller turns into the
+ *     staleness figure it owes that reader.
+ *   - Retrying it immediately makes it worse. At the measured five-per-minute
+ *     ceiling, two silent retries cost 40 per cent of the minute's budget and
+ *     buy nothing.
+ *
+ * `retryAfterMs` IS NULLABLE AND THE NULL IS THE COMMON CASE. RFC 9110 does not
+ * require `Retry-After` on a 429 and most gateways omit it, so a caller's
+ * fallback is the rolling window rather than a number the server gave it. It is
+ * null when the header is absent, empty, or in neither of the two forms
+ * `parseRetryAfterMs` reads - never a fabricated default, because a wait this
+ * package invented and a wait the endpoint asked for are different claims.
+ */
+export class RpcRateLimitError extends ZebraRpcError {
+  constructor(
+    method: string,
+    params: readonly unknown[],
+    /** How long the endpoint asked us to wait, or null when it did not say. */
+    readonly retryAfterMs: number | null,
+    /** The status that produced this. 429 today; kept so a log line can say so. */
+    readonly status: number = 429,
+  ) {
+    super(
+      `[RPC ${method}] the endpoint refused with ${status}: rate limited${
+        retryAfterMs === null ? ", with no Retry-After" : `, retry after ${retryAfterMs} ms`
+      }`,
+      method,
+      params,
+    );
+    this.name = "RpcRateLimitError";
   }
 }
 

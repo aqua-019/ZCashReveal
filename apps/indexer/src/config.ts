@@ -9,10 +9,76 @@ const ConfigSchema = z.object({
   ZEBRAD_RPC_PASSWORD: z.string().default("changeme"),
   ZEBRAD_ZMQ_URL: z.string().default("tcp://127.0.0.1:28332"),
 
-  DATABASE_URL: z.string().default("postgres://zcashreveal:zcashreveal@localhost:5432/zcashreveal"),
+  /**
+   * Postgres, or absent for mempool-only mode.
+   *
+   * OPTIONAL SINCE HANDOFF-15, AND THE DEFAULT IT LOST IS THE WHOLE CHANGE.
+   * This read used to be
+   * `.default("postgres://zcashreveal:zcashreveal@localhost:5432/zcashreveal")`,
+   * so `cfg.DATABASE_URL` was a string in every configuration this repository
+   * could express and the composition root opened a connection unconditionally
+   * - which it did, at `index.ts:61`. That is LEDGER-14's shape exactly, one
+   * app over: A NULLABLE DEPENDENCY WHOSE NULL NO CONFIGURATION CAN PRODUCE IS
+   * NOT A BRANCH, IT IS A COMMENT. `AnchorRegistry` has returned
+   * `number | null` from `getHeightForAnchor` since HANDOFF-06 and the null was
+   * reachable only by a cold cache; now it is reachable by configuration.
+   *
+   * WHAT ABSENCE COSTS, stated so nobody has to infer it. The confirmed-block
+   * follower does not start - it needs `PostgresChainStore` and there is no
+   * store - so pool state, reorg handling and every crossing are absent, which
+   * is rung 3's subject and out of this handoff's scope. The mempool path runs:
+   * it polls, analyses, publishes to Redis and serves `/v2/mempool`. Two things
+   * degrade rather than fail, both to a STATED ABSENCE and never to a zero:
+   * a leak report is not persisted, and an anchor whose root misses both the
+   * memo and Redis has depth `null` - "unknown" - instead of a depth measured
+   * from a table nobody read.
+   *
+   * `migrate.ts` READS THIS TOO AND MUST STILL REFUSE WITHOUT IT. A migration
+   * runner with no URL has nothing to do and defaulting it to localhost is how
+   * a developer migrates the wrong database; it asks `databaseUrl` below and
+   * exits non-zero on null.
+   */
+  DATABASE_URL: z.string().optional(),
   REDIS_URL: z.string().default("redis://localhost:6379"),
 
   INDEXER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
+
+  /**
+   * The endpoint's request ceiling, in requests per minute. Absent is unmetered.
+   *
+   * ABSENT IS THE RIGHT DEFAULT AND IT IS NOT LAZINESS. A Zebra you run over
+   * loopback has no ceiling worth modelling, and every deployment of this
+   * project before HANDOFF-15 is one of those; giving it a number would make
+   * them all slower for nothing. A third-party gateway has a ceiling, and it is
+   * small: HANDOFF-15 section 1 records five requests per minute measured
+   * against the keyless Tatum endpoint - sixteen requests in a 1.4-second
+   * burst, five 200s, then 429 for every request from the sixth on, and it
+   * stayed refused.
+   *
+   * WHAT IT DOES. `planMempoolPoll` derives the poll interval and a per-tick
+   * transaction budget from it (see `mempool-plan.ts` for the arithmetic), and
+   * a `RateGate` on the RPC client enforces it as an invariant regardless of
+   * what anything plans. The two are separate on purpose: one can be got wrong
+   * by arithmetic, the other cannot be argued with.
+   *
+   * EMPTY IS ABSENT, for the reason `INDEXER_START_HEIGHT` above documents at
+   * length: `docker compose` writes `KEY: ""` for a `${VAR:-}` whose VAR is
+   * unset and never omits the key, so "" is how "the operator did not choose
+   * one" actually arrives. Without the preprocess, `Number("")` is 0, which
+   * fails `.positive()` and throws at module scope before the logger exists -
+   * a crash loop under `restart: unless-stopped`.
+   */
+  INDEXER_RPC_MAX_RPM: z.preprocess(
+    (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
+    // BOUNDED ABOVE, BECAUSE `RateGate.penalise` MATERIALISES THIS MANY ARRAY
+    // SLOTS ON EVERY 429. A typo'd 100000000 allocates about 800 MB on the
+    // first refusal; `Number.MAX_SAFE_INTEGER` throws `RangeError: Invalid
+    // array length` from inside the client's 429 handler, which replaces the
+    // `RpcRateLimitError` and makes a refusal read as a poll-loop crash. A
+    // ceiling above 100,000 a minute is not a ceiling worth metering - leave
+    // the variable unset instead. Found by a gate reviewer.
+    z.coerce.number().int().positive().max(100_000).optional(),
+  ),
   INDEXER_LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
 
   /**
@@ -80,6 +146,36 @@ const ConfigSchema = z.object({
 export type Config = Omit<z.infer<typeof ConfigSchema>, "INDEXER_START_HEIGHT"> & {
   readonly INDEXER_START_HEIGHT: number;
 };
+
+/**
+ * The Postgres URL, or null when this process runs mempool-only.
+ *
+ * ONE PLACE DECIDES THE MODE, and every caller asks this function rather than
+ * testing `cfg.DATABASE_URL` itself - the rule `apps/publisher/src/config.ts`
+ * states for its own copy and the reason it has one. Two callers testing the
+ * field separately is two definitions of "configured", and the day they differ
+ * is the day the composition root opens a connection the queries think it did
+ * not.
+ *
+ * EMPTY IS ABSENT for the compose reason above: `DATABASE_URL: ${DATABASE_URL:-}`
+ * with the variable unset arrives here as "", and a zero-length connection
+ * string is not a database.
+ */
+export function databaseUrl(cfg: Config): string | null {
+  const url = cfg.DATABASE_URL;
+  if (url !== undefined && url.length > 0) return url;
+  return null;
+}
+
+/**
+ * The endpoint's ceiling, or null when unmetered.
+ *
+ * A SECOND ONE-PLACE-DECIDES FUNCTION, for the same reason and with the same
+ * shape, so a caller never asks whether the field is undefined.
+ */
+export function rpcCeilingPerMinute(cfg: Config): number | null {
+  return cfg.INDEXER_RPC_MAX_RPM ?? null;
+}
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const parsed = ConfigSchema.parse(env);

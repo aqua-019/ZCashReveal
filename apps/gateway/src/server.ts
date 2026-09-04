@@ -32,7 +32,7 @@ import { secretValues, trustProxyFor, type GatewayConfig } from "./config.js";
 import type { GatewayApp } from "./routes/deps.js";
 import { API_PREFIXES, RETIRED_API_PREFIX, registerReadRoutes } from "./routes/index.js";
 import { toStatus } from "./routes/errors.js";
-import { readLiveReports } from "./live-reports.js";
+import { readDrainState, readLiveReports } from "./live-reports.js";
 import { readSnapshotFile } from "./snapshot-source.js";
 import { WsBroker, snapshotFrame, snapshotV1Frame } from "./ws-broker.js";
 
@@ -226,7 +226,15 @@ export async function buildServer(options: BuildServerOptions): Promise<BuiltSer
           // frame read the hash with `JSON.parse(raw) as LeakReport` while
           // the REST route beside it revived - see live-reports.ts.
           const reports = await readLiveReports(reader, log);
-          socket.send(JSON.stringify(snapshotFrame(reports, Date.now())));
+          // THE SAME DRAIN `/v2/mempool` SERVES, FROM THE SAME REDIS ON THE
+          // SAME REQUEST. Without it this frame told every new WebSocket
+          // client "no indexer reported how much of the mempool it analysed"
+          // while the REST route beside it said "3 of 412" - one gateway, one
+          // hash, two answers, which is the seam `live-reports.ts`'s header
+          // records costing a live 500 one handoff ago.
+          const at = Date.now();
+          const drain = await readDrainState(reader, log, at);
+          socket.send(JSON.stringify(snapshotFrame(reports, at, drain)));
         } catch (err) {
           log.warn({ err }, "failed to send snapshot");
         }

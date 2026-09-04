@@ -116,6 +116,13 @@ function fakeRedis(): Redis {
     subscribe: () => Promise.resolve(0),
     on: () => client,
     hgetall: () => Promise.resolve({}),
+    // ADDED IN HANDOFF-15, AND IT IS NOT COSMETIC. `readDrainState` calls
+    // `get`; a double without it throws `redis.get is not a function`, which
+    // that function catches and answers null - so every route test would have
+    // exercised the failure path while looking exactly like a healthy stack
+    // with no key. `null` here is the honest answer for a Redis holding
+    // nothing, and it reaches the reader as a named absence.
+    get: () => Promise.resolve(null),
     quit: () => Promise.resolve("OK"),
     // @fastify/rate-limit's RedisStore registers a Lua script on construction
     // and then calls it by the name it defined. Both are needed for the

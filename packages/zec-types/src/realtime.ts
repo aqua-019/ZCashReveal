@@ -7,6 +7,8 @@
  * `reviveWire`, both below; nothing else stringifies or revives one.
  */
 
+import { z } from "zod";
+
 import type { Hex } from "./transactions.js";
 import type { LeakReport } from "./leaks.js";
 
@@ -20,6 +22,14 @@ export type RedisChannel = (typeof REDIS_CHANNELS)[keyof typeof REDIS_CHANNELS];
 export const REDIS_KEYS = {
   /** Hash: txid -> JSON-serialized LeakReport. Canonical live mempool snapshot. */
   mempoolLive: "zcashreveal:mempool:live",
+  /**
+   * String: JSON `MempoolDrainState`. How complete the hash above is.
+   *
+   * A SECOND KEY RATHER THAN A FIELD ON THE REPORTS, because the fact it
+   * carries is about the SET and not about any member. "Three of nine
+   * transactions analysed" cannot be stored on a transaction.
+   */
+  mempoolDrain: "zcashreveal:mempool:drain",
 } as const;
 
 export type MempoolChannelPayload =
@@ -36,6 +46,71 @@ export type TipChannelPayload = {
   hash: Hex;
 };
 
+/**
+ * How complete the live mempool view is, written by the indexer's poll loop.
+ *
+ * ONE PRODUCER, AND THAT IS THE WHOLE REASON THIS TYPE EXISTS RATHER THAN THE
+ * GATEWAY DERIVING IT. The gateway can already count the reports it read and
+ * the txids `getrawmempool` returned, and subtracting those two would look like
+ * the same figure. It is not: the gateway's difference is "reports I could not
+ * find", which a mempool that changed between the two calls produces on a
+ * perfectly healthy stack, while the indexer's is "transactions I did not get
+ * to", which is the one a reader needs. Two producers of one field, meaning
+ * different things by it, is the defect shape `summary.shielded` and
+ * `conventionalFeeZat` each cost this project a handoff to fix - both recorded
+ * in `views.ts` beside the fields themselves. So the process that knows writes
+ * it, and every consumer reads it.
+ *
+ * `completeAtMs` IS NULLABLE AND THE NULL IS NOT "ZERO SECONDS AGO". It is null
+ * when this process has never completed a drain - a cold start under a ceiling
+ * reaches its first tick before its first complete view - and a consumer must
+ * render that as an absence. A staleness of 0 on a view that has never been
+ * complete is the `snapshot age: 0 blocks` defect HANDOFF-14 removed from the
+ * system bar, on a different surface.
+ *
+ * A SCHEMA AND NOT ONLY A TYPE, BECAUSE THE READER USED TO CAST. The gateway's
+ * `readDrainState` did `JSON.parse(raw) as MempoolDrainState`, which is the
+ * exact construct `live-reports.ts`'s own header records costing this project a
+ * live 500 on every non-empty mempool in HANDOFF-11. Executed against a
+ * truncated document `{"observed": 5}`: the cast produced
+ * `updatedSecondsAgo: NaN`, `mempoolViewSchema` rejected the view, `respond`
+ * threw `DtoViolation` and `/v2/mempool` answered 500 - so one malformed key on
+ * a Redis took down the WHOLE mempool view rather than the one figure it
+ * carries. The type is now derived from this schema, so a producer that adds a
+ * field and a reader that validates cannot drift apart.
+ */
+export const mempoolDrainStateSchema = z.object({
+  /** Transactions the node reported in the mempool at the last tick. */
+  observed: z.number().int().nonnegative(),
+  /** Transactions this process holds an analysed report for. */
+  analysed: z.number().int().nonnegative(),
+  /** True when the last tick left nothing unanalysed. */
+  complete: z.boolean(),
+  /**
+   * How many the last tick did not attempt.
+   *
+   * `deferred + failed === observed - analysed` IS THE INVARIANT, and it holds
+   * in every case: a budget that ran out, a 429 that pre-empted the rest, and
+   * an unmetered tick with no budget at all. Three figures that account for
+   * less than the total, silently, is this project's most-recorded reporting
+   * defect and it was live in this field.
+   */
+  deferred: z.number().int().nonnegative(),
+  /** How many the last tick attempted and could not decode. */
+  failed: z.number().int().nonnegative().default(0),
+  /** True when a 429 cut the last tick short. */
+  refused: z.boolean(),
+  /** `Date.now()` at the last COMPLETE drain, or null if there has never been one. */
+  completeAtMs: z.number().nullable(),
+  /** `Date.now()` at the last tick, complete or not. */
+  updatedAtMs: z.number(),
+  /** The ceiling this process is metering itself against, or null when unmetered. */
+  ceilingPerMinute: z.number().int().positive().nullable(),
+  /** Transactions per minute the plan affords, or null when unmetered. */
+  txPerMinute: z.number().int().nonnegative().nullable(),
+});
+
+export type MempoolDrainState = z.infer<typeof mempoolDrainStateSchema>;
 /* ============================================================================
    The wire form, and getting back from it
    ========================================================================== */

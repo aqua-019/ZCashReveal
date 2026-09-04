@@ -29,7 +29,7 @@ import { decodeIronwoodBundle } from "./ironwood.js";
 import { sproutValueBalanceZat } from "./sprout.js";
 import { dispatchByVersion, IRONWOOD_MIN_TX_VERSION, topLevelFieldNames } from "./v6.js";
 import { NU6_2_ACTIVATION_MAINNET, NU6_2_ACTIVATION_TESTNET, type Network } from "@zcashreveal/instruments";
-import { AnchorRegistry } from "./anchor-depth.js";
+import type { AnchorHeightSource } from "./anchor-depth.js";
 import { guessWallet, isZip317Conventional } from "./fingerprint.js";
 import {
   asHex,
@@ -51,7 +51,15 @@ import type { PoolStates } from "../state/pool-state.js";
 export interface AnalyzeContext {
   tipHeight: number;
   seenAt: number;
-  anchorRegistry: AnchorRegistry;
+  /**
+   * Where an anchor's height comes from.
+   *
+   * WIDENED FROM THE CONCRETE `AnchorRegistry` IN HANDOFF-15 to the one method
+   * this file calls, so that a process with no Postgres can supply a source
+   * that answers `null` rather than one that fabricates a depth. The three call
+   * sites below are unchanged and `AnchorRegistry` still satisfies it.
+   */
+  anchorRegistry: AnchorHeightSource;
   recentAnchorThreshold: number;
   /**
    * The four pools' state as the confirmed-block driver maintains it

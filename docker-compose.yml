@@ -228,6 +228,14 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-zcashreveal}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-zcashreveal}
       REDIS_URL: redis://redis:6379
       INDEXER_POLL_INTERVAL_MS: ${INDEXER_POLL_INTERVAL_MS:-2000}
+      # The endpoint's request ceiling, requests per minute (HANDOFF-15). NO
+      # NUMBER HERE, ON PURPOSE, though for a different reason than
+      # INDEXER_START_HEIGHT below: the right value is a property of the
+      # ENDPOINT this deployment points at, and the compose default node is a
+      # zebrad on the same box with no ceiling at all. A number here would
+      # throttle every self-hosted stack to a limit only a public gateway has.
+      # Unset is unmetered; see docs/2.0/RUNTIME.md section 8.
+      INDEXER_RPC_MAX_RPM: ${INDEXER_RPC_MAX_RPM:-}
       INDEXER_LOG_LEVEL: ${INDEXER_LOG_LEVEL:-info}
       INDEXER_NETWORK: ${INDEXER_NETWORK:-mainnet}
       # The cold-start height of the confirmed-block driver (HANDOFF-12). Read

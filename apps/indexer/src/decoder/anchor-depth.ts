@@ -9,7 +9,28 @@ import type { Sql } from "postgres";
 /** How long a recorded anchor lives in the hot tier, and now in the memo too. */
 const ANCHOR_TTL_S = 60 * 60 * 24;
 
-export class AnchorRegistry {
+/**
+ * The one question the analyser asks a registry, as its own type.
+ *
+ * NARROWED IN HANDOFF-15 SO THE ABSENT-DATABASE CASE HAS SOMEWHERE TO LIVE.
+ * `AnalyzeContext.anchorRegistry` was typed as the concrete class, and the
+ * class needs a `Sql` - so the mempool path could not run without Postgres
+ * without either a nullable field on the hot path or a fake connection. Both
+ * are worse than a one-method interface: the first pushes a branch into
+ * `leak-analyzer.ts`, which this handoff is not entitled to change, and the
+ * second is a lie that typechecks.
+ *
+ * `AnchorRegistry` SATISFIES THIS STRUCTURALLY AND NO CALL SITE MOVED. The
+ * mempool-only implementation is `NO_CHAIN_WRITES.anchors` in
+ * `../chain-access.ts`, which answers `null` - "I do not know this root" -
+ * which is what the memo and Redis already answer for a root they have not
+ * seen, and is precisely NOT a depth of zero.
+ */
+export interface AnchorHeightSource {
+  getHeightForAnchor(anchor: string): Promise<number | null>;
+}
+
+export class AnchorRegistry implements AnchorHeightSource {
   private readonly redisKey = "zcashreveal:anchor:";
   /**
    * THE MEMO EXPIRES, AND IT DID NOT UNTIL A GATE ROUND MEASURED THE SENTENCE

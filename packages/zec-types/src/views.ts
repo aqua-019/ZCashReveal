@@ -838,9 +838,103 @@ export const mempoolRowSchema = z.object({
 });
 export type MempoolRow = z.infer<typeof mempoolRowSchema>;
 
+/**
+ * How complete the mempool view is, as the indexer's poll loop reported it.
+ *
+ * A SEPARATE OBJECT FROM `summary` BECAUSE IT IS A DIFFERENT KIND OF FACT.
+ * Everything in `summary` is a statement about the transactions this view
+ * carries. Everything here is a statement about the ones it does NOT, and about
+ * whether the reader is looking at the mempool or at part of it. Folding the
+ * two together is how "13 unconfirmed" comes to mean both "the mempool holds
+ * 13" and "we analysed 13 of an unknown number".
+ *
+ * EVERY FIELD HERE COMES FROM ONE PRODUCER - the indexer, through
+ * `zcashreveal:mempool:drain`. The gateway could subtract its own two counts
+ * and get something that looks like `deferred`, and it would mean a different
+ * thing: "reports I could not find", which a mempool that moved between two
+ * calls produces on a perfectly healthy stack. Two producers of one field
+ * meaning different things by it is the shape `summary.shielded` and
+ * `summary.conventionalFeeZat` each cost this project a handoff, both recorded
+ * beside those fields below.
+ */
+export const mempoolDrainSchema = z.object({
+  /** Transactions the node reported at the indexer's last tick. */
+  observed: countSchema,
+  /** Transactions the indexer holds an analysed report for. */
+  analysed: countSchema,
+  /** True when the last tick left nothing unanalysed. */
+  complete: z.boolean(),
+  /**
+   * How many the last tick did not attempt.
+   *
+   * `deferred + failed === observed - analysed`. See `MempoolDrainState`.
+   */
+  deferred: countSchema,
+  /**
+   * How many the last tick attempted and could not decode.
+   *
+   * `.default(0)` FOR THE SAME REASON `drain` ITSELF DEFAULTS: a gateway that
+   * has not been redeployed omits the key, and `apps/web`'s guard rejects the
+   * WHOLE view when any part of it fails. One added field would empty /track
+   * for every reader on an older stack.
+   */
+  failed: countSchema.default(0),
+  /** True when a 429 cut the last tick short. */
+  refused: z.boolean(),
+  /**
+   * Seconds since the view was last COMPLETE, or null when it never has been.
+   *
+   * NULL IS NOT "ZERO SECONDS AGO", and the distinction is the whole reason
+   * this field is nullable rather than defaulted. A process that has never
+   * completed a drain - a cold start under a ceiling reaches its first tick
+   * long before its first complete view - has no age to report, and rendering
+   * that as `0` is `snapshot age: 0 blocks` beside twelve-day-old data, which
+   * HANDOFF-14 removed from the system bar for exactly this reason.
+   */
+  completeSecondsAgo: countSchema.nullable(),
+  /** Seconds since the indexer last ticked at all, complete or not. */
+  updatedSecondsAgo: countSchema,
+  /**
+   * The ceiling the indexer meters itself against, or null when unmetered.
+   *
+   * POSITIVE, NOT MERELY NONNEGATIVE, AND ALIGNED WITH
+   * `mempoolDrainStateSchema` DELIBERATELY. It was `countSchema`, which admits
+   * `0`, while the state schema the gateway validates with says `.positive()` -
+   * so the gateway refused a zero ceiling from the indexer and would have
+   * served one to the browser. A gate reviewer named that asymmetry as what
+   * makes a printed `0` indistinguishable from a real value at the reader. A
+   * ceiling of zero is not a ceiling; the absence is spelled `null`.
+   */
+  ceilingPerMinute: countSchema.positive().nullable(),
+  /** Transactions per minute the indexer's plan affords, or null when unmetered. */
+  txPerMinute: countSchema.nullable(),
+});
+export type MempoolDrain = z.infer<typeof mempoolDrainSchema>;
+
 export const mempoolViewSchema = z.object({
   tipHeight: heightSchema,
   entries: z.array(mempoolRowSchema),
+  /**
+   * The drain state, or null when no indexer has written one.
+   *
+   * NULL IS A STATED ABSENCE AND THE RENDERER MUST SAY SO. It means an indexer
+   * that predates HANDOFF-15, or none at all - not "the view is complete". A
+   * consumer that treats a missing drain state as a complete drain publishes
+   * the confidence this field exists to withhold.
+   *
+   * `.default(null)` RATHER THAN A BARE `.nullable()`, AND THE REASON IS A
+   * GATEWAY THAT HAS NOT BEEN REDEPLOYED. A required key rejects the whole
+   * frame when an older producer omits it, and `apps/web`'s guard returns null
+   * for the WHOLE view when any part of it fails - so one added field would
+   * have emptied /track for every reader on an older stack. That is exactly
+   * what `mempoolRowSchema`'s `class` enum did twice, recorded above; this is
+   * the same failure arriving through a new FIELD rather than a new member, and
+   * a default is the cheap half of it.
+   *
+   * The output type is still `MempoolDrain | null`, so no consumer gains an
+   * `undefined` branch. What is admitted is an absent KEY, not a third state.
+   */
+  drain: mempoolDrainSchema.nullable().default(null),
   summary: z.object({
     unconfirmed: countSchema,
     /**

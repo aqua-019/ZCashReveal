@@ -11,7 +11,7 @@ import { Block } from "@/components/ui/Block";
 import { Metric, MetricRow } from "@/components/ui/Metric";
 import { api, IS_FIXTURE } from "@/lib/api";
 import { fmtInt, zatToZecGrouped } from "@/lib/format";
-import { mempoolHeaderText, shieldedShareTile } from "@/lib/mempool-summary";
+import { mempoolDrainNotice, mempoolHeaderText, shieldedShareTile } from "@/lib/mempool-summary";
 
 export const metadata: Metadata = {
   title: "Track",
@@ -30,6 +30,27 @@ export const metadata: Metadata = {
  * this sentence said twelve for two rows after the corpus reached fourteen, and
  * was the THIRD site of that one stale number. The subscription upgrades that; it does not create it.
  */
+/**
+ * THIS PAGE IS SERVER-RENDERED AND MUST NOT BE FROZEN AT BUILD TIME.
+ *
+ * `next build` reported `/track` as a STATIC route with no revalidate, so every
+ * server-rendered figure on it - the summary tiles, the block header, and as of
+ * HANDOFF-15 the completeness notice - was computed once at build and never
+ * again. A staleness figure that cannot age is not a staleness figure; the
+ * notice would have said "last tick just now" over a table the client island
+ * had rewritten forty times.
+ *
+ * 60 SECONDS, MATCHING `/` AND `/pools`, which HANDOFF-11 gave the same value
+ * for the same reason. It bounds the server half's staleness rather than
+ * removing it: the notice can be up to a minute behind, which is legible
+ * against a metered indexer whose tick is a minute long anyway. Moving the
+ * notice into the client island would remove the bound entirely and is the
+ * larger change rung 3 can take, now that the WebSocket frame carries the drain.
+ *
+ * Found by a gate reviewer reading the build output rather than the page.
+ */
+export const revalidate = 60;
+
 export default async function TrackPage() {
   /*
    * THE MEMPOOL COMES FROM THE GATEWAY, AND FROM THE SNAPSHOT WHEN IT CANNOT.
@@ -55,6 +76,12 @@ export default async function TrackPage() {
   const snapshot = await resolveSnapshot();
   const mempool = attempted.ok ? attempted.value : null;
   const s = mempool?.summary ?? null;
+  // READ OFF THE VIEW RATHER THAN DERIVED HERE. The indexer is the only process
+  // that knows how many transactions it did not get to; see `MempoolDrainState`
+  // in packages/zec-types for why a second derivation would mean something
+  // else. `?? null` covers the gateway not answering at all, which the notice
+  // renders as a named absence rather than as a complete drain.
+  const drain = mempoolDrainNotice(mempool?.drain ?? null);
   const baseline: MempoolBaseline =
     mempool ?? { tipHeight: snapshot.doc.height, entries: snapshot.doc.lastReports };
 
@@ -159,6 +186,33 @@ export default async function TrackPage() {
           />
           <Metric label="findings at high" value={fmtInt(s.findingsHigh)} sub={s.findingsNote} />
         </MetricRow>
+        )}
+
+        {/*
+          HOW COMPLETE THE TABLE BELOW IS, DIRECTLY ABOVE THE TABLE
+          (HANDOFF-15 deliverable 3). Section 3's contract: "a reader must never
+          be shown five transactions and left to assume that is the mempool".
+          It sits between the aggregate tiles and the rows because it is a
+          statement about the ROWS - how many of them there should have been -
+          and a figure of that kind three screens away from what it qualifies is
+          a figure nobody reads.
+
+          `data-complete` IS THE MACHINE-READABLE HALF, on `EpochClock`'s
+          `data-age` precedent: an assertion discriminates on an attribute
+          rather than on a regex over English, so rewording the copy cannot
+          silently turn a test into a tautology.
+        */}
+        {drain.known ? (
+          <p
+            className="note"
+            style={{ marginTop: 12, maxWidth: "72ch" }}
+            data-ui="mempool-drain"
+            data-complete={String(drain.complete)}
+          >
+            <b>{drain.headline}</b> - {drain.detail}
+          </p>
+        ) : (
+          <NotMeasured panel="mempool completeness" condition={drain.condition} />
         )}
 
         <MempoolPanel initial={baseline} />

@@ -20,7 +20,7 @@
  * that makes the reconnect logic testable without a browser and shippable
  * without a gateway.
  */
-import type { MempoolRow, MempoolView, ZecFrame } from "@zcashreveal/types";
+import type { MempoolDrain, MempoolRow, MempoolView, ZecFrame } from "@zcashreveal/types";
 
 import { API_URL, DATA_MODE, WS_URL } from "@/lib/env";
 
@@ -326,6 +326,70 @@ function asRow(v: unknown): MempoolRow | null {
   };
 }
 
+/**
+ * The drain state off an untrusted frame, or null.
+ *
+ * THREE ANSWERS, NOT TWO, AND THE FIRST DRAFT HAD TWO.
+ *
+ *   absent or null  ->  `null`, "nothing said". A gateway that predates
+ *                       HANDOFF-15 omits the key entirely, and rejecting the
+ *                       view for that would empty /track for every reader on an
+ *                       older stack - the failure `CLASSES` records twice,
+ *                       arriving through a new FIELD instead of a new enum
+ *                       member. `mempoolViewSchema` defaults the key to null
+ *                       for the same reason, so the two agree.
+ *   malformed       ->  `undefined`, which `asView` turns into a rejection of
+ *                       the whole view, exactly as every other guard here does.
+ *   well formed     ->  the drain.
+ *
+ * THE FIRST DRAFT COLLAPSED MALFORMED ONTO `null` AND THAT WAS A DIVERGENCE
+ * FROM THE SCHEMA, WHICH THIS FILE'S OWN TEST FORBIDS ("the guard rejects
+ * everything the schema rejects"). It was written for the older-gateway case
+ * and the schema's `.default(null)` is what actually answers that; degrading a
+ * MALFORMED drain would have let a producer send half a measurement and had
+ * the page render whatever survived. Found by writing the seam test rather than
+ * by reading the guard.
+ */
+function asDrain(v: unknown): MempoolDrain | null | undefined {
+  if (v === null || v === undefined) return null;
+  if (typeof v !== "object") return undefined;
+  const d = v as Record<string, unknown>;
+  const completeSecondsAgo = d["completeSecondsAgo"];
+  const ceilingPerMinute = d["ceilingPerMinute"];
+  const txPerMinute = d["txPerMinute"];
+  // `failed` DEFAULTS TO 0 WHEN THE KEY IS ABSENT, matching the schema's own
+  // `.default(0)`, because a gateway that has not been redeployed omits it and
+  // rejecting the view for that empties /track for every reader on an older
+  // stack. A key PRESENT and rubbish is still a rejection.
+  const failed = d["failed"] === undefined ? 0 : d["failed"];
+  if (
+    !isCount(d["observed"]) ||
+    !isCount(d["analysed"]) ||
+    !isCount(d["deferred"]) ||
+    !isCount(failed) ||
+    !isCount(d["updatedSecondsAgo"]) ||
+    typeof d["complete"] !== "boolean" ||
+    typeof d["refused"] !== "boolean" ||
+    !(completeSecondsAgo === null || isCount(completeSecondsAgo)) ||
+    !(ceilingPerMinute === null || isCount(ceilingPerMinute)) ||
+    !(txPerMinute === null || isCount(txPerMinute))
+  ) {
+    return undefined;
+  }
+  return {
+    observed: d["observed"],
+    analysed: d["analysed"],
+    complete: d["complete"],
+    deferred: d["deferred"],
+    failed,
+    refused: d["refused"],
+    completeSecondsAgo,
+    updatedSecondsAgo: d["updatedSecondsAgo"],
+    ceilingPerMinute,
+    txPerMinute,
+  };
+}
+
 function asView(v: unknown): MempoolView | null {
   if (typeof v !== "object" || v === null) return null;
   const m = v as Record<string, unknown>;
@@ -360,9 +424,15 @@ function asView(v: unknown): MempoolView | null {
   ) {
     return null;
   }
+  const drain = asDrain(m["drain"]);
+  // `undefined` MEANS MALFORMED AND REJECTS THE VIEW, on the same rule as every
+  // other field here. `null` means the producer said nothing, which is a state
+  // the renderer handles.
+  if (drain === undefined) return null;
   return {
     tipHeight: m["tipHeight"],
     entries,
+    drain,
     summary: {
       unconfirmed: sum["unconfirmed"],
       shielded: sum["shielded"],

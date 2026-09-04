@@ -356,3 +356,237 @@ node -e 'const s=require("./snapshot.json");
 An RPC-only document is correct when `pools` has five entries, `residual` is
 measured, and the other three are `null`. A `0` in place of any of those three
 is a defect and not a quiet Sunday.
+
+## 8. Third-party mempool mode: live transactions on a rate-limited endpoint
+
+**The mempool path runs against a public RPC gateway, with no node and no
+database, and the whole of the difficulty is RATE.** Section 7 is the publisher,
+which needs about 1.6 requests a minute. This section is `apps/indexer`, whose
+default poll asks for thirty a minute before it fetches a single transaction.
+
+Added by HANDOFF-15, which is rung 2 of three. Rung 1 put live balances on the
+site; rung 3 adds crossings. Each ships alone.
+
+### 8.1 The gating measurement
+
+**Five requests per minute, hard, on the keyless endpoint.** Sixteen
+`getblockchaininfo` calls in a 1.4-second burst against
+`zcash-mainnet-zebrad.gateway.tatum.io` on 3 September 2026:
+
+```
+req  1-5   200
+req  6-16  429      succeeded before first refusal: 5
+```
+
+and it stayed refused. **Measured, not assumed.** Both methods this path needs
+are served on the keyless tier: `getrawmempool` answers, and `getrawtransaction`
+answers "No such mempool or main chain transaction" for a fake txid - which is
+the method working, not the method being blocked.
+
+`INDEXER_POLL_INTERVAL_MS` defaults to **2000 ms**. That is 30 ticks a minute at
+two requests each - **six times the ceiling before one transaction is fetched.**
+
+### 8.2 The env set
+
+```bash
+# Required. The node. Any Zcash RPC endpoint serving getrawmempool and
+# getrawtransaction - your own zebrad, or a public gateway.
+ZEBRAD_RPC_URL=https://<host>/
+
+# THE CEILING, in requests per minute. Unset means unmetered, which is the
+# right answer for a zebrad you run yourself and the wrong one for a public
+# gateway. Set it to what your provider allows.
+INDEXER_RPC_MAX_RPM=5
+
+# Required. The VPS Redis. NEVER the managed store (SNAPSHOT.md section 2).
+REDIS_URL=redis://localhost:6379
+
+# OMITTED for mempool-only mode. With it, the confirmed-block follower also
+# runs; without it, only the mempool path does.
+# DATABASE_URL=
+
+# Read only when INDEXER_RPC_MAX_RPM is unset, or when it asks for a SLOWER
+# tick than the ceiling requires.
+INDEXER_POLL_INTERVAL_MS=2000
+```
+
+`INDEXER_RPC_MAX_RPM=` (set, empty) means the same thing as omitting it, on the
+same rule `INDEXER_START_HEIGHT` uses and for the same reason: `docker compose`
+writes `KEY: ""` for a `${VAR:-}` whose variable is unset and never omits the
+key.
+
+### 8.3 The arithmetic, both ways
+
+A tick costs `overhead` requests before it fetches anything - one
+`getblockchaininfo` for the tip, one `getrawmempool` for the txid list, so
+**two** - plus one `getrawtransaction` per transaction it has not seen. Over a
+tick of duration `D` against a ceiling of `R` requests per window `W`:
+
+```
+requests available to the tick = floor(R * D / W)
+transaction budget             = that, minus overhead, floored at 0
+```
+
+The tick interval is the largest of three floors: what the operator asked for,
+one tick per window, and `ceil(W * overhead / R)` - the last so that a ceiling
+too small to afford even the overhead still produces a plan that fits inside it.
+
+| Ceiling | Interval | Budget per tick | Transactions per minute |
+|---|---|---|---|
+| unset (your own zebrad) | `INDEXER_POLL_INTERVAL_MS`, 2000 ms | unbounded | as many as arrive |
+| **5/min (keyless)** | **60 s** | **3** | **3** |
+| 5/min, operator asks 120 s | 120 s | 8 | 4 |
+| 60/min (a modest key) | 60 s | 58 | 58 |
+| 2/min | 60 s | 0 | 0 - the tip and the txid list only |
+| 1/min | 120 s | 0 | 0 |
+
+**A slower tick analyses MORE, which is not obvious.** The overhead is per tick,
+so it amortises: at `R=5` a one-minute tick affords `5 - 2 = 3` transactions a
+minute and a two-minute tick affords `10 - 2 = 8`, which is 4 a minute. The cost
+is a txid list up to twice as stale. That trade is the operator's, which is why
+a SLOWER `INDEXER_POLL_INTERVAL_MS` is honoured and a faster one is not.
+
+Two mechanisms, deliberately not one. `planMempoolPoll` decides what to
+ATTEMPT - arithmetic, which can be read and can be wrong. `RateGate` in
+`packages/zebra-rpc` enforces the invariant: it will not let a sixth request out
+in a five-request minute, whatever anything plans. The window ROLLS rather than
+resets, because a bucket that empties on the minute admits five requests at
+59.9 s and five more at 60.1 s - ten inside one real minute, and the endpoint
+refuses on the sixth.
+
+### 8.4 What a 429 does
+
+A refusal is a first-class state, not an error path.
+
+- It arrives as `RpcRateLimitError`, carrying `retryAfterMs` where the endpoint
+  sent a `Retry-After` and `null` where it did not - which is the common case,
+  since RFC 9110 does not require the header and the measured endpoint omits it.
+- It is **not retried** by the transport policy. Two silent retries at the
+  measured ceiling cost 40 per cent of the minute's budget and buy nothing.
+- The gate's window is marked FULL, not merely delayed: the endpoint's own count
+  disagrees with ours, and its answer is the one that decides.
+- Mid-drain it **stops the tick** rather than being swallowed per transaction.
+  Continuing would spend the rest of the budget on requests that will all be
+  refused, each refusal pushing the penalty further out.
+
+The tick is also non-reentrant: a tick still running when the interval fires is
+skipped rather than overlapped, because two ticks in flight against a ceiling
+both spend the budget and both get refused.
+
+### 8.5 What the reader sees at 5/min versus at a provider rate
+
+The indexer writes `zcashreveal:mempool:drain` once per tick on the VPS Redis;
+the gateway reads it into `MempoolView.drain`; `/track` prints it directly above
+the transaction table.
+
+The rows below are the copy `mempoolDrainNotice` ACTUALLY EMITS, captured by
+calling it rather than transcribed - and transcribing it is what the first draft
+of this table did, which is how it came to quote a deferred count of 6 where the
+function says 409 and to drop the rate clause the complete case appends. Both
+were wrong in this document before they were wrong anywhere else.
+
+**AND THEY DRIFTED AGAIN ONE ROUND LATER, WHICH IS WHY A TEST NOW READS THIS
+FILE.** A gate fix changed the rate clause from "at its configured ceiling" to
+"at its ceiling of 5 requests a minute", and two of these three rows silently
+stopped being true - a document quoting UI copy has no tripwire, which is the
+same shape as the line-number cross-reference this repo already records.
+`apps/web/test/unit/mempool-drain.test.ts` now asserts that every string quoted
+here is one the function returns, so the next change to the copy fails a test
+rather than leaving a false table.
+
+| | Keyless, 5/min | A provider key, 600/min | Indexer stopped an hour ago | No indexer |
+|---|---|---|---|---|
+| headline | `3 of 412 analysed` | `412 of 412 analysed` | `3 of 412 analysed` | mempool completeness: not measured |
+| detail | `409 deferred by the indexer's per-tick request budget - it analyses 3 a minute at its ceiling of 5 requests a minute; last tick 12 s ago, last complete 14 min ago.` | `every transaction the node reported has been analysed, just now - the indexer is metered at 600 requests a minute, which affords 598 transactions a minute` | `409 deferred by the indexer's per-tick request budget - it analyses 3 a minute at its ceiling of 5 requests a minute; last tick 60 min ago, last complete 74 min ago.` | `no indexer reported how much of the mempool it analysed, so the rows below may be part of it rather than all of it` |
+| `data-complete` | `false` | `true` | `false` | (the element is a named absence instead) |
+
+**Column three is why `last tick` is printed at all.** A stopped indexer and a
+metered one produce the same counts forever; only the tick age moves. Without
+it the page would have gone on saying "409 deferred by the per-tick budget" an
+hour after the process died, which is this project's own recurring shape - a
+stale surface that renders and reports no fault - and `drain-state.ts` already
+gave "the gateway renders those differently" as the reason its key carries no
+TTL. It did not, until executing that sentence found it.
+
+**Three of four hundred is an honest number and a small one.** A keyless
+endpoint cannot feed a live mempool table for mainnet, and this mode says so on
+the page rather than showing three rows and letting the reader assume that is
+the mempool. Raising the ceiling is the operator's move; the software's job is
+to be truthful at whichever one it is given.
+
+`completeSecondsAgo` is `null` - rendered as "this view has not been complete
+since the indexer started" - when there has never been a complete drain. That is
+not "zero seconds ago", and the distinction is the same one HANDOFF-14 took off
+the system bar when `snapshot age: 0 blocks` sat beside twelve-day-old data.
+
+### 8.6 What mempool-only mode costs
+
+Without `DATABASE_URL` the confirmed-block follower does not start, and two
+things on the mempool path degrade to **stated absences, never to zeros**:
+
+| | With a database | Mempool-only |
+|---|---|---|
+| anchor depth per shielded spend | measured from `anchors` | `null` - "unknown", graded LOW |
+| leak reports | persisted to `leak_reports` | published to Redis, not filed |
+| confirmed blocks, pool state, reorgs, crossings | measured | absent - rung 3's subject |
+
+A depth of `0` is the strongest claim this analyser can make about a spend - that
+its anchor is the tip - so manufacturing one out of a table nobody read would be
+the worst case of the absence-versus-zero rule, not the mildest.
+
+**AND ONE THING DOES NOT DEGRADE TO A STATED ABSENCE, WHICH IS WHY THE TABLE
+ABOVE SAYS "two things" RATHER THAN "everything".** `apps/gateway/src/views/tx.ts`
+answers an unindexed transaction with `leakClass: "NOT_CLASSIFIED"` - honest -
+and `severity: "INFO"`, which is the BOTTOM of a four-point scale rather than an
+absence. So in mempool-only mode every `/tx` page renders a severity chip that
+is indistinguishable from a classification that ran and found nothing. The
+fallback predates this handoff; what this handoff did was make it reachable by
+configuration, because `DATABASE_URL` used to carry a localhost default. Fixing
+it means a nullable `TxView.severity` and a sweep of its consumers, which is a
+DTO change beyond rung 2 - so it is recorded here and carried in the ledger
+rather than quietly left out of the sentence. A gate reviewer found the
+sentence, not the fallback: an earlier draft of this section claimed mempool-only
+mode degrades "to stated absences, never to zeros" without qualification, and
+that was false. The startup log
+says which mode it is in, once, at `info`:
+
+```
+no DATABASE_URL: running the mempool path alone. Anchor depth reads as unknown rather than zero, and reports are published but not persisted
+```
+
+### 8.7 Checking it from the outside
+
+```bash
+# Which mode, and what the plan works out to. Two lines at startup.
+docker compose logs indexer | grep -E "running the mempool path alone|metered poll|unmetered poll"
+
+# Every incomplete tick says so, with its counts.
+docker compose logs indexer | grep -E "drain incomplete|drain cut short|rate limited"
+
+# The drain state the page reads. VPS Redis - never the managed store.
+redis-cli GET zcashreveal:mempool:drain
+
+# And the same figure as the gateway serves it.
+curl -s http://localhost:8080/v2/mempool | node -e '
+  let b="";process.stdin.on("data",d=>b+=d).on("end",()=>{
+    const v=JSON.parse(b);
+    console.log(v.drain===null?"drain: not reported":
+      `${v.drain.analysed} of ${v.drain.observed} analysed, complete=${v.drain.complete}`);
+  });'
+```
+
+**Run the local mock rather than a provider while you are checking any of this.**
+It serves the three methods and can be told to refuse:
+
+```bash
+# A 5/minute ceiling, exactly the measured shape.
+MOCK_RPC_PER_MINUTE=5 pnpm --filter @zcashreveal/indexer mock:rpc
+
+# Or refuse specific requests by ordinal, to place a 429 mid-drain.
+MOCK_RPC_REFUSE_AT=5,9 MOCK_RPC_RETRY_AFTER=30 pnpm --filter @zcashreveal/indexer mock:rpc
+```
+
+A mempool view is correct in this mode when `drain.analysed` and
+`drain.observed` are both present and the page prints both. `drain.observed`
+alone, or an `analysed` count presented as the mempool, is the defect this
+section exists to prevent.

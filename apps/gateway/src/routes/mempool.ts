@@ -10,7 +10,7 @@ import { mempoolViewSchema } from "@zcashreveal/types";
 
 import type { GatewayApp, RouteDeps } from "./deps.js";
 import { toStatus } from "./errors.js";
-import { readLiveReports } from "../live-reports.js";
+import { readDrainState, readLiveReports } from "../live-reports.js";
 import { respond } from "../serialize.js";
 import { buildMempoolView } from "../views/mempool.js";
 
@@ -24,7 +24,13 @@ export function registerMempoolRoute(app: GatewayApp, deps: RouteDeps): void {
       // A failure here degrades the byte total to zero rather than failing the
       // whole view, and the summary says the mempool is empty only when it is.
       const sizes = await readSizes(deps);
-      const view = buildMempoolView(reports, info.blocks, Date.now(), sizes);
+      // NO EXTRA RPC CALL: one Redis GET, on the same instance the reports came
+      // from. This is the field that keeps the route honest when the indexer is
+      // metered - without it, a view of five transactions built from a mempool
+      // of four hundred is indistinguishable from a quiet chain.
+      const now = Date.now();
+      const drain = await readDrainState(deps.redis, deps.log, now);
+      const view = buildMempoolView(reports, info.blocks, now, sizes, drain);
       return respond("/mempool", mempoolViewSchema, view);
     } catch (err) {
       deps.log.warn({ err: String(err) }, "mempool view failed");
