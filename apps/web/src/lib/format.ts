@@ -48,6 +48,31 @@ export function fmtInt(n: number): string {
 }
 
 /** Elide the middle of a hash for display. Never used where the full value matters. */
+/**
+ * A count and its noun, agreeing.
+ *
+ * FOUND BY EXECUTING THE SENTENCE RATHER THAN READING IT (CLAUDE.md clause (c)),
+ * and it was live at TWO sites from one producer. `mempoolDrainStateSchema`
+ * declares `txPerMinute` as `nonnegative()` and `ceilingPerMinute` as
+ * `positive()`, so both admit 1, and both renderers of those two figures said:
+ *
+ *   "the endpoint affords 1 transactions a minute against a ceiling of 1 requests"
+ *   "the indexer is metered at 1 requests a minute, which affords 1 transactions a minute"
+ *
+ * At the measured ceiling of five the figure is three and neither ever shows,
+ * which is why reading them found nothing. It lives here rather than in either
+ * component because the correction landing in one file while the other still
+ * stated the error is a HIGH finding by this project's own sweep rule, not a
+ * LOW one - the site would then contradict itself about one measurement.
+ *
+ * A ZERO STAYS PLURAL and stays a measurement: "0 transactions a minute" is
+ * correct English and a correct claim. Absence is the caller's branch, one level
+ * up, because a null rate and a measured zero are different sentences.
+ */
+export function plural(n: number, one: string, many: string): string {
+  return `${fmtInt(n)} ${n === 1 ? one : many}`;
+}
+
 export function shortHex(hex: string, lead = 6, tail = 4): string {
   if (hex.length <= lead + tail + 1) return hex;
   return `${hex.slice(0, lead)}...${hex.slice(-tail)}`;

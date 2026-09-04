@@ -27,7 +27,7 @@
 // the PR is the first thing that does. Noted in the report.
 import type { MempoolDrain } from "@zcashreveal/types";
 
-import { fmtInt } from "./format";
+import { fmtInt, plural } from "./format";
 
 /** The four counts /track prints beside each other in the block header. */
 export interface MempoolCounts {
@@ -134,11 +134,16 @@ function rateText(
 ): string {
   if (drain.txPerMinute === null) return "";
   if (drain.ceilingPerMinute === null) {
-    return ` - it analyses ${fmtInt(drain.txPerMinute)} transactions a minute, against a ceiling it did not state`;
+    return ` - it analyses ${plural(drain.txPerMinute, "transaction", "transactions")} a minute, against a ceiling it did not state`;
   }
+  // SWEPT, NOT SPOT-FIXED. The same two figures render on the turnstile plane's
+  // affordance, and the same disagreement was live there - a correction landing
+  // in one file while the other still states the error is a HIGH finding by this
+  // project's own rule, because the site then contradicts itself about one
+  // measurement. Both sites now call `plural` in `lib/format.ts`.
   return form === "short"
-    ? ` - it analyses ${fmtInt(drain.txPerMinute)} a minute at its ceiling of ${fmtInt(drain.ceilingPerMinute)} requests a minute`
-    : ` - the indexer is metered at ${fmtInt(drain.ceilingPerMinute)} requests a minute, which affords ${fmtInt(drain.txPerMinute)} transactions a minute`;
+    ? ` - it analyses ${fmtInt(drain.txPerMinute)} a minute at its ceiling of ${plural(drain.ceilingPerMinute, "request", "requests")} a minute`
+    : ` - the indexer is metered at ${plural(drain.ceilingPerMinute, "request", "requests")} a minute, which affords ${plural(drain.txPerMinute, "transaction", "transactions")} a minute`;
 }
 
 /** "just now", "45 s ago", "3 min ago". Seconds in, prose out. */

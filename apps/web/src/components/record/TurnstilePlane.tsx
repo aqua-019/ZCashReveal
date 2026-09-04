@@ -18,6 +18,8 @@ import {
   type Plane,
 } from "@/lib/plane";
 
+import { LivePlaneLayer } from "./LivePlaneLayer";
+
 /**
  * THE TURNSTILE PLANE - five ledgers, one boundary.
  *
@@ -36,11 +38,29 @@ import {
  * ONE HOVER VERB. The figure dims its own marks and nodes on hover and nothing
  * else - no swell, no recolour, no transform. One curve, `var(--ease)`.
  *
- * NOTHING ANIMATES. Opacity is a pure function of a mark's position in the
- * window, so the board changes when a block arrives - the surface's one
- * ceremony - and never between blocks. There is no rAF loop, no interval and no
- * Web Animations object anywhere in this subtree, which is what makes the
- * reduced-motion contract architectural rather than a cancellation.
+ * NOTHING IN THIS COMPONENT ANIMATES, AND THAT IS STILL TRUE AFTER HANDOFF-17.
+ * Opacity is a pure function of a mark's position in the window, so the board
+ * changes when a block arrives - the surface's one ceremony - and never between
+ * blocks. There is no rAF loop, no interval and no Web Animations object in
+ * THIS file, which is what makes the reduced-motion contract architectural
+ * rather than a cancellation.
+ *
+ * THE LIVE LAYER IS A SEPARATE CLIENT ISLAND FOR EXACTLY THAT REASON.
+ * HANDOFF-17 puts unconfirmed mempool transactions on this board, and the
+ * obvious way to do it - a `useEffect` here, on `MempoolPanel`'s pattern -
+ * would have made this whole figure a client component and deleted the property
+ * the paragraph above is claiming. `LivePlaneLayer` is mounted over the board
+ * instead, so a reader with JavaScript off still gets this entire picture, its
+ * reading and its alt text, and the confirmed marks cannot be perturbed by a
+ * frame because they are drawn by a different component from a different input
+ * into a different SVG.
+ *
+ * THE TWO MARK SETS ARE DIFFERENT CLAIMS AND MUST NEVER BE CONFUSED. What this
+ * file draws is SETTLED: crossings the publisher counted over a window of
+ * confirmed blocks. What the island draws is UNCONFIRMED. The distinction is
+ * carried by the accent budget rather than by a caption - a settled crossing
+ * ends in the gold arrowhead below, an unconfirmed one ends in a hollow ring in
+ * its own lane's hue - and it is carried in the DOM by `data-live-mark`.
  *
  * GOLD IS SPENT ON THE ARROWHEAD AND NOWHERE ELSE HERE. Line colour is the
  * ORIGIN ledger, so the five pool hues keep their own register; the arrowhead is
@@ -162,6 +182,12 @@ export function TurnstilePlane({
           </g>
         ))}
       </svg>
+
+      {/* THE LIVING LAYER. Unconfirmed transactions, over the settled board.
+          It draws nothing at all until a frame arrives - there is no seeded
+          shoal and no ambient motion in it - which is assertion A4 and the one
+          the whole contract rests on. */}
+      <LivePlaneLayer nMax={nMax} />
 
       {/* THE LABELS ARE HTML, NOT SVG <text>, and that is the size floor doing
           its work. SVG text inside a viewBox scales with the box, so a 12px
