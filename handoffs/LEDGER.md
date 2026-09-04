@@ -8446,6 +8446,26 @@ DEFERRED ASSUMPTIONS:
   Reading `X-RateLimit-*` headers rather than inferring from a 429. This rung
   reads `Retry-After`; no endpoint measured here sends the others.
 
+CARRIED FORWARD, AN ORDER-DEPENDENT E2E TEST THAT IS NOT THIS BRANCH'S.
+`legibility.spec.ts:718` - HANDOFF-04a's A1 fail side, which plants a defect in
+the turnstile plane's legend by DOM mutation - failed once here under full-suite
+parallelism with the plant confirmed landed and the comparison seeing nothing,
+and passed 3 of 3 in isolation. CI's `playwright (chromium)` is green on the
+same head. n=1 failure against n=3 isolated passes and n=1 CI pass is not enough
+to call it a flake, and the subject is `/` rather than anything this diff
+touches, so it is recorded rather than fixed here. The likely mechanism is a
+hydration re-render wiping the `page.evaluate` mutation between the plant and
+the read, which would make the fail side non-discriminating at random - the
+shape LEDGER-05 fold 7 is about, in a spec nobody has re-examined since 04a.
+
+AND A NOTE ON THE GATE LIST ITSELF: `test:e2e` is not on CLAUDE.md's workflow
+list of six, so this session opened the PR without having run it. That is the
+third time a gate has existed outside that list - `pnpm build` (HANDOFF-07),
+`assert-no-skipped-integration` (LEDGER-14 Q5) and now the e2e suite. The first
+was answered by adding to the list; the second was recorded and not chosen. THE
+THREE HAVE ONE ORIGIN and it is LEDGER-09b Q3's, seen from the operator's side
+rather than the workspace's: a required check that no local command runs.
+
 CARRIED FORWARD FOR HANDOFF-16, AND NOT REVIEWED HERE: `62c4e77`, gate round
 3's own fix commit on the confirmed-block runtime, has still never been
 reviewed (F-52-2). It is rung 3's code. HANDOFF-16 opens with it.

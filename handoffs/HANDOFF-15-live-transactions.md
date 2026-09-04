@@ -541,6 +541,38 @@ Seventeen static guards green. `pnpm build` 8/8, `/track` at `Revalidate 1m`.
 Post-fan-out sweep after all four fan-outs: `git status --porcelain` empty
 every time.
 
+--------------------------------------------------------------------------
+THE SEVENTH GATE, RUN AFTER THE PR OPENED, AND ONE OBSERVATION FROM IT
+--------------------------------------------------------------------------
+`pnpm --filter @zcashreveal/web test:e2e` IS THE ONE GATE CLAUDE.md's WORKFLOW
+LIST DOES NOT NAME, and this session had not run it when the PR opened - which
+is the same hole `pnpm build` and `assert-no-skipped-integration` each occupied
+once before. It was run afterwards rather than left to CI, because this branch
+changes `/track`'s markup and adds a `revalidate` to it.
+
+  191 passed, 1 failed, 6.8 minutes, in this container.
+
+THE ONE FAILURE IS NOT THIS BRANCH'S AND IS RECORDED RATHER THAN WAVED THROUGH.
+`legibility.spec.ts:718`, HANDOFF-04a's A1 FAIL SIDE: it plants a defect in the
+turnstile plane's orchard legend row by DOM mutation and asserts `planeProblems`
+then reports a disagreement. The plant landed - the test's own two assertions
+that it landed both passed - and the comparison afterwards saw nothing. The
+subject is `/` and `TurnstilePlane`, which this diff does not touch.
+
+What was measured about it, with its n, rather than a verdict:
+  - it passed 3 of 3 runs in ISOLATION on this branch, so it is not
+    deterministic here;
+  - `playwright (chromium)` on CI for this exact head, 6ec7735, is GREEN, and
+    so is `typecheck, lint, test`;
+  - so the one local failure is order- or timing-dependent under full-suite
+    parallelism in this container, most plausibly a hydration re-render wiping
+    a `page.evaluate` mutation between the plant and the read.
+n=1 failure, n=3 isolated passes, n=1 CI pass. THAT IS NOT ENOUGH TO CALL IT A
+FLAKE AND IT IS NOT THIS HANDOFF'S TEST TO CHANGE - "flake" is not a root cause,
+and widening this PR into HANDOFF-04a's spec on one local observation would be
+exactly the widening the rules forbid. It is carried in section 8 so the next
+session that sees it locally does not spend the investigation again.
+
 INFERRED: that "the mempool path with no database" means the mempool path
 specifically, and that the confirmed-block follower not starting is a
 configuration rather than a regression - section 1 puts confirmed blocks and
