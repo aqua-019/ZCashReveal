@@ -457,9 +457,13 @@ The five skips, every one named:
   apps/publisher      snapshot-inputs      A1 - no Postgres with 005 on its terms
   apps/publisher      rpc-only x2          the round trip and A1's fail side
 
-`pnpm --filter @zcashreveal/web test:e2e`: **192 passed in 6.7 minutes**
-(E2E_SECONDS=406), which is deliverable 1b's required report. **AND
-`legibility.spec.ts:718` PASSED** under full-suite parallelism on this run,
+`pnpm --filter @zcashreveal/web test:e2e`, which is deliverable 1b's required
+report: **192 passed, twice.** Once mid-session at `E2E_SECONDS=406` (6.7
+minutes) and again on the FINAL tree at `E2E_SECONDS=397` (6.5 minutes), both
+`E2E_RC=0`. The second is the one that counts, because the first was taken
+before rounds 4 and 5 changed the runtime; a figure quoted from a tree that no
+longer exists is the shape LEDGER-11 fold 10 is about. **AND
+`legibility.spec.ts:718` PASSED** under full-suite parallelism on BOTH runs,
 which adds one more n to HANDOFF-15's carried-forward observation: it now stands
 at ONE failure against three isolated passes, one CI pass, one L2 full-suite
 pass in a different container, and this one. Recorded, not fixed, and not called
