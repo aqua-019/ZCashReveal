@@ -1,7 +1,7 @@
 ---
 handoff: 17
 title: The living tank - the turnstile plane subscribes to the live transaction stream
-status: in-progress
+status: shipped
 branch: the session-designated branch (name it `feat/v2-17-the-living-tank` if you may choose)
 track: Web
 depends_on: 15, 16
@@ -269,7 +269,13 @@ defect. A4 is the assertion to write first and the one to try hardest to break.
 ## §7 REPORT
 
 ```
-STATUS: PENDING - gate round 1 is out; this section is filled before the PR opens.
+STATUS: DONE
+
+Every deliverable is in the tree and every assertion carries both polarities.
+Nothing here is a partial build. The corrections are three - five rows of this
+handoff's own section 1, six defects gate round 1 found, and one instrument
+failure of mine that produced a false 37-failure e2e reading - and all three are
+reported below rather than glossed.
 
 FORKED FROM e10cbae08decfe1b9fdd44a692cae3f1f8a6f8b3, the head of `main`.
 `git merge-base --is-ancestor 2b63e1a origin/main` exits 0 - EXECUTED BEFORE ANY
@@ -392,7 +398,91 @@ with `git worktree remove --force` and `git worktree list` shows only the repo.
 
 ### GATE ROUNDS
 
-To be completed before the PR opens.
+**ROUND 1 - two reviewers, separate dimensions, eighteen findings, SIX ACTED ON.**
+One on the honesty of the surface, one on failure paths and lifecycle. Every
+finding acted on was reproduced by the lead BY EXECUTION before its fix; two
+were refuted by execution and no change was made. **Three were live on the page
+as deployed.**
+
+| # | severity | what | how it was settled |
+|---|---|---|---|
+| 1 | HIGH | the deployed page drew ELEVEN MOCKUP ROWS and called them live | measured on a real `next start` build with no network; fixed with `openInFixture: false`; re-measured in chromium at 0 marks and "no feed" |
+| 2 | HIGH | a `migration` row drew an orchard-to-ironwood arc for a Sapling-to-Orchard transfer | read off `apps/gateway/src/views/mempool.ts`'s `crossesWithNoPublicSide`; **F-57-1** |
+| 3 | HIGH | the pool labels were pushed 117.7 px below the plane onto the caption | measured in chromium before and after: labels box 760.3 -> 560.9, every label back inside the drawing |
+| 4 | HIGH | `subscribeFrames` never passed `onState`, so a dead feed read "live" for ever | 51 frames across three open/die/reconnect cycles, one state ever seen; **F-58-1** |
+| 5 | HIGH | `snapshot` folded additively, so a reconnect kept confirmed transactions on the board | reproduced: 2 held where the authoritative view named 1; held set also unbounded at 3,000 |
+| 6 | HIGH | the plural fix landed in one file while `mempool-summary.ts` still stated the error | HIGH by this project's sweep rule, not LOW |
+
+Plus three MED and two LOW: a removal that took nothing off the board claiming
+"the last mark to leave"; a connect-time drain rendered in the present tense;
+`tip-bus`'s non-idempotent detach and its silent deafening by a bus reset, which
+had made every later tip assertion in a file pass vacuously.
+
+**ROUND 2 - THE FIX COMMIT AS ITS OWN SUBJECT, AND IT IS REPORTED AS UNRUN
+RATHER THAN CLEAN.** Clause (ii) and F-58-2 both require it, and this session
+dispatched it as a SEPARATE run rather than a panel racing the lead - which is
+the whole of what F-58-2 corrected. It had not returned at write-back, 21
+minutes in. **A round that did not return is not a round that found nothing**
+(LEDGER-10 Q3), so its scope - `e3a1622`'s guard predicates, test assertions and
+runtime-behaviour claims - is the least-reviewed surface in this branch and is
+recorded as such. Per the operator's instruction, any finding it returns in an
+executable line goes to a FOLLOW-UP PR rather than holding this one.
+
+**THE STOPPING RULE, STATED HONESTLY RATHER THAN CLAIMED.** Clause (i)(a) is NOT
+satisfied: round 1 returned six findings a user could see, so this branch has not
+converged in the sense the rule means. What round 2 exists to test is whether the
+fixes for those six introduced a seventh, which three consecutive sessions have
+measured to be where the next defect is. **The extrapolation, per clause (iii): a
+third round probably finds one or two more, of round 2's reach - defects in the
+fix commit's own predicates and sentences rather than in the estimator.** That is
+a weaker claim than convergence and it is the one the evidence supports.
+
+### THE INSTRUMENT FAILURES, INCLUDING THE ONE THAT PRODUCED A FALSE RED
+
+Six of this session's probes were wrong before the code was, one mutation was
+inert, and one measurement was taken against a tree that no longer existed. The
+four in section 5's list are joined by these:
+
+- **A `vi.mock` that dropped the real module's other exports**, so five
+  assertions failed against correct markup once `IS_LIVE_TRANSPORT` was added.
+- **An assertion that the feed stays down**, when the committed stream is
+  designed to reconnect - a probe wrong about the module it was pointed at.
+- **`not.toContain("mempool feed")` against the honest sentence "no live mempool
+  feed is configured"**, which contains it. That is F-43-1's shape - a pattern
+  matching inside a longer string - and it failed against correct copy.
+- **A 37-FAILURE E2E RUN THAT WAS ENTIRELY MY OWN CONTENTION.** `pnpm build` ran
+  twice and several `next start` servers were bound while the suite's own
+  `webServer` served the same `.next`, so it read a build being rewritten
+  underneath it. Checked before it was believed: `.plabel` is 12 on both `/` and
+  `/timeline` on a clean build, where the failing test reported zero. Re-run with
+  the tree quiet: **192 passed, `E2E_RC=0`**. Reported here rather than silently
+  re-run, because a red that is the instrument's and a red that is the code's are
+  indistinguishable from the output alone.
+- **And the exit code of that run was reported to me as 0** by a wrapper whose
+  last statement was an `echo`. That is **F-53-1 arriving through a background
+  job** rather than through a pipe - the same rule this session had already
+  logged breaking once with `| tail`, twice in one session, which is why A9's
+  exclusion set names the shape rather than the punctuation.
+
+### THE EIGHT GATES, FINAL TREE
+
+Each read from its own process, never through a pipe or a wrapper (**F-53-1**),
+and `build` FIRST (LEDGER-15).
+
+```
+BUILD_RC=0  (first)      TEST_RC=0        TYPECHECK_RC=0   LINT_RC=0
+CHECK_RC=0  (17 guards)  VALIDATE_RC=0    E2E_RC=0         SKIPGUARD_RC=0
+```
+
+- **1,746 passed / 5 skipped**, every skip named above. Independently confirmed
+  by L2 on `7c9f17b` at the same figures, on a clean worktree.
+- **`test:e2e` 192 passed** on a clean rebuild with no other process touching the
+  tree.
+- **`assert-no-skipped-integration` cleared LOCALLY**: total 835, passed 830,
+  skipped 5, 16 integration files with executed tests.
+- L2's two mutations against this branch confirm the two most important fixes are
+  load-bearing: reverting the `onState` forwarding fails 3, and reverting the
+  transport check fails 18.
 
 ## §8 LEDGER
 
