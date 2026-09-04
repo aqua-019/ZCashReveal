@@ -864,8 +864,21 @@ export const mempoolDrainSchema = z.object({
   analysed: countSchema,
   /** True when the last tick left nothing unanalysed. */
   complete: z.boolean(),
-  /** How many the last tick deferred because its per-tick budget ran out. */
+  /**
+   * How many the last tick did not attempt.
+   *
+   * `deferred + failed === observed - analysed`. See `MempoolDrainState`.
+   */
   deferred: countSchema,
+  /**
+   * How many the last tick attempted and could not decode.
+   *
+   * `.default(0)` FOR THE SAME REASON `drain` ITSELF DEFAULTS: a gateway that
+   * has not been redeployed omits the key, and `apps/web`'s guard rejects the
+   * WHOLE view when any part of it fails. One added field would empty /track
+   * for every reader on an older stack.
+   */
+  failed: countSchema.default(0),
   /** True when a 429 cut the last tick short. */
   refused: z.boolean(),
   /**
@@ -881,8 +894,18 @@ export const mempoolDrainSchema = z.object({
   completeSecondsAgo: countSchema.nullable(),
   /** Seconds since the indexer last ticked at all, complete or not. */
   updatedSecondsAgo: countSchema,
-  /** The ceiling the indexer meters itself against, or null when unmetered. */
-  ceilingPerMinute: countSchema.nullable(),
+  /**
+   * The ceiling the indexer meters itself against, or null when unmetered.
+   *
+   * POSITIVE, NOT MERELY NONNEGATIVE, AND ALIGNED WITH
+   * `mempoolDrainStateSchema` DELIBERATELY. It was `countSchema`, which admits
+   * `0`, while the state schema the gateway validates with says `.positive()` -
+   * so the gateway refused a zero ceiling from the indexer and would have
+   * served one to the browser. A gate reviewer named that asymmetry as what
+   * makes a printed `0` indistinguishable from a real value at the reader. A
+   * ceiling of zero is not a ceiling; the absence is spelled `null`.
+   */
+  ceilingPerMinute: countSchema.positive().nullable(),
   /** Transactions per minute the indexer's plan affords, or null when unmetered. */
   txPerMinute: countSchema.nullable(),
 });

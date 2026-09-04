@@ -523,7 +523,22 @@ things on the mempool path degrade to **stated absences, never to zeros**:
 
 A depth of `0` is the strongest claim this analyser can make about a spend - that
 its anchor is the tip - so manufacturing one out of a table nobody read would be
-the worst case of the absence-versus-zero rule, not the mildest. The startup log
+the worst case of the absence-versus-zero rule, not the mildest.
+
+**AND ONE THING DOES NOT DEGRADE TO A STATED ABSENCE, WHICH IS WHY THE TABLE
+ABOVE SAYS "two things" RATHER THAN "everything".** `apps/gateway/src/views/tx.ts`
+answers an unindexed transaction with `leakClass: "NOT_CLASSIFIED"` - honest -
+and `severity: "INFO"`, which is the BOTTOM of a four-point scale rather than an
+absence. So in mempool-only mode every `/tx` page renders a severity chip that
+is indistinguishable from a classification that ran and found nothing. The
+fallback predates this handoff; what this handoff did was make it reachable by
+configuration, because `DATABASE_URL` used to carry a localhost default. Fixing
+it means a nullable `TxView.severity` and a sweep of its consumers, which is a
+DTO change beyond rung 2 - so it is recorded here and carried in the ledger
+rather than quietly left out of the sentence. A gate reviewer found the
+sentence, not the fallback: an earlier draft of this section claimed mempool-only
+mode degrades "to stated absences, never to zeros" without qualification, and
+that was false. The startup log
 says which mode it is in, once, at `info`:
 
 ```

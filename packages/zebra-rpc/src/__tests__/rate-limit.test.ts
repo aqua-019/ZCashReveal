@@ -269,6 +269,136 @@ describe("a 429 over the wire", () => {
   });
 });
 
+describe("a 429 is classified by its STATUS, whatever body it carries", () => {
+  // THE THREE REAL BODIES, AND TWO OF THEM ESCAPED THE FIRST IMPLEMENTATION.
+  // The 429 check sat BELOW the JSON parse and BELOW the error-object branch,
+  // so a Cloudflare HTML page became a bare `Error` retried on the transport
+  // policy, and a JSON-RPC-wrapped limiter became an `RpcError` that never
+  // penalised the gate. Both are verbatim the defect `rate-limit.ts`'s header
+  // says this package removed, reached through a different line.
+  //
+  // NO TEST CAUGHT IT BECAUSE THE MOCK SENT THE ONE BODY THAT DODGES THE
+  // COLLISION: `{error: "rate limited"}` has `error` as a STRING, which fails
+  // `envelopeSchema`'s `z.object(...)`, so `envelope.success` was false and the
+  // 429 branch was reached by accident. A fail side chosen, unknowingly, to
+  // pass. The table below drives all three.
+  const bodies = ["envelope", "html", "bare"] as const;
+
+  for (const refusalBody of bodies) {
+    it(`a ${refusalBody} body: RpcRateLimitError, and exactly ONE request`, async () => {
+      const endpoint = new MockRpcEndpoint({ refuseAt: [1, 2, 3, 4], refusalBody });
+      const url = await endpoint.start();
+      try {
+        const rpc = new ZebraRpc({ url, retries: 2, sleep: () => Promise.resolve() });
+        const err = await rpc.getBlockchainInfo().catch((e: unknown) => e);
+        expect(err).toBeInstanceOf(RpcRateLimitError);
+        // NOT AN RpcError AND NOT AN RpcTransportError - the two wrong answers
+        // the pre-fix code gave for the first two bodies respectively.
+        expect(err).not.toBeInstanceOf(RpcTransportError);
+        expect((err as RpcRateLimitError).name).toBe("RpcRateLimitError");
+        // ONE request, not three: the retry loop must not have run.
+        expect(endpoint.requestCount).toBe(1);
+      } finally {
+        await endpoint.stop();
+      }
+    });
+
+    it(`a ${refusalBody} body penalises the gate, so the next call waits`, async () => {
+      // The gate penalty is what turns classification into behaviour. An
+      // `RpcError` escapes `call()` without touching it, so the JSON-RPC
+      // envelope case was silently unmetered before the fix.
+      const clock = fakeClock();
+      const gate = new RateGate({
+        perMinute: 5,
+        now: () => clock.now(),
+        sleep: (ms) => {
+          clock.advance(ms);
+          return Promise.resolve();
+        },
+      });
+      const endpoint = new MockRpcEndpoint({ refuseAt: [1], refusalBody });
+      const url = await endpoint.start();
+      try {
+        const rpc = new ZebraRpc({ url, retries: 0, gate, now: () => clock.now() });
+        await expect(rpc.getBlockchainInfo()).rejects.toBeInstanceOf(RpcRateLimitError);
+        expect(gate.remaining()).toBe(0);
+        expect(gate.waitMs()).toBe(60_000);
+      } finally {
+        await endpoint.stop();
+      }
+    });
+  }
+
+  it("reads Retry-After off an HTML refusal too, because the header is not in the body", async () => {
+    const endpoint = new MockRpcEndpoint({ refuseAt: [1], refusalBody: "html", retryAfter: "30" });
+    const url = await endpoint.start();
+    try {
+      const rpc = new ZebraRpc({ url, retries: 0 });
+      const err = await rpc.getBlockchainInfo().catch((e: unknown) => e);
+      expect((err as RpcRateLimitError).retryAfterMs).toBe(30_000);
+    } finally {
+      await endpoint.stop();
+    }
+  });
+});
+
+describe("a hostile Retry-After cannot park or spin the process", () => {
+  it("a MONTH-long Retry-After is capped rather than honoured literally", () => {
+    // MEASURED ON NODE 22: `setTimeout(fn, 2_678_400_000)` warns
+    // `TimeoutOverflowWarning: ... Timeout duration was set to 1` and fires in
+    // about a millisecond. So an uncapped penalty does not park the gate - it
+    // makes `take()`'s re-check loop spin at roughly a kilohertz forever, with
+    // the tick's non-reentrancy flag held the whole time, so nothing publishes
+    // a drain state again. The member of the exclusion set is a legal
+    // `delta-seconds` of 2678400.
+    const clock = fakeClock();
+    const gate = new RateGate({ perMinute: 5, now: () => clock.now() });
+    gate.penalise(2_678_400_000);
+    expect(gate.waitMs()).toBe(15 * 60_000);
+    expect(gate.waitMs()).toBeLessThan(2_147_483_647);
+  });
+
+  it("and the cap is a CAP, not a floor: a short Retry-After is still at least the window", () => {
+    // The other polarity. `penalise` fills the window AND sets the deadline, so
+    // a 5-second Retry-After is honoured as a lower bound - the window is the
+    // real constraint. An assertion that only drove the long case would be
+    // satisfied by a gate that returned the cap for every input.
+    const clock = fakeClock();
+    const gate = new RateGate({ perMinute: 5, now: () => clock.now() });
+    gate.penalise(5_000);
+    expect(gate.waitMs()).toBe(60_000);
+  });
+
+  it("take() resolves under a capped penalty rather than spinning", async () => {
+    const clock = fakeClock();
+    let sleeps = 0;
+    const gate = new RateGate({
+      perMinute: 5,
+      now: () => clock.now(),
+      sleep: (ms) => {
+        sleeps += 1;
+        // THE PROBE'S OWN GUARD. Before the cap this loop did not terminate,
+        // so a test without a bound would hang the suite rather than fail it.
+        if (sleeps > 50) throw new Error(`take() span ${String(sleeps)} sleeps - it is spinning`);
+        clock.advance(ms);
+        return Promise.resolve();
+      },
+    });
+    gate.penalise(2_678_400_000);
+    await gate.take();
+    expect(sleeps).toBeLessThanOrEqual(2);
+  });
+
+  it("a ceiling large enough to exhaust the heap does not allocate it", () => {
+    // `Array.from({length: n})` materialises n slots. The config caps this at
+    // 100,000; the gate caps it again at the site that spends it, because a
+    // guard in one place is a guard the next caller does not have.
+    const gate = new RateGate({ perMinute: 100_000_000 });
+    gate.penalise(null);
+    expect(gate.remaining()).toBe(0);
+  });
+});
+
 describe("MockRpcEndpoint", () => {
   it("refuses on the sixth request of a five-per-minute window, which is the measured shape", async () => {
     // The mock reproduces HANDOFF-15 section 1's measurement: sixteen requests

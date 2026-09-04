@@ -51,3 +51,50 @@ export async function publishDrainState(
     log.warn({ err }, "could not publish the mempool drain state; the view's staleness figure will age");
   }
 }
+
+/**
+ * Drop entries the live hash is holding for transactions no longer in the mempool.
+ *
+ * RUN ONCE AT STARTUP, BECAUSE `MempoolState.reconcile` CANNOT SEE THEM.
+ * Reconciliation walks the IN-MEMORY map and emits a removal for every txid
+ * absent from the node's list - and on a fresh process that map is empty, so it
+ * emits nothing and every entry the previous run left behind stays in
+ * `zcashreveal:mempool:live` forever. Nothing else prunes it: the only writers
+ * are the `hset` and `hdel` in `publishDiff`.
+ *
+ * WHAT IT COSTS TO SKIP IT, MEASURED AS A CONTRADICTION ON ONE PAGE. The
+ * gateway builds `summary.unconfirmed` from the hash and `drain.observed` from
+ * the indexer's own count, so after a restart with 412 stale entries against a
+ * mempool of 400, /track renders "412 unconfirmed" in the block header, "3 of
+ * 400 analysed" in the completeness notice, and 412 rows in the table - three
+ * adjacent statements about one set, the middle one wrong by 409. Under a
+ * five-per-minute ceiling that stands for over two hours; on a busy mempool it
+ * never closes. The leak predates HANDOFF-15; what is new is a printed number
+ * that contradicts the rows beside it, which is why this handoff closes it.
+ *
+ * `HDEL` ON NAMED FIELDS OF ONE `zcashreveal:` KEY. No pattern delete, no
+ * `KEYS`, no `SCAN` - `check-redis-safety` rule 4 permits exactly this, and the
+ * managed store is not involved on any path here.
+ */
+export async function pruneLiveMempool(
+  redis: Redis,
+  authoritative: readonly string[],
+  log: Logger,
+): Promise<number> {
+  try {
+    const held = await redis.hkeys(REDIS_KEYS.mempoolLive);
+    if (held.length === 0) return 0;
+    const current = new Set(authoritative);
+    const stale = held.filter((txid) => !current.has(txid));
+    if (stale.length === 0) return 0;
+    await redis.hdel(REDIS_KEYS.mempoolLive, ...stale);
+    log.info(
+      { dropped: stale.length, held: held.length, inMempool: authoritative.length },
+      "pruned reports a previous run left in the live mempool hash; without this the gateway's unconfirmed count would have disagreed with the drain state",
+    );
+    return stale.length;
+  } catch (err) {
+    log.warn({ err }, "could not prune the live mempool hash; the unconfirmed count may exceed the drain state until the entries age out");
+    return 0;
+  }
+}

@@ -30,6 +30,27 @@ export const metadata: Metadata = {
  * this sentence said twelve for two rows after the corpus reached fourteen, and
  * was the THIRD site of that one stale number. The subscription upgrades that; it does not create it.
  */
+/**
+ * THIS PAGE IS SERVER-RENDERED AND MUST NOT BE FROZEN AT BUILD TIME.
+ *
+ * `next build` reported `/track` as a STATIC route with no revalidate, so every
+ * server-rendered figure on it - the summary tiles, the block header, and as of
+ * HANDOFF-15 the completeness notice - was computed once at build and never
+ * again. A staleness figure that cannot age is not a staleness figure; the
+ * notice would have said "last tick just now" over a table the client island
+ * had rewritten forty times.
+ *
+ * 60 SECONDS, MATCHING `/` AND `/pools`, which HANDOFF-11 gave the same value
+ * for the same reason. It bounds the server half's staleness rather than
+ * removing it: the notice can be up to a minute behind, which is legible
+ * against a metered indexer whose tick is a minute long anyway. Moving the
+ * notice into the client island would remove the bound entirely and is the
+ * larger change rung 3 can take, now that the WebSocket frame carries the drain.
+ *
+ * Found by a gate reviewer reading the build output rather than the page.
+ */
+export const revalidate = 60;
+
 export default async function TrackPage() {
   /*
    * THE MEMPOOL COMES FROM THE GATEWAY, AND FROM THE SNAPSHOT WHEN IT CANNOT.

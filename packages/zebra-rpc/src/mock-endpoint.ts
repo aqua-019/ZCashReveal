@@ -74,6 +74,20 @@ export interface MockEndpointOptions {
   /** 1-based request ordinals to refuse with 429 regardless of the ceiling. */
   readonly refuseAt?: Iterable<number>;
   /**
+   * The BODY a refusal carries. Three real shapes, and the client must classify
+   * all three as a refusal.
+   *
+   * THE DEFAULT IS THE ENVELOPE, NOT THE BARE STRING, AND THAT CHANGE IS THE
+   * WHOLE REASON THIS OPTION EXISTS. The first version answered
+   * `{error: "rate limited"}` - `error` as a STRING, which fails
+   * `envelopeSchema`'s `z.object(...)`. That made it the one 429 body in
+   * existence that skipped the client's error-object branch, so the single
+   * shape the whole suite drove was the shape that dodged the collision by
+   * accident, and a real gateway's envelope was classified as `RpcError` with
+   * the gate never penalised. A fail side chosen - unknowingly - to pass.
+   */
+  readonly refusalBody?: "envelope" | "bare" | "html";
+  /**
    * What to put in `Retry-After` on a refusal, or null to omit the header.
    *
    * NULL IS THE DEFAULT BECAUSE OMISSION IS THE COMMON CASE. RFC 9110 does not
@@ -97,7 +111,9 @@ export class MockRpcEndpoint {
   readonly #perMinute: number | undefined;
   readonly #windowMs: number;
   readonly #refuseAt: Set<number>;
+  #refuseFrom = Number.POSITIVE_INFINITY;
   readonly #retryAfter: string | null;
+  readonly #refusalBody: "envelope" | "bare" | "html";
   #clock: () => number;
 
   constructor(opts: MockEndpointOptions = {}) {
@@ -112,6 +128,7 @@ export class MockRpcEndpoint {
     this.#windowMs = opts.windowMs ?? 60_000;
     this.#refuseAt = new Set(opts.refuseAt ?? []);
     this.#retryAfter = opts.retryAfter ?? null;
+    this.#refusalBody = opts.refusalBody ?? "envelope";
     this.#clock = opts.now ?? Date.now;
   }
 
@@ -165,6 +182,18 @@ export class MockRpcEndpoint {
    */
   setClock(now: () => number): void {
     this.#clock = now;
+  }
+
+  /**
+   * Refuse every request from this ordinal on.
+   *
+   * `refuseAt` PLACES INDIVIDUAL REFUSALS AND THIS ONE FLIPS THE ENDPOINT
+   * HOSTILE, which is a different condition: a test that needs "the endpoint
+   * now refuses everything" would otherwise have to enumerate every future
+   * ordinal, and would silently stop refusing when the count ran past the list.
+   */
+  refuseFrom(ordinal: number): void {
+    this.#refuseFrom = ordinal;
   }
 
   /** Replace the mempool the mock serves, so a test can evict or add. */
@@ -249,12 +278,35 @@ export class MockRpcEndpoint {
     // request and `#overCeiling` reads the served ones. The explicit `refuseAt`
     // is checked first so a test can place a refusal inside a budget that has
     // room, which is the case A2 is about.
-    if (this.#refuseAt.has(ordinal) || this.#overCeiling(now)) {
+    if (ordinal >= this.#refuseFrom || this.#refuseAt.has(ordinal) || this.#overCeiling(now)) {
       record(429);
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const html = this.#refusalBody === "html";
+      const headers: Record<string, string> = {
+        "Content-Type": html ? "text/html" : "application/json",
+      };
       if (this.#retryAfter !== null) headers["Retry-After"] = this.#retryAfter;
       res.writeHead(429, headers);
-      res.end(JSON.stringify({ error: "rate limited" }));
+      // THE THREE REAL SHAPES, and the client must read all three as a refusal.
+      //   envelope  a gateway that wraps its limiter in JSON-RPC. This is the
+      //             default because it is the common one and because it is the
+      //             one that used to be misclassified as `RpcError`.
+      //   html      a Cloudflare challenge page. `JSON.parse` throws on it, and
+      //             that throw used to produce a bare `Error` retried on the
+      //             transport policy - three requests of a five-request minute.
+      //   bare      the original `{error: "<string>"}`, kept precisely because
+      //             it is the shape that PASSED by accident: it fails
+      //             `envelopeSchema`, so it skipped the collision. Keeping it
+      //             lets a test show that the fix did not merely move the
+      //             accident somewhere else.
+      if (html) {
+        res.end("<html><head><title>429</title></head><body>rate limited</body></html>");
+      } else if (this.#refusalBody === "bare") {
+        res.end(JSON.stringify({ error: "rate limited" }));
+      } else {
+        res.end(
+          JSON.stringify({ jsonrpc: "2.0", id, error: { code: -32005, message: "rate limit exceeded" } }),
+        );
+      }
       return;
     }
 

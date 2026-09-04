@@ -20,6 +20,7 @@ const COMPLETE: MempoolDrain = {
   analysed: 9,
   complete: true,
   deferred: 0,
+  failed: 0,
   refused: false,
   completeSecondsAgo: 0,
   updatedSecondsAgo: 0,

@@ -163,8 +163,31 @@ export interface DrainOutcome {
   readonly analysed: number;
   /** True when every observed transaction has a report. */
   readonly complete: boolean;
-  /** How many the tick skipped because the budget ran out. */
+  /**
+   * How many the tick did not attempt - budget, or a refusal that pre-empted them.
+   *
+   * COUNTED AFTER THE LOOP, NOT FROM THE BUDGET SLICE, AND THE THREE FIGURES
+   * MUST ACCOUNT FOR EVERY ROW: `deferred + failed === observed - analysed`, in
+   * every case. Derived from the slice alone it said 97 for a tick of 100 that
+   * a 429 stopped at the first transaction - the one refused and the two
+   * pre-empted fell into no bucket at all - and, unmetered, it said 0 for a
+   * tick that analysed two of eight, because `txBudget` is null and the slice
+   * is the whole list. That is the harm `mempool-summary.ts` names for the
+   * header counts, one field over: figures printed beside each other that
+   * account for less than the total, silently. Found by a gate reviewer.
+   */
   readonly deferred: number;
+  /**
+   * How many the tick attempted and could not read.
+   *
+   * ITS OWN COUNT RATHER THAN FOLDED INTO `deferred`, because the two have
+   * opposite futures: a deferred transaction is waiting for budget and a failed
+   * one has been read and refused by the decoder. Without it, a permanently
+   * undecodable transaction keeps `complete` false forever while the only
+   * available words are "the indexer has not finished this drain" - a claim of
+   * pending-ness about work that will never finish.
+   */
+  readonly failed: number;
   /** True when a 429 cut the tick short. */
   readonly refused: boolean;
 }
@@ -182,11 +205,13 @@ export function drainOutcome(args: {
   readonly observed: number;
   readonly analysed: number;
   readonly deferred: number;
+  readonly failed: number;
   readonly refused: boolean;
 }): DrainOutcome {
   return {
     observed: args.observed,
     analysed: args.analysed,
+    failed: args.failed,
     // COMPLETE IS `analysed >= observed` AND NOT `deferred === 0`. A tick that
     // deferred nothing because it had nothing left to fetch is complete; a tick
     // that deferred nothing because a 429 arrived before it counted is not. The

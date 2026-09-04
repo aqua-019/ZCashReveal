@@ -112,6 +112,35 @@ export type DrainNotice =
       readonly detail: string;
     };
 
+/**
+ * The rate clause, and NO `?? 0` ANYWHERE IN IT.
+ *
+ * `fmtInt(drain.ceilingPerMinute ?? 0)` printed "metered at 0 requests a minute,
+ * which affords 3 transactions a minute" - a zero standing for an absence, in
+ * the function whose whole subject is refusing that, in a sentence that
+ * contradicts itself. A gate reviewer found it.
+ *
+ * THE COMBINATION IS NOT UNREACHABLE, WHICH IS WHY THIS IS A BRANCH AND NOT AN
+ * ASSERTION. `ceilingPerMinute` and `txPerMinute` are independently nullable at
+ * four layers - `MempoolDrainState`, `mempoolDrainSchema`, `asDrain`, and
+ * `MempoolTickDeps`, where the ceiling and the plan are two unrelated
+ * constructor fields. Nothing types the implication, so the wire admits a null
+ * ceiling beside a stated rate and the renderer has to answer it rather than
+ * coerce it.
+ */
+function rateText(
+  drain: MempoolDrain,
+  form: "long" | "short" = "long",
+): string {
+  if (drain.txPerMinute === null) return "";
+  if (drain.ceilingPerMinute === null) {
+    return ` - it analyses ${fmtInt(drain.txPerMinute)} transactions a minute, against a ceiling it did not state`;
+  }
+  return form === "short"
+    ? ` - it analyses ${fmtInt(drain.txPerMinute)} a minute at its ceiling of ${fmtInt(drain.ceilingPerMinute)} requests a minute`
+    : ` - the indexer is metered at ${fmtInt(drain.ceilingPerMinute)} requests a minute, which affords ${fmtInt(drain.txPerMinute)} transactions a minute`;
+}
+
 /** "just now", "45 s ago", "3 min ago". Seconds in, prose out. */
 function agoText(seconds: number): string {
   if (seconds < 5) return "just now";
@@ -162,10 +191,7 @@ export function mempoolDrainNotice(drain: MempoolDrain | null): DrainNotice {
     // THE RATE IS PRINTED EVEN WHEN THE DRAIN IS COMPLETE, because a reader
     // deciding whether to trust a live table wants to know it is fed at three
     // transactions a minute before the mempool gets busy, not after.
-    const rate =
-      drain.txPerMinute === null
-        ? ""
-        : ` - the indexer is metered at ${fmtInt(drain.ceilingPerMinute ?? 0)} requests a minute, which affords ${fmtInt(drain.txPerMinute)} transactions a minute`;
+    const rate = rateText(drain);
     return {
       known: true,
       complete: true,
@@ -174,15 +200,27 @@ export function mempoolDrainNotice(drain: MempoolDrain | null): DrainNotice {
     };
   }
 
+  // FOUR REASONS, NOT THREE, AND THE ORDER IS THE PRECEDENCE. A refusal is the
+  // most specific fact available; a decode failure is next, because it is the
+  // one reason a drain will NEVER complete on its own; the budget is the
+  // ordinary case; and the fallback names only what it can see.
+  //
+  // `failed` USED NOT TO EXIST HERE, and its absence made the fallback lie: a
+  // permanently undecodable transaction kept `complete` false forever while the
+  // only available words were "the indexer has not finished this drain" - a
+  // claim of pending-ness about work that will never finish. A gate reviewer
+  // found it by asking what happens when `analyzeOne` returns "failed", which
+  // no test in this branch had done.
   const why = drain.refused
     ? "the endpoint rate-limited the indexer mid-drain"
-    : drain.deferred > 0
-      ? `${fmtInt(drain.deferred)} deferred by the indexer's per-tick request budget`
-      : "the indexer has not finished this drain";
-  const rate =
-    drain.txPerMinute === null
-      ? ""
-      : ` - it analyses ${fmtInt(drain.txPerMinute)} a minute at its configured ceiling`;
+    : drain.failed > 0 && drain.deferred > 0
+      ? `${fmtInt(drain.deferred)} deferred by the indexer's per-tick request budget and ${fmtInt(drain.failed)} the decoder could not read`
+      : drain.failed > 0
+        ? `${fmtInt(drain.failed)} could not be decoded, so this view will not complete on its own`
+        : drain.deferred > 0
+          ? `${fmtInt(drain.deferred)} deferred by the indexer's per-tick request budget`
+          : "the indexer has not finished this drain";
+  const rate = rateText(drain, "short");
   return {
     known: true,
     complete: false,

@@ -34,7 +34,7 @@ import { analyze } from "./decoder/index.js";
 import { chainAccessFor, describeMode, type ChainAccess } from "./chain-access.js";
 import { planMempoolPoll } from "./mempool-plan.js";
 import { MempoolTicker } from "./mempool-tick.js";
-import { publishDrainState } from "./drain-state.js";
+import { publishDrainState, pruneLiveMempool } from "./drain-state.js";
 import { RoundTripIndex } from "./analysis/round-trip.js";
 import { PrevOutCache } from "./analysis/prevout-cache.js";
 import { bootstrapChain, ChainFollower, runStartup } from "./runtime/index.js";
@@ -71,7 +71,22 @@ async function main() {
     password: cfg.ZEBRAD_RPC_PASSWORD,
     timeoutMs: cfg.ZEBRAD_RPC_TIMEOUT_MS,
     retries: cfg.ZEBRAD_RPC_RETRIES,
-    ...(gate === undefined ? {} : { gate }),
+    // A METERED CLIENT RETRIES AT MOST ONCE, BECAUSE THE PLAN SIZES A TICK IN
+    // CALLS AND THE GATE COUNTS REQUESTS. `planMempoolPoll` budgets two
+    // overhead calls plus N transactions; `call()` takes a gate slot per
+    // ATTEMPT, so at a ceiling of 5 one flaky `getblockchaininfo` turns a
+    // five-request tick into a seven-request one. The gate still holds the
+    // ceiling - by sleeping - so the tick runs about two minutes against a
+    // sixty-second interval, every intervening interval is skipped, throughput
+    // silently halves, and the only symptom is a `debug` line. Found by a gate
+    // reviewer.
+    //
+    // ONE RETRY RATHER THAN ZERO: a genuine transport blip still gets a second
+    // chance, and the worst case is then 4 + 2 = 6 against a plan of 5, which
+    // costs one slot rather than doubling the tick.
+    ...(gate === undefined
+      ? {}
+      : { gate, retries: Math.min(cfg.ZEBRAD_RPC_RETRIES, 1) }),
   });
   const redis = new Redis(cfg.REDIS_URL, { lazyConnect: false });
   // ONE SEAM DECIDES WHETHER THIS PROCESS HAS A DATABASE (HANDOFF-15,
@@ -261,6 +276,17 @@ async function main() {
     log,
     ceilingPerMinute: ceiling,
   });
+
+  // ONE PRUNE BEFORE THE FIRST TICK, and it costs one `getrawmempool` that the
+  // tick would have spent anyway. See `pruneLiveMempool`: without it the
+  // gateway's `summary.unconfirmed` and the drain state's `observed` are two
+  // counts of one set that disagree for hours after a restart, printed three
+  // lines apart on /track.
+  try {
+    await pruneLiveMempool(redis, await rpc.getRawMempool(), log);
+  } catch (err) {
+    log.warn({ err }, "could not read the mempool to prune the live hash at startup");
+  }
 
   pollLoop = setInterval(() => {
     void ticker.tick();

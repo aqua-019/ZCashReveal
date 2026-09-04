@@ -86,8 +86,18 @@ export const mempoolDrainStateSchema = z.object({
   analysed: z.number().int().nonnegative(),
   /** True when the last tick left nothing unanalysed. */
   complete: z.boolean(),
-  /** How many the last tick deferred because its budget ran out. */
+  /**
+   * How many the last tick did not attempt.
+   *
+   * `deferred + failed === observed - analysed` IS THE INVARIANT, and it holds
+   * in every case: a budget that ran out, a 429 that pre-empted the rest, and
+   * an unmetered tick with no budget at all. Three figures that account for
+   * less than the total, silently, is this project's most-recorded reporting
+   * defect and it was live in this field.
+   */
   deferred: z.number().int().nonnegative(),
+  /** How many the last tick attempted and could not decode. */
+  failed: z.number().int().nonnegative().default(0),
   /** True when a 429 cut the last tick short. */
   refused: z.boolean(),
   /** `Date.now()` at the last COMPLETE drain, or null if there has never been one. */

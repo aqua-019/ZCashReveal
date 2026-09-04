@@ -72,6 +72,14 @@ export class MempoolTicker {
    * off the system bar, arriving on a second surface.
    */
   #lastCompleteAtMs: number | null = null;
+  /**
+   * The node's count at the last tick that got one, or null before the first.
+   *
+   * HELD SO A REFUSED TICK CAN STILL PUBLISH A DENOMINATOR. Publishing
+   * "0 of 0 analysed" for a tick that never reached `getrawmempool` is a worse
+   * lie than a stale denominator: it reads as an empty mempool.
+   */
+  #lastObserved: number | null = null;
   /** True while a tick is in flight, so a slow tick cannot overlap the next. */
   #ticking = false;
 
@@ -109,6 +117,7 @@ export class MempoolTicker {
     this.#ticking = true;
     let refused = false;
     let analysedThisTick = 0;
+    let failedThisTick = 0;
     try {
       // SEQUENTIAL, NOT `Promise.all`. Two concurrent requests against a
       // five-per-minute gate both wait on the same tail, so the parallelism
@@ -122,7 +131,6 @@ export class MempoolTicker {
       const unseen = txids.filter((txid) => !state.has(txid));
       const budget = plan.txBudget;
       const toFetch = budget === null ? unseen : unseen.slice(0, budget);
-      const deferred = unseen.length - toFetch.length;
 
       for (const txid of toFetch) {
         // A 429 STOPS THE DRAIN RATHER THAN BEING SWALLOWED PER TRANSACTION.
@@ -137,7 +145,19 @@ export class MempoolTicker {
           break;
         }
         if (outcome === "analysed") analysedThisTick += 1;
+        else failedThisTick += 1;
       }
+
+      // COUNTED AFTER THE LOOP, BECAUSE THE LOOP CAN STOP EARLY, AND SPLIT SO
+      // THAT THE FIGURES ACCOUNT FOR EVERY ROW. `deferred + failed` must equal
+      // `observed - analysed`, and derived from the budget slice before the
+      // loop it did not: a 429 on the first of a hundred published
+      // `deferred: 97` with three transactions in no bucket at all, and an
+      // unmetered tick published `deferred: 0` for a drain that analysed two of
+      // eight, because `txBudget` is null so the slice is the whole list. That
+      // is the harm `mempool-summary.ts` names for the header counts, one field
+      // over. Found by a gate reviewer.
+      const deferred = unseen.length - analysedThisTick - failedThisTick;
 
       // RECONCILED AGAINST THE FULL TXID LIST, NEVER AGAINST WHAT WAS FETCHED.
       // `reconcile` deletes every tracked report absent from the set it is
@@ -151,15 +171,18 @@ export class MempoolTicker {
         observed: txids.length,
         analysed: state.size(),
         deferred,
+        failed: failedThisTick,
         refused,
       });
       const now = this.#now();
+      this.#lastObserved = txids.length;
       if (outcome.complete) this.#lastCompleteAtMs = now;
       await publish({
         observed: outcome.observed,
         analysed: outcome.analysed,
         complete: outcome.complete,
         deferred: outcome.deferred,
+        failed: outcome.failed,
         refused: outcome.refused,
         completeAtMs: this.#lastCompleteAtMs,
         updatedAtMs: now,
@@ -176,6 +199,7 @@ export class MempoolTicker {
             observed: outcome.observed,
             analysed: outcome.analysed,
             deferred: outcome.deferred,
+            failed: outcome.failed,
             refused: outcome.refused,
             analysedThisTick,
           },
@@ -196,12 +220,58 @@ export class MempoolTicker {
           { retryAfterMs: err.retryAfterMs, method: err.method },
           "rate limited before the drain began; the mempool view is now aging",
         );
+        // AND THE AGING IS PUBLISHED, NOT ONLY LOGGED. `publish` sits inside
+        // the `try` above the throw point, so falling out of here without a
+        // write left the LAST SUCCESSFUL tick's record standing - and the
+        // gateway re-ages that record on every request. A quiet mempool
+        // followed by an endpoint refusing every `getblockchaininfo` had
+        // /track rendering `data-complete="true"` and "4 of 4 analysed - every
+        // transaction the node reported has been analysed, 47 min ago" while
+        // the real mempool was four hundred and nothing could reach it. The log
+        // line one statement up already asserted the view was aging; nothing
+        // made it true. Found by a gate reviewer.
+        await this.#publishRefusal();
       } else {
         log.error({ err }, "poll loop iteration failed");
       }
       return "ran";
     } finally {
       this.#ticking = false;
+    }
+  }
+
+  /**
+   * The drain state for a tick that could not even ask. Never throws.
+   *
+   * `complete: false` AND `refused: true` ARE THE WHOLE POINT: a reader must
+   * not be shown a positive claim of completeness for a view no process has
+   * been able to refresh. `completeAtMs` does NOT move, so the "last complete"
+   * age keeps growing; `updatedAtMs` does, so "last tick" stays truthful about
+   * the attempt rather than about its success.
+   */
+  async #publishRefusal(): Promise<void> {
+    const { publish, state, plan, ceilingPerMinute, log } = this.#deps;
+    const analysed = state.size();
+    // THE DENOMINATOR IS THE LAST ONE A NODE GAVE US, floored at what we hold.
+    // A refused tick never reached `getrawmempool`, so it has no fresh count;
+    // publishing 0 would read as an empty mempool, and anything below
+    // `analysed` would make `deferred` negative.
+    const observed = Math.max(this.#lastObserved ?? analysed, analysed);
+    try {
+      await publish({
+        observed,
+        analysed,
+        complete: false,
+        deferred: Math.max(0, observed - analysed),
+        failed: 0,
+        refused: true,
+        completeAtMs: this.#lastCompleteAtMs,
+        updatedAtMs: this.#now(),
+        ceilingPerMinute,
+        txPerMinute: plan.txPerMinute,
+      });
+    } catch (err) {
+      log.warn({ err }, "could not publish the refusal; the view's completeness figure will stand stale");
     }
   }
 }

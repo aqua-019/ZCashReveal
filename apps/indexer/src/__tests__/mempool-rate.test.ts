@@ -370,6 +370,163 @@ describe("A8 - with no database, every database-derived quantity is an absence",
   });
 });
 
+describe("a refusal on the tick's OWN OVERHEAD still publishes", () => {
+  it("does not leave the last successful tick's complete:true standing", async () => {
+    // THE DEFECT: `publish` sits inside the try, above the throw point, so a
+    // 429 on `getblockchaininfo` fell to the catch and wrote NOTHING. The
+    // gateway then re-aged the last successful record on every request, and a
+    // quiet mempool followed by an endpoint refusing every call had /track
+    // rendering `data-complete="true"` with "4 of 4 analysed - every
+    // transaction the node reported has been analysed" while the real mempool
+    // was unreachable. No test drove this: A2 places its refusal at the third
+    // TRANSACTION, never at the overhead. Found by a gate reviewer.
+    const pool = txids(4);
+    const endpoint = new MockRpcEndpoint({ mempool: pool, transactions: transactionsFor(pool) });
+    const url = await endpoint.start();
+    try {
+      const rpc = new ZebraRpc({ url, retries: 0 });
+      const state = fakeState();
+      const published: MempoolDrainState[] = [];
+      const ticker = new MempoolTicker({
+        rpc,
+        state,
+        analyzeOne: async (txid) => {
+          await rpc.getRawTransaction(txid);
+          state.held.add(txid);
+          return "analysed" as AnalyzeOutcome;
+        },
+        plan: planMempoolPoll({ perMinute: null, requestedIntervalMs: 2_000 }),
+        publish: (d) => {
+          published.push(d);
+          return Promise.resolve();
+        },
+        onTip: () => undefined,
+        log,
+        ceilingPerMinute: 5,
+      });
+
+      // Tick 1 succeeds on a quiet mempool and is genuinely complete.
+      await ticker.tick();
+      expect(published[0]?.complete).toBe(true);
+      expect(published[0]?.analysed).toBe(4);
+
+      // The endpoint now refuses everything, so tick 2 dies on its first call.
+      endpoint.refuseFrom(endpoint.requestCount + 1);
+      await ticker.tick();
+
+      // A SECOND RECORD EXISTS, and it withdraws the claim of completeness.
+      expect(published).toHaveLength(2);
+      expect(published[1]?.complete).toBe(false);
+      expect(published[1]?.refused).toBe(true);
+      // The denominator is the last one a node gave us, not a fabricated zero:
+      // "0 of 0 analysed" would read as an empty mempool.
+      expect(published[1]?.observed).toBe(4);
+      expect(published[1]?.analysed).toBe(4);
+      // `completeAtMs` does NOT move - the last COMPLETE drain really was tick
+      // 1 - while `updatedAtMs` does, so "last tick" stays truthful about the
+      // attempt rather than about its success.
+      expect(published[1]?.completeAtMs).toBe(published[0]?.completeAtMs);
+      expect(published[1]?.updatedAtMs).toBeGreaterThanOrEqual(published[0]!.updatedAtMs);
+    } finally {
+      await endpoint.stop();
+    }
+  });
+});
+
+describe("the counts account for every row", () => {
+  it("a refusal mid-drain: deferred + failed === observed - analysed", async () => {
+    // THE MEMBER OF THE EXCLUSION SET. `deferred` was computed from the budget
+    // slice BEFORE the loop, so an unmetered tick that a 429 stopped at the
+    // third of eight published `deferred: 0` - six transactions in no bucket at
+    // all, on the wire, in the field whose whole job is saying how many are
+    // missing. A2 asserted `refused` and `complete` and never `deferred`, which
+    // is why it read as green.
+    const pool = txids(8);
+    const endpoint = new MockRpcEndpoint({
+      mempool: pool,
+      transactions: transactionsFor(pool),
+      refuseAt: [5],
+    });
+    const url = await endpoint.start();
+    try {
+      const rpc = new ZebraRpc({ url, retries: 0 });
+      const state = fakeState();
+      const published: MempoolDrainState[] = [];
+      const ticker = new MempoolTicker({
+        rpc,
+        state,
+        analyzeOne: async (txid) => {
+          try {
+            await rpc.getRawTransaction(txid);
+          } catch (err) {
+            if (err instanceof RpcRateLimitError) return "rate-limited" as AnalyzeOutcome;
+            throw err;
+          }
+          state.held.add(txid);
+          return "analysed" as AnalyzeOutcome;
+        },
+        plan: planMempoolPoll({ perMinute: null, requestedIntervalMs: 2_000 }),
+        publish: (d) => {
+          published.push(d);
+          return Promise.resolve();
+        },
+        onTip: () => undefined,
+        log,
+        ceilingPerMinute: null,
+      });
+      await ticker.tick();
+      const d = published[0];
+      expect(d?.analysed).toBe(2);
+      expect(d?.deferred).toBe(6);
+      expect(d?.failed).toBe(0);
+      expect((d?.deferred ?? 0) + (d?.failed ?? 0)).toBe((d?.observed ?? 0) - (d?.analysed ?? 0));
+    } finally {
+      await endpoint.stop();
+    }
+  });
+
+  it("a decode failure is counted as failed, not as deferred, and not as analysed", async () => {
+    // `analyzeOne` returning "failed" was never driven by any probe in this
+    // branch - all of them returned only "analysed" or "rate-limited" - so the
+    // path where a drain can never complete on its own was unexercised.
+    const pool = txids(5);
+    const endpoint = new MockRpcEndpoint({ mempool: pool, transactions: transactionsFor(pool) });
+    const url = await endpoint.start();
+    try {
+      const state = fakeState();
+      const published: MempoolDrainState[] = [];
+      const bad = new Set([pool[0], pool[1]]);
+      const ticker = new MempoolTicker({
+        rpc: new ZebraRpc({ url, retries: 0 }),
+        state,
+        analyzeOne: (txid) => {
+          if (bad.has(txid)) return Promise.resolve("failed" as AnalyzeOutcome);
+          state.held.add(txid);
+          return Promise.resolve("analysed" as AnalyzeOutcome);
+        },
+        plan: planMempoolPoll({ perMinute: null, requestedIntervalMs: 2_000 }),
+        publish: (d) => {
+          published.push(d);
+          return Promise.resolve();
+        },
+        onTip: () => undefined,
+        log,
+        ceilingPerMinute: null,
+      });
+      await ticker.tick();
+      const d = published[0];
+      expect(d?.observed).toBe(5);
+      expect(d?.analysed).toBe(3);
+      expect(d?.failed).toBe(2);
+      expect(d?.deferred).toBe(0);
+      expect(d?.complete).toBe(false);
+      expect((d?.deferred ?? 0) + (d?.failed ?? 0)).toBe((d?.observed ?? 0) - (d?.analysed ?? 0));
+    } finally {
+      await endpoint.stop();
+    }
+  });
+});
+
 describe("the drain state the ticker PRODUCES is the one the gateway VALIDATES", () => {
   it("round-trips through JSON into mempoolDrainStateSchema, every field intact", async () => {
     // LEDGER-11's INSTRUMENT, APPLIED TO A NEW SEAM. Two processes, one wire

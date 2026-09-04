@@ -99,8 +99,17 @@ export async function readDrainState(
       analysed: state.analysed,
       complete: state.complete,
       deferred: state.deferred,
+      failed: state.failed,
       refused: state.refused,
-      completeSecondsAgo: state.completeAtMs === null ? null : seconds(state.completeAtMs),
+      // A COMPLETION IN THE FUTURE IS AN AGE THIS PROCESS CANNOT COMPUTE, AND
+      // THE FLOOR AT ZERO WOULD RENDER IT AS "last complete just now". The
+      // floor is right for `updatedSecondsAgo`, where a second of skew is
+      // noise; it is wrong here, because this field already carries the honest
+      // answer for an age nobody knows and that answer is the reason the field
+      // is nullable at all. Found by a gate reviewer, who called it
+      // `snapshot age: 0 blocks` on a third surface.
+      completeSecondsAgo:
+        state.completeAtMs === null || state.completeAtMs > now ? null : seconds(state.completeAtMs),
       updatedSecondsAgo: seconds(state.updatedAtMs),
       ceilingPerMinute: state.ceilingPerMinute,
       txPerMinute: state.txPerMinute,

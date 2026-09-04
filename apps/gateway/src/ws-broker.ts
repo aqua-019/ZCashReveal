@@ -5,6 +5,7 @@ import {
   reviveWire,
   zecFrameSchema,
   type LeakReport,
+  type MempoolDrain,
   type SnapshotV1,
   type ZecFrame,
 } from "@zcashreveal/types";
@@ -220,7 +221,11 @@ export function toZecFrame(channel: string, payload: unknown, now: number): ZecF
  * `{ channel, payload }` envelope as translate() so the dashboard handles the
  * snapshot through its `zcashreveal:mempool` listener alongside live diffs.
  */
-export function snapshotFrame(reports: LeakReport[], now: number): OutboundFrame {
+export function snapshotFrame(
+  reports: LeakReport[],
+  now: number,
+  drain: MempoolDrain | null = null,
+): OutboundFrame {
   // THE TIP HEIGHT COMES FROM THE REPORTS THEMSELVES, which is the only source
   // here that needs neither the node nor the snapshot. Every `LeakReport`
   // carries `tipHeightAtSeen` - the tip when the indexer saw it - so the newest
@@ -241,11 +246,29 @@ export function snapshotFrame(reports: LeakReport[], now: number): OutboundFrame
   // bus applies - so an empty connect frame cannot move a reader's height
   // backwards.
   const tipHeight = reports.reduce((h, r) => (r.tipHeightAtSeen > h ? r.tipHeightAtSeen : h), 0);
-  return snapshotFrameAt(reports, tipHeight, now);
+  return snapshotFrameAt(reports, tipHeight, now, drain);
 }
 
 /** The same frame with the height supplied, so a test can pin one. */
-export function snapshotFrameAt(reports: LeakReport[], tipHeight: number, now: number): OutboundFrame {
+export function snapshotFrameAt(
+  reports: LeakReport[],
+  tipHeight: number,
+  now: number,
+  /**
+   * How complete this view is, PASSED RATHER THAN DEFAULTED AWAY.
+   *
+   * `buildMempoolView`'s `null` default means "no indexer has written one"
+   * (views.ts). Taking it here made this frame a SECOND PRODUCER of that field:
+   * on one request, from one Redis, the gateway told REST clients "3 of 412
+   * analysed" and WebSocket clients "no indexer reported how much of the
+   * mempool it analysed". That is the seam this file's neighbour
+   * `live-reports.ts` records as the fifth instance of - the REST route and the
+   * connect frame reading one hash differently, "found by asking where else the
+   * same hash was read" - arriving one handoff later through a new FIELD
+   * instead of a new cast. Found by a gate reviewer.
+   */
+  drain: MempoolDrain | null = null,
+): OutboundFrame {
   return {
     channel: REDIS_CHANNELS.mempool,
     // `{type: "snapshot", view}` AND NOT `{type: "mempool_snapshot", reports}`.
@@ -256,7 +279,7 @@ export function snapshotFrameAt(reports: LeakReport[], tipHeight: number, now: n
     // same function.
     // `toJsonSafe` for the same reason as above: the view carries `bigint`
     // zatoshi and this frame is `JSON.stringify`d on its way to the socket.
-    payload: { type: "snapshot", view: toJsonSafe(buildMempoolView(reports, tipHeight, now)) },
+    payload: { type: "snapshot", view: toJsonSafe(buildMempoolView(reports, tipHeight, now, {}, drain)) },
   };
 }
 

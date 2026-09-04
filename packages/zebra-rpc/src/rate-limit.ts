@@ -37,6 +37,44 @@
  * expire individually, so the invariant "no more than `perMinute` requests in
  * ANY 60-second span" holds at every instant rather than at each boundary.
  */
+/**
+ * The longest a single `setTimeout` can express.
+ *
+ * MEASURED, NOT LOOKED UP: Node 22 answers a 2,678,400,000 ms timer with
+ * `TimeoutOverflowWarning: 2678400000 does not fit into a 32-bit signed
+ * integer. Timeout duration was set to 1.` So an uncapped sleep of a month does
+ * not sleep - it returns in about a millisecond, the loop below re-reads the
+ * same wait, and the process spins at roughly a kilohertz forever, warning on
+ * every iteration.
+ */
+const MAX_TIMER_MS = 2_147_483_647;
+
+/**
+ * The longest penalty this gate will accept from an endpoint.
+ *
+ * `Retry-After` IS REMOTE INPUT AND THE GRAMMAR PUTS NO CEILING ON IT. A
+ * `delta-seconds` of 2678400 is a legal way to say "come back in a month", and
+ * honouring it literally parks every caller of this gate - which in the indexer
+ * is a tick that has already set its non-reentrancy flag, so nothing publishes
+ * a drain state again for a month and the page freezes on whatever the last
+ * successful tick wrote.
+ *
+ * CAPPING IS NOT DISOBEDIENCE. The gate still refuses to issue for fifteen
+ * minutes, and a caller that returns then and is refused again is simply
+ * penalised again. What the cap buys is a process still running to BE refused,
+ * and a wait a `setTimeout` can actually express. Found by a gate reviewer.
+ */
+const MAX_PENALTY_MS = 15 * 60_000;
+
+/**
+ * The most timestamps `penalise` will materialise for one window.
+ *
+ * A ceiling above this is not a ceiling worth metering, and the array is only
+ * ever a device for saying "the window is full" - a longer one says nothing
+ * more. See `penalise`.
+ */
+const MAX_WINDOW_SLOTS = 100_000;
+
 export class RateGate {
   readonly #perMinute: number;
   readonly #windowMs: number;
@@ -133,7 +171,12 @@ export class RateGate {
       for (;;) {
         const wait = this.waitMs();
         if (wait <= 0) break;
-        await this.#sleep(wait);
+        // CLAMPED TO WHAT A TIMER CAN EXPRESS. Above `MAX_TIMER_MS` Node fires
+        // in about a millisecond, so an unclamped sleep turns this loop into a
+        // hot spin rather than a wait. The loop is what makes the clamp safe:
+        // it re-reads `waitMs()` and sleeps again until the deadline really has
+        // passed, so a long wait becomes several bounded sleeps.
+        await this.#sleep(Math.min(wait, MAX_TIMER_MS));
       }
       this.#issued.push(this.#now());
     });
@@ -157,9 +200,19 @@ export class RateGate {
    */
   penalise(retryAfterMs: number | null): void {
     const now = this.#now();
-    this.#issued = Array.from({ length: this.#perMinute }, () => now);
+    // FILLED FROM A BOUNDED LENGTH. `perMinute` comes from configuration, and
+    // `Array.from({length: n})` MATERIALISES n SLOTS: a typo'd
+    // `INDEXER_RPC_MAX_RPM=100000000` allocates about 800 MB on the first
+    // refusal, and `Number.MAX_SAFE_INTEGER` throws `RangeError: Invalid array
+    // length` from inside the client's 429 handler - which would REPLACE the
+    // `RpcRateLimitError` with a RangeError, so the refusal reaches the tick as
+    // "poll loop iteration failed". The config now caps the ceiling too; this
+    // is the same bound at the site that spends it, because a guard in one
+    // place is a guard the next caller does not have.
+    const fill = Math.min(this.#perMinute, MAX_WINDOW_SLOTS);
+    this.#issued = Array.from({ length: fill }, () => now);
     const wait = retryAfterMs === null ? this.#windowMs : retryAfterMs;
-    this.#penaltyUntil = Math.max(this.#penaltyUntil, now + Math.max(0, wait));
+    this.#penaltyUntil = Math.max(this.#penaltyUntil, now + Math.min(Math.max(0, wait), MAX_PENALTY_MS));
   }
 }
 

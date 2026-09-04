@@ -90,9 +90,41 @@ describe("planMempoolPoll", () => {
 });
 
 describe("drainOutcome", () => {
+  it("THE INVARIANT: deferred + failed accounts for every row the drain did not analyse", () => {
+    // `deferred + failed === observed - analysed`, in every case. Derived from
+    // the budget slice before the loop this did not hold: a 429 on the first of
+    // a hundred published `deferred: 97` with three transactions in no bucket,
+    // and an unmetered tick published `deferred: 0` for a drain that analysed
+    // two of eight. Quantified over the AGGREGATE, because a per-field check
+    // passes on both of those.
+    const cases = [
+      { observed: 100, analysed: 0, deferred: 100, failed: 0, refused: true },
+      { observed: 8, analysed: 2, deferred: 6, failed: 0, refused: true },
+      { observed: 10, analysed: 3, deferred: 7, failed: 0, refused: false },
+      { observed: 10, analysed: 2, deferred: 6, failed: 2, refused: false },
+      { observed: 0, analysed: 0, deferred: 0, failed: 0, refused: false },
+    ];
+    for (const c of cases) {
+      const o = drainOutcome(c);
+      expect(o.deferred + o.failed).toBe(o.observed - o.analysed);
+    }
+  });
+
+  it("a decode failure is its own count and is NOT folded into deferred", () => {
+    // The two have opposite futures: a deferred transaction waits for budget,
+    // a failed one has been read and refused by the decoder. Folding them left
+    // a permanently undecodable transaction keeping `complete` false forever
+    // with the only available words being "the indexer has not finished this
+    // drain" - a claim of pending-ness about work that will never finish.
+    const o = drainOutcome({ observed: 5, analysed: 3, deferred: 0, failed: 2, refused: false });
+    expect(o.failed).toBe(2);
+    expect(o.deferred).toBe(0);
+    expect(o.complete).toBe(false);
+  });
+
   it("is complete when every observed transaction has a report", () => {
-    expect(drainOutcome({ observed: 9, analysed: 9, deferred: 0, refused: false }).complete).toBe(true);
-    expect(drainOutcome({ observed: 0, analysed: 0, deferred: 0, refused: false }).complete).toBe(true);
+    expect(drainOutcome({ observed: 9, analysed: 9, deferred: 0, failed: 0, refused: false }).complete).toBe(true);
+    expect(drainOutcome({ observed: 0, analysed: 0, deferred: 0, failed: 0, refused: false }).complete).toBe(true);
   });
 
   it("is NOT complete when a 429 cut the tick short, even with the counts level", () => {
@@ -100,11 +132,11 @@ describe("drainOutcome", () => {
     // everything it had left still saw a mempool it could not confirm, and
     // `analysed >= observed` alone would call that complete - which is how a
     // reader gets shown a thinner mempool with a fresh timestamp on it.
-    expect(drainOutcome({ observed: 9, analysed: 9, deferred: 0, refused: true }).complete).toBe(false);
+    expect(drainOutcome({ observed: 9, analysed: 9, deferred: 0, failed: 0, refused: true }).complete).toBe(false);
   });
 
   it("is decided by the COUNTS and not by the reason, so a tick that deferred nothing is complete", () => {
-    expect(drainOutcome({ observed: 4, analysed: 4, deferred: 0, refused: false }).complete).toBe(true);
-    expect(drainOutcome({ observed: 4, analysed: 1, deferred: 3, refused: false }).complete).toBe(false);
+    expect(drainOutcome({ observed: 4, analysed: 4, deferred: 0, failed: 0, refused: false }).complete).toBe(true);
+    expect(drainOutcome({ observed: 4, analysed: 1, deferred: 3, failed: 0, refused: false }).complete).toBe(false);
   });
 });

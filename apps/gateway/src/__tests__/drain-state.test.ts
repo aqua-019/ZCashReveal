@@ -30,6 +30,7 @@ const STATE: MempoolDrainState = {
   analysed: 3,
   complete: false,
   deferred: 6,
+  failed: 0,
   refused: false,
   completeAtMs: 1_000_000,
   updatedAtMs: 1_120_000,

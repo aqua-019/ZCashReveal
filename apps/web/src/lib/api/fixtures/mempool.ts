@@ -585,6 +585,7 @@ export const MEMPOOL_VIEW: MempoolView = {
     analysed: ROWS.length,
     complete: true,
     deferred: 0,
+    failed: 0,
     refused: false,
     completeSecondsAgo: 0,
     updatedSecondsAgo: 0,

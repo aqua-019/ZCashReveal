@@ -70,7 +70,14 @@ const ConfigSchema = z.object({
    */
   INDEXER_RPC_MAX_RPM: z.preprocess(
     (v) => (typeof v === "string" && v.trim() === "" ? undefined : v),
-    z.coerce.number().int().positive().optional(),
+    // BOUNDED ABOVE, BECAUSE `RateGate.penalise` MATERIALISES THIS MANY ARRAY
+    // SLOTS ON EVERY 429. A typo'd 100000000 allocates about 800 MB on the
+    // first refusal; `Number.MAX_SAFE_INTEGER` throws `RangeError: Invalid
+    // array length` from inside the client's 429 handler, which replaces the
+    // `RpcRateLimitError` and makes a refusal read as a poll-loop crash. A
+    // ceiling above 100,000 a minute is not a ceiling worth metering - leave
+    // the variable unset instead. Found by a gate reviewer.
+    z.coerce.number().int().positive().max(100_000).optional(),
   ),
   INDEXER_LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
 

@@ -357,10 +357,16 @@ function asDrain(v: unknown): MempoolDrain | null | undefined {
   const completeSecondsAgo = d["completeSecondsAgo"];
   const ceilingPerMinute = d["ceilingPerMinute"];
   const txPerMinute = d["txPerMinute"];
+  // `failed` DEFAULTS TO 0 WHEN THE KEY IS ABSENT, matching the schema's own
+  // `.default(0)`, because a gateway that has not been redeployed omits it and
+  // rejecting the view for that empties /track for every reader on an older
+  // stack. A key PRESENT and rubbish is still a rejection.
+  const failed = d["failed"] === undefined ? 0 : d["failed"];
   if (
     !isCount(d["observed"]) ||
     !isCount(d["analysed"]) ||
     !isCount(d["deferred"]) ||
+    !isCount(failed) ||
     !isCount(d["updatedSecondsAgo"]) ||
     typeof d["complete"] !== "boolean" ||
     typeof d["refused"] !== "boolean" ||
@@ -375,6 +381,7 @@ function asDrain(v: unknown): MempoolDrain | null | undefined {
     analysed: d["analysed"],
     complete: d["complete"],
     deferred: d["deferred"],
+    failed,
     refused: d["refused"],
     completeSecondsAgo,
     updatedSecondsAgo: d["updatedSecondsAgo"],
