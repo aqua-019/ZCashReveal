@@ -231,12 +231,106 @@ describe("A11 - a reconnect snapshot is AUTHORITATIVE", () => {
       type: "snapshot",
       view: {
         tipHeight: 1,
-        entries: Array.from({ length: 50 }, (_, i) => row({ txid: txid(i + 1) })),
+        // REORDERED ON PURPOSE, AND A GATE ROUND IS WHY. `view.entries` is
+        // `reports.map(...)` in the INDEXER's order, never this reader's
+        // arrival order - so a snapshot built in arrival order is the one shape
+        // at which the survivor-seq restoration is invisible, and this
+        // assertion passed against the mutant that deleted it. Reversed, the
+        // board moves the moment the restoration is gone.
+        entries: Array.from({ length: 50 }, (_, i) => row({ txid: txid(50 - i) })),
         drain: null,
         summary: SUMMARY,
       },
     });
     expect(buildLivePlane(s, OPTS).marks.map((m) => m.txid).sort()).toStrictEqual(before);
+  });
+
+  it("A2 - FAIL SIDE (data - a 300-tx mempool, one reconnect): the drawn board does not move", () => {
+    // THE DEFECT `add`'s OWN COMMENT SAID IT PREVENTED, produced by the snapshot
+    // replacement and `HOLD_MAX` meeting for the first time. The snapshot arm
+    // started from an empty map, so the eviction ran mid-loop on a half-built
+    // map, before each survivor's true `seq` was restored one line later - and
+    // dropped survivors in favour of rows this reader had already evicted, which
+    // re-entered carrying the highest counter values. Measured pre-fix:
+    // ZERO OF 42 DRAWN MARKS SURVIVED, the board flipping wholesale to the
+    // oldest transactions in the pool.
+    //
+    // 300 is the member from inside the stated set: it must exceed HOLD_MAX
+    // (250) for the eviction and the restoration to meet at all, and the
+    // committed corpus is fourteen rows, so nothing in this repository reached
+    // it before.
+    let state = EMPTY_LIVE_STATE;
+    for (let i = 1; i <= 300; i += 1) state = liveReduce(state, added(row({ txid: txid(i) })));
+    const before = buildLivePlane(state, OPTS).marks.map((m) => m.txid);
+    expect(before).toHaveLength(SPLASH_N_MAX);
+
+    // The gateway's reconciling view on reconnect: the same 300 transactions.
+    state = liveReduce(state, {
+      type: "snapshot",
+      view: {
+        tipHeight: 1,
+        entries: Array.from({ length: 300 }, (_, i) => row({ txid: txid(i + 1) })),
+        drain: null,
+        summary: SUMMARY,
+      },
+    });
+    const after = buildLivePlane(state, OPTS).marks.map((m) => m.txid);
+    expect(after.filter((t) => before.includes(t))).toHaveLength(SPLASH_N_MAX);
+  });
+
+  it("A2 - FAIL SIDE (data - a snapshot in the INDEXER's order, not this reader's): the right 250 survive", () => {
+    // THE HALF THE PREVIOUS ASSERTION COULD NOT SEE, and it is round 2's own
+    // finding turned on this session's fix. Driving the reconnect with entries
+    // in ascending order makes view order agree with `seq` order, and a
+    // mid-loop eviction then happens to drop the right rows - so the "evict
+    // once, at the end" half of the fix was invisible: reverting it left the
+    // suite green.
+    //
+    // `view.entries` is `reports.map(...)` in the INDEXER's order, which has no
+    // relation to this reader's arrival order. Shuffled, a cap applied on a
+    // half-built map evicts by the seq visible SO FAR and drops rows a later
+    // entry would have outranked.
+    let state = EMPTY_LIVE_STATE;
+    for (let i = 1; i <= 300; i += 1) state = liveReduce(state, added(row({ txid: txid(i) })));
+
+    // A deterministic shuffle: reverse, which is the maximally adversarial
+    // order and needs no generator.
+    const shuffled = Array.from({ length: 300 }, (_, i) => row({ txid: txid(300 - i) }));
+    state = liveReduce(state, {
+      type: "snapshot",
+      view: { tipHeight: 1, entries: shuffled, drain: null, summary: SUMMARY },
+    });
+
+    // The hold keeps the 250 NEWEST it ever watched arrive - txids 51..300 -
+    // whatever order the view named them in.
+    expect(state.held.size).toBe(250);
+    expect(state.held.has(txid(300))).toBe(true);
+    expect(state.held.has(txid(51))).toBe(true);
+    expect(state.held.has(txid(50))).toBe(false);
+    expect(state.held.has(txid(1))).toBe(false);
+  });
+
+  it("A3 - FAIL SIDE (data - 3,000 undecoded rows): the held figure says it is the tank's", () => {
+    // `capped` is `drawable.length > nMax`, which here is `0 > 42` - false - so
+    // the one branch that would have hedged the figure was off while the page
+    // printed "of 250 held" for a mempool of 3,000. Two different saturations
+    // needed two different flags.
+    let state = EMPTY_LIVE_STATE;
+    for (let i = 1; i <= 3000; i += 1) {
+      state = liveReduce(state, added(row({ txid: txid(i), class: "undecoded", lanes: [] })));
+    }
+    const plane = buildLivePlane(state, OPTS);
+    expect(plane.drawn).toBe(0);
+    expect(plane.capped).toBe(false);
+    expect(plane.holdFull).toBe(true);
+  });
+
+  it("A3 - below the ceiling the hold is not full and the figure is the pool's", () => {
+    let state = EMPTY_LIVE_STATE;
+    for (let i = 1; i <= 9; i += 1) state = liveReduce(state, added(row({ txid: txid(i) })));
+    const plane = buildLivePlane(state, OPTS);
+    expect(plane.held).toBe(9);
+    expect(plane.holdFull).toBe(false);
   });
 
   it("an empty snapshot empties the tank - a quiet mempool is a real reading", () => {
@@ -410,11 +504,14 @@ describe("A8 - direction comes from `class`, and an underivable row draws no mar
       from: "sapling",
       to: "transparent",
     });
-    expect(markFor(row({ txid: txid(3), class: "migration", lanes: ["orchard", "ironwood"] }))).toStrictEqual({
-      kind: "crossing",
-      from: "orchard",
-      to: "ironwood",
-    });
+    // A MIGRATION FIXTURE MUST CARRY THE `flow` ITS PRODUCER WOULD PRINT. This
+    // row previously inherited the helper's default `flow: "t to z"`, which
+    // `flowTextFor` cannot produce for a migration - so the fixture asserted
+    // behaviour against a shape the gateway does not emit, which is the fixture
+    // half of the same F-57-1 defect the code half had.
+    expect(
+      markFor(row({ txid: txid(3), class: "migration", lanes: ["orchard", "ironwood"], flow: "O to I" })),
+    ).toStrictEqual({ kind: "crossing", from: "orchard", to: "ironwood" });
   });
 
   it("FAIL SIDE (data - a `migration` the GATEWAY emits that is NOT ZIP 318): no ZIP 318 arc", () => {
@@ -429,8 +526,46 @@ describe("A8 - direction comes from `class`, and an underivable row draws no mar
     const shape = markFor(
       row({ txid: txid(1), class: "migration", lanes: ["sapling", "orchard"], flow: "S to O" }),
     );
-    expect(shape).toStrictEqual({ kind: "chord", a: "sapling", b: "orchard" });
+    // IT DRAWS THE CROSSING THE ROW ACTUALLY STATES, which is stronger than the
+    // undirected chord this assertion first expected. The chord was the right
+    // answer while the module could not derive a direction at all; now that it
+    // reads the producer's own statement, sapling-to-orchard is a measurement
+    // the row carries and drawing it is not a guess.
+    expect(shape).toStrictEqual({ kind: "crossing", from: "sapling", to: "orchard" });
     expect(shape).not.toStrictEqual({ kind: "crossing", from: "orchard", to: "ironwood" });
+  });
+
+  it("A1 - FAIL SIDE (data - a REVERSED ZIP 318 row): the arc points the way the row says", () => {
+    // THE MEMBER OF THE EXCLUSION SET, and the one two previous predicates both
+    // shipped wrong. `lanes` is a SET built from bundle presence, so both lanes
+    // light for either direction; `leaks.ts` calls Ironwood-back-to-Orchard "the
+    // rarer event", not an impossible one. Captured by driving the real
+    // `mempoolRow`, not enumerated from the corpus - the committed fixture has
+    // only `O to I`.
+    expect(
+      markFor(row({ txid: txid(1), class: "migration", lanes: ["orchard", "ironwood"], flow: "I to O" })),
+    ).toStrictEqual({ kind: "crossing", from: "ironwood", to: "orchard" });
+  });
+
+  it("A1 - a migration whose flow states NO pair falls to the chord, never to a guess", () => {
+    // `migrationFlowText` returns "N pools" when either side has more than one
+    // pool, and the literal "migration" when a side is empty. Neither states a
+    // direction, so neither may draw one.
+    expect(
+      markFor(row({ txid: txid(1), class: "migration", lanes: ["sapling", "orchard"], flow: "3 pools" })),
+    ).toStrictEqual({ kind: "chord", a: "sapling", b: "orchard" });
+    expect(
+      markFor(row({ txid: txid(2), class: "migration", lanes: ["sapling", "orchard"], flow: "migration" })),
+    ).toStrictEqual({ kind: "chord", a: "sapling", b: "orchard" });
+  });
+
+  it("A1 - a flow naming a lane the row did not touch draws nothing", () => {
+    // `flow` and `lanes` are built by different functions from one report. An
+    // arc between two lanes the row does not claim to have touched would be this
+    // module trusting one field over the other; it requires both to agree.
+    expect(
+      markFor(row({ txid: txid(1), class: "migration", lanes: ["sapling", "orchard"], flow: "O to I" })),
+    ).toStrictEqual({ kind: "chord", a: "sapling", b: "orchard" });
   });
 
   it("a THREE-pool migration - the gateway's `N pools` row - draws nothing", () => {
