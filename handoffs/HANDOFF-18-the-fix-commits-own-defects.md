@@ -1,7 +1,7 @@
 ---
 handoff: 18
 title: The fix commit's own defects - gate round 2's three HIGHs and four tests that do not discriminate
-status: in-progress
+status: shipped
 branch: the session-designated branch (name it `feat/v2-18-round-2-findings` if you may choose)
 track: Web
 depends_on: 17
@@ -174,7 +174,137 @@ ships without that transcript has not been shown to do anything.
 
 ## §7 REPORT
 
-To be filled by the executing session before the PR opens.
+```
+STATUS: DONE
+
+All three HIGH defects are fixed, all four non-discriminating tests now
+discriminate, and every fix is shown to FAIL against its own reverted code -
+which is the bar §3 set and the bar round 2 measured HANDOFF-17 missing.
+
+FORKED FROM c32c46e0f5019fa05f39a06ec878609b91c5f875, the head of `main` and the
+merge commit of PR #59. `git merge-base --is-ancestor 2326c84 origin/main` exits
+0, executed before any file was touched, so #59 landed whole. THE BRANCH WAS
+RESTARTED FROM MAIN rather than reused: a merged pull request cannot track new
+work, and the branch head equalled the merged commit exactly, so nothing was
+lost.
+
+SPAWN MODE: subagents available, proven by a tool attempt in the HANDOFF-17
+phase of this session. NO FAN-OUT WAS RUN HERE - this handoff executes findings
+another round already produced, so the work was the lead's own and the
+post-fan-out sweep has nothing to report beyond `git status --porcelain` being
+empty at each commit, which it was.
+
+READ LINE BY LINE: `apps/web/src/lib/live-plane.ts` entire;
+`apps/gateway/src/views/mempool.ts`'s `flowTextFor`, `migrationFlowText`,
+`poolInitial` and the `crossesWithNoPublicSide` block; `leaks.ts`'s `perPoolZat`
+sign convention; and the three test files.
+```
+
+### THE THREE HIGHS
+
+**R2-1 - the direction, on the third attempt.** HANDOFF-17 first read the pair
+off `class` (wrong: the gateway gives that class to any pool crossing with no
+public side), then off `lanes` (wrong: `lanes` is a SET built from bundle
+presence, so both lanes light either way). **The direction is the SIGN of
+`valueFlow.perPoolZat`, and `perPoolZat` never reaches the browser.**
+`MempoolRow` carries thirteen fields and `flow` is the only one that survives
+the orientation, because `flowTextFor` sends a migration to `migrationFlowText`
+which filters positives into `from`, negatives into `to`, and prints
+`poolInitial` letters.
+
+So `directionFor` now parses that grammar exactly, requires `flow` and `lanes` to
+agree, and falls to the undirected chord for anything else. **This is a coupling
+to a display string and the docblock says so** rather than pretending otherwise:
+the alternative is guessing, which keeps drawing arcs the row contradicts, or
+dropping the directed arc, which would mean the plane never draws the one
+crossing relation the document measures. A producer that changes the wording
+makes the plane claim LESS, never something false.
+
+**R2-2 - the reconnect that flipped the board.** Reproduced: 300-tx mempool, one
+reconnect naming the same 300, **0 of 42 drawn marks survived**. The old arm
+minted every entry with a fresh counter value and restored each survivor's true
+`seq` one line LATER, so the hold cap ran on numbers that were about to change.
+Fixed by placing each entry with its final `seq`, and by placing rows this reader
+never watched arrive BELOW the survivors - "we did not see it arrive" cannot
+become "it is the newest", which is what let already-evicted transactions
+re-enter at the top of the queue. `seq` is no longer advanced by a snapshot at
+all; it counts arrivals, and a reconnect is a reconciliation.
+
+**R2-3 - the tank's ceiling printed as the pool's size.** `capped` is about the
+DRAWN board; for 3,000 undecodable rows it is `0 > 42`, false, so nothing hedged
+"of 250 held". `holdFull` is a second saturation for a second question and the
+affordance says which figure it is showing.
+
+### THE FOUR TESTS, AND THE MUTATION TRANSCRIPT (A4)
+
+Each repaired test is driven against the code it protects, reverted:
+
+| mutant | result |
+|---|---|
+| A14 vs a DEAF tip-bus (`onReset` deleted) | **2 failed** \| 12 passed |
+| A15 vs a plane that OPENS a fixture socket (`openInFixture: false` removed) | **1 failed** \| 18 passed |
+| survivor-`seq` vs the deleted restoration | **2 failed** \| 43 passed |
+| the detach test vs a NON-idempotent detach | **1 failed** \| 13 passed |
+
+And the three product fixes, likewise:
+
+| mutant | result |
+|---|---|
+| R2-1 direction read from the PAIR again | **1 failed** \| 43 passed |
+| R2-2 re-entrants minted as newest | **1 failed** \| 43 passed |
+| R2-3 `holdFull` always false | **1 failed** \| 43 passed |
+
+### WRITING A TEST FOUND A FURTHER REAL DEFECT
+
+The double-detach assertion failed on its first run, and **the probe was right
+and the code was wrong** - the converse of the case this project usually
+records. Round 2 had filed it as a hazard: `onReset` sets `refs = 0` while detach
+closures handed out earlier are still live and still un-detached, so one of them
+decrements a counter that no longer describes it and drives `refs` NEGATIVE -
+after which the next consumer's ordinary detach reaches zero early and tears down
+a feed another consumer is using. Reproduced by two consumers attaching, one
+detaching, and the other going deaf. A generation counter invalidates the stale
+cohort, which is the same idempotence `detached` gives one closure applied to
+the whole set.
+
+### ONE OF MY OWN FIXES DOES NOTHING, AND IT IS REPORTED AS SUCH
+
+I made two changes for R2-2 and only one is load-bearing. The other - moving the
+eviction out of the placement loop to run once at the end - is **provably
+equivalent**, and my comment claimed it was the fix. A mutation restoring the
+mid-loop eviction leaves the whole suite green, **including a reconnect driven in
+reverse view order**, because evicting the running minimum past a fixed ceiling
+is a valid streaming top-K and reaches the same set. **The mutant is not caught
+because the mutant is correct.**
+
+That is a fail side that does not fail, which CLAUDE.md makes a finding in its
+own right, and the finding here is about the FIX rather than the test: a
+restructure that reads like a repair and is not one. It is kept as the clearer
+form and the comment now says it is tidiness. **The load-bearing half is the seq
+assignment**, and M-R2-2b is what proves it.
+
+Recorded also: the reversed-order test I wrote to try to catch the mid-loop
+eviction **also failed to catch it**, for the same reason - there is nothing to
+catch. That test is kept, because it independently pins the survivor set against
+an adversarial view order, which is a property worth having.
+
+### THE EIGHT GATES
+
+Each read from its own process, never through a pipe or a wrapper (**F-53-1**,
+which HANDOFF-17 broke twice in one session), and `build` FIRST (LEDGER-15).
+
+```
+BUILD_RC=0  (first)      TEST_RC=0        TYPECHECK_RC=0   LINT_RC=0
+CHECK_RC=0  (17 guards)  VALIDATE_RC=0    E2E_RC=0         SKIPGUARD_RC=0
+```
+
+- **1,754 passed / 5 skipped**, the same five HANDOFF-17 named. The degraded
+  polarity, run first because the container restart had taken the services down,
+  was **1,648 / 126** at the same exit code - which is A5's two-polarity
+  transcript taken by accident and reported rather than discarded.
+- `test:e2e` run with **no other process touching `.next`**, which A6 names as
+  its condition after HANDOFF-17's false 37-failure reading came from exactly
+  that contention.
 
 ## §8 LEDGER
 
