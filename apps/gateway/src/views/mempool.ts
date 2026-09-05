@@ -24,7 +24,7 @@ import type {
   ShieldedPool,
   Zatoshi,
 } from "@zcashreveal/types";
-import { ZIP317_GRACE_ACTIONS, conventionalFeeZat, zip317LogicalActionsP2pkhApproximation } from "@zcashreveal/types";
+import { POOL_INITIAL, ZIP317_GRACE_ACTIONS, conventionalFeeZat, zip317LogicalActionsP2pkhApproximation } from "@zcashreveal/types";
 
 import { versionText } from "./context.js";
 import { countText, zecText } from "./units.js";
@@ -385,16 +385,13 @@ function migrationFlowText(deltas: ReadonlyArray<{ pool: ShieldedPool; deltaZat:
  * which is the disagreement this is avoiding rather than a fix for it.
  */
 function poolInitial(pool: ShieldedPool): string {
-  switch (pool) {
-    case "sprout":
-      return "P";
-    case "sapling":
-      return "S";
-    case "orchard":
-      return "O";
-    case "ironwood":
-      return "I";
-  }
+  // FROM `POOL_INITIAL`, NOT A SWITCH OF ITS OWN. This function was the only
+  // written record of the letters, and `apps/web`'s live plane now READS them
+  // back off the wire to decide which way a migration arc points - so the
+  // encoding has two ends and a private switch here would be one end declaring
+  // it alone. The map moved into `@zcashreveal/types` for that reason and this
+  // is the same mapping, imported rather than restated; see its docblock.
+  return POOL_INITIAL[pool];
 }
 
 /**

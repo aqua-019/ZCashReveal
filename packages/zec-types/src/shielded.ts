@@ -35,6 +35,52 @@ export type ShieldedPool = "sprout" | "sapling" | "orchard" | "ironwood";
  */
 export type PoolPath = ShieldedPool | `${ShieldedPool}→${ShieldedPool}`;
 
+/**
+ * One pool, one letter, and the SINGLE source of that mapping for the repository.
+ *
+ * ============================================================================
+ * WHY IT IS HERE AND NOT IN THE PRODUCER THAT WRITES IT
+ * ============================================================================
+ * `apps/gateway`'s `migrationFlowText` writes a migration's direction onto the
+ * wire as `"<initial> to <initial>"` - `"O to I"` for the ZIP 318 crossing,
+ * `"I to O"` for its reverse - and `apps/web`'s live plane reads that string to
+ * decide which way the arc points. Two processes, one encoding, and until this
+ * constant existed the encoding was written down on ONE side only: the gateway
+ * had a private `poolInitial` switch and the browser had nothing.
+ *
+ * That is the seam shape CLAUDE.md records this project finding four times
+ * (LEDGER-11): two ends agreeing about a TYPE and disagreeing about the WIRE,
+ * each with passing tests, because each built its own input. A letter map that
+ * lives in one file and is imported by both ends cannot drift; a letter map
+ * copied into a reader would be the fifth instance rather than a fix for the
+ * fourth.
+ *
+ * SPROUT IS `P`, WHICH IS NOT A TYPO. Sprout and Sapling both begin with S, so
+ * one of them cannot have its own initial. The corpus settled this before the
+ * gateway did - `apps/web/src/lib/api/fixtures/mempool.ts` states "O, I, S, P
+ * for Orchard, Ironwood, Sapling and Sprout" over the column that prints these
+ * four pools - and the mapping is taken from there rather than invented.
+ *
+ * THE BROWSER READS THESE LETTERS AND DOES NOT IMPORT THIS OBJECT, WHICH IS
+ * MEASURED RATHER THAN PREFERRED. `apps/web`'s live plane keeps a local inverse
+ * (`POOL_FOR_INITIAL` in `lib/live-plane.ts`) because importing anything by
+ * VALUE from this package's barrel pulls zod into the client bundle: measured
+ * by building the splash route both ways on one variable, 5.5 kB route JS and
+ * 118 kB first load against 21.4 kB and 133 kB - the same 15 kB
+ * `apps/web/src/lib/api/stream.ts`'s own header records paying to keep out.
+ *
+ * A copy is a drift risk and it is closed by a TEST rather than by a comment:
+ * `apps/web/test/unit/live-plane.test.ts` imports this object and asserts the
+ * browser's map is exactly its inverse, ITERATING THESE KEYS, so a fifth pool
+ * added here fails there rather than silently going unparsed on the wire.
+ */
+export const POOL_INITIAL: Readonly<Record<ShieldedPool, string>> = {
+  sprout: "P",
+  sapling: "S",
+  orchard: "O",
+  ironwood: "I",
+};
+
 export interface DecodedSaplingSpend {
   pool: "sapling";
   index: number;

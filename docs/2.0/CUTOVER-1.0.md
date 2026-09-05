@@ -189,6 +189,28 @@ Open `zcuck.xyz` and read the system bar:
 - [ ] The unprovable-supply figure is present and live.
 - [ ] The drain, the migration histogram and the N_eff series each say **not
       measured**. Not zero, not an empty chart with axes: a named absence.
+- [ ] **After a reconnect the live mark count does NOT drop to zero.**
+      **NOT RUNNABLE ON THE DEPLOYMENT THIS DOCUMENT PRODUCES, AND THAT IS
+      STATED HERE RATHER THAN LEFT FOR THE OPERATOR TO DISCOVER.** This runbook
+      sets `NEXT_PUBLIC_DATA_MODE=snapshot` and leaves `NEXT_PUBLIC_WS_URL` and
+      `NEXT_PUBLIC_API_URL` blank - it contains no `NEXT_PUBLIC` step at all -
+      so `IS_LIVE_TRANSPORT` is false, the plane opens no socket, the reading
+      says "no feed" and the count is **permanently zero**. Ticked there, this
+      box would be ticked by a figure that cannot move, which is the same defect
+      as the runbook sentence LEDGER-14 Q3 was adopted for: an operator performs
+      a step, believes they have verified something, and have verified nothing.
+      **Run it only once the site points at a gateway** - `NEXT_PUBLIC_DATA_MODE=live`
+      with both URLs set, which is a later rung than this document - and then
+      watch the turnstile plane's count across one socket drop and reconnect.
+      The feed drops on its own often enough that you will not have to force it,
+      and the reading beside the tank names the state. The marks it was drawing
+      must still be there afterwards. A tank that empties on a reconnect looks
+      exactly like a quiet chain, which is the one misreading this whole surface
+      exists to prevent, and an operator would have no way to tell them apart
+      from the page. HANDOFF-17 shipped with that defect: `HOLD_MAX` and the
+      snapshot arm together evicted the rows the reader was drawing and promoted
+      rows it had already dropped - measured at **0 of 42 marks surviving one
+      reconnect on a 300-transaction mempool** - and HANDOFF-18 fixed it.
 
 ## 8. Rollback
 

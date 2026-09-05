@@ -397,6 +397,71 @@ const SUMMARY = {
 };
 
 /* ========================================================================== */
+/* A3 (18) - the PRINTED figure, which is the half R2-3 was actually about    */
+/* ========================================================================== */
+
+describe("A3 (18) - a hold that has evicted prints a FLOOR, not a count", () => {
+  /**
+   * THE PURE HALF WAS ASSERTED AND THE PRINTED HALF WAS NOT, AND THE DELIVERABLE
+   * IS THE PRINTED ONE.
+   *
+   * Section 5's A3 excludes "any held figure PRINTED as an exact count while the
+   * hold has evicted". Every A3 assertion in `live-plane.test.ts` reads
+   * `buildLivePlane`'s OBJECT - `plane.holdCapped` - and a gate reviewer showed
+   * what that leaves open: reverting the `"at least "` on the page restores R2-3
+   * verbatim with the whole web suite green at 604/604. The defect was
+   * reachable, and the only thing asserting against it was a comment.
+   */
+  it("FAIL SIDE (data - a mempool deeper than HOLD_MAX): the figure is named as a floor", () => {
+    render(<LivePlaneLayer />);
+    act(() => {
+      for (let i = 1; i <= 300; i += 1) publishFrameForTest(added(row({ txid: txid(i) })));
+    });
+    const line = ui("turnstile-live-count").textContent ?? "";
+    expect(line).toContain("of at least 250 held");
+    // AND NOT THE BARE FIGURE. The mutant that restores R2-3 prints exactly
+    // this, so the negative is what makes the positive discriminate.
+    expect(line).not.toMatch(/drawn of 250 held/);
+    expect(ui("turnstile-live-floor").textContent).toContain("floor rather than a count");
+  });
+
+  it("PASS STATE: a hold that never evicted prints the exact figure, with no hedge", () => {
+    // The other polarity, and the one that stops the fix being "always hedge":
+    // a permanent "at least" would make every honest count unreadable.
+    render(<LivePlaneLayer />);
+    act(() => {
+      for (let i = 1; i <= 50; i += 1) publishFrameForTest(added(row({ txid: txid(i) })));
+    });
+    const line = ui("turnstile-live-count").textContent ?? "";
+    expect(line).toContain("of 50 held");
+    expect(line).not.toContain("at least");
+    expect(uiOrNull("turnstile-live-floor")).toBeNull();
+  });
+
+  it("FAIL SIDE (data - the hold evicted and then DRAINED): no claim about a pool that is gone", () => {
+    // THE MEMBER A SINGLE-STATE TEST CANNOT SEE, and it is a defect this
+    // handoff introduced and a gate reviewer measured: `holdCapped` is sticky by
+    // design, so folding it into the sample sentence kept "more transactions are
+    // in the pool than this board draws" standing over an EMPTY tank, beside a
+    // bound of "at least 0" that carries no information.
+    render(<LivePlaneLayer />);
+    act(() => {
+      for (let i = 1; i <= 300; i += 1) publishFrameForTest(added(row({ txid: txid(i) })));
+    });
+    act(() => {
+      for (let i = 1; i <= 300; i += 1) {
+        publishFrameForTest({ type: "tx_removed", txid: txid(i), reason: "confirmed" });
+      }
+    });
+    const line = ui("turnstile-live-count").textContent ?? "";
+    expect(liveMarks()).toHaveLength(0);
+    expect(line).toContain("0 unconfirmed transactions drawn");
+    expect(line).not.toContain("at least 0 held");
+    expect(line).not.toContain("more transactions are in the pool");
+  });
+});
+
+/* ========================================================================== */
 /* A7 - the two mark sets are separable, and the tank is correct with zero    */
 /*      settled crossings - the shape the first cutover ships                 */
 /* ========================================================================== */
