@@ -79,3 +79,29 @@ Small and entirely corrective. One worker per HIGH, one on the four assertions. 
 
 **L2's note, for section 8.** HANDOFF-17 shipped with three HIGHs and four vacuous tests written into its own section 7, and the operator merged it knowing that. **That is the process working, not failing** - the alternative was a branch held open indefinitely while its gate reviewed its own fixes, which is the regress the stopping rule exists to bound. What makes it work is that the debt was written down precisely enough to be scoped from evidence rather than from memory, which is what this prompt is built from. Consider whether "a handoff may ship with named debt, and the next handoff opens with it" is worth stating as a rule rather than leaving as a precedent, and say so in section 8.
 ```
+
+## The mid-session message, 5 September 2026
+
+Arrived while the two gate reviewers were running, after CI had gone green on
+PR #60 and before their findings were applied. Appended in the next commit, per
+LEDGER-02 Q7.
+
+```
+continue my friend
+```
+
+## The self-scheduled check-in that fired at 22:22 UTC
+
+Written by this session for itself, not by the operator. It is recorded here
+because it steered the run: it fired while the reviewers' findings were being
+applied and its own instructions were already stale - both reviewers had
+returned by then, and the sweep it asked for had been applied.
+
+```
+Check-in on PR #60 (HANDOFF-18). Re-check: (1) CI on the current head via
+mcp__github__pull_request_read get_check_runs - playwright and "typecheck, lint,
+test" were in progress; act on anything red per the drive-to-green posture. (2)
+Whether the two gate reviewers have returned; if they died without reporting,
+say so and treat the gate round as UNRUN rather than clean.
+[... the remainder lists the write-back order and the scratchpad drafts ...]
+```

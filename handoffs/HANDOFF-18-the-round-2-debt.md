@@ -1,7 +1,7 @@
 ---
 handoff: 18
 title: The round-2 debt - three HIGHs in executable lines, and four assertions that pass against code that is wrong
-status: in-progress
+status: shipped
 branch: the session-designated branch (name it `feat/v2-18-the-round-2-debt` if you may choose)
 track: Web
 depends_on: 17
@@ -163,7 +163,15 @@ assertion that would have caught the eleven fish and it does not exist yet.
 ## §7 REPORT
 
 ```
-STATUS: (filled at write-back)
+STATUS: DONE
+
+Every deliverable is in the tree and every assertion carries both polarities.
+Nothing here is a partial build. The three HIGHs are fixed and the four
+non-discriminating assertions are repaired, each with the mutant it was blind
+to AND the measurement that its predecessor passed against that same mutant.
+
+TWO DEFECTS WERE FOUND THAT WERE NOT ON THE LIST, both by writing the assertion
+the brief said was missing rather than by reading, and both are fixed here.
 
 FORKED FROM c32c46e0f5019fa05f39a06ec878609b91c5f875, the head of `main`.
 `git merge-base --is-ancestor 2326c84 origin/main` exits 0 - EXECUTED BEFORE ANY
@@ -405,7 +413,112 @@ taken beforehand and the sweep confirmed clean.
 
 ### GATE ROUNDS
 
-(filled at write-back)
+**ROUND 1 - TWO REVIEWERS ON SEPARATE DIMENSIONS, SIXTEEN FINDINGS, FIFTEEN
+SETTLED BY EXECUTION.** One on the honesty of the surface, one on whether the
+assertions discriminate. Dispatched as a SEPARATE run over the pinned fix
+commit rather than a panel racing the lead, which is F-58-2. Reviewer 1 pinned
+`a4dd0c5` by extracting both files at that commit and aliasing to them, because
+the working tree carried reviewer 2's mutants while it worked - a verify phase
+over a moving tree is a verify phase over the wrong object, and it protected
+itself against exactly that without being told to.
+
+**TWO FINDINGS WERE FOUND INDEPENDENTLY BY BOTH REVIEWERS** - the CUTOVER
+checklist item and the unproducible `"migration"` caption - which is
+corroboration rather than duplication, and both were among the four this
+branch's own round-1 fix commit had created.
+
+| # | severity | what | how it was settled |
+|---|---|---|---|
+| 1 | HIGH | the new CUTOVER checklist item cannot fail on the deployment that runbook produces | `grep -c NEXT_PUBLIC docs/2.0/CUTOVER-1.0.md` is **0**; DEPLOY-2.0 sets Production to `snapshot` with no WS URL, so the count is permanently zero and the reading says "no feed". Found by BOTH reviewers |
+| 2 | HIGH | the RENDERED "at least" figure was asserted nowhere - only `buildLivePlane`'s object was | reverting the hedge on the page restores R2-3 verbatim **with the whole web suite green at 604/604** |
+| 3 | HIGH | `capped` folded in the sticky `holdCapped`, so the sample claim outlived its evidence | measured: 300 adds then 297 removals print "0 unconfirmed transactions drawn of at least 0 held - more transactions are in the pool" over an EMPTY tank |
+| 4 | MED | the dispatch guard landed on `onFrame` and not on `onState` | with one ordinary consumer beside it the layer printed "no feed replaying the committed corpus", contradicting itself in one line |
+| 5 | MED | "the producer emits two such captions" - the literal `"migration"` has no producer | the two predicates are exact negations; 480 shapes through the real `mempoolRow` emit fourteen migration flows, not that one. Found by BOTH reviewers |
+| 6 | MED | "the last mark to leave" printed for rows never on the board | `drewMark` says the row had a SHAPE and the reducer has no `nMax`; `HOLD_MAX` made it 208 of every 250 held rows |
+| 7 | MED | the 300-row replay drove ARRIVAL order only, and A11's three orders ran at n=50 where the hold never caps | measured per axis: the verbatim pre-fix fold is invisible at 50 in all three orders, and the seq-loss mutant is invisible at 300 in arrival order |
+| 8 | MED | `holdCapped` on the SNAPSHOT path - the path every reconnect takes - was unasserted | hardwiring `holdCapped: false` in `replace()` left 53/53 green |
+| 9 | MED | the transport file's NAMED killing mutant does not kill the assertion it sits on | either guard alone satisfies "zero marks"; only both together give the 3 reds section 7 claims |
+| 10 | MED | A14's "with no reset" control is not reset-free - `afterEach` resets the bus | with `onReset` deleted the control fails for the same reason as the fail side, so 2 of 3 reds are collateral |
+| 11 | LOW | the on-page legend and RUNTIME.md still said direction comes from the class | LEDGER-03 Q3 sweep: three sites, corrected in one commit. Found by the lead's own sweep and confirmed by reviewer 1 |
+| 12 | LOW | the undrawn line restated the hedged figure exactly, three lines below it | "at least 250 held" beside "250 held transactions draw no mark" |
+| 13 | LOW | the self-crossing guard was deletable with the suite green | now 1 red |
+| 14 | LOW | the "captured from the producer" evidence was comment-only | `producer-seam.test.ts` runs the real `mempoolRow` into the real `markFor` |
+| 15 | LOW | the band docblock claimed contiguity, which nothing checks | narrowed to the guarantee that is actually tested |
+| 16 | - | `replace()`'s duplicate-txid branch | **ANSWERED, NOT FIXED - see below** |
+
+**THE ROUND-2 MUTANTS, ALL RESTORED AFTERWARDS:**
+
+| mutant | result |
+|---|---|
+| N1 the rendered hedge removed (R2-3 back on the page) | 1 failed / 21 passed |
+| N2 the sample sentence back on `capped` | 1 failed / 21 passed |
+| N3 the `onState` guard removed | 1 failed / 5 passed |
+| N4 `holdCapped` hardwired false in `replace()` | 1 failed / 56 passed |
+| N6 the self-crossing guard deleted | 1 failed / 56 passed |
+| N7 the verbatim pre-fix fold, at 300 over three orders | 3 failed / 54 passed |
+| restored | 63 passed |
+
+N3's failure message reproduces reviewer 1's measured string exactly:
+`expected 'no feed replaying the committed corpus' to contain 'no live mempool
+feed is configured'`.
+
+**AND N5 IS AN EQUIVALENT MUTANT, REPORTED RATHER THAN DRESSED.** Deleting
+`replace()`'s duplicate-txid branch leaves 57/57 green, and TWO probes written
+for it both failed to discriminate - which is a finding about the site rather
+than about the probes. Worked by hand: the stranger band's occupied minimum is
+`floor - (distinct strangers)` whether or not the duplicate is counted, because
+a duplicate's earlier slot is overwritten by its later one. Only the order
+WITHIN the band changes, and that is Redis hash order, which this branch's own
+docblock says carries no meaning - so pinning it would assert a property the
+producer does not define (LEDGER-11 Q5(c)). The branch is kept and recorded as
+covered by a written rule rather than by a guard, and recorded AS weaker, which
+is clause (b).
+
+**THE FIRST DRAFT OF THAT ANSWER WAS WRONG AND IS RECORDED AS WRONG.** The lead
+predicted the equivalence before the reviewers returned, then wrote a test
+asserting the two seqs differ by one - which passes either way - and then a
+second asserting the band minimum, which also passes either way. Both were
+driven and both stayed green. The prediction was right and the first two
+instruments for it were not, which is why the answer is the hand derivation and
+not either probe.
+
+### INSTRUMENT FAILURES IN THIS ROUND
+
+- **The mutation harness lost its working directory, TWICE.** A `run` helper
+  that `cd`-ed to the repo root printed nothing for all seven mutants, and an
+  empty result is indistinguishable from a mutant that kills nothing. Caught by
+  driving the unmutated baseline first; the second occurrence was caught the
+  same way, in the same session, which is what makes it worth writing down
+  rather than a slip.
+- **`pnpm build` refused the seam test where vitest had accepted it.**
+  `apps/gateway` sets `rootDir: "./src"` and `composite: true`, so a file under
+  it may not import `apps/web`; `tsc -b` said so and vitest never would have.
+  The test moved to `apps/web/test/`, which sets no `rootDir` and `noEmit`. That
+  is LEDGER-15's build-before-typecheck rule earning its place a second time in
+  one session - and the failed build had already emitted four stray artifacts
+  into `apps/web/src/lib/`, which the sweep caught and removed.
+- **The seam probe died in the fixture rather than in the code under test**,
+  because its txid was built from pool initials and `"oi"` is not a hex string.
+  A probe failing for its own reasons looks exactly like a producer that is
+  wrong.
+
+### THE STOPPING RULE
+
+**NOT SATISFIED, AND NOT CLAIMED TO BE.** Clause (i)(a) fails: round 1 returned
+findings a user could see - the CUTOVER item an operator would tick having
+verified nothing, a page printing "of at least 0 held" over an empty tank, and a
+reading contradicting itself in one line. Clause (i)(b) is closer than it has
+been: the recurring FACE this branch keeps producing is "an assertion that reads
+the object where the deliverable is the rendered string", and it now has a test
+that fails on it rather than a rule.
+
+**The extrapolation, per clause (iii): a third round finds one or two more, and
+they will be in the ROUND-2 FIX COMMIT rather than in the product.** Four of
+this round's sixteen were defects the round-1 fix created; the base rate on this
+branch is high enough that the same is the honest prediction for this commit.
+The instrument for it is not another read - it is driving the rendered surface
+against the object it is derived from, which is the one axis both reviewers
+found holes on.
 
 ## §8 LEDGER
 

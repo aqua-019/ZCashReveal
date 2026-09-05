@@ -8918,3 +8918,139 @@ that the gap is not jsdom-versus-browser but CONFIGURATION: nothing in the gate
 list runs the site as Production is configured. L2 to rule on whether that is a
 guard, a rule, or a row in the register.
 ```
+
+## §8 HANDOFF-18 - the round-2 debt, and a fourth defect the missing assertion was hiding (L3, 4 Sep 2026)
+
+```
+GATE ROUNDS: 1 at the time of writing, and it was two reviewers on separate
+dimensions - the honesty of the surface, and whether the assertions
+discriminate - dispatched as a SEPARATE run over the pinned fix commit rather
+than a panel racing the lead (clause (ii), F-58-2). Sixteen findings, fifteen
+settled by EXECUTION. Two were found independently by BOTH reviewers, which is
+corroboration rather than duplication.
+
+FOUR OF THE SIXTEEN WERE DEFECTS THIS BRANCH'S OWN ROUND-1 FIX COMMIT HAD
+CREATED - the same base rate HANDOFF-17 measured, arriving in the handoff
+written to clear HANDOFF-17's debt.
+
+THE STOPPING RULE IS NOT SATISFIED AND IS NOT CLAIMED TO BE. Clause (i)(a)
+fails: round 1 returned findings a user could see. The extrapolation, per
+clause (iii): a third round finds one or two more and they will be in the
+ROUND-2 FIX COMMIT rather than in the product.
+
+THREE HIGHs FIXED, FOUR ASSERTIONS REPAIRED, AND TWO DEFECTS FOUND THAT WERE
+NOT ON THE LIST - both by writing the assertion the brief said was missing.
+1781 passed / 5 skipped healthy against 1675 / 126 degraded, same exit code.
+Eight gates green, each read from its own process, build first.
+```
+
+### What this handoff was and what it found
+
+HANDOFF-17 shipped with three HIGHs and four vacuous tests written into its own
+section 7, and the operator merged knowing that. This handoff is the remainder,
+scoped entirely from that record. All three HIGHs reproduced against the pre-fix
+tree by execution before any fix was written, and all three matched section 7
+exactly - which is worth stating, because the brief explicitly said not to take
+the diagnosis on trust.
+
+**The fourth defect was not on the list, and it was found by writing the
+assertion the brief said was missing.** A15's zero-marks half had been vacuous
+because its file stubs the transport; written against the REAL transport it
+passed - and then broke when a second ordinary consumer was attached beside the
+layer, putting ELEVEN MOCKUP ROWS on the board. That is the same figure a gate
+reviewer measured on the deployed page in HANDOFF-17, reached by a different
+route: `frame-bus`'s `open()` delivers every frame to every subscriber
+regardless of `openInFixture`, by design and by its own docblock, so
+`openInFixture: false` protected the plane only while nothing else on the page
+opened a socket. A property of the PAGE, not of the component, and one import
+from being live.
+
+**This is the argument for the debt rule below in one measurement.** The defect
+was not in HANDOFF-17's list of three; it was reachable only from the list's
+FOURTH item, the one that said an assertion was missing. A debt record that had
+named only the product defects would have closed the debt and left this open.
+
+### L2's question: should "a handoff may ship with named debt, and the next handoff opens with it" be a rule?
+
+**Yes, and with a condition that is the whole of what made it work here.**
+
+The alternative was a branch held open while its gate reviewed its own fixes,
+which is the regress the stopping rule exists to bound - LEDGER-09b measured it
+directly, where rounds 5, 6 and 7 each found defects in the runbook prose,
+register rows and guard predicates that rounds 3, 4 and 5 had written. Shipping
+with the debt named cost this project one handoff and bought a clean subject.
+
+**The condition: a debt item is scopable only if it is recorded with its SITE,
+its MEASURED SYMPTOM and a REPRODUCTION the next session can run.** HANDOFF-17's
+section 7 carried all three for every item - "0 of 42 drawn marks survived",
+`flow="I to O" -> {kind:"crossing",from:"orchard",to:"ironwood"}`, `held=250
+drawn=0 capped=false` - and this session reproduced all three in one probe run
+before touching anything. Debt recorded WITHOUT a reproduction is not debt, it is
+a rumour, and it costs the next session a round to find out whether it is real.
+That is LEDGER-15's finding about briefs pointed at handoff records instead: a
+premise that sizes the next session's work has to be checkable, or the session
+spends its round discovering the scope was wrong.
+
+**And a second half, which this handoff needed the operator to supply and should
+not have.** F-50-4 routes a merged PARTIAL back to `open`. Named debt is a THIRD
+case and the ledger has no rule for it: HANDOFF-17 was genuinely DONE - every
+deliverable was in the tree - and work still remained. Its section 7 said "THE
+REST GO TO A FOLLOW-UP PR, ON THE OPERATOR'S INSTRUCTION", which names a PR and
+not a HANDOFF, so the routing came from the operator writing PROMPT-18 rather
+than from the record. Had nobody written it, the debt would have been orphaned
+inside a closed handoff's section 7, which is exactly the failure F-50-4 exists
+to prevent one status-value over. **So the rule should be: a handoff that ships
+with named debt names its SUCCESSOR HANDOFF in its own section 7, and RECONCILE
+opens that successor.** Otherwise "closed" means two different things and only
+one of them is finished.
+
+### The measurement that matters most, stated as a rule about tests rather than about this branch
+
+The old A15 file - nineteen tests - passes 19/19 against the exact code that put
+eleven mockup rows on the deployed page. The new file fails 3 against the same
+mutant. Both files are about the same component and the same defect. **The
+difference is entirely that one of them stubs the transport**, and a stub at the
+module boundary is invisible in a green run by construction: the file cannot
+tell "no frame arrived" from "a frame arrived", so its zero-marks assertion is
+true of any component whatsoever, including one with the subscription deleted.
+
+That is not a new shape - it is LEDGER-11's seam, where each side builds its own
+input - but it arrives here through a TEST DOUBLE rather than through a fixture,
+and the stub was CORRECT in the file that has it. A4 needs the transport stubbed
+or it cannot be stated at all. What was wrong was that the stubbed file was the
+ONLY place the defect was checked. The rule that follows is narrow and
+mechanical: **when a test file stubs a boundary, the assertion that boundary was
+stubbed FOR must be stated in a file that does not stub it**, and the stub's own
+docblock should name that file. HANDOFF-17's stub docblock did name one -
+`frame-bus.test.ts` - for the WIRING, and no file at all for the DEFECT.
+
+
+### The round the debt rule itself produced, which is the argument's second half
+
+Round 1 of this handoff's gate returned sixteen findings and FOUR of them were
+defects this branch's own round-1 fix commit had created - the same base rate
+HANDOFF-17 measured, in the handoff written to clear HANDOFF-17's debt. That is
+not an argument against shipping with named debt; it is the argument for the
+condition above. What made this round cheap was that every one of the sixteen
+arrived with a reproduction, so the lead settled fifteen by execution rather
+than by opinion, and the one that could not be settled that way is recorded as
+unsettled rather than dispositioned.
+
+### And the shape this session would nominate for a guard, at its second instance
+
+**AN ASSERTION THAT READS THE OBJECT WHERE THE DELIVERABLE IS THE RENDERED
+STRING.** It has now appeared twice on this surface in two handoffs. HANDOFF-17
+shipped A15's zero-marks half against a stubbed transport, so the eleven mockup
+rows were asserted nowhere. HANDOFF-18 shipped A3 against `buildLivePlane`'s
+returned object, so reverting the `"at least "` on the page restored R2-3
+verbatim with 604 of 604 green. Both times the pure half was correct, thorough
+and beside the point: the exclusion set named a PRINTED figure and the assertion
+read a FIELD.
+
+It is not yet at three instances, so this records it rather than mechanising it,
+per the stopping rule's own arithmetic. The candidate guard is narrow enough to
+state now: for every section 5 assertion whose exclusion set names something
+PRINTED, RENDERED or SHOWN, require at least one assertion that reads
+`textContent` rather than a return value. That is greppable in both directions -
+the exclusion sets are in the handoff, the `textContent` reads are in the tests -
+and it would have caught both instances at the commit that made them.
