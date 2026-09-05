@@ -18,7 +18,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ZecFrame } from "@zcashreveal/types";
 
-import { onFrames, resetFrameBusForTest } from "@/lib/api/frame-bus";
+import { onFrames, publishFrameForTest, resetFrameBusForTest } from "@/lib/api/frame-bus";
 import { onTip } from "@/lib/api/tip-bus";
 
 /**
@@ -210,19 +210,42 @@ describe("A14 - resetFrameBusForTest does not deafen tip-bus (gate round 1)", ()
     // consumer again for the life of the process and every later tip assertion
     // in the file passed VACUOUSLY. An assertion satisfied by every value it was
     // written to exclude, arriving in the harness rather than in the product.
-    const before = onTip(() => undefined);
-    before();
+    // THE DESYNC IS A RESET WHILE STILL ATTACHED, and the first version of this
+    // test detached first - which nulls tip-bus's own `stop`, so the state the
+    // test is named for never existed. It also asserted on the SOCKET COUNT,
+    // which `openInFixture: false` makes unreachable for `onTip`: it can never
+    // move that number, so the assertion was satisfied by the unrelated
+    // `onFrames` call beside it. A gate round drove two mutants through it - the
+    // `onReset` handler deleted, and `onTip` never attaching to the bus at all -
+    // and got 13 passed both times, against a tip-bus that was permanently and
+    // completely deaf.
+    //
+    // It asserts the TIP now, through the real subscriber set.
+    const leaked = onTip(() => undefined);
     resetFrameBusForTest();
 
-    // If the reset desynchronised tip-bus, this attaches nothing and the socket
-    // count stays where it was.
-    const opensBefore = opens;
-    const after = onTip(() => undefined);
-    const alsoLive = onFrames({ onFrame: () => undefined });
-    await settle();
-    expect(opens).toBeGreaterThan(opensBefore);
+    const tips: number[] = [];
+    const after = onTip((t) => tips.push(t.height));
+    publishFrameForTest({ type: "tip", height: 3_000_000, hash: "ab".repeat(32) });
+    expect(tips).toStrictEqual([3_000_000]);
     after();
-    alsoLive();
+    leaked();
+  });
+
+  it("FAIL SIDE (data - a DOUBLE detach by one consumer): the other consumer still hears", async () => {
+    // `tip-bus`'s detach is idempotent since HANDOFF-17 and was asserted
+    // nowhere - "mounting twice" covers `onFrames`, not `onTip`. Without the
+    // guard a consumer whose cleanup ran twice decremented `refs` for a
+    // subscription it no longer held, drove the count to zero while another
+    // listener was attached, and tore down the shared feed.
+    const heard: number[] = [];
+    const a = onTip(() => undefined);
+    const b = onTip((t) => heard.push(t.height));
+    a();
+    a();
+    publishFrameForTest({ type: "tip", height: 3_000_001, hash: "cd".repeat(32) });
+    expect(heard).toStrictEqual([3_000_001]);
+    b();
   });
 });
 

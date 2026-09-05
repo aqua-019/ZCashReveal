@@ -54,6 +54,23 @@ const EVENT = "zr:tip";
 
 let stop: (() => void) | null = null;
 let refs = 0;
+/**
+ * Bumped whenever the shared subscription is dropped out from under this module.
+ *
+ * A DETACH CLOSURE OUTLIVES THE SUBSCRIPTION IT BELONGS TO. `onReset` sets
+ * `refs = 0` while closures handed out before the reset are still live and still
+ * un-detached; each of those then decrements a counter that no longer describes
+ * them, driving `refs` NEGATIVE - after which the next consumer's ordinary
+ * detach reaches zero early and tears down a feed another consumer is still
+ * using. Found by a gate round as a hazard and reproduced here by a test whose
+ * ordering happened to trigger it: two consumers attached, one detached, and the
+ * other went deaf.
+ *
+ * A closure captures the generation it was made in and does nothing if that
+ * generation has passed, which is the same idempotence `detached` gives one
+ * closure, applied to the whole cohort.
+ */
+let generation = 0;
 
 /**
  * Attach a handler and, on the first attachment, start the feed.
@@ -84,6 +101,7 @@ export function onTip(handler: (tip: TipEvent) => void): () => void {
   // below this property and documented it, and leaving the two disagreeing is
   // how one of them comes to be wrong.
   let detached = false;
+  const bornIn = generation;
 
   if (stop === null) {
     let seen = -1;
@@ -102,6 +120,7 @@ export function onTip(handler: (tip: TipEvent) => void): () => void {
         onReset: () => {
           stop = null;
           refs = 0;
+          generation += 1;
         },
       },
       { openInFixture: false },
@@ -109,7 +128,9 @@ export function onTip(handler: (tip: TipEvent) => void): () => void {
   }
 
   return () => {
-    if (detached) return;
+    // A closure from a previous generation describes a subscription that no
+    // longer exists; decrementing for it corrupts the count for the live one.
+    if (detached || bornIn !== generation) return;
     detached = true;
     window.removeEventListener(EVENT, listener);
     refs -= 1;

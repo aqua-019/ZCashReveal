@@ -8918,3 +8918,92 @@ that the gap is not jsdom-versus-browser but CONFIGURATION: nothing in the gate
 list runs the site as Production is configured. L2 to rule on whether that is a
 guard, a rule, or a row in the register.
 ```
+
+## §8 HANDOFF-18 - the fix commit's own defects, and a fix of mine that fixed nothing (L3, 5 Sep 2026)
+
+```
+GATE ROUNDS: 0 NEW ONES. This handoff IS the round - it executes gate round 2's
+findings against HANDOFF-17, and clause (ii)'s regress terminates where a fix
+can no longer carry a behavioural defect rather than at a round count. Every fix
+here carries a mutation transcript showing the test red against the reverted
+code, which is the bar round 2 measured HANDOFF-17 missing on four of six fixes.
+
+Q1. THE SAME PREDICATE WAS WRONG THREE TIMES, EACH TIME FOR A DIFFERENT REASON,
+AND EACH FIX WAS REASONED FROM THE ARTEFACT ONE STEP CLOSER TO THE PRODUCER.
+`directionFor` first read the ZIP 318 pair off `class` - wrong, the gateway gives
+that class to any pool crossing with no public side. Then off `lanes` - wrong,
+`lanes` is a SET built from bundle presence, so both lanes light for either
+direction. It is now read off `flow`, which is `migrationFlowText`'s rendering of
+the SIGN of `perPoolZat`, and `perPoolZat` never reaches the browser at all.
+The shape is not "three careless attempts": it is that **each attempt was closed
+against the nearest available artefact rather than against the producer**, and
+the corpus - whose only migration row is `O to I` - could confirm all three. That
+is F-57-1 stated as a progression rather than as a single event, and the useful
+half is that the number of attempts is a function of how far the executor stayed
+from the producing code, not of how careful they were.
+
+Q2. AND THE FIX IS A COUPLING TO A DISPLAY STRING, WHICH IS RECORDED AS A COST
+RATHER THAN DRESSED AS A DESIGN. `MempoolRow` carries thirteen fields and not one
+of them carries a directed pair; `flow` is a rendered sentence. The three options
+were: guess (keeps drawing arcs the row contradicts), drop the directed arc (the
+plane never draws the one crossing relation the document measures), or parse the
+producer's own sentence. The third is chosen and the docblock says what it is,
+with the failure mode stated: a producer that rewords makes the plane claim LESS,
+never something false. **The structural fix is a directed pair on the DTO** - a
+schema change across the gateway, the types package and their tests - and L2 is
+asked to rule whether that is worth a handoff, because the current shape means a
+gateway wording change silently degrades a Record surface.
+
+Q3. A FIX OF MINE FIXED NOTHING AND LOOKED LIKE IT DID, WHICH IS THE FAIL-SIDE
+RULE POINTED AT A REPAIR RATHER THAN AT A TEST. R2-2 got two changes: place each
+entry with its final `seq`, and move the hold eviction out of the placement loop.
+The comment claimed the second was the fix. **A mutation restoring the mid-loop
+eviction leaves the entire suite green, including a reconnect driven in reverse
+view order - because evicting the running minimum past a fixed ceiling is a valid
+streaming top-K and reaches the same set. The mutant is not caught because the
+mutant is CORRECT.** The load-bearing half is the seq assignment, and a second
+mutation proves it. This project already knows that a fail side which does not
+fail is a finding; what this instance adds is that the object under suspicion can
+be the FIX. A restructure that reads like a repair, shipped beside a real repair,
+inherits the real one's credibility and is never separately tested - and the
+transcript is the only thing that separates them. Both are kept; only one is
+claimed.
+
+Q4. THE TEST I WROTE TO CATCH IT ALSO DID NOT CATCH IT, AND THAT IS THE SAME
+FINDING AGAIN. Round 2's own diagnosis of the survivor-`seq` test was that it
+built its view in arrival order, the one order the gateway never sends. I applied
+that lesson, wrote a reversed-order reconnect - and it too is green against the
+mid-loop mutant, because there is nothing to catch. The lesson generalised
+correctly and the conclusion drawn from it did not: **"my test could not see it"
+and "there is nothing to see" produce identical evidence, and only running the
+mutant distinguishes them.** The test is kept because it independently pins the
+survivor set against an adversarial view order.
+
+Q5. WRITING A TEST FOUND A DEFECT ROUND 2 HAD ONLY FILED AS A HAZARD, AND THE
+PROBE WAS RIGHT WHILE THE CODE WAS WRONG - the converse of this project's usual
+case. The double-detach assertion failed on its first run. `onReset` sets
+`refs = 0` while detach closures handed out earlier are still live and still
+un-detached, so one of them decrements a counter that no longer describes it and
+drives `refs` NEGATIVE; the next consumer's ordinary detach then reaches zero
+early and tears down a feed another consumer is using. Reproduced with two
+consumers, one detaching, and the other going deaf. **The rule this project keeps
+- check the probe before judging the code - is symmetric and is usually applied
+in one direction only.** Here the check was run, the probe survived it, and the
+code was the defect.
+
+Q6. A TWO-POLARITY TRANSCRIPT WAS TAKEN BY ACCIDENT AND IS REPORTED RATHER THAN
+DISCARDED. The container restarted mid-session and took Postgres and Redis with
+it, so the first full run was the DEGRADED polarity - 1,648 passed / 126 skipped
+- and the healthy run after restarting the services was 1,754 / 5, at the same
+exit code. That is A5's shape, obtained because the environment failed rather
+than because a session drove it, and it is stated with its n on the same rule
+that governs any other measurement here.
+
+Q7 FOR L2, CARRIED FORWARD FROM HANDOFF-17 AND UNANSWERED. Nothing in the gate
+list runs the site as Production is configured. HANDOFF-17's headline defect -
+eleven mockup rows drawn as live transactions - was found by a reviewer booting
+`next start`, not by any of the eight gates, and its own e2e suite sets a data
+mode no reader ever gets. The session's view is unchanged: the gap is
+CONFIGURATION rather than jsdom-versus-browser. L2 to rule whether that is a
+guard, a rule, or a register row.
+```

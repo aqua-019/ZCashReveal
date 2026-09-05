@@ -33,7 +33,7 @@
  * the distinguishing work rather than a caption asking to be believed.
  *
  * ============================================================================
- * DIRECTION IS DERIVED FROM `class`, NEVER GUESSED FROM `lanes`
+ * DIRECTION IS READ FROM THE PRODUCER, NEVER GUESSED FROM `lanes`
  * ============================================================================
  * `mempoolRowSchema.lanes` is `z.array(ledgerSchema)` - an unordered SET of the
  * lanes a transaction touched, whose own docblock says "EMPTY IS LEGAL SINCE
@@ -42,12 +42,23 @@
  * and the array cannot tell you which; picking one would render a measurement
  * the row does not contain, which is this project's whole subject in miniature.
  *
- * The direction is in `class`, and only three of its seven members carry one:
- * `shield` (transparent into a shielded lane), `deshield` (a shielded lane out
- * to transparent) and `migration` (the ZIP 318 crossing, orchard to ironwood).
+ * Only three of `class`'s seven members carry a direction at all, and they do
+ * not carry it the same way. `shield` and `deshield` carry it IN THE CLASS -
+ * `flowTextFor` returns the constant "t to z" / "z to t" for them, so the class
+ * is the producer's whole statement. `migration` does NOT: the gateway assigns
+ * that class to any pool-to-pool crossing with no public side, so it names
+ * neither the pair nor the orientation, and both have to be read off `flow`,
+ * which is `migrationFlowText`'s rendering of the sign of `perPoolZat`.
  * `shielded`, `mixed` and `transparent` say where value went WITHIN a register
  * without orienting it across a boundary, and `undecoded` says the decoder
  * declined to read the transaction at all.
+ *
+ * BOTH SENTENCES ABOVE WERE ONCE WRONG IN THIS FILE. The first said direction
+ * came from `class`, which `directionFor` itself contradicted once it started
+ * gating on the lane set; the second said `migration` WAS "the ZIP 318
+ * crossing, orchard to ironwood", which is false for every other pool pair the
+ * gateway gives that class and false again for a reversed one. A gate round
+ * measured both.
  *
  * ============================================================================
  * FIVE CASES, AND TWO OF THEM DRAW NOTHING ON PURPOSE
@@ -131,7 +142,7 @@ export function markFor(row: MempoolRow): LiveShape | { readonly undrawn: Undraw
   if (row.class === "undecoded" || lanes.length === 0) return { undrawn: "no lane can be claimed" };
 
   // 2. A DERIVABLE DIRECTION. Only these three classes carry one.
-  const directed = directionFor(row.class, lanes);
+  const directed = directionFor(row.class, lanes, row.flow);
   if (directed !== null) return directed;
 
   // 3. ONE LANE. Value moving inside a pool crosses nothing.
@@ -157,40 +168,91 @@ export function markFor(row: MempoolRow): LiveShape | { readonly undrawn: Undraw
  * destinations, and choosing one would be the guess this function exists to
  * refuse.
  */
-function directionFor(cls: MempoolRow["class"], lanes: readonly LedgerLane[]): LiveShape | null {
+/**
+ * The initials `poolInitial` prints, which is the alphabet `flow` is written in.
+ *
+ * Read off `apps/gateway/src/views/mempool.ts` rather than assumed: sprout is
+ * `P`, not `S`. `S` is sapling.
+ */
+const FLOW_INITIAL: Readonly<Record<string, LedgerLane>> = {
+  P: "sprout",
+  S: "sapling",
+  O: "orchard",
+  I: "ironwood",
+};
+
+/** `migrationFlowText`'s two-pool form, and nothing else. */
+const FLOW_PAIR = /^([PSOI]) to ([PSOI])$/;
+
+/**
+ * The oriented pair for the classes that carry one, or null.
+ *
+ * ============================================================================
+ * `migration` NEEDED THREE ATTEMPTS AND THE FIRST TWO BOTH SHIPPED WRONG
+ * ============================================================================
+ * HANDOFF-17 first returned the Orchard-to-Ironwood pair for EVERY row whose
+ * class was `migration`. A gate round showed the gateway assigns that class to
+ * any pool-to-pool crossing with no public side, so a Sapling-to-Orchard
+ * transfer drew a ZIP 318 arc it never made.
+ *
+ * The fix for that read the LANES and required them to name orchard and
+ * ironwood - which closed the PAIR and left the DIRECTION open, because `lanes`
+ * is a SET built from bundle presence and both lanes light for either
+ * direction. Gate round 2 drove the real `mempoolRow` and caught it: a row with
+ * `flow: "I to O"` still drew orchard-to-ironwood, arrowhead on the wrong node,
+ * stroke in the wrong lane's hue, beside a table cell saying the opposite.
+ * Ironwood back to Orchard is what `leaks.ts` calls "the rarer event" - not an
+ * impossible one.
+ *
+ * ============================================================================
+ * SO THE DIRECTION IS READ FROM THE PRODUCER'S OWN STATEMENT OF IT
+ * ============================================================================
+ * The direction lives in the SIGN of `valueFlow.perPoolZat` - "positive means
+ * value LEFT the pool" - and `perPoolZat` NEVER REACHES THE BROWSER.
+ * `MempoolRow` carries thirteen fields and `flow` is the only one that survives
+ * the crossing's orientation: `flowTextFor` sends a migration to
+ * `migrationFlowText`, which filters positives into `from`, negatives into
+ * `to`, and prints `poolInitial(from) to poolInitial(to)`.
+ *
+ * THIS IS A COUPLING TO A DISPLAY STRING AND IT IS NOT PRETENDED OTHERWISE.
+ * It is accepted here because the alternative is worse in both directions:
+ * guessing keeps drawing arcs the row contradicts, and dropping the directed
+ * arc entirely would mean the plane never draws the one crossing relation this
+ * whole document measures. The grammar is exact, produced by one function, and
+ * anything that does not match it falls through to the undirected chord - so a
+ * producer that changes the wording makes the plane claim LESS, never something
+ * false. The structural fix is a directed pair on the DTO itself, which is a
+ * schema change across the gateway, the types package and their tests; it is
+ * out of this handoff's scope and is section 8's question for L2.
+ */
+function directionFor(
+  cls: MempoolRow["class"],
+  lanes: readonly LedgerLane[],
+  flow: string,
+): LiveShape | null {
   if (cls === "migration") {
-    // `migration` IS THE GATEWAY'S "A CROSSING WITH NO PUBLIC SIDE", NOT ZIP 318,
-    // AND THE FIRST DRAFT READ IT AS ZIP 318.
-    //
-    // `apps/gateway/src/views/mempool.ts` assigns this class from
-    // `crossesWithNoPublicSide = movedPools.length > 1 && hasPoolSource &&
-    // hasPoolSink && !hasTransparentSource && r.transparent.vout.length === 0` -
-    // which a SAPLING-TO-ORCHARD shielded transfer satisfies. Its own
-    // `migrationFlowText` prints "S to O" for exactly that row. So returning the
-    // Orchard-to-Ironwood pair for every `migration` drew a ZIP 318 crossing
-    // that did not happen, in the orchard hue, on the one figure whose sub-head
-    // says "ZIP 318 migration is the measured crossing" and whose alt text says
-    // "No other pool boundary is measured by this document" - with the row's own
-    // `flow` field contradicting the arc.
-    //
-    // THIS IS F-57-1 AND IT IS THE MEASURED KIND. The exclusion set was closed
-    // by enumeration from the committed corpus, whose only migration row is
-    // `O to I`, instead of by CAPTURE from the producer - so neither the fixture
-    // nor any test could contain the shape the real gateway emits. Read off the
-    // gateway rather than off memory, the ZIP 318 arc is drawn only when the row
-    // NAMES that pair; every other pool-to-pool crossing falls through to the
-    // undirected chord below, which is the shape that claims no direction.
-    const pair = new Set(lanes);
-    if (pair.size === 2 && pair.has("orchard") && pair.has("ironwood")) {
-      return { kind: "crossing", from: "orchard", to: "ironwood" };
-    }
-    return null;
+    const stated = FLOW_PAIR.exec(flow.trim());
+    if (stated === null) return null;
+    const from = FLOW_INITIAL[stated[1] ?? ""];
+    const to = FLOW_INITIAL[stated[2] ?? ""];
+    if (from === undefined || to === undefined || from === to) return null;
+    // THE ROW HAS TO AGREE WITH ITSELF. `flow` and `lanes` are built by
+    // different functions from the same report, and an arc drawn between two
+    // lanes the row does not claim to have touched would be this module
+    // trusting one field over the other rather than requiring both.
+    const touched = new Set(lanes);
+    if (!touched.has(from) || !touched.has(to)) return null;
+    return { kind: "crossing", from, to };
   }
 
   const shielded = lanes.filter((l) => SHIELDED.has(l));
   const pool = shielded[0];
   if (shielded.length !== 1 || pool === undefined) return null;
 
+  // `shield` AND `deshield` KEEP THEIR CLASS-DERIVED DIRECTION, and that is not
+  // an inconsistency with the arm above. Their `flow` is the literal "t to z" /
+  // "z to t" - `flowTextFor` returns a constant for both - so the class IS the
+  // producer's statement for them, and there is nothing further to read.
   if (cls === "shield") return { kind: "crossing", from: "transparent", to: pool };
   if (cls === "deshield") return { kind: "crossing", from: pool, to: "transparent" };
   return null;
@@ -325,17 +387,60 @@ export function liveReduce(state: LiveState, frame: ZecFrame): LiveState {
       //
       // Survivors keep their original `seq`, so a reconnect does not reshuffle a
       // capped board - the same rule `add` states for a re-delivered frame.
-      const held = new Map<string, HeldTx>();
-      let next: LiveState = { held, seq: state.seq, lastRemoval: state.lastRemoval };
+      // A SNAPSHOT CARRIES A SET, NOT AN ORDERING, AND THAT IS THE WHOLE
+      // DIFFICULTY.
+      //
+      // `view.entries` is `reports.map(...)` in the INDEXER's order, never this
+      // reader's arrival order, so for a transaction we did not watch arrive we
+      // do not know its age. Survivors keep the `seq` we recorded when we saw
+      // them; everything else is placed BELOW all of them, because "we did not
+      // watch it arrive" cannot be turned into "it is the newest".
+      //
+      // MINTING THEM AS NEWEST IS EXACTLY THE DEFECT THIS ARM WAS FIRST FIXED
+      // FOR, one layer further in. Evicting mid-loop dropped survivors; not
+      // evicting mid-loop but still minting re-entrants at the top of the
+      // counter dropped them again at the DRAW cap instead - measured, a
+      // 300-transaction mempool and one reconnect, and 0 of 42 marks survived
+      // both times. The first fix moved the symptom rather than removing it,
+      // which is what a second round is for.
+      const priorSeqs: number[] = [];
       for (const entry of frame.view.entries) {
-        next = add(next, entry);
         const prior = state.held.get(entry.txid);
-        const placed = next.held.get(entry.txid);
-        if (prior !== undefined && placed !== undefined) {
-          (next.held as Map<string, HeldTx>).set(entry.txid, { ...placed, seq: prior.seq });
-        }
+        if (prior !== undefined) priorSeqs.push(prior.seq);
       }
-      return next;
+      // Below the oldest thing we are still holding, or below the counter itself
+      // when this is the first view we have ever seen.
+      let unseen =
+        (priorSeqs.length > 0 ? Math.min(...priorSeqs) : state.seq) - frame.view.entries.length;
+
+      const placed = new Map<string, HeldTx>();
+      for (const entry of frame.view.entries) {
+        const prior = state.held.get(entry.txid);
+        placed.set(entry.txid, heldFor(entry, prior?.seq ?? unseen));
+        if (prior === undefined) unseen += 1;
+      }
+
+      // EVICT ONCE, AT THE END - AND THAT IS TIDINESS, NOT THE FIX. Stated
+      // plainly because the first version of this comment claimed otherwise.
+      //
+      // Evicting the running minimum on every placement past the ceiling is a
+      // valid streaming top-K and reaches the same set, which a mutation
+      // proved: restoring the mid-loop eviction leaves the whole suite green,
+      // including a reconnect driven in reverse view order. The mutant is not
+      // caught because the mutant is CORRECT.
+      //
+      // WHAT ACTUALLY BROKE was that the old arm evicted using a seq it had not
+      // finished computing: every entry was minted with a fresh counter value
+      // and each survivor's true seq was restored one line LATER, so the cap ran
+      // on numbers that were about to change. Placing each entry with its final
+      // seq - `heldFor(entry, prior?.seq ?? unseen)` above - removes that
+      // whole class, and then where the eviction runs stops mattering.
+      //
+      // `seq` IS NOT ADVANCED BY A SNAPSHOT. It counts arrivals this reader
+      // watched, and a snapshot is a reconciliation rather than an arrival -
+      // advancing it by `entries.length` per reconnect inflated it 300 -> 600 on
+      // one reconnect and is what let re-entrants outrank everything.
+      return capHold({ held: placed, seq: state.seq, lastRemoval: state.lastRemoval });
     }
     case "hello":
     case "tip":
@@ -360,31 +465,46 @@ export function liveReduce(state: LiveState, frame: ZecFrame): LiveState {
 const HOLD_MAX = 250;
 
 function add(state: LiveState, row: MempoolRow): LiveState {
-  const existing = state.held.get(row.txid);
-  const result = markFor(row);
-  const shape = "undrawn" in result ? null : result;
-  const undrawn = "undrawn" in result ? result.undrawn : null;
+  return capHold(place(state, row));
+}
 
-  const held = new Map(state.held);
-  held.set(row.txid, {
+/** One held entry from a row, at a given place in the queue. */
+function heldFor(row: MempoolRow, seq: number): HeldTx {
+  const result = markFor(row);
+  return {
     txid: row.txid,
-    shape,
-    undrawn,
+    shape: "undrawn" in result ? null : result,
+    undrawn: "undrawn" in result ? result.undrawn : null,
     severity: row.severity,
     cls: row.class,
-    // A RE-DELIVERED FRAME KEEPS ITS ORIGINAL PLACE IN THE QUEUE. Giving it a
-    // fresh `seq` would let a reconnect - which replays the whole view - push
-    // every older transaction out of a capped board, so the tank would appear
-    // to empty and refill on a socket blip that changed nothing.
-    seq: existing?.seq ?? state.seq,
-  });
-  // OLDEST OUT WHEN THE HOLD IS FULL, which is the same ordering the drawn cap
-  // uses: the newest arrivals are the ones a reader is watching for.
-  if (held.size > HOLD_MAX) {
-    const bySeq = [...held.values()].sort((p, q) => p.seq - q.seq);
-    for (const evicted of bySeq.slice(0, held.size - HOLD_MAX)) held.delete(evicted.txid);
-  }
+    seq,
+  };
+}
+
+function place(state: LiveState, row: MempoolRow): LiveState {
+  const existing = state.held.get(row.txid);
+  const held = new Map(state.held);
+  // A RE-DELIVERED FRAME KEEPS ITS ORIGINAL PLACE IN THE QUEUE. Giving it a
+  // fresh `seq` would let a reconnect - which replays the whole view - push
+  // every older transaction out of a capped board, so the tank would appear to
+  // empty and refill on a socket blip that changed nothing.
+  held.set(row.txid, heldFor(row, existing?.seq ?? state.seq));
   return { held, seq: existing === undefined ? state.seq + 1 : state.seq, lastRemoval: state.lastRemoval };
+}
+
+/**
+ * OLDEST OUT WHEN THE HOLD IS FULL, which is the same ordering the drawn cap
+ * uses: the newest arrivals are the ones a reader is watching for.
+ *
+ * A SEPARATE STEP, CALLED ONCE PER FRAME. Folded into placement it evicts on a
+ * half-built map - see the `snapshot` arm.
+ */
+function capHold(state: LiveState): LiveState {
+  if (state.held.size <= HOLD_MAX) return state;
+  const held = new Map(state.held);
+  const bySeq = [...held.values()].sort((p, q) => p.seq - q.seq);
+  for (const evicted of bySeq.slice(0, held.size - HOLD_MAX)) held.delete(evicted.txid);
+  return { ...state, held };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -413,6 +533,17 @@ export interface LivePlane {
   readonly drawn: number;
   /** True when more transactions are held than the board can hold. */
   readonly capped: boolean;
+  /**
+   * True when the HOLD itself is saturated, so `held` is a FLOOR and not a count.
+   *
+   * `capped` is about the DRAWN board and `holdFull` is about the tank behind
+   * it, and conflating them cost a false figure: `capped` is
+   * `drawable.length > nMax`, which for a pool of 3,000 undecodable rows is
+   * `0 > 42` - false - so the one branch that would have hedged the number was
+   * off while the page printed "of 250 held". Two different saturations, two
+   * different sentences.
+   */
+  readonly holdFull: boolean;
   /** Held transactions that draw nothing, by reason. Printed, never swallowed. */
   readonly undrawn: Readonly<Record<UndrawnReason, number>>;
 }
@@ -425,9 +556,16 @@ const SEGMENTS = 26;
  * NEWEST FIRST WHEN CAPPED. `plane.ts` caps a confirmed board by taking the
  * first `nMax` of a count; here the objects are distinguishable and the newest
  * arrivals are the ones a reader is watching for, so the cap keeps the highest
- * `seq`. The board still says `capped` and the affordance still prints the true
- * held figure, on the same rule `plane.ts` states: the count is the
- * measurement, the marks are not.
+ * `seq`.
+ *
+ * THE HELD FIGURE IS THE TANK'S, NOT THE POOL'S, AND AN EARLIER VERSION OF THIS
+ * SENTENCE CLAIMED OTHERWISE. It read "the affordance still prints the true held
+ * figure", which was true while the held map was unbounded and was made false by
+ * `HOLD_MAX` in the same commit that wrote it - a docblock justifying a design
+ * by asserting a behaviour that had just been removed. `holdFull` is what the
+ * affordance needs to say which figure it is showing: below the ceiling `held`
+ * is the pool's count, at it `held` is this page's own limit and the page says
+ * so rather than reporting 250 for a mempool of 3,000.
  */
 export function buildLivePlane(
   state: LiveState,
@@ -456,6 +594,7 @@ export function buildLivePlane(
     held: all.length,
     drawn: ordered.length,
     capped: drawable.length > nMax,
+    holdFull: state.held.size >= HOLD_MAX,
     undrawn,
   };
 }

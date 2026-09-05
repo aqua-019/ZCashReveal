@@ -51,9 +51,28 @@ import { fixtureSnapshot } from "@/lib/api/fixtures/snapshot";
  */
 let liveTransport = true;
 
+/**
+ * TRANSPORTS ARE COUNTED, BECAUSE "ZERO MARKS" CANNOT SEE THEM.
+ *
+ * A gate round measured A15's fail side passing against the pre-fix component -
+ * the one that opened a committed `FixtureStream` and drew eleven mockup rows on
+ * the deployed page. It could not fail: this file stubs `subscribeFrames`, so no
+ * transport delivers a mark whether the plane opens one or not, and the
+ * assertion was about the consequence rather than the act. The handoff's own
+ * headline defect was therefore asserted NOWHERE in the repository.
+ *
+ * This is the same repair, and the same reasoning, as `frame-bus.test.ts`'s
+ * "three subscribers, ONE transport": when the property is about whether a
+ * socket was opened, count the opens.
+ */
+let opened = 0;
+
 vi.mock("@/lib/api/stream", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/stream")>()),
-  subscribeFrames: () => () => undefined,
+  subscribeFrames: () => {
+    opened += 1;
+    return () => undefined;
+  },
   get IS_LIVE_TRANSPORT() {
     return liveTransport;
   },
@@ -116,6 +135,7 @@ beforeEach(() => {
   stubMatchMedia(false);
   resetFrameBusForTest();
   liveTransport = true;
+  opened = 0;
 });
 
 afterEach(() => {
@@ -512,6 +532,10 @@ describe("A15 - a build with no gateway does not replay the committed corpus as 
     liveTransport = false;
     render(<LivePlaneLayer />);
 
+    // THE ASSERTION THAT BITES. Zero marks is the consequence; not opening the
+    // socket is the act, and only the act distinguishes this component from the
+    // one that shipped eleven mockup rows to production.
+    expect(opened).toBe(0);
     expect(liveMarks()).toHaveLength(0);
     const state = ui("turnstile-live-state").textContent ?? "";
     expect(state).toContain("no feed");
@@ -533,6 +557,8 @@ describe("A15 - a build with no gateway does not replay the committed corpus as 
   it("PASS STATE: with a transport configured, the same component names the feed", () => {
     liveTransport = true;
     render(<LivePlaneLayer />);
+    // The converse: with a transport configured it DOES open exactly one.
+    expect(opened).toBe(1);
     act(() => {
       publishStateForTest("open");
     });

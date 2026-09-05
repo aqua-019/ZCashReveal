@@ -368,7 +368,13 @@ function LiveReading({
         {/* `plural` is not used here because the FIGURE is bold and the noun is
             not, so the two cannot share one string. Same agreement rule, hand
             written, and the swept sites are listed in section 7. */}
-        {plane.held === plane.drawn ? null : <> {`of ${fmtInt(plane.held)} held`}</>}
+        {plane.held === plane.drawn ? null : (
+          // AT THE CEILING THE FIGURE IS THIS PAGE'S LIMIT, NOT THE POOL'S SIZE.
+          // A bare "of 250 held" for a mempool of 3,000 is a measurement the
+          // page cannot make; the hold is a tank, and a full tank reports its
+          // own capacity.
+          <> {plane.holdFull ? `of ${fmtInt(plane.held)} held, which is all this page keeps` : `of ${fmtInt(plane.held)} held`}</>
+        )}
         {plane.capped ? (
           <span className="tlr-cap" data-ui="turnstile-live-capped">
             {` - the board holds ${fmtInt(plane.drawn)} marks and more are in the pool, so what is drawn is a sample`}
