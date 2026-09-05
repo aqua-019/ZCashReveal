@@ -235,6 +235,17 @@ export function LivePlaneLayer({
           }
         },
         onState: (next) => {
+          // THE SAME GUARD AS `onFrame`, AND LEAVING IT OFF HERE UNDID HALF OF
+          // WHAT THAT ONE BOUGHT. The bus publishes another consumer's socket
+          // state to every subscriber exactly as it publishes frames, and the
+          // reading below prints " replaying the committed corpus" whenever the
+          // socket reads `open` on a non-live transport. Measured by a gate
+          // reviewer: with one ordinary `onFrames` consumer beside it, this
+          // layer's honest absence - "no feed no live mempool feed is
+          // configured" - became "no feed replaying the committed corpus",
+          // contradicting itself inside one line while drawing nothing and
+          // refusing every frame.
+          if (!IS_LIVE_TRANSPORT) return;
           setSocket(next);
           if (next === "open") setEverOpen(true);
         },
@@ -400,16 +411,30 @@ function LiveReading({
             DRAWABLE than drawn - `0 > 42` - and so was off exactly when the
             number was furthest wrong. The rule is `chain-inputs.ts`'s: true, or
             named as bounded, never confidently wrong. */}
-        {plane.held === plane.drawn && !plane.holdCapped ? null : (
-          <> {`of ${plane.holdCapped ? "at least " : ""}${fmtInt(plane.held)} held`}</>
+        {plane.held === plane.drawn && !(plane.holdCapped && plane.held > 0) ? null : (
+          <> {`of ${plane.holdCapped && plane.held > 0 ? "at least " : ""}${fmtInt(plane.held)} held`}</>
         )}
-        {plane.capped ? (
+        {/* `drawCapped`, NOT `capped`. This sentence is a claim about the POOL,
+            and `holdCapped` is sticky by design - it stays on through every
+            later removal, because evicted rows do not come back. Folding it in
+            here kept the claim standing after its evidence expired: a gate
+            reviewer measured 300 adds then 297 removals printing "0 unconfirmed
+            transactions drawn of at least 0 held - more transactions are in the
+            pool than this board draws" over an EMPTY tank. The floor and the
+            sample are different hedges about different figures and they now have
+            different sentences. */}
+        {plane.drawCapped ? (
           <span className="tlr-cap" data-ui="turnstile-live-capped">
             {/* PHRASED TO BE TRUE AT ZERO DRAWN TOO. It read "the board holds N
                 marks and more are in the pool", which with nothing drawable
                 becomes "the board holds 0 marks" - and that branch is now
                 reachable, because `capped` covers the evicted hold. */}
             {` - more transactions are in the pool than this board draws, so what is drawn is a sample`}
+          </span>
+        ) : null}
+        {plane.holdCapped && plane.held > 0 ? (
+          <span className="tlr-cap" data-ui="turnstile-live-floor">
+            {` - the hold reached its ceiling, so the figure beside the marks is a floor rather than a count`}
           </span>
         ) : null}
       </p>
@@ -449,7 +474,11 @@ function LiveReading({
         // A ROW THAT DRAWS NOTHING IS COUNTED RATHER THAN DROPPED. A dropped
         // row does not look like a bug, it looks like a quiet mempool.
         <p className="tlr-undrawn" data-ui="turnstile-live-undrawn">
-          {`${fmtInt(undrawnTotal)} held ${undrawnTotal === 1 ? "transaction draws" : "transactions draw"} no mark: `}
+          {/* HEDGED THE SAME WAY THE FIGURE THREE LINES ABOVE IS. If `held` is a
+              floor then a count over the held set is a floor too, and printing
+              "at least 250 held" beside "250 held transactions draw no mark"
+              hedges one and states the other exactly, about the same rows. */}
+          {`${plane.holdCapped ? "at least " : ""}${fmtInt(undrawnTotal)} held ${undrawnTotal === 1 ? "transaction draws" : "transactions draw"} no mark: `}
           {plane.undrawn["no lane can be claimed"] > 0
             ? `${fmtInt(plane.undrawn["no lane can be claimed"])} where no lane can be claimed`
             : null}
@@ -474,8 +503,15 @@ function LiveReading({
         // never existed. A held row that drew no mark gets the honest wording
         // instead of the mark wording.
         <p className="tlr-left" data-ui="turnstile-live-removal">
+          {/* "TRANSACTION", NOT "MARK", AND THAT IS A CORRECTION RATHER THAN A
+              WORDING PREFERENCE. `drewMark` says the row had a SHAPE; the
+              reducer has no `nMax` and cannot know whether that shape was on the
+              board. With `HOLD_MAX` the tank routinely holds 250 and draws 42,
+              so 208 of every 250 held rows would have produced "the last mark to
+              leave" about a mark the reader never saw. The sentence is now true
+              without knowledge the reducer does not have. */}
           {lastRemoval.drewMark
-            ? `the last mark to leave was ${REMOVAL_TEXT[lastRemoval.reason]}`
+            ? `the last transaction to leave was ${REMOVAL_TEXT[lastRemoval.reason]}`
             : `the last transaction to leave drew no mark; it was ${REMOVAL_TEXT[lastRemoval.reason]}`}
         </p>
       )}
@@ -493,7 +529,8 @@ function LiveReading({
             does not. The reader's rule is an implication, not an equivalence. */}
         <b>These marks are unconfirmed.</b> An unconfirmed crossing ends in a hollow ring in its own pool&apos;s colour,
         and never in gold. Gold is where a crossing lands, and nothing here has landed. A mark leaves when its transaction leaves the mempool, which is not always a confirmation. Direction
-        is read from the transaction&apos;s class; where the class does not carry one, no direction is drawn.
+        is read from the transaction&apos;s own class and flow cell, never from the pools it touched; where neither carries
+        one, no direction is drawn.
       </p>
     </div>
   );

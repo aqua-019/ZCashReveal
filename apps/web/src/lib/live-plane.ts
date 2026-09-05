@@ -33,7 +33,7 @@
  * the distinguishing work rather than a caption asking to be believed.
  *
  * ============================================================================
- * DIRECTION IS DERIVED FROM `class`, NEVER GUESSED FROM `lanes`
+ * DIRECTION IS DERIVED FROM `class` AND `flow`, NEVER GUESSED FROM `lanes`
  * ============================================================================
  * `mempoolRowSchema.lanes` is `z.array(ledgerSchema)` - an unordered SET of the
  * lanes a transaction touched, whose own docblock says "EMPTY IS LEGAL SINCE
@@ -245,9 +245,21 @@ function directionFor(row: MempoolRow, lanes: readonly LedgerLane[]): LiveShape 
  *
  * `null` FOR ANYTHING THE CELL DOES NOT DECIDE, and `markFor` then holds the row
  * undrawn with its reason rather than falling through to a chord. The producer
- * emits two such captions by construction - the literal `"migration"` when a
- * side is empty, and `"N pools"` when a side has more than one - and both mean
- * "this row's direction is not a single arc".
+ * emits exactly ONE such caption - `"N pools"`, when a side has more than one -
+ * and it means "this row's direction is not a single arc".
+ *
+ * AN EARLIER DRAFT OF THIS DOCBLOCK SAID **TWO**, NAMING THE LITERAL
+ * `"migration"` BESIDE IT, AND THAT SECOND CASE HAS NO PRODUCER. It is F-58-1's
+ * shape arriving inside the fix that cites F-58-1, and it is dead by
+ * CONFIGURATION rather than by type: `migrationFlowText` returns the literal iff
+ * `from.length === 0 || to.length === 0`, and `crossesWithNoPublicSide` - the
+ * predicate that assigns the class at all - requires `hasPoolSource &&
+ * hasPoolSink`, which is the exact negation over the same two filters. So no row
+ * can carry both. Measured rather than argued: 480 shapes driven through the
+ * real `mempoolRow` emit fourteen distinct migration flows and the literal is
+ * not among them. The branch is kept as a guard against a future producer and
+ * is labelled as one, which is what F-58-1 asks instead of a comment that reads
+ * exactly like a case that works.
  *
  * THE FLOW AND THE SWATCHES MUST AGREE BEFORE EITHER IS BELIEVED. A cell naming
  * a pool the row's own `lanes` does not list is two statements about one
@@ -373,6 +385,17 @@ export type RemovalReason = "confirmed" | "evicted" | "replaced";
  * held row that drew nothing (`undecoded`, or three-plus lanes), and a held row
  * that was capped off the board. A sentence about a mark that never existed, on
  * a surface whose whole subject is not claiming more than it measured.
+ *
+ * TWO OF THOSE THREE ARE CARRIED HERE AND THE THIRD IS NOT, WHICH THIS DOCBLOCK
+ * USED TO CLAIM OTHERWISE. `wasHeld` covers the first and `drewMark` covers the
+ * second, but `drewMark` records whether the row had a SHAPE - this reducer has
+ * no `nMax` and cannot know which shapes reached the board. So a drawable row
+ * outside the drawn cap is indistinguishable here from one that was on it, and
+ * `HOLD_MAX` made that the ordinary case rather than the exotic one: the tank
+ * routinely holds 250 while drawing 42. The copy is therefore written to be
+ * true without that knowledge - it says a TRANSACTION left, never that a MARK
+ * left the board - rather than the affordance asserting a fact the reducer
+ * cannot supply.
  */
 export interface Removal {
   readonly reason: RemovalReason;
@@ -590,9 +613,16 @@ function replace(state: LiveState, entries: readonly MempoolRow[]): LiveState {
     }
   }
 
-  // BELOW EVERY SURVIVOR, IN VIEW ORDER. The band is contiguous and strictly
-  // under `floor`, so no stranger can tie with or outrank a row this reader
-  // actually watched arrive.
+  // BELOW EVERY SURVIVOR, IN VIEW ORDER.
+  //
+  // THE GUARANTEE IS "STRICTLY UNDER `floor`", AND ONLY THAT. An earlier
+  // comment here also called the band contiguous, and a gate reviewer showed
+  // that claim is unchecked: tying every stranger at `floor - 1` leaves the
+  // whole suite green. It is also not load-bearing - ties sort stably, so
+  // eviction among strangers stays deterministic - and the order WITHIN the
+  // band is meaningless anyway, because the view arrives in Redis hash order.
+  // The sentence is narrowed to what is actually guaranteed and actually
+  // tested rather than dressed with a property nothing asserts.
   strangers.forEach((txid, i) => {
     const entry = held.get(txid);
     if (entry !== undefined) held.set(txid, { ...entry, seq: floor - strangers.length + i });
@@ -644,6 +674,18 @@ export interface LivePlane {
    * OR the hold has evicted so `held` itself understates the pool.
    */
   readonly capped: boolean;
+  /**
+   * True when more is DRAWABLE than the board draws - the draw cap alone.
+   *
+   * Separate from `capped` because the sentence "more transactions are in the
+   * pool than this board draws" is a claim about the POOL, and `holdCapped` is
+   * sticky: once the hold has evicted it stays on through every later removal,
+   * so folding it into that sentence kept the claim standing after the evidence
+   * for it expired. Measured by a gate reviewer: 300 adds then 297 removals
+   * printed "0 unconfirmed transactions drawn of at least 0 held - more
+   * transactions are in the pool than this board draws", over an empty tank.
+   */
+  readonly drawCapped: boolean;
   /**
    * True when `held` is a lower bound rather than a measurement.
    *
@@ -713,6 +755,7 @@ export function buildLivePlane(
     // whether or not anything was drawable - which is exactly the case the
     // draw-cap test alone could not see.
     capped: drawable.length > nMax || state.holdCapped,
+    drawCapped: drawable.length > nMax,
     holdCapped: state.holdCapped,
     undrawn,
   };

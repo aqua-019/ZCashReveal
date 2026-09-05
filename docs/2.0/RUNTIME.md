@@ -662,18 +662,29 @@ defect shape; this is that rule applied to motion.
 
 ### What draws nothing, on purpose
 
-Direction is read from the transaction's `class`, **never guessed from
-`lanes`** - `lanes` is an unordered set with no direction in it, and a
-transaction touching `{transparent, orchard}` may be a shield or a deshield.
+Direction is read from the transaction's `class` and its `flow` cell, **never
+guessed from `lanes`** - `lanes` is an unordered set with no direction in it,
+and a transaction touching `{transparent, orchard}` may be a shield or a
+deshield.
+
+**FOR A `migration` THE CLASS NAMES THE KIND AND ONLY `flow` NAMES THE
+DIRECTION**, and reading it off `lanes` is not merely imprecise but impossible.
+The gateway assigns `migration` to any pool-to-pool crossing with no public
+side, in either direction; captured from `mempoolRow` itself, both directions of
+the ZIP 318 crossing emit `lanes: ["orchard","ironwood"]` - the same array, in
+the same canonical order - and differ only in `flow` (`"O to I"` against
+`"I to O"`). A reader of `lanes` alone therefore drew the reverse crossing
+backwards, in the wrong lane's hue, beside a cell that said otherwise.
 Five cases, and two of them draw nothing:
 
 | the row | drawn |
 |---|---|
-| `shield` / `deshield` with exactly one shielded lane, or `migration` | an oriented **crossing** that travels |
+| `shield` / `deshield` with exactly one shielded lane, or a `migration` whose `flow` names one ordered pool pair | an oriented **crossing** that travels |
 | exactly one lane | a **resident** ring - value moving inside a pool crosses nothing |
 | exactly two lanes, no derivable direction | an undirected **chord** that does not travel, because travel is what renders direction |
 | `undecoded`, or no lanes at all | **nothing** - no lane can be claimed |
 | three or more lanes, no direction | **nothing** - no single arc describes it, and picking two would drop the rest in silence |
+| a `migration` whose `flow` names no single ordered pair (`"N pools"`, or a pool the row's own lanes do not list) | **nothing** - the row asserts a crossing and declines to say which, so a chord would claim a relationship it described differently and an arc would guess |
 
 A row that draws nothing is still **held and counted**, and the affordance
 prints the figure with its reason. A dropped row does not look like a bug; it
@@ -698,9 +709,24 @@ rather than an animation being damped to zero, and `globals.css`'s global block
 is the brace behind it.
 
 `SPLASH_N_MAX` (42) is a **ceiling, not a target**. Past it the board caps, says
-`capped`, keeps the newest arrivals and prints the true held figure beside the
-drawn one - the same rule the settled board states: the count is the
-measurement, the marks are not.
+`capped` and keeps the newest arrivals.
+
+**THERE ARE TWO CEILINGS AND THEY HEDGE DIFFERENT FIGURES.** `SPLASH_N_MAX` caps
+what is DRAWN, and beside it `HOLD_MAX` (250) caps what is HELD. This paragraph
+used to end "and prints the true held figure beside the drawn one - the same
+rule the settled board states: the count is the measurement, the marks are not."
+That is true of the settled board, where the count comes from `migrationHist`
+and only the marks are capped. It became **false here the moment `HOLD_MAX`
+arrived**: once the hold evicts, the tank cannot count what it threw away, so
+the held figure is a FLOOR.
+
+So `capped` says the MARKS are a sample and `holdCapped` says the NUMBER beside
+them is a lower bound, and the affordance prints "of **at least** N held" when
+the second is on. The case that needed both: a mempool of 3,000 undecodable rows
+gave `held=250 drawn=0 capped=false`, because `capped` asked whether more was
+DRAWABLE than drawn and with nothing drawable that is `0 > 42` - the one branch
+that would have hedged the figure was off exactly when the figure was furthest
+wrong, and the page printed "of 250 held" with full confidence.
 
 ### With no database at all
 

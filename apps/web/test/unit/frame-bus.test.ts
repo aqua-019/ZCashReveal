@@ -248,7 +248,19 @@ describe("A14 - resetFrameBusForTest does not deafen tip-bus (gate round 1, repa
     after();
   });
 
-  it("PASS STATE: with no reset, the same delivery works - so the assertion is about the reset", async () => {
+  /**
+   * THIS CONTROL IS NOT RESET-FREE, AND CALLING IT "with no reset" WAS WRONG.
+   *
+   * The file's `afterEach` calls `resetFrameBusForTest()`, so every test after
+   * the first already runs post-reset. A gate reviewer executed it: with the
+   * `onReset` handler deleted this case fails too, for the same reason as the
+   * fail side, so it isolates nothing - and two of the three reds that mutant
+   * produces are collateral from module-level state rather than three
+   * assertions catching it. What it does assert, honestly, is that a tip
+   * reaches a consumer on a bus that has been reset and re-attached, which is
+   * worth keeping as long as it is not read as a control.
+   */
+  it("a tip reaches a consumer after a reset-and-reattach (NOT a reset-free control)", async () => {
     const heights: number[] = [];
     const stop = onTip((t) => heights.push(t.height));
     await settle(1_000);

@@ -244,16 +244,10 @@ describe("A11 - a reconnect snapshot is AUTHORITATIVE", () => {
     for (let i = 1; i <= 50; i += 1) base = liveReduce(base, added(row({ txid: txid(i) })));
     const before = buildLivePlane(base, OPTS).marks.map((m) => m.txid).sort();
 
-    const arrival = Array.from({ length: 50 }, (_, i) => i + 1);
-    const orders: ReadonlyArray<readonly [string, readonly number[]]> = [
-      ["arrival", arrival],
-      ["reversed", [...arrival].reverse()],
-      // A deterministic permutation standing in for hash order: multiplicative
-      // scatter on the index, which is what a bucket layout amounts to here.
-      ["scattered", [...arrival].sort((a, b) => ((a * 2654435761) % 997) - ((b * 2654435761) % 997))],
-    ];
-
-    for (const [name, order] of orders) {
+    // NOTE THE SIZE: at 50 the hold never reaches `HOLD_MAX`, so this block
+    // exercises the DRAW cap only and is blind to the verbatim pre-fix fold.
+    // A1 (18) below drives the same orders at 300, which is where the hold caps.
+    for (const [name, order] of REPLAY_ORDERS(50)) {
       // The same 50, re-delivered as one snapshot. Nothing has changed, so the
       // board must not change either - whichever order they arrive in.
       const after = liveReduce(base, {
@@ -428,7 +422,7 @@ describe("A3 - the mark count equals the held count up to SPLASH_N_MAX", () => {
 /* A8 - a row with no derivable direction draws nothing, and is counted       */
 /* ========================================================================== */
 
-describe("A8 - direction comes from `class`, and an underivable row draws no mark", () => {
+describe("A8 - direction comes from `class` and `flow`, and an underivable row draws no mark", () => {
   it("PASS STATE: the three classes that carry a direction draw an oriented crossing", () => {
     expect(markFor(row({ txid: txid(1), class: "shield", lanes: ["transparent", "orchard"] }))).toStrictEqual({
       kind: "crossing",
@@ -569,6 +563,27 @@ describe("A8 - direction comes from `class`, and an underivable row draws no mar
 /* HANDOFF-18 - the round-2 debt                                              */
 /* ========================================================================== */
 
+/**
+ * The orders a `snapshot` view can arrive in, for a replay of `n` rows.
+ *
+ * ARRIVAL ORDER IS THE ONE ORDER THE GATEWAY NEVER SENDS.
+ * `apps/gateway/src/live-reports.ts` builds the view from
+ * `Object.values(await redis.hgetall("zcashreveal:mempool:live"))` - a Redis
+ * HASH keyed by txid, whose iteration order is arbitrary with respect to
+ * arrival. Any assertion about a reconnect that drives arrival order alone is
+ * driving the one case in which a reshuffle cannot be seen.
+ */
+const REPLAY_ORDERS = (n: number): ReadonlyArray<readonly [string, readonly number[]]> => {
+  const arrival = Array.from({ length: n }, (_, i) => i + 1);
+  return [
+    ["arrival", arrival],
+    ["reversed", [...arrival].reverse()],
+    // A deterministic permutation standing in for hash order: multiplicative
+    // scatter on the index, which is what a bucket layout amounts to here.
+    ["scattered", [...arrival].sort((a, b) => ((a * 2654435761) % 997) - ((b * 2654435761) % 997))],
+  ];
+};
+
 describe("A1 (18) - a 300-transaction mempool and ONE reconnect keeps the marks it held", () => {
   /**
    * THE MEASURED SYMPTOM, AND IT IS THE ONE THE OPERATOR WOULD HAVE SEEN.
@@ -602,21 +617,31 @@ describe("A1 (18) - a 300-transaction mempool and ONE reconnect keeps the marks 
     const before = buildLivePlane(s, OPTS).marks.map((m) => m.txid);
     expect(before).toHaveLength(SPLASH_N_MAX);
 
-    const after = liveReduce(s, {
-      type: "snapshot",
-      view: {
-        tipHeight: 3_456_227,
-        entries: Array.from({ length: 300 }, (_, i) => row({ txid: txid(i + 1) })),
-        drain: null,
-        summary: SUMMARY,
-      },
-    });
-    const drawn = buildLivePlane(after, OPTS).marks.map((m) => m.txid);
+    // DRIVEN OVER EVERY ORDER, AND THE SIZE AND THE ORDER BOTH MATTER.
+    // A gate reviewer measured the two axes separately: at n=50 the hold never
+    // reaches `HOLD_MAX`, so the verbatim pre-fix fold is invisible in all three
+    // orders; at n=300 in ARRIVAL order the seq-loss mutant is invisible,
+    // because fresh numbers assigned in arrival order preserve the arrival
+    // ordering. Only n=300 crossed with a NON-arrival order sees both, and that
+    // is also the only combination the real gateway can send - `readLiveReports`
+    // builds the view from `Object.values(hgetall)`, which is Redis hash order.
+    for (const [name, order] of REPLAY_ORDERS(300)) {
+      const after = liveReduce(s, {
+        type: "snapshot",
+        view: {
+          tipHeight: 3_456_227,
+          entries: order.map((i) => row({ txid: txid(i) })),
+          drain: null,
+          summary: SUMMARY,
+        },
+      });
+      const drawn = buildLivePlane(after, OPTS).marks.map((m) => m.txid);
 
-    // EVERY ONE, not "most" and not "the count is still 42" - a board that
-    // swapped all 42 for 42 others also has 42 marks, which is how the pre-fix
-    // tree looked correct to a count.
-    expect(drawn.filter((t) => before.includes(t))).toHaveLength(SPLASH_N_MAX);
+      // EVERY ONE, not "most" and not "the count is still 42" - a board that
+      // swapped all 42 for 42 others also has 42 marks, which is how the pre-fix
+      // tree looked correct to a count.
+      expect(drawn.filter((t) => before.includes(t)), name).toHaveLength(SPLASH_N_MAX);
+    }
   });
 
   it("and a row the reader had EVICTED is not promoted over one it still holds", () => {
@@ -640,6 +665,50 @@ describe("A1 (18) - a 300-transaction mempool and ONE reconnect keeps the marks 
     expect(after.held.has(txid(1))).toBe(false);
     expect(after.held.has(txid(300))).toBe(true);
   });
+
+  it("a txid TWICE in one view is ONE transaction (the band width is not observable - see below)", () => {
+    // THE HELD SET IS THE PART THAT IS OBSERVABLE, AND IT IS ASSERTED HERE.
+    // `lanes` is a set in meaning and an array on the wire, and the same is true
+    // of a view's entries: nothing upstream dedupes them.
+    const held1 = fold([added(row({ txid: txid(9) }))]);
+    const s = liveReduce(held1, {
+      type: "snapshot",
+      view: {
+        tipHeight: 1,
+        entries: [row({ txid: txid(9) }), row({ txid: txid(1) }), row({ txid: txid(2) }), row({ txid: txid(1) })],
+        drain: null,
+        summary: SUMMARY,
+      },
+    });
+    expect(s.held.size).toBe(3);
+    expect(s.held.has(txid(1))).toBe(true);
+  });
+
+  /*
+   * AND `replace()`'s DUPLICATE-TXID BRANCH IS AN EQUIVALENT MUTANT, REPORTED
+   * RATHER THAN DRESSED WITH A TEST THAT WOULD NOT DISCRIMINATE.
+   *
+   * A gate reviewer deleted that branch and the file stayed green, and reported
+   * it as an unguarded site. Two probes were then written for it and NEITHER
+   * discriminated, which is a finding about the site rather than about the
+   * probes: worked by hand, the stranger band's occupied MINIMUM is
+   * `floor - (distinct strangers)` whether or not the duplicate is counted,
+   * because a duplicate's earlier slot is overwritten by its later one. Driven:
+   * deleting the branch leaves 57/57 green.
+   *
+   * What does change is WHICH stranger sits where inside the band - with the
+   * branch the first occurrence's view position wins, without it the last. That
+   * order is Redis hash order, which this file's own `REPLAY_ORDERS` docblock
+   * says carries no meaning, so pinning it would assert a property the producer
+   * does not define. LEDGER-11 Q5(c): an assertion whose exclusion set is empty
+   * is deleted, not dressed.
+   *
+   * The branch is KEPT - it stops `strangers` counting a row twice, which is
+   * what the band width is computed from, and it saves a second `markFor` on a
+   * duplicated row - and it is recorded here as covered by a written rule rather
+   * than by a guard, which CLAUDE.md's clause (b) says is explicitly WEAKER and
+   * must be recorded as weaker.
+   */
 
   it("a stranger in the view is HELD when there is room, and never dated as newest", () => {
     // The complement, so the rule is not "ignore anything unrecognised". A
@@ -731,12 +800,28 @@ describe("A2 (18) - a migration's direction comes from `flow`, not from the pair
   });
 
   it("a `flow` the cell could not decide draws NOTHING and is held with its reason", () => {
-    // Both captions `migrationFlowText` emits when it cannot name a single
-    // ordered pair. A chord would claim a two-lane relationship the row
-    // describes differently; an arc would guess. A8's rule.
+    // `"N pools"` is the ONE such caption a `migration` row can actually carry,
+    // and it is producible: driven through the real `mempoolRow`, a three-pool
+    // crossing with no public side emits `flow: "3 pools"`. A chord would claim
+    // a two-lane relationship the row describes differently; an arc would guess.
+    // A8's rule.
     expect(markFor(migration("3 pools", ["sprout", "sapling", "orchard"]))).toStrictEqual({
       undrawn: "no single crossing describes it",
     });
+  });
+
+  it("GUARDS A FUTURE PRODUCER (no shipped caller emits this): the literal `migration` caption", () => {
+    // NOT A CAPTURED MEMBER, AND AN EARLIER DRAFT PRESENTED IT AS ONE.
+    // `migrationFlowText` returns the literal iff `from.length === 0 ||
+    // to.length === 0`, and `crossesWithNoPublicSide` - the predicate that
+    // assigns the class - requires `hasPoolSource && hasPoolSink`, the exact
+    // negation over the same two filters. So no row can carry both, and 480
+    // shapes driven through the real producer emit fourteen distinct migration
+    // flows with the literal not among them.
+    //
+    // Kept, and LABELLED, rather than deleted: the branch is cheap and a future
+    // producer could widen the class. What F-58-1 forbids is a case with no
+    // producer whose comment reads exactly like one that works.
     expect(markFor(migration("migration", ["orchard", "ironwood"]))).toStrictEqual({
       undrawn: "no single crossing describes it",
     });
@@ -747,6 +832,17 @@ describe("A2 (18) - a migration's direction comes from `flow`, not from the pair
     // in the shipped producer emits it - `lanes` and `perPoolZat` come off the
     // same decoded bundle - so this guards a future producer.
     expect(markFor(migration("S to O", ["orchard", "ironwood"]))).toStrictEqual({
+      undrawn: "no single crossing describes it",
+    });
+  });
+
+  it("a pool crossing to ITSELF is not a crossing, and draws nothing", () => {
+    // A gate reviewer deleted the `from === to` clause and the file stayed
+    // green. `migrationFlowText` cannot emit it - a pool's delta has one sign,
+    // so it is a source or a sink and not both - but the guard is the sibling of
+    // the flow-versus-lanes agreement check in the same `if`, and that one has a
+    // test. An arc from a node to itself has no geometry here.
+    expect(markFor(migration("O to O", ["orchard"]))).toStrictEqual({
       undrawn: "no single crossing describes it",
     });
   });
@@ -815,6 +911,28 @@ describe("A3 (18) - at 3,000 held the printed figure is true, or it is named as 
     const plane = buildLivePlane(s, OPTS);
     expect(plane.held).toBe(50);
     expect(plane.holdCapped).toBe(false);
+    expect(plane.capped).toBe(true);
+  });
+
+  it("FAIL SIDE (data - a 3,000-entry SNAPSHOT): the hold caps and says so on the reconnect path too", () => {
+    // THE PATH EVERY RECONNECT TAKES, AND IT WAS ASSERTED NOWHERE. Every other
+    // A3 case reaches `holdCapped` through `tx_added`; a gate reviewer showed
+    // that hardwiring `holdCapped: false` inside `replace()` left the whole file
+    // green. In production the full view arrives on every connect, so this is
+    // the ordinary way a real reader's hold gets capped rather than an exotic
+    // one.
+    const s = liveReduce(EMPTY_LIVE_STATE, {
+      type: "snapshot",
+      view: {
+        tipHeight: 1,
+        entries: Array.from({ length: 3000 }, (_, i) => row({ txid: txid(i + 1) })),
+        drain: null,
+        summary: SUMMARY,
+      },
+    });
+    const plane = buildLivePlane(s, OPTS);
+    expect(plane.held).toBe(250);
+    expect(plane.holdCapped).toBe(true);
     expect(plane.capped).toBe(true);
   });
 

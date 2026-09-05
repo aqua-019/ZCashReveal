@@ -110,10 +110,21 @@ describe("A4 - the deployed configuration draws ZERO marks, over the REAL transp
     // `openInFixture: false` means this layer never opens a connection it would
     // learn nothing true from.
     //
-    // KILLING MUTANT: delete `{ openInFixture: false }` from `LivePlaneLayer`'s
-    // `onFrames` call - which is verbatim the pre-`e3a1622` code. The fixture
-    // stream then opens, the `snapshot` frame alone seeds the tank from the
-    // committed corpus, and this goes red at ELEVEN marks against zero.
+    // KILLING MUTANT: delete **BOTH** `{ openInFixture: false }` and the
+    // `IS_LIVE_TRANSPORT` dispatch guard in `LivePlaneLayer` - together they are
+    // verbatim the pre-`e3a1622` code. The fixture stream then opens, the
+    // `snapshot` frame alone seeds the tank from the committed corpus, and this
+    // goes red at ELEVEN marks against zero.
+    //
+    // AN EARLIER COMMENT HERE NAMED ONLY THE FIRST, AND THAT WAS FALSE ABOUT
+    // THIS ASSERTION. A gate reviewer executed it: deleting `openInFixture`
+    // alone leaves THIS test green, because the dispatch guard still refuses
+    // every frame; deleting the dispatch guard alone leaves it green too,
+    // because nothing opens a socket. Either guard alone satisfies "zero marks",
+    // so this assertion cannot see the loss of one - which is why each has its
+    // own isolating assertion below: the reading test covers `openInFixture`
+    // (the state path reaches it) and the second-consumer test covers the
+    // dispatch guard.
     render(<LivePlaneLayer />);
     await act(async () => {
       await settle();
@@ -156,5 +167,28 @@ describe("A4 - the deployed configuration draws ZERO marks, over the REAL transp
     stop();
 
     expect(liveMarks()).toHaveLength(0);
+  });
+
+  it("FAIL SIDE (data - a second consumer, read on the SENTENCE): the absence is still named honestly", async () => {
+    // THE HALF THE MARK COUNT CANNOT SEE, and driving the mutant is what found
+    // it: removing the `IS_LIVE_TRANSPORT` guard from `onState` left every
+    // assertion in this file green, because they all read the BOARD and the
+    // damage is in the WORDS. The bus publishes another consumer's socket state
+    // to every subscriber exactly as it publishes frames, so with one ordinary
+    // consumer attached this layer's honest "no live mempool feed is configured"
+    // became "no feed replaying the committed corpus" - a self-contradiction
+    // inside one line, over a board drawing nothing.
+    render(<LivePlaneLayer />);
+    const stop = onFrames({ onFrame: () => undefined });
+    await act(async () => {
+      await settle();
+    });
+    stop();
+
+    const state = document.querySelector("[data-ui='turnstile-live-state']");
+    expect(state?.querySelector("b")?.textContent).toBe("no feed");
+    expect(state?.textContent).toContain("no live mempool feed is configured");
+    expect(state?.textContent).not.toContain("replaying the committed corpus");
+    expect(state?.getAttribute("data-state")).toBe("connecting");
   });
 });
