@@ -1,7 +1,7 @@
 ---
 handoff: 17
 title: The living tank - the turnstile plane subscribes to the live transaction stream
-status: shipped
+status: closed
 branch: the session-designated branch (name it `feat/v2-17-the-living-tank` if you may choose)
 track: Web
 depends_on: 15, 16

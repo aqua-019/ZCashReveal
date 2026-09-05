@@ -110,3 +110,31 @@ Small and mostly wiring. One worker on the subscription and the keyed mark set, 
 ---
 **L2's note, and it belongs in section 8.** This handoff exists because a brief can be complete about a pipeline and silent about the thing the pipeline was for. Three rungs shipped, every gate green, every figure verified live - and the surface the operator actually looks at never moved, because no section 1 in three handoffs said it should. **The rule that would have caught it is not a testing rule; it is that a deliverable is written from what a reader will SEE, and the data path is how it gets there.** Consider whether that belongs in CLAUDE.md and say so in section 8.
 ````
+
+---
+
+## Message 2 - the operator opens the PR mid-session
+
+Arrived mid-session, 4 September 2026, while gate round 1 was out. Verbatim.
+
+````text
+i've created the PR; but continue adding commits/checkign
+````
+
+---
+
+## Message 3 - L2's independent gate on `7c9f17b`, and the write-back instruction
+
+Arrived mid-session, 4 September 2026, after gate round 1's fixes were pushed. Verbatim.
+
+````text
+L2 has gated 7c9f17b independently: six gates green, 1746 passed / 5 skipped, tree clean, and two mutations confirm the onState and transport-check fixes are load-bearing (3 and 18 failures respectively). Verdict is MERGE. Before the operator merges, finish the write-back: §7 STATUS is still PENDING, and the frontmatter and handoffs/README.md row 17 still say in-progress while LOG.md already says shipped — the record disagrees with itself by one field. Fill §7 with round 2's outcome and set all three to agree. If round 2 returns findings in an executable line, say so and they go to a follow-up PR rather than holding this one. Reply when the write-back is pushed.
+````
+
+**ARCHIVED LATE, AND THE REASON IS RECORDED RATHER THAN GLOSSED.** LEDGER-02 Q7
+says a message arriving mid-session is appended in the next commit. These two
+were not: the container running the session restarted before that commit was
+made, and PR #59 merged in the meantime. They are appended here from the
+HANDOFF-18 branch, which is the first commit this session made after the
+restart. The archive is append-only and the merged file is unchanged above this
+line.
